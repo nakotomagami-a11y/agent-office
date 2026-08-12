@@ -1,0 +1,31 @@
+{
+  "name": "@agent-office/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./config/routes": "./src/config/routes.ts",
+    "./config/agent-opts": "./src/config/agent-opts.ts",
+    "./config/run-errors": "./src/config/run-errors.ts",
+    "./hooks/query-keys": "./src/hooks/query-keys.ts",
+    "./hooks/api": "./src/hooks/api.ts",
+    "./services": "./src/services/index.ts",
+    "./services/db": "./src/services/db/index.ts",
+    "./services/*": "./src/services/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.9.3",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0"
+  }
+}

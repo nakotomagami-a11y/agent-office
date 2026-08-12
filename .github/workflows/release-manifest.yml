@@ -1,0 +1,54 @@
+name: Update Manifest
+
+# Assembles the Tauri updater manifest (latest.json) from the signed artifacts
+# uploaded by the per-platform release workflows. Runs once after EACH build
+# workflow finishes; the concurrency group serialises those runs so the final
+# run (once every platform has uploaded its .sig) writes a complete manifest
+# with no clobber race.
+
+on:
+  workflow_run:
+    workflows: ["Linux Release", "Windows Release", "macOS Release"]
+    types: [completed]
+
+concurrency:
+  group: update-manifest-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  manifest:
+    # Only for successful, tag-triggered builds (head_branch is the tag, e.g. v0.1.1).
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Generate the changelog exactly once and OVERWRITE the release body
+      # (idempotent — the build workflows no longer generate notes, which was
+      # appending a copy per platform). Runs before latest.json is built so the
+      # manifest picks up the single-copy notes.
+      - name: Refresh release notes (single copy)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$RELEASE_TAG" --jq .body > /tmp/notes.md
+          gh release edit "$RELEASE_TAG" --repo "$GH_REPO" --notes-file /tmp/notes.md
+
+      - name: Generate & upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: node apps/web/scripts/gen-latest-json.mjs

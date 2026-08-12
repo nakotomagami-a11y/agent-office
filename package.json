@@ -1,0 +1,19 @@
+{
+  "name": "agent-office",
+  "version": "0.0.1-beta",
+  "private": true,
+  "packageManager": "pnpm@11.0.9",
+  "scripts": {
+    "dev": "pnpm --filter @agent-office/web dev",
+    "build": "pnpm --filter @agent-office/web build",
+    "start": "pnpm --filter @agent-office/web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
+  }
+}

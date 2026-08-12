@@ -1,0 +1,38 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@agent-office/domain": [
+        "../../packages/domain/src/index.ts"
+      ],
+      "@agent-office/domain/*": [
+        "../../packages/domain/src/*"
+      ],
+      "@agent-office/pixel-planets": [
+        "../../packages/pixel-planets/src/index.ts"
+      ],
+      "@agent-office/pixel-planets/*": [
+        "../../packages/pixel-planets/src/*"
+      ]
+    }
+  },
+  "include": [
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "src/**/*",
+    "./.next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}

@@ -1,0 +1,244 @@
+name: Linux Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            apps/web/src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Clean stale bundle output
+        # The cache above falls back to a same-OS restore-key when the exact
+        # Cargo.lock hash misses (every release bumps the lock file), which
+        # restores the WHOLE target/ dir — including release/bundle/ from a
+        # previous tag's build. The upload step below globs
+        # target/release/bundle/**/*.deb|*.AppImage, so leftover
+        # prior-version installers get shipped alongside the current
+        # release's (this shipped an 0.1.14 .deb inside the v0.1.18 release).
+        # Only wipe the bundle output — keep target/release/deps etc. so
+        # compiled dependencies still get reused from cache.
+        run: rm -rf apps/web/src-tauri/target/release/bundle
+
+      - name: Install system dependencies (Tauri + AppImage)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libfuse2 \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Next.js (standalone)
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: |
+          unset __NEXT_PRIVATE_STANDALONE_CONFIG
+          pnpm exec next build
+
+      - name: Prepare Tauri bundle
+        working-directory: apps/web
+        run: node scripts/prepare-bundle.mjs
+
+      - name: Pre-seed patched linuxdeploy (AppImage bundling fixes)
+        # 1. linuxdeploy-plugin-gtk.sh's `ln -s` at line 308 dies under `set -e`
+        #    when the AppDir already has that symlink — append `|| true`.
+        # 2. sharp's native .node/.so files aren't ELF-parseable by linuxdeploy's
+        #    dependency scanner and abort the whole bundle — strip them from the
+        #    AppDir right before linuxdeploy runs, via a wrapper around the real
+        #    binary (tauri-bundler skips downloading if the cache file exists).
+        run: |
+          mkdir -p ~/.cache/tauri
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage.real \
+            https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage
+          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage.real
+
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-plugin-gtk.sh \
+            https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+          sed -i 's#\(ln \$verbose -s "\${file/\\/usr\\/lib\\//}" "\$APPDIR/usr/lib"\)$#\1 || true#' \
+            ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+          chmod +x ~/.cache/tauri/linuxdeploy-plugin-gtk.sh
+
+          # 3. tauri-bundler downloads these on-demand right as it starts the
+          #    AppImage bundling step and appears to use them before the async
+          #    download finishes on a cold cache (fails instantly with ENOENT,
+          #    every time, on a fresh runner — never seen locally because these
+          #    have been cached there for months). Pre-seed them too so nothing
+          #    downloads during the actual build step.
+          curl -fsSL -o ~/.cache/tauri/AppRun-x86_64 \
+            https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64
+          chmod +x ~/.cache/tauri/AppRun-x86_64
+
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-plugin-gstreamer.sh \
+            https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh
+          chmod +x ~/.cache/tauri/linuxdeploy-plugin-gstreamer.sh
+
+          curl -fsSL -o ~/.cache/tauri/linuxdeploy-plugin-appimage.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x ~/.cache/tauri/linuxdeploy-plugin-appimage.AppImage
+
+          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage <<'EOF'
+          #!/bin/bash
+          APPDIR=""
+          for arg in "$@"; do
+            if [ -n "$_next" ]; then APPDIR="$arg"; _next=""; fi
+            [ "$arg" = "--appdir" ] && _next=1
+          done
+          if [ -n "$APPDIR" ]; then
+            find "$APPDIR" -name "sharp-linux-x64.node" -delete 2>/dev/null
+            find "$APPDIR" -name "libvips-cpp.so*" -delete 2>/dev/null
+          fi
+          "$HOME/.cache/tauri/linuxdeploy-x86_64.AppImage.real" "$@"
+          exit $?
+          EOF
+          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+
+          # 4. ROOT CAUSE (found via strace): the execve() for this wrapper
+          #    itself returns ENOENT, despite the file existing right after
+          #    this step. tauri-bundler must revalidate/replace the cached
+          #    tool right before invoking it (it's not a real AppImage), and
+          #    the exec loses the race against that replacement. The exact
+          #    same failure was already solved for the local dev machine per
+          #    project notes: lock the wrapper immutable so nothing can
+          #    delete or overwrite it out from under the build.
+          sudo chattr +i ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+
+      - name: Build Tauri app (Linux)
+        working-directory: apps/web
+        env:
+          # Sign the updater artifacts so the in-app updater will accept them.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # GitHub-hosted runners have no working FUSE, so any AppImage that
+          # tries to self-mount (e.g. linuxdeploy-plugin-appimage, invoked by
+          # linuxdeploy to produce the final .AppImage) fails to start. This
+          # forces every nested AppImage to self-extract instead.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: pnpm tauri build
+
+      - name: Repackage AppImage to use host graphics/WebKit libraries
+        # The bundled runtime is the problem, not the host. tauri-bundler's
+        # linuxdeploy-plugin-gtk copies GTK/WebKit/GStreamer/GLib/Mesa into the
+        # AppImage, links the binary with RUNPATH=$ORIGIN/../lib, and its AppRun
+        # prepends that bundled usr/lib to LD_LIBRARY_PATH — so the app ALWAYS
+        # loads its own stale copies instead of the host's. On newer host GPU
+        # stacks (e.g. Lunar Lake + Mesa 26 + xe) that bundled stack can't init
+        # EGL: "Could not create default EGL display: EGL_BAD_PARAMETER. Aborting."
+        #
+        # Fix (verified on that exact host): strip the RUNPATH and replace AppRun
+        # with a minimal launcher that does NOT inject the bundled libs, so GTK/
+        # WebKit/EGL resolve from the host — same contract as the .deb. Then
+        # repack under the same filename and re-sign so the updater still accepts
+        # it (the tauri-generated .sig is over the pre-patch bytes).
+        #
+        # Tradeoff: the AppImage now requires host webkit2gtk (like the .deb),
+        # losing full self-containment. The bundled libs are left in place as
+        # dead weight; trim them later if AppImage size matters.
+        working-directory: apps/web/src-tauri/target/release/bundle/appimage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          ARCH: x86_64
+        run: |
+          set -euo pipefail
+          APPIMAGE="$(ls *.AppImage)"
+          echo "Patching $APPIMAGE"
+          chmod +x "$APPIMAGE"
+          ./"$APPIMAGE" --appimage-extract >/dev/null
+
+          # 1. Drop the RUNPATH that forces the bundled ../lib copies.
+          patchelf --remove-rpath squashfs-root/usr/bin/app
+
+          # 2. Replace AppRun: no bundled LD_LIBRARY_PATH, keep the X11 backend
+          #    (Wayland-native GTK has a known Tauri crash, so the GTK plugin's
+          #    AppRun hook forces X11 — preserve that here).
+          cat > squashfs-root/AppRun <<'SH'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export GDK_BACKEND=x11
+          exec "$HERE/usr/bin/app" "$@"
+          SH
+          chmod +x squashfs-root/AppRun
+
+          # 3. Repack under the SAME filename so latest.json's URL still resolves.
+          curl -fsSL -o /tmp/appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/appimagetool.AppImage
+          rm -f "$APPIMAGE"
+          /tmp/appimagetool.AppImage --no-appstream squashfs-root "$APPIMAGE"
+          rm -rf squashfs-root
+
+          # 4. Re-sign the modified AppImage (reads the signing key from env,
+          #    same as `tauri build` did). Overwrites the now-stale .sig.
+          rm -f "$APPIMAGE.sig"
+          pnpm --dir "$GITHUB_WORKSPACE/apps/web" exec tauri signer sign "$PWD/$APPIMAGE"
+
+      - name: Upload installers to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          # .deb for manual install (dpkg owns its own files, can't self-update).
+          # .AppImage + .AppImage.sig are the updater artifacts consumed by
+          # latest.json. This Tauri version signs the AppImage directly — no
+          # .tar.gz wrapping despite what older Tauri docs describe.
+          files: |
+            apps/web/src-tauri/target/release/bundle/deb/*.deb
+            apps/web/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/web/src-tauri/target/release/bundle/appimage/*.AppImage.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installers as artifact (manual run)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: linux-installer
+          path: |
+            apps/web/src-tauri/target/release/bundle/deb/*.deb
+            apps/web/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/web/src-tauri/target/release/bundle/appimage/*.AppImage.sig
+          if-no-files-found: error

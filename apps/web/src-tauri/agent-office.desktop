@@ -1,0 +1,9 @@
+[Desktop Entry]
+Categories=
+Comment=A Tauri App
+Exec=agent-office
+StartupWMClass=app
+Icon=app
+Name=Agent Office
+Terminal=false
+Type=Application

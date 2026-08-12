@@ -1,0 +1,12 @@
+{
+  "build": {
+    "beforeBuildCommand": "pnpm exec next build && node scripts/prepare-bundle.mjs"
+  },
+  "bundle": {
+    "targets": ["nsis", "msi"],
+    "resources": [
+      "server",
+      "binaries/node-x86_64-pc-windows-msvc.exe"
+    ]
+  }
+}

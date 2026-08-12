@@ -1,0 +1,29 @@
+/* Shared design tokens — @theme inline only.
+   Each consuming app defines the actual :root values. */
+
+@theme inline {
+  /* Backgrounds */
+  --color-bg-0: var(--bg-0);
+  --color-bg-1: var(--bg-1);
+  --color-bg-2: var(--bg-2);
+  --color-bg-3: var(--bg-3);
+  --color-bg-4: var(--bg-4);
+
+  /* Text */
+  --color-txt:   var(--txt);
+  --color-txt-2: var(--txt-2);
+  --color-txt-3: var(--txt-3);
+  --color-txt-4: var(--txt-4);
+
+  /* Accent */
+  --color-acc:       var(--acc);
+  --color-acc-faint: var(--acc-faint);
+  --color-acc-tint:  var(--acc-tint);
+
+  /* Status */
+  --color-ok: var(--ok);
+
+  /* Lines / borders */
+  --color-line-1: var(--line-1);
+  --color-line-2: var(--line-2);
+}

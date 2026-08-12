@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "note": "Ordered list of docs tabs. The app renders each tab from the .md file at `docs/<file>`. Add/reorder here; the /docs page picks it up automatically.",
+  "tabs": [
+    { "id": "features",        "label": "Features",        "file": "00-features.md" },
+    { "id": "getting-started", "label": "Getting Started", "file": "01-getting-started.md" },
+    { "id": "concepts",        "label": "Concepts",        "file": "02-concepts.md" },
+    { "id": "agents",          "label": "Agents",          "file": "03-agents.md" },
+    { "id": "projects",        "label": "Projects",        "file": "04-projects.md" },
+    { "id": "memory",          "label": "Memory",          "file": "05-memory.md" },
+    { "id": "usage",           "label": "Usage",           "file": "06-usage.md" },
+    { "id": "schedules",       "label": "Schedules",       "file": "09-schedules.md" },
+    { "id": "interface",       "label": "Interface",       "file": "07-interface.md" },
+    { "id": "reference",       "label": "Reference",       "file": "08-reference.md" }
+  ]
+}
