@@ -4,7 +4,7 @@ description: Browser-based QA for websites and web apps. Drives a real Chromium 
 default-model: sonnet
 default-effort: high
 skills: [an-webapp-testing, sp-verification-before-completion, alz-full-page-screenshot]
-tools: [Read, Bash, Grep]
+tools: [Read, Bash, Grep, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 
