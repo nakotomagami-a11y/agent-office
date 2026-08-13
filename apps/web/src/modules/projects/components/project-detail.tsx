@@ -146,7 +146,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       const text = await file.text();
       const json = JSON.parse(text) as unknown;
       const data = await importState(json);
-      setImportStatus({ ok: true, msg: t("project_detail.import_success", { count: data.agentCount }) });
+      setImportStatus({ ok: true, msg: t("project_detail.import_success", { count: data.agentCount ?? 0 }) });
     } catch (err) {
       const msg = err instanceof ApiError
         ? ((err.data?.detail as string | undefined) ?? err.message)

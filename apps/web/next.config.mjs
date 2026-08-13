@@ -21,9 +21,9 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Constrain @vercel/nft file tracing to the monorepo root. Without this,
-  // on Windows the tracer follows pnpm junctions into the user profile and
-  // hits NTFS junction points (e.g. "Application Data") it can't enumerate.
+  // Constrain file tracing to the monorepo root. Without this, on Windows the
+  // tracer follows pnpm junctions into the user profile and hits NTFS junction
+  // points (e.g. "Application Data") it can't enumerate.
   outputFileTracingRoot: join(__dirname, "../../"),
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
@@ -35,20 +35,17 @@ const nextConfig = {
   // suppression, defense-in-depth.
   poweredByHeader: false,
   transpilePackages: ["@agent-office/domain", "@agent-office/pixel-icons", "@agent-office/pixel-planets"],
-  serverExternalPackages: ["better-sqlite3"],
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = [
-        ...(Array.isArray(config.externals) ? config.externals : [config.externals].filter(Boolean)),
-        "better-sqlite3",
-        "bindings",
-      ];
-    }
-    // pnpm uses symlinks extensively. On Windows, following those symlinks can
-    // lead webpack outside the project tree into NTFS junction points (e.g.
-    // "Application Data") that aren't enumerable, causing fatal EPERM errors.
-    config.resolve.symlinks = false;
-    return config;
+  // better-sqlite3 is a native module; `bindings` is its runtime resolver.
+  // Both must stay external so they load from node_modules at runtime instead
+  // of being bundled into the server graph (Turbopack honours this for RSC).
+  serverExternalPackages: ["better-sqlite3", "bindings"],
+  // Resolve next-intl's request config under Turbopack. Declared explicitly so
+  // it does not depend on next-intl's `process.env.TURBOPACK` detection, which
+  // is not guaranteed to be set when the config is evaluated.
+  turbopack: {
+    resolveAlias: {
+      "next-intl/config": join(__dirname, "src/i18n/request.ts"),
+    },
   },
   /**
    * Global security headers. Applied to every response — cheap and
