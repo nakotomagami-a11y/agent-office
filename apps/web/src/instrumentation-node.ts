@@ -22,13 +22,29 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { projects, scheduler, settings } from "@agent-office/domain/services";
 import { logEnvDiagnostics } from "./lib/env";
 
 // Env validation runs on module import (throws on malformed config).
 // This call surfaces missing-but-not-fatal warnings so the operator
 // sees them in the boot log.
 logEnvDiagnostics();
+
+// @agent-office/domain/services pulls in better-sqlite3 transitively (it's
+// not a direct dependency of apps/web, just of the workspace package).
+// Turbopack's standalone-build handling of serverExternalPackages doesn't
+// resolve packages reached this way when statically imported from the
+// instrumentation hook (vercel/next.js#68805, #88844): it emits a
+// require() call against a build-generated hashed module name that can
+// never resolve via Node's normal module resolution, no matter what's
+// actually copied onto disk. A dynamic import isn't subject to the same
+// static external-hashing pass.
+let domainServices: typeof import("@agent-office/domain/services") | null = null;
+try {
+  domainServices = await import("@agent-office/domain/services");
+} catch (err) {
+
+  console.warn("[domain-services] failed to load:", err);
+}
 
 const SKILLS_DIR = join(homedir(), ".claude", "agents", "_skills");
 
@@ -94,21 +110,27 @@ try {
   console.warn("[starter-bootstrap] skipped:", err);
 }
 
-// Boot-time worktree reconciliation — removes orphan .worktrees/ directories
-// for projects whose roster no longer contains the corresponding instance.
-// Only runs when the multiInstance feature flag is enabled in settings.
-try {
-  projects.reconcileAllWorktrees(settings.readSettings());
-} catch (err) {
+if (domainServices) {
+  const { projects, scheduler, settings } = domainServices;
 
-  console.warn("[worktree-reconcile] skipped:", err);
-}
+  // Boot-time worktree reconciliation — removes orphan .worktrees/
+  // directories for projects whose roster no longer contains the
+  // corresponding instance. Only runs when the multiInstance feature flag
+  // is enabled in settings.
+  try {
+    projects.reconcileAllWorktrees(settings.readSettings());
+  } catch (err) {
 
-// Start the server-side scheduler (rate-limit auto-resume + scheduled tasks).
-// Idempotent — a no-op if a previous HMR worker already started the loop.
-try {
-  scheduler.startScheduler();
-} catch (err) {
+    console.warn("[worktree-reconcile] skipped:", err);
+  }
 
-  console.warn("[scheduler] failed to start:", err);
+  // Start the server-side scheduler (rate-limit auto-resume + scheduled
+  // tasks). Idempotent — a no-op if a previous HMR worker already started
+  // the loop.
+  try {
+    scheduler.startScheduler();
+  } catch (err) {
+
+    console.warn("[scheduler] failed to start:", err);
+  }
 }
