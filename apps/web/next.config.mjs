@@ -25,6 +25,14 @@ const nextConfig = {
   // tracer follows pnpm junctions into the user profile and hits NTFS junction
   // points (e.g. "Application Data") it can't enumerate.
   outputFileTracingRoot: join(__dirname, "../../"),
+  // The tracing root is the monorepo root, so without this the tracer sweeps a
+  // previous Tauri build's `src-tauri/server` + `src-tauri/target` back into
+  // `.next/standalone`, which prepare-bundle then copies into `src-tauri/server`
+  // again — nesting one level deeper every build (runaway disk + memory). None
+  // of src-tauri belongs in the traced server graph.
+  outputFileTracingExcludes: {
+    "*": ["**/src-tauri/**"],
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_GIT_SHA: gitSha,

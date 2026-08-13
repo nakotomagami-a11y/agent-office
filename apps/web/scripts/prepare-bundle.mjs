@@ -7,6 +7,7 @@
  */
 
 import { copyFileSync, mkdirSync, cpSync, rmSync, readdirSync, existsSync, chmodSync, realpathSync, readlinkSync, lstatSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform, arch } from "node:os";
@@ -322,6 +323,35 @@ try {
   const nodeDest = join(binariesDir, `node-${targetTriple}${ext}`);
   copyFileSync(process.execPath, nodeDest);
   if (platform() !== "win32") chmodSync(nodeDest, 0o755);
+
+  // 7. Assert the bundled node can actually load the bundled better-sqlite3.
+  //    The sidecar node is `process.execPath`; better-sqlite3's prebuilt .node
+  //    comes from the pnpm store (compiled during `pnpm install`). If the build
+  //    runs under a different Node major than the one that installed deps, their
+  //    ABIs (NODE_MODULE_VERSION) diverge and the app crashes at boot with
+  //    "Internal Server Error". Fail the build now, loudly, instead of shipping
+  //    a broken bundle. Only run natively — nodeDest is a host-runnable copy of
+  //    the running node, so this is valid whenever the target triple is native.
+  const bundledBetterSqlite3 = join(serverDestDir, "node_modules", "better-sqlite3");
+  if (existsSync(bundledBetterSqlite3)) {
+    try {
+      execFileSync(
+        nodeDest,
+        ["-e", `new (require(${JSON.stringify(bundledBetterSqlite3)}))(":memory:").prepare("select 1").get()`],
+        { stdio: "pipe" },
+      );
+      console.log("prepare-bundle: better-sqlite3 loads under bundled node ✓");
+    } catch (err) {
+      const detail = (err.stderr?.toString() || err.message || "").split("\n").find(Boolean) || "unknown error";
+      console.error(
+        `prepare-bundle FAILED: bundled node (${process.version}) cannot load better-sqlite3.\n` +
+        `  ${detail}\n` +
+        `  This is an ABI mismatch. Run the build under the same Node version that\n` +
+        `  installed dependencies (the one 'pnpm install' used), then rebuild.`,
+      );
+      process.exit(1);
+    }
+  }
 
   console.log("✓ Bundle prepared");
   console.log(`  server  → ${serverDestDir}`);

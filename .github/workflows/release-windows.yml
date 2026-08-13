@@ -83,7 +83,7 @@ jobs:
           # Patch fs.readdir before next starts so NTFS junction EPERM errors
           # (C:\Users\runneradmin\Application Data) are treated as empty dirs.
           $env:NODE_OPTIONS = "--require $env:GITHUB_WORKSPACE\apps\web\scripts\patch-fs-eperm.cjs"
-          pnpm exec next build
+          pnpm exec next build --webpack
 
       - name: Prepare Tauri bundle
         working-directory: apps/web
