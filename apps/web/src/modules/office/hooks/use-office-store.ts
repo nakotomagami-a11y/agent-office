@@ -1,7 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
+
+/**
+ * Persisted server-side to `ui_settings.office-view`, matching the tabs and
+ * theme stores. Web storage is deliberately unused here: the desktop shell
+ * serves the UI from an ephemeral loopback port, and localStorage is scoped
+ * per origin — so a changing port would silently reset every preference on
+ * each launch.
+ */
+const STORAGE_KEY = "office-view";
 
 export type OfficeView = "iso" | "cards";
 
@@ -47,6 +57,7 @@ type OfficeState = {
    * (roster takes all remaining space). Persisted.
    */
   navHeight: number | null;
+  hydrated: boolean;
   setNavHeight: (px: number | null) => void;
   setView: (next: OfficeView) => void;
   setIsoEnabled: (next: boolean) => void;
@@ -57,9 +68,42 @@ type OfficeState = {
   toggleGroup: (projectId: string, agentId: string) => void;
   setGroupExpanded: (projectId: string, agentId: string, expanded: boolean) => void;
   togglePin: (projectId: string, agentId: string) => void;
+  hydrate: () => void;
 };
 
-export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
+/** The subset written to `ui_settings` — mirrors the old persist partialize. */
+type PersistShape = Pick<
+  OfficeState,
+  "view" | "isoEnabled" | "expandedGroups" | "pinnedGroups" | "navHeight"
+>;
+
+function isGroupMap(v: unknown): v is Record<string, string[]> {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    Object.values(v).every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === "string"))
+  );
+}
+
+function parse(raw: string | undefined): Partial<PersistShape> | null {
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw) as unknown;
+    if (!obj || typeof obj !== "object") return null;
+    const { view, isoEnabled, expandedGroups, pinnedGroups, navHeight } = obj as Partial<PersistShape>;
+    const out: Partial<PersistShape> = {};
+    if (view === "iso" || view === "cards") out.view = view;
+    if (typeof isoEnabled === "boolean") out.isoEnabled = isoEnabled;
+    if (isGroupMap(expandedGroups)) out.expandedGroups = expandedGroups;
+    if (isGroupMap(pinnedGroups)) out.pinnedGroups = pinnedGroups;
+    if (navHeight === null || typeof navHeight === "number") out.navHeight = navHeight;
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export const useOfficeStore = create<OfficeState>((set, get) => ({
   // Cards is the default surface, and the iso renderer ships opt-in: a fresh
   // install lands on the flat grid with the dev-menu gate off. Both are
   // persisted, so these defaults only ever apply before the user chooses.
@@ -73,9 +117,19 @@ export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
   expandedGroups: {},
   pinnedGroups: {},
   navHeight: null,
-  setNavHeight: (px) => set({ navHeight: px }),
-  setView: (next) => set({ view: next }),
-  setIsoEnabled: (next) => set({ isoEnabled: next }),
+  hydrated: false,
+  setNavHeight: (px) => {
+    set({ navHeight: px });
+    persistState(get());
+  },
+  setView: (next) => {
+    set({ view: next });
+    persistState(get());
+  },
+  setIsoEnabled: (next) => {
+    set({ isoEnabled: next });
+    persistState(get());
+  },
   select: (id, opts) =>
     set({
       selectedId: id,
@@ -100,6 +154,7 @@ export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
         [projectId]: isExpanded ? ids.filter((id) => id !== agentId) : [...ids, agentId],
       },
     });
+    persistState(get());
   },
   setGroupExpanded: (projectId, agentId, expanded) => {
     const current = get().expandedGroups;
@@ -112,6 +167,7 @@ export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
         [projectId]: expanded ? [...ids, agentId] : ids.filter((id) => id !== agentId),
       },
     });
+    persistState(get());
   },
   togglePin: (projectId, agentId) => {
     const current = get().pinnedGroups;
@@ -123,8 +179,37 @@ export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
         [projectId]: isPinned ? ids.filter((id) => id !== agentId) : [...ids, agentId],
       },
     });
+    persistState(get());
   },
-}), {
-  name: "office-view",
-  partialize: (s) => ({ view: s.view, isoEnabled: s.isoEnabled, expandedGroups: s.expandedGroups, pinnedGroups: s.pinnedGroups, navHeight: s.navHeight }),
+  hydrate: () => {
+    if (get().hydrated) return;
+    set({ hydrated: true });
+    getUiSettings()
+      .then((data) => {
+        const parsed = parse(data[STORAGE_KEY]);
+        if (parsed) set(parsed);
+      })
+      .catch(() => { /* ignore — keep defaults when the DB is fresh */ });
+  },
 }));
+
+function persistState(s: OfficeState): void {
+  const shape: PersistShape = {
+    view: s.view,
+    isoEnabled: s.isoEnabled,
+    expandedGroups: s.expandedGroups,
+    pinnedGroups: s.pinnedGroups,
+    navHeight: s.navHeight,
+  };
+  patchUiSettings({ [STORAGE_KEY]: JSON.stringify(shape) }).catch(() => {
+    // Best-effort — matches the `tabs-state` / `active-project` pattern.
+  });
+}
+
+/** Mount in the app shell (e.g. Titlebar) so the store hydrates once on boot. */
+export function useOfficeHydration(): void {
+  const hydrate = useOfficeStore((s) => s.hydrate);
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+}

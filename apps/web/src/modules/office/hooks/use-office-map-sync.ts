@@ -4,9 +4,6 @@ import {
   saveMap,
   flushMapBeacon,
   parseMap,
-  readBackup,
-  writeBackup,
-  clearBackup,
   type OfficeMap,
   type Scope,
 } from "../derive/office-map-storage";
@@ -25,12 +22,10 @@ const PERIODIC_FLUSH_MS = 15000;
  *
  *  - loads once on mount; on failure exposes `loadState === "error"` and keeps
  *    saving DISABLED so a default/empty map can never overwrite good server data
- *  - on every edit: marks a local crash-backup dirty and debounces an atomic
- *    save; also flushes periodically and on tab hide/close (keepalive)
+ *  - on every edit: marks the map dirty and debounces an atomic save; also
+ *    flushes periodically and on tab hide/close (keepalive)
  *  - on save failure: keeps the change dirty and retries; surfaces the state so
  *    the UI can show "Save failed — Retry"
- *  - offers recovery when a local backup is newer than the server (a prior save
- *    never landed) — never applied silently
  */
 export function useOfficeMapSync(opts: {
   projectId: string | null;
@@ -47,7 +42,6 @@ export function useOfficeMapSync(opts: {
 
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [pendingBackup, setPendingBackup] = useState<OfficeMap | null>(null);
 
   // Live map — assigned every render so periodic/unload flush reads the latest.
   const mapRef = useRef<OfficeMap>({ grid, decorations, grassColor, agentPositions });
@@ -89,9 +83,6 @@ export function useOfficeMapSync(opts: {
         setSaveState("idle");
         setLoadState("loaded");
         onLoadedRef.current();
-        // Recovery: only if a prior save never reached the server.
-        const backup = readBackup(scope);
-        if (backup && backup.dirty && backup.rev > rev) setPendingBackup(backup.map);
       } catch {
         setLoadState("error");
       }
@@ -115,12 +106,10 @@ export function useOfficeMapSync(opts: {
       const rev = await saveMap(scope, map);
       lastRevRef.current = rev;
       dirtyRef.current = false;
-      clearBackup(scope);
       setSaveState("saved");
     } catch {
-      // Keep the change dirty + backed up so nothing is lost; UI shows Retry and
-      // the periodic flush will keep retrying.
-      writeBackup(scope, map, lastRevRef.current + 1, true);
+      // Stay dirty so nothing is lost; UI shows Retry and the periodic flush
+      // keeps retrying.
       setSaveState("error");
     } finally {
       savingRef.current = false;
@@ -136,7 +125,6 @@ export function useOfficeMapSync(opts: {
       return;
     }
     dirtyRef.current = true;
-    writeBackup(scopeRef.current, mapRef.current, lastRevRef.current + 1, true);
     setSaveState((s) => (s === "saving" ? s : "dirty"));
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(doSave, SAVE_DEBOUNCE_MS);
@@ -185,26 +173,10 @@ export function useOfficeMapSync(opts: {
     }
   }, [custom, projectId, loadState, doSave, hydrate]);
 
-  const applyBackup = useCallback(() => {
-    if (!pendingBackup) return;
-    applyRef.current(pendingBackup);
-    dirtyRef.current = true;
-    setPendingBackup(null);
-    doSave();
-  }, [pendingBackup, doSave]);
-
-  const discardBackup = useCallback(() => {
-    clearBackup(scopeRef.current);
-    setPendingBackup(null);
-  }, []);
-
   return {
     loadState,
     saveState,
     retryLoad: load,
     retrySave: doSave,
-    hasUnsavedBackup: pendingBackup !== null,
-    applyBackup,
-    discardBackup,
   };
 }

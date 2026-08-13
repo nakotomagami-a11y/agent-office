@@ -1,10 +1,9 @@
 // Server is the single source of truth for the office map. The whole map is
 // written in ONE atomic PATCH (grid + decorations + grass + agents + rev) so it
 // can never persist in a torn state (the old per-key auto-save let the grid and
-// decorations drift to different points in time). A localStorage copy is kept
-// ONLY as a crash backup — it is never read as authoritative on load, only
-// offered for recovery when its rev is newer than the server's (i.e. a save
-// never reached the server before the tab closed).
+// decorations drift to different points in time). An unsaved edit stays dirty
+// and is retried by the periodic flush and the unload beacon; there is no
+// client-side copy, so nothing depends on the page origin.
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { apiClient } from "@/lib/api-client";
 import { parseGrid, parseDecorations, parseAgentPositions, makeSeedGrid } from "./office-scene-data";
@@ -85,57 +84,6 @@ export function flushMapBeacon(scope: Scope, map: OfficeMap): void {
       body: JSON.stringify(patchBody(scope, map, Date.now())),
       keepalive: true,
     }).catch(() => {});
-  } catch {
-    /* ignore */
-  }
-}
-
-// ─── Local crash backup (recovery-only, never authoritative) ─────────────────
-
-type Backup = { map: OfficeMap; rev: number; dirty: boolean };
-
-const backupKey = (scope: Scope) =>
-  `office-map-backup:${scope.custom && scope.projectId ? scope.projectId : "global"}`;
-
-export function writeBackup(scope: Scope, map: OfficeMap, rev: number, dirty: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(backupKey(scope), JSON.stringify({ map, rev, dirty } satisfies Backup));
-  } catch {
-    /* quota / disabled — ignore */
-  }
-}
-
-export function readBackup(scope: Scope): Backup | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(backupKey(scope));
-    if (!raw) return null;
-    const o = JSON.parse(raw) as { map?: Record<string, unknown>; rev?: number; dirty?: boolean };
-    if (!o.map) return null;
-    const grid = parseGrid(JSON.stringify(o.map.grid));
-    const deco = parseDecorations(JSON.stringify(o.map.decorations));
-    const agents = parseAgentPositions(JSON.stringify(o.map.agentPositions));
-    const grass = o.map.grassColor;
-    return {
-      map: {
-        grid: grid ?? makeSeedGrid(),
-        decorations: deco ?? {},
-        grassColor: typeof grass === "string" && isGrassColor(grass) ? grass : DEFAULT_GRASS_COLOR,
-        agentPositions: agents ?? {},
-      },
-      rev: Number(o.rev ?? 0) || 0,
-      dirty: o.dirty === true,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function clearBackup(scope: Scope): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(backupKey(scope));
   } catch {
     /* ignore */
   }
