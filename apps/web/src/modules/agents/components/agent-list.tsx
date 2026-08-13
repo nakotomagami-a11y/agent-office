@@ -335,7 +335,7 @@ function AgentCard({
           <span className="rounded-full w-[4px] h-[4px]" style={{ background: modelColor }} />
           {agent.defaultModel ?? t("agent_list.model_default")}
         </span>
-        <span className="ml-auto font-[var(--font-mono)] text-[10.5px] text-txt-3 inline-flex items-center gap-1">
+        <span className="ml-auto font-[var(--font-mono)] text-[10.5px] text-txt-2 inline-flex items-center gap-1">
           <Icon name="activity" size={10} /> {t("agent_list.uses_count", { count: uses })}
         </span>
       </div>
