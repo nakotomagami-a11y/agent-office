@@ -128,7 +128,7 @@ jobs:
             [ "$arg" = "--appdir" ] && _next=1
           done
           if [ -n "$APPDIR" ]; then
-            find "$APPDIR" -name "sharp-linux-x64.node" -delete 2>/dev/null
+            find "$APPDIR" -name "sharp-linux-x64*.node" -delete 2>/dev/null
             find "$APPDIR" -name "libvips-cpp.so*" -delete 2>/dev/null
           fi
           "$HOME/.cache/tauri/linuxdeploy-x86_64.AppImage.real" "$@"

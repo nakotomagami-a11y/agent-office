@@ -303,7 +303,7 @@ try {
         if (entry.isDirectory()) {
           removeVipsLibs(full);
         } else if (
-          (entry.name.endsWith(".so") || entry.name.includes(".so.")) &&
+          (entry.name.endsWith(".so") || entry.name.includes(".so.") || entry.name.endsWith(".node")) &&
           (full.includes("libvips") || full.includes("sharp"))
         ) {
           rmSync(full, { force: true });
