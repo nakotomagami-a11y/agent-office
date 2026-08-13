@@ -62,7 +62,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
           unset __NEXT_PRIVATE_STANDALONE_CONFIG
-          pnpm exec next build
+          pnpm exec next build --webpack
 
       - name: Prepare Tauri bundle
         working-directory: apps/web

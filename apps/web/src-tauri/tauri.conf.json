@@ -1,11 +1,11 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Agent Office",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "identifier": "com.agentoffice.app",
   "build": {
     "beforeDevCommand": "pnpm exec next dev --port 5173 --turbopack",
-    "beforeBuildCommand": "unset __NEXT_PRIVATE_STANDALONE_CONFIG && pnpm exec next build && node scripts/prepare-bundle.mjs",
+    "beforeBuildCommand": "unset __NEXT_PRIVATE_STANDALONE_CONFIG && pnpm exec next build --webpack && node scripts/prepare-bundle.mjs",
     "frontendDist": "http://localhost:5173",
     "devUrl": "http://localhost:5173"
   },
