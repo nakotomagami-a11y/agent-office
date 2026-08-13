@@ -60,8 +60,11 @@ type OfficeState = {
 };
 
 export const useOfficeStore = create<OfficeState>()(persist((set, get) => ({
-  view: "iso",
-  isoEnabled: true,
+  // Cards is the default surface, and the iso renderer ships opt-in: a fresh
+  // install lands on the flat grid with the dev-menu gate off. Both are
+  // persisted, so these defaults only ever apply before the user chooses.
+  view: "cards",
+  isoEnabled: false,
   selectedId: null,
   selectedInstanceId: null,
   inspectorOpen: false,
