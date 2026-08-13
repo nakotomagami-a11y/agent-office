@@ -77,7 +77,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
           unset __NEXT_PRIVATE_STANDALONE_CONFIG
-          pnpm exec next build
+          pnpm exec next build --webpack
 
       - name: Prepare Tauri bundle
         working-directory: apps/web
@@ -128,7 +128,7 @@ jobs:
             [ "$arg" = "--appdir" ] && _next=1
           done
           if [ -n "$APPDIR" ]; then
-            find "$APPDIR" -name "sharp-linux-x64.node" -delete 2>/dev/null
+            find "$APPDIR" -name "sharp-linux-x64*.node" -delete 2>/dev/null
             find "$APPDIR" -name "libvips-cpp.so*" -delete 2>/dev/null
           fi
           "$HOME/.cache/tauri/linuxdeploy-x86_64.AppImage.real" "$@"
@@ -136,15 +136,31 @@ jobs:
           EOF
           chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
 
-          # 4. ROOT CAUSE (found via strace): the execve() for this wrapper
-          #    itself returns ENOENT, despite the file existing right after
-          #    this step. tauri-bundler must revalidate/replace the cached
-          #    tool right before invoking it (it's not a real AppImage), and
-          #    the exec loses the race against that replacement. The exact
-          #    same failure was already solved for the local dev machine per
-          #    project notes: lock the wrapper immutable so nothing can
-          #    delete or overwrite it out from under the build.
+          # 4. ACTUAL ROOT CAUSE (confirmed by reading tauri-bundler source,
+          #    crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy.rs,
+          #    `prepare_tools()`): on every single build — download or
+          #    cache-hit, doesn't matter — tauri-bundler runs
+          #      dd if=/dev/zero bs=1 count=3 seek=8 conv=notrunc of=<linuxdeploy>
+          #    unconditionally against whatever sits at the cached linuxdeploy
+          #    path, to zero out the AppImage type-2 magic bytes at offset 8-10
+          #    so desktop AppImage-integration daemons won't grab it. Our
+          #    wrapper is a bash script, not an AppImage — offset 8-10 of
+          #    "#!/bin/bash\n" is exactly the "ash" in "bash". That dd call
+          #    silently truncates our shebang to "#!/bin/b\0\0\0", which the
+          #    kernel can't resolve as an interpreter → exec fails with
+          #    ENOENT. `chattr +i` blocks the dd's open-for-write (confirmed:
+          #    dd exits 1 "Permission denied", shebang untouched — tauri
+          #    swallows dd's exit code either way, `let _ = ...`), so this
+          #    lock is the correct fix. But nothing was verifying the lock
+          #    actually took, so if it silently no-ops on some future runner
+          #    image, we're back to the exact same opaque failure with zero
+          #    signal. Fail loudly instead of finding out via another cryptic
+          #    "failed to run linuxdeploy".
           sudo chattr +i ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+          if ! lsattr ~/.cache/tauri/linuxdeploy-x86_64.AppImage | grep -q '^....i'; then
+            echo "::error::chattr +i did not stick on the linuxdeploy wrapper — tauri-bundler's unconditional dd will corrupt its shebang and the AppImage bundle step will fail with an opaque 'failed to run linuxdeploy' error. Aborting now instead."
+            exit 1
+          fi
 
       - name: Build Tauri app (Linux)
         working-directory: apps/web
@@ -157,7 +173,32 @@ jobs:
           # linuxdeploy to produce the final .AppImage) fails to start. This
           # forces every nested AppImage to self-extract instead.
           APPIMAGE_EXTRACT_AND_RUN: "1"
-        run: pnpm tauri build
+        run: |
+          # tauri-bundler only forwards linuxdeploy's real stdout/stderr on a
+          # bundling failure when log_level != Error (see linuxdeploy.rs: the
+          # non-verbose branch discards the child process output entirely and
+          # returns the generic "failed to run linuxdeploy" for ANY nonzero
+          # exit, not just a spawn failure). `-v` flips that branch so a real
+          # linuxdeploy failure is diagnosable instead of another black box.
+          #
+          # This step has also been observed to fail and then succeed on a
+          # dispatch/retry with byte-identical workflow + app code (v0.0.2-beta
+          # run 31667789699 failed; v0.0.1-beta with the same Linux pipeline
+          # had succeeded hours earlier) — some part of the linuxdeploy/AppImage
+          # toolchain is flaky on GitHub-hosted runners independent of our
+          # code. Retry once before giving up so a transient hiccup doesn't
+          # fail the whole release.
+          for attempt in 1 2; do
+            if pnpm tauri build -v; then
+              exit 0
+            fi
+            echo "::warning::Linux Tauri build attempt $attempt failed."
+            if [ "$attempt" -eq 1 ]; then
+              echo "Retrying once (known-flaky linuxdeploy/AppImage step; see workflow comments)."
+              rm -rf src-tauri/target/release/bundle
+            fi
+          done
+          exit 1
 
       - name: Repackage AppImage to use host graphics/WebKit libraries
         # The bundled runtime is the problem, not the host. tauri-bundler's

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { DB_PATH, APP_STATE_DIR } from "../paths";
 import { createSchema, migrateFromJsonl } from "./migrations";
 
@@ -8,10 +9,37 @@ declare global {
   var __agentOfficeDb: Database.Database | undefined;
 }
 
+/**
+ * Locate the prebuilt better-sqlite3 native addon in the packaged Tauri bundle.
+ *
+ * In the standalone server bundle the builder inlines better-sqlite3's JS, so
+ * its `bindings` helper searches for the `.node` relative to the bundled chunk
+ * (e.g. `<server>/apps/web/build/Release/...`) instead of node_modules, and
+ * fails with "Could not locate the bindings file". We ship the addon at
+ * `<server>/node_modules/better-sqlite3/build/Release/better_sqlite3.node`;
+ * walk up from cwd to find it and pass it to better-sqlite3 explicitly.
+ *
+ * Returns undefined in dev / `next start` (nothing matches), so those runtimes
+ * fall back to better-sqlite3's normal resolution and are unaffected.
+ */
+function resolveNativeBinding(): string | undefined {
+  const rel = join("node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node");
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(dir, rel);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
 export function getDb(): Database.Database {
   if (globalThis.__agentOfficeDb) return globalThis.__agentOfficeDb;
   if (!existsSync(APP_STATE_DIR)) mkdirSync(APP_STATE_DIR, { recursive: true });
-  const db = new Database(DB_PATH);
+  const nativeBinding = resolveNativeBinding();
+  const db = nativeBinding ? new Database(DB_PATH, { nativeBinding }) : new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
