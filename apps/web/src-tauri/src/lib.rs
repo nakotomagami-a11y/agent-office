@@ -2,18 +2,70 @@ use std::process::Child;
 use std::sync::{Arc, Mutex};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
+// Ask the OS for an unused loopback port instead of hardcoding one. A fixed
+// port (we used to pin 5173 — the Vite/Next dev default) collides with
+// whatever the user already has running, and our target audience is
+// developers who very plausibly have a dev server on it. On collision the
+// bundled server can't bind and exits, while the readiness probe happily
+// connects to the *stranger* on that port and the webview then renders
+// against someone else's server.
+//
+// The listener is dropped before node starts, so there is a brief window
+// where another process could take the port. That race is unavoidable
+// without passing a bound socket to the child, and is vastly narrower than
+// the guaranteed collision a hardcoded port gives us.
 #[cfg(not(debug_assertions))]
-fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
+fn pick_free_port() -> u16 {
+    use std::net::TcpListener;
+    TcpListener::bind("127.0.0.1:0")
+        .expect("no free TCP port available for the bundled server")
+        .local_addr()
+        .expect("failed to read local address of probe socket")
+        .port()
+}
+
+// Wait until the bundled server actually serves HTTP, not merely until
+// something accepts a TCP connection. A bare connect() cannot tell our
+// server from an unrelated process, and it also returns true the instant
+// the socket is listening — before Next.js can serve a request.
+//
+// Polling the child means a server that dies on startup fails immediately
+// with its exit status, instead of stalling for the full timeout and
+// reporting a misleading "not ready in time".
+#[cfg(not(debug_assertions))]
+fn wait_for_server(port: u16, child: &mut Child, timeout_secs: u64) -> Result<(), String> {
+    use std::io::{Read, Write};
     use std::net::TcpStream;
     use std::time::{Duration, Instant};
+
     let addr = format!("127.0.0.1:{port}");
     let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+
     loop {
-        if TcpStream::connect(&addr).is_ok() {
-            return true;
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return Err(format!("bundled server exited during startup ({status})"))
+            }
+            Ok(None) => {}
+            Err(err) => return Err(format!("could not poll bundled server: {err}")),
         }
+
+        if let Ok(mut stream) = TcpStream::connect(&addr) {
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+            let req = format!(
+                "GET /api/health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n"
+            );
+            let mut body = String::new();
+            if stream.write_all(req.as_bytes()).is_ok()
+                && stream.read_to_string(&mut body).is_ok()
+                && body.starts_with("HTTP/1.1 200")
+            {
+                return Ok(());
+            }
+        }
+
         if Instant::now() >= deadline {
-            return false;
+            return Err(format!("server did not become ready within {timeout_secs} s"));
         }
         std::thread::sleep(Duration::from_millis(250));
     }
@@ -59,8 +111,14 @@ pub fn run() {
                 )?;
             }
 
+            // Dev builds point at the Next dev server on its well-known port;
+            // release builds use the ephemeral port the bundled server was
+            // told to bind.
+            #[cfg(debug_assertions)]
+            let port: u16 = 5173;
+
             #[cfg(not(debug_assertions))]
-            {
+            let port: u16 = {
                 use std::process::Command;
                 use tauri::Manager;
 
@@ -101,20 +159,29 @@ pub fn run() {
                     let _ = std::fs::set_permissions(&node_bin, perms);
                 }
 
-                let child = Command::new(&node_bin)
+                let port = pick_free_port();
+
+                let mut child = Command::new(&node_bin)
                     .arg(&server_js)
-                    .env("PORT", "5173")
+                    .env("PORT", port.to_string())
                     .env("HOSTNAME", "127.0.0.1")
                     .env("NODE_ENV", "production")
                     .spawn()
                     .expect("failed to spawn bundled server");
 
+                // Hold the child locally until it is known good, so a failed
+                // startup reaps it here rather than leaving an orphan holding
+                // a port for the rest of the session.
+                if let Err(err) = wait_for_server(port, &mut child, 30) {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!("{err}");
+                }
+
                 *server_setup.lock().unwrap() = Some(child);
 
-                if !wait_for_port(5173, 30) {
-                    panic!("server did not become ready within 30 s");
-                }
-            }
+                port
+            };
 
             // Suppress unused-variable warning in debug builds where the
             // server_setup block above is compiled out.
@@ -144,10 +211,16 @@ pub fn run() {
                 min_h = min_h.min(max_h);
             }
 
+            // 127.0.0.1 rather than "localhost": the server binds IPv4
+            // loopback, but "localhost" can resolve to ::1 first and fail.
             WebviewWindowBuilder::new(
                 app,
                 "main",
-                WebviewUrl::External("http://localhost:5173".parse().unwrap()),
+                WebviewUrl::External(
+                    format!("http://127.0.0.1:{port}")
+                        .parse()
+                        .expect("failed to build server URL"),
+                ),
             )
             .title("Agent Office")
             .inner_size(width, height)
@@ -161,17 +234,24 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(move |window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if window.label() == "main" {
-                    if let Ok(mut guard) = server_close.lock() {
-                        if let Some(ref mut child) = *guard {
-                            let _ = child.kill();
-                        }
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        // RunEvent::Exit covers every ordinary shutdown path — window close,
+        // Cmd+Q, and app-initiated exit. The previous WindowEvent::Destroyed
+        // handler only fired on the first of those, so quitting any other way
+        // left the node server running and holding its port indefinitely.
+        //
+        // Nothing can catch SIGKILL or a hard crash, so an orphan is still
+        // possible there; the ephemeral port above means a leftover one no
+        // longer breaks the next launch.
+        .run(move |_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Ok(mut guard) = server_close.lock() {
+                    if let Some(ref mut child) = *guard {
+                        let _ = child.kill();
+                        let _ = child.wait();
                     }
                 }
             }
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        });
 }
