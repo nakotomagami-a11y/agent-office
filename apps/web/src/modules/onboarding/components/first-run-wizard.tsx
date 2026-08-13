@@ -9,6 +9,7 @@ import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { AppSettings, ScannedEntry, Project, HealthInfo } from "@agent-office/domain/types";
 import { Button } from "@/components/ui/button";
 import { useActiveProjectStore } from "@/lib/active-project-store";
+import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { cn } from "@/lib/cn";
 import { RequirementsStep } from "./first-run-wizard-steps/requirements-step";
 import { RootStep } from "./first-run-wizard-steps/root-step";
@@ -49,10 +50,9 @@ interface WizardDraft {
   projectName: string;
 }
 
-function loadDraft(): WizardDraft | null {
-  if (typeof window === "undefined") return null;
+async function loadDraft(): Promise<WizardDraft | null> {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = (await getUiSettings())[DRAFT_KEY];
     if (!raw) return null;
     return JSON.parse(raw) as WizardDraft;
   } catch {
@@ -61,19 +61,15 @@ function loadDraft(): WizardDraft | null {
 }
 
 function saveDraft(draft: WizardDraft) {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* storage full or unavailable — not fatal */
-  }
+  patchUiSettings({ [DRAFT_KEY]: JSON.stringify(draft) }).catch(() => {
+    /* best-effort — losing the draft is not fatal */
+  });
 }
 
 function clearDraft() {
-  try {
-    localStorage.removeItem(DRAFT_KEY);
-  } catch {
+  patchUiSettings({ [DRAFT_KEY]: "" }).catch(() => {
     /* ignore */
-  }
+  });
 }
 
 export function FirstRunWizard({ onDone }: { onDone: () => void }) {
@@ -81,25 +77,46 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const setActiveProjectId = useActiveProjectStore((s) => s.setId);
 
-  const draft = useMemo(() => loadDraft(), []);
+  // The draft lives in `ui_settings` (see loadDraft), so it arrives async and
+  // cannot seed useState. Start on defaults, then apply the stored draft once.
+  const [draft, setDraft] = useState<WizardDraft | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  const [step, setStep] = useState<Step>(draft?.step ?? "requirements");
-  const [root, setRoot] = useState(draft?.root ?? HOME_FALLBACK);
-  const [excluded, setExcluded] = useState<string[]>(draft?.excluded ?? DEFAULT_EXCLUDED);
+  const [step, setStep] = useState<Step>("requirements");
+  const [root, setRoot] = useState(HOME_FALLBACK);
+  const [excluded, setExcluded] = useState<string[]>(DEFAULT_EXCLUDED);
   const [excludedInput, setExcludedInput] = useState("");
-  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(
-    draft?.selectedAgents ? new Set(draft.selectedAgents) : new Set(),
-  );
-  const [chosenFolderIds, setChosenFolderIds] = useState<Set<string>>(
-    draft?.chosenFolderIds ? new Set(draft.chosenFolderIds) : new Set(),
-  );
-  const [projectName, setProjectName] = useState(draft?.projectName ?? "");
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
+  const [chosenFolderIds, setChosenFolderIds] = useState<Set<string>>(new Set());
+  const [projectName, setProjectName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
-  // Persist draft after every meaningful state change.
   useEffect(() => {
+    let cancelled = false;
+    void loadDraft().then((d) => {
+      if (cancelled) return;
+      if (d) {
+        setDraft(d);
+        if (d.step) setStep(d.step);
+        if (d.root) setRoot(d.root);
+        if (d.excluded) setExcluded(d.excluded);
+        if (d.selectedAgents) setSelectedAgents(new Set(d.selectedAgents));
+        if (d.chosenFolderIds) setChosenFolderIds(new Set(d.chosenFolderIds));
+        if (d.projectName) setProjectName(d.projectName);
+      }
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist draft after every meaningful state change. Gated on `hydrated` so
+  // the initial defaults can't overwrite a stored draft before it arrives.
+  useEffect(() => {
+    if (!hydrated) return;
     saveDraft({
       step,
       root,
@@ -108,7 +125,7 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
       chosenFolderIds: [...chosenFolderIds],
       projectName,
     });
-  }, [step, root, excluded, selectedAgents, chosenFolderIds, projectName]);
+  }, [hydrated, step, root, excluded, selectedAgents, chosenFolderIds, projectName]);
 
   const healthQ = useQuery({
     queryKey: ["wizard-health"],
@@ -124,11 +141,14 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
 
   // Pre-select every starter agent the first time the list loads, but only
   // when there was no saved draft (so saved selections aren't overwritten).
+  // Waits for hydration — before it, `draft` is null and a stored selection
+  // would look like "no draft".
   useEffect(() => {
+    if (!hydrated) return;
     if (starter.length > 0 && selectedAgents.size === 0 && !draft?.selectedAgents) {
       setSelectedAgents(new Set(starter.map((a) => a.id)));
     }
-  }, [starter, selectedAgents.size, draft?.selectedAgents]);
+  }, [hydrated, starter, selectedAgents.size, draft?.selectedAgents]);
 
   const scanParams = useMemo(() => {
     const p = new URLSearchParams();
