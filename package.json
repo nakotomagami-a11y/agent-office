@@ -1,6 +1,6 @@
 {
   "name": "agent-office",
-  "version": "0.0.4-beta",
+  "version": "0.0.4",
   "private": true,
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
