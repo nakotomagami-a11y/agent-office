@@ -100,7 +100,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 
 ## Stack
 
-- **Next.js 15** (App Router) + **React 19** + **TypeScript**
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS v4** + custom design system (dark "Obsidian" theme, violet accent `#7c6af5`)
 - **Pixi.js v8** for the isometric office canvas (GPU-accelerated; PixiJS Graphics for procedural path tiles)
 - **`@agent-office/pixel-planets`** — in-house WebGL2 procedural planet renderer; one shared GL context for all project icons
@@ -171,4 +171,16 @@ pnpm --filter @agent-office/web tauri:build
 
 ## Status
 
-Personal project, MIT spirit but no license declared. Not production-grade for shared use - assumes a single local user with `claude` on `$PATH` and a populated `~/.claude/agents/` directory.
+Personal project, still heavily under development. Not production-grade for shared use - assumes a single local user with `claude` on `$PATH` and a populated `~/.claude/agents/` directory.
+
+## License
+
+[GPL-3.0-or-later](LICENSE). The app links against `@agent-office/pixel-icons`, whose generator is GPL-3.0, so the combined work is GPL-3.0-or-later. Two components are separately licensed and remain redistributable on their own terms:
+
+- **`@agent-office/pixel-planets`** — MIT (see `packages/pixel-planets`)
+- **`@agent-office/pixel-icons`** — GPL-3.0-or-later source; the pixel-art icons it *generates* are released as [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+
+## Credits
+
+- **Pixel Planet icons** — WebGL2 port of the [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by [Deep-Fold](https://deep-fold.itch.io/) (MIT).
+- **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0).
