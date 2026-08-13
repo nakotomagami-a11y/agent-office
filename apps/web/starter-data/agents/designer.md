@@ -4,7 +4,7 @@ description: "Concept-first designer — before code, works from a brief. Runs J
 default-model: opus
 default-effort: high
 skills: [alz-grill-me, jul-design-brief, jul-information-architecture, jul-design-tokens, jul-brief-to-tasks, jul-design-review, sp-verification-before-completion]
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash, Grep, mcp__playwright__*]
 permission-mode: bypassPermissions
 room: Design
 ---

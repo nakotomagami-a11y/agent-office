@@ -4,7 +4,7 @@ description: Builds polished, production-quality UI — components, animations, 
 default-model: sonnet
 default-effort: high
 skills: [imp-impeccable, sp-verification-before-completion]
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash, Grep, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 
