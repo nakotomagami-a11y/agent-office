@@ -195,9 +195,6 @@ export function OfficeScene({
     saveState,
     retryLoad,
     retrySave,
-    hasUnsavedBackup,
-    applyBackup,
-    discardBackup,
   } = useOfficeMapSync({
     projectId,
     custom: useCustomMap,
@@ -984,26 +981,6 @@ export function OfficeScene({
               </button>
             </>
           )}
-        </div>
-      )}
-
-      {/* Recover unsaved changes from a previous session — a save that never
-          reached the server. Never applied silently. */}
-      {hasUnsavedBackup && (
-        <div className="absolute left-1/2 top-3 z-50 flex -translate-x-1/2 items-center gap-3 rounded-md bg-[rgba(38,34,31,0.98)] px-4 py-2 shadow-lg">
-          <span className="text-[12px] text-[rgba(244,239,234,0.95)]">Unsaved changes from a previous session were found.</span>
-          <button
-            onClick={applyBackup}
-            className="rounded bg-[rgba(120,160,90,0.9)] px-3 py-1 text-[11px] font-medium text-white hover:bg-[rgba(120,160,90,1)]"
-          >
-            Restore
-          </button>
-          <button
-            onClick={discardBackup}
-            className="rounded bg-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] text-[rgba(220,214,209,0.9)] hover:bg-[rgba(255,255,255,0.14)]"
-          >
-            Discard
-          </button>
         </div>
       )}
 
