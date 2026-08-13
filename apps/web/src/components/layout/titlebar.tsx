@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { useThemeHydration, useThemeStore } from "@/lib/theme-store";
 import { usePerformanceHydration } from "@/lib/performance-store";
+import { useOfficeHydration } from "@/modules/office/hooks/use-office-store";
 import { useIsMaximized } from "@/lib/use-is-maximized";
 import {
   closeWindow,
@@ -48,6 +49,7 @@ export function Titlebar() {
   const toggle = useThemeStore((s) => s.toggle);
   useThemeHydration();
   usePerformanceHydration();
+  useOfficeHydration();
   const maximized = useIsMaximized();
 
   // Sync the current chrome inset (the gap around GnomeWindow + Titlebar)
