@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Agent Office",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "identifier": "com.agentoffice.app",
   "build": {
     "beforeDevCommand": "pnpm exec next dev --port 5173 --turbopack",
