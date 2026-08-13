@@ -2,6 +2,7 @@
   "name": "@agent-office/pixel-planets",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Procedural pixel-art planet renderer using WebGL2 GLSL shaders",
   "main": "./src/index.ts",
