@@ -4,7 +4,7 @@ description: "Implementation-focused coding agent. Reads codebases, writes and e
 default-model: opus
 default-effort: high
 skills: [alz-grill-me, alz-database-schema-designer, sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash, Grep, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 
