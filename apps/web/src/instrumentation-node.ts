@@ -29,23 +29,6 @@ import { logEnvDiagnostics } from "./lib/env";
 // sees them in the boot log.
 logEnvDiagnostics();
 
-// @agent-office/domain/services pulls in better-sqlite3 transitively (it's
-// not a direct dependency of apps/web, just of the workspace package).
-// Turbopack's standalone-build handling of serverExternalPackages doesn't
-// resolve packages reached this way when statically imported from the
-// instrumentation hook (vercel/next.js#68805, #88844): it emits a
-// require() call against a build-generated hashed module name that can
-// never resolve via Node's normal module resolution, no matter what's
-// actually copied onto disk. A dynamic import isn't subject to the same
-// static external-hashing pass.
-let domainServices: typeof import("@agent-office/domain/services") | null = null;
-try {
-  domainServices = await import("@agent-office/domain/services");
-} catch (err) {
-
-  console.warn("[domain-services] failed to load:", err);
-}
-
 const SKILLS_DIR = join(homedir(), ".claude", "agents", "_skills");
 
 function resolveStarterDataDir(): string | null {
@@ -110,7 +93,31 @@ try {
   console.warn("[starter-bootstrap] skipped:", err);
 }
 
-if (domainServices) {
+// @agent-office/domain/services pulls in better-sqlite3 transitively (it's
+// not a direct dependency of apps/web, just of the workspace package).
+// Turbopack's standalone-build handling of serverExternalPackages doesn't
+// resolve packages reached this way when statically imported from the
+// instrumentation hook (vercel/next.js#68805, #88844): it emits a
+// require() call against a build-generated hashed module name that can
+// never resolve via Node's normal module resolution, no matter what's
+// actually copied onto disk. A dynamic import isn't subject to the same
+// static external-hashing pass — but it must NOT be awaited at module top
+// level. Next's own build-time invocation of this hook does not resolve
+// pending top-level promises the way the real runtime server does, and a
+// top-level `await import(...)` here hung `next build` indefinitely (no
+// error, just a frozen build) instead of just failing at request time like
+// the static import did. Fire-and-forget keeps module evaluation
+// synchronous, matching the original code's timing; these are idempotent
+// background housekeeping tasks, not something a request path depends on.
+void (async () => {
+  let domainServices: typeof import("@agent-office/domain/services");
+  try {
+    domainServices = await import("@agent-office/domain/services");
+  } catch (err) {
+
+    console.warn("[domain-services] failed to load:", err);
+    return;
+  }
   const { projects, scheduler, settings } = domainServices;
 
   // Boot-time worktree reconciliation — removes orphan .worktrees/
@@ -133,4 +140,4 @@ if (domainServices) {
 
     console.warn("[scheduler] failed to start:", err);
   }
-}
+})();
