@@ -22,7 +22,7 @@ import * as secrets from "./secrets";
 import { readProject } from "./projects";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "./sleep-inhibit";
 import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent } from "./runs/types";
-import { buildRateLimitEvent, classifyResultError, classifySpawnError } from "./runs/errors";
+import { buildRateLimitEvent, classifyResultError, classifySpawnError, detectRateLimitResult } from "./runs/errors";
 import { detectSubAgentSpawn, stringifyToolResult } from "./runs/subagent-parse";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
@@ -609,7 +609,18 @@ function handleStreamLine(run: LiveRun, line: string): void {
       if (run.aborted) {
         broadcast(run, { name: "error", data: { runId: run.id, code: "stopped", interrupted: true } });
       } else {
-        broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(evt.error ?? "", run.output) } });
+        // A hit session/usage limit often arrives as a plain is_error result
+        // (no structured rate_limit_event). Surface it as a rate-limit card with
+        // a countdown + auto-resume, not a generic red failure.
+        const rateLimit = detectRateLimitResult(evt.error ?? "", run.output);
+        if (rateLimit) {
+          const event = { ...rateLimit, runId: run.id };
+          run.rateLimitResetsAt = event.resetsAt;
+          if (event.resetsAt) db.setRunRateLimitResetsAt(run.id, event.resetsAt);
+          broadcast(run, { name: "rate-limit", data: event });
+        } else {
+          broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(evt.error ?? "", run.output) } });
+        }
       }
     }
   }
