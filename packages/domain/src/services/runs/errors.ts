@@ -3,6 +3,7 @@
 
 import type { RunErrorCode, SseRateLimitEvent } from "../../types/index";
 import type { StreamEvent } from "./types";
+import { parseResetTimeFromMessage } from "./reset-time";
 
 /** Cap error detail so no code path can ever leak a wall of transcript text. */
 export function capDetail(s: string): string | undefined {
@@ -34,6 +35,43 @@ export function classifyResultError(raw: string, output: string): { code: RunErr
   if (AUTH_ERROR_RE.test(text)) return { code: "auth_expired", detail: capDetail(text) };
   const detail = text || output.trim().split("\n").filter(Boolean).at(-1) || "";
   return { code: "unknown", detail: capDetail(detail) };
+}
+
+// Claude's plan/session/usage limit copy, e.g.
+// "You've hit your session limit · resets 9:40am (Africa/Cairo)". The CLI often
+// reports this as a plain `is_error` result (the message streamed as assistant
+// text, with no structured rate_limit_event), so we recognize the copy here and
+// surface a proper rate-limit card + auto-resume instead of a generic failure.
+const LIMIT_TEXT_RE =
+  /\b(?:hit|reached|exceeded)\b[^\n.]*\blimit\b|\b(?:session|usage|weekly|5-?hour)\s+limit\b|\brate[- ]?limit(?:ed)?\b/i;
+
+/**
+ * Detect a rate/usage-limit failure hiding in an `is_error` result. Scans the
+ * CLI error string first, then the run output, for Claude's limit copy. Returns
+ * the exact matching line (capped) plus the parsed reset time in unix seconds,
+ * or null when nothing looks like a limit.
+ */
+export function detectRateLimitResult(
+  raw: string,
+  output: string,
+  now: Date = new Date(),
+): Omit<SseRateLimitEvent, "runId"> | null {
+  const line = firstLimitLine(raw) ?? firstLimitLine(output);
+  if (!line) return null;
+  const resetsMs = parseResetTimeFromMessage(line, now);
+  return {
+    message: capDetail(line) ?? line,
+    resetsAt: resetsMs ? Math.floor(resetsMs / 1000) : undefined,
+    severity: "limit",
+  };
+}
+
+function firstLimitLine(text: string): string | undefined {
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed && LIMIT_TEXT_RE.test(trimmed)) return trimmed;
+  }
+  return undefined;
 }
 
 // Claude CLI stream-json `rate_limit_event.status` values, per Anthropic's

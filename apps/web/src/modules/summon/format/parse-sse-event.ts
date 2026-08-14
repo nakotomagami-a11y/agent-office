@@ -243,7 +243,7 @@ export function applySseEvent(
       };
     })
     .with({ name: "rate-limit" }, ({ data }) => ({
-      thread: closeStreaming([...prev.thread, { kind: "system-rate-limit" as const, id: newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity }]),
+      thread: closeStreaming([...dropTrailingTextEcho(prev.thread, data.message), { kind: "system-rate-limit" as const, id: newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity }]),
       usage: prev.usage,
       done: false,
       error: null,
@@ -260,6 +260,21 @@ function appendTextChunk(thread: ThreadItem[], text: string): ThreadItem[] {
     return [...thread.slice(0, -1), updated];
   }
   return [...thread, { kind: "agent-text", id: newId(), text, streaming: true }];
+}
+
+/**
+ * When a hit-limit is streamed as assistant text ("You've hit your session
+ * limit …") AND then reported as a rate-limit result, the CLI gives us the same
+ * copy twice. Drop the trailing agent-text bubble when it echoes the rate-limit
+ * message so the card is the single source of truth.
+ */
+function dropTrailingTextEcho(thread: ThreadItem[], message: string): ThreadItem[] {
+  const last = thread[thread.length - 1];
+  if (!last || last.kind !== "agent-text") return thread;
+  const a = last.text.trim().replace(/…$/, "").trim();
+  const b = message.trim().replace(/…$/, "").trim();
+  if (!a || !b) return thread;
+  return a === b || a.includes(b) || b.includes(a) ? thread.slice(0, -1) : thread;
 }
 
 function closeStreaming(thread: ThreadItem[]): ThreadItem[] {
