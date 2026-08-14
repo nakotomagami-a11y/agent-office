@@ -16,6 +16,12 @@ export default defineConfig({
         find: /^@agent-office\/shared\/(.+)$/,
         replacement: `${sharedSrc}/$1.ts`,
       },
+      // Subpath imports (e.g. @agent-office/domain/services/runs/reset-time)
+      // must resolve to their source file before the generic package alias.
+      {
+        find: /^@agent-office\/domain\/(.+)$/,
+        replacement: `${sharedSrc}/$1.ts`,
+      },
       {
         find: "@agent-office/domain",
         replacement: path.join(sharedSrc, "index.ts"),
