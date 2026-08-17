@@ -273,14 +273,41 @@ async function pLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<
   return results;
 }
 
-export async function fetchRegistry(force = false): Promise<RegistrySkill[]> {
-  const cached = loadCachedRegistry();
-  if (!force && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    return cached.entries.map((e) => ({
-      ...e,
-      tags: e.tags?.length ? e.tags : deriveTags(e.source, e.name, e.description, e.path),
-      installed: isInstalled(e.name),
-    }));
+/** Re-derive volatile fields (tags, installed state) on a cached entry set. */
+function hydrate(entries: RegistrySkill[]): RegistrySkill[] {
+  return entries.map((e) => ({
+    ...e,
+    tags: e.tags?.length ? e.tags : deriveTags(e.source, e.name, e.description, e.path),
+    installed: isInstalled(e.name),
+  }));
+}
+
+// One network refresh at a time; concurrent callers (a blocking cold fetch, a
+// background revalidate) coalesce onto the same promise.
+let refreshInFlight: Promise<RegistrySkill[]> | null = null;
+
+function startRefresh(prev: CachedRegistry | null): Promise<RegistrySkill[]> {
+  if (refreshInFlight) return refreshInFlight;
+  const p = refreshRegistry(prev).finally(() => {
+    if (refreshInFlight === p) refreshInFlight = null;
+  });
+  refreshInFlight = p;
+  return p;
+}
+
+/**
+ * Hit GitHub and rebuild the registry. Descriptions are reused from the
+ * previous cache keyed by git blob SHA: a SKILL.md's content is uniquely
+ * identified by its SHA, so an unchanged skill needs no network fetch. A cold
+ * start fetches every description (~one request per skill); every refresh after
+ * that fetches only what actually changed — usually a handful of tree calls.
+ */
+async function refreshRegistry(prev: CachedRegistry | null): Promise<RegistrySkill[]> {
+  const descBySha = new Map<string, string>();
+  for (const e of prev?.entries ?? []) {
+    // Only reuse non-empty descriptions so a transient fetch failure (stored as
+    // "") is retried next refresh instead of being cached forever.
+    if (e.sha && e.description) descBySha.set(e.sha, e.description);
   }
 
   const out: RegistrySkill[] = [];
@@ -294,12 +321,14 @@ export async function fetchRegistry(force = false): Promise<RegistrySkill[]> {
       const results = await pLimit(skillBlobs, 5, async (blob) => {
         const dirPath = blob.path.slice(0, -"/SKILL.md".length);
         const rawName = dirPath.split("/").pop() ?? dirPath;
-        let description = "";
-        try {
-          const content = await fetchSkillMd(src.source, src.ref, blob.path);
-          description = parseFrontmatterDescription(content);
-        } catch (e) {
-          log.warn("registry.fetch_skill_failed", { path: blob.path, err: String(e) });
+        let description = descBySha.get(blob.sha) ?? "";
+        if (!description) {
+          try {
+            const content = await fetchSkillMd(src.source, src.ref, blob.path);
+            description = parseFrontmatterDescription(content);
+          } catch (e) {
+            log.warn("registry.fetch_skill_failed", { path: blob.path, err: String(e) });
+          }
         }
         return {
           source: src.source,
@@ -332,6 +361,26 @@ export async function fetchRegistry(force = false): Promise<RegistrySkill[]> {
   out.sort((a, b) => a.name.localeCompare(b.name));
   saveCachedRegistry({ fetchedAt: Date.now(), entries: out });
   return out;
+}
+
+export async function fetchRegistry(force = false): Promise<RegistrySkill[]> {
+  const cached = loadCachedRegistry();
+  const fresh = !!cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS;
+
+  if (!force && cached) {
+    // Stale-while-revalidate: serve the cache instantly and, if it's past the
+    // TTL, refresh in the background so the *next* load is fresh. The request
+    // itself never blocks on GitHub.
+    if (!fresh) {
+      startRefresh(cached).catch((e) =>
+        log.warn("registry.background_refresh_failed", { err: String(e) }),
+      );
+    }
+    return hydrate(cached.entries);
+  }
+
+  // No cache yet, or an explicit refresh: block on the network this once.
+  return startRefresh(cached);
 }
 
 export async function installSkill(
