@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { escapeHtml as esc } from "@/lib/markdown";
 
@@ -150,19 +150,34 @@ export type CodeEditorProps = {
   lang?: string;
   showPreview?: boolean;
   className?: string;
+  /**
+   * Optional preview renderer. When provided, the Preview tab renders this
+   * instead of the built-in inline-styled `renderMd`. Lets callers inject a
+   * richer markdown renderer (e.g. full GFM with tables) without CodeEditor
+   * depending on app modules.
+   */
+  renderPreview?: (value: string) => React.ReactNode;
+  /**
+   * Read-only view: the textarea can't be edited, and the editor opens on the
+   * Preview tab (formatted) by default. Keeps the same framed chrome so a
+   * read-only doc/skill looks identical to the editable memory editors.
+   */
+  readOnly?: boolean;
 };
 
 // px per logical line: 12.5px font-size × 1.6 line-height = 20px
 const LINE_PX = 20;
 const PAD_PX  = 24; // 12px top + 12px bottom
+const GUTTER_PX = 44; // left padding reserved for the line-number column
 
 // These styles are applied identically to both the <pre> and <textarea>
-// so their character grid aligns pixel-perfectly.
+// so their character grid aligns pixel-perfectly. Left padding reserves the
+// gutter column; the numbers live in the <pre>'s left padding (see preHtml).
 const LAYER: React.CSSProperties = {
   position: "absolute",
   top: 0, right: 0, bottom: 0, left: 0,
   margin: 0,
-  padding: "12px 14px",
+  padding: `12px 14px 12px ${GUTTER_PX}px`,
   fontFamily: "var(--font-mono)",
   fontSize: "12.5px",
   lineHeight: "1.6",
@@ -181,19 +196,53 @@ export function CodeEditor({
   lang = "markdown",
   showPreview = true,
   className,
+  renderPreview,
+  readOnly = false,
 }: CodeEditorProps) {
-  const [view, setView] = useState<"write" | "preview">("write");
+  const [view, setView] = useState<"write" | "preview">(readOnly ? "preview" : "write");
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [measuredH, setMeasuredH] = useState(0);
   const lines   = value.split("\n");
-  const editorH = Math.max(minHeight, lines.length * LINE_PX + PAD_PX);
+  // The logical-line estimate (lines × LINE_PX) undercounts when long lines
+  // soft-wrap, which clipped the bottom of wrapped content in Write view (the
+  // textarea's overflow is hidden and the container height is fixed). Measure
+  // the textarea's true scrollHeight and grow to whichever is larger.
+  const editorH = Math.max(minHeight, lines.length * LINE_PX + PAD_PX, measuredH);
+
+  useEffect(() => {
+    const ta = taRef.current;
+    if (view !== "write" || !ta) return;
+    const measure = () => setMeasuredH(ta.scrollHeight);
+    measure();
+    // Re-measure when the textarea's width changes (wrapping shifts) or content
+    // grows — ResizeObserver covers panel/window resizes the deps miss.
+    const ro = new ResizeObserver(measure);
+    ro.observe(ta);
+    return () => ro.disconnect();
+  }, [value, view]);
 
   // When empty, the <pre> layer renders the placeholder so the transparent
   // textarea doesn't need to show its own (which can't be coloured reliably
   // when -webkit-text-fill-color is transparent).
-  const preHtml = value
-    ? highlightMd(value)
-    : placeholder
-    ? `<span style="color:var(--txt-3)">${esc(placeholder)}</span>\n`
-    : "\n";
+  //
+  // highlightMd emits one entry per source line (no internal newlines), joined
+  // by "\n" with a trailing "\n". We split it back to per-line HTML and wrap
+  // each line in a block that carries its own number, absolutely positioned in
+  // the reserved left padding. Because the numbers ride the same wrapping flow
+  // as the text, they stay aligned with wrapped lines and always reach the
+  // bottom — unlike a fixed-line-height gutter column.
+  const htmlLines = value
+    ? highlightMd(value).replace(/\n$/, "").split("\n")
+    : [placeholder ? `<span style="color:var(--txt-3)">${esc(placeholder)}</span>` : "&nbsp;"];
+  const preHtml = htmlLines
+    .map(
+      (h, i) =>
+        `<div style="position:relative">` +
+        `<span style="position:absolute;left:-${GUTTER_PX - 8}px;width:${GUTTER_PX - 18}px;text-align:right;font-size:11px;line-height:${LINE_PX}px;color:var(--txt-3)">${i + 1}</span>` +
+        (h || "&nbsp;") +
+        `</div>`,
+    )
+    .join("");
 
   return (
     <div className={cn("flex flex-col overflow-hidden border border-line rounded-[var(--r-md)] bg-bg-2", className)}>
@@ -224,57 +273,58 @@ export function CodeEditor({
       </div>
 
       {view === "write" ? (
-        <div className="flex" style={{ height: editorH }}>
-          {/* ── Gutter ── */}
+        /*
+         * Overlay stack
+         * ─────────────
+         * A full-height gutter band sits behind the <pre>; the line numbers
+         * themselves live inside the <pre>'s reserved left padding (see
+         * preHtml) so they ride the same wrapping flow as the text — staying
+         * aligned with wrapped lines and always reaching the bottom.
+         *
+         * <pre>      z:0  – renders the syntax-coloured HTML + numbers (visual)
+         * <textarea> z:1  – transparent text + caret, handles all interaction
+         *
+         * Both are position:absolute filling the same box with identical
+         * font/padding so their characters align. -webkit-text-fill-color is
+         * used alongside color:transparent because some browsers honour
+         * fill-color for textarea text even when `color` is transparent.
+         */
+        <div className="relative" style={{ height: editorH }}>
+          {/* Gutter fill is a token (--ao-gutter), not flat black, so it stays
+              legible per-theme. */}
           <div
             aria-hidden
-            /* Gutter fill is a token, not a flat 15% black: on the dark
-               theme that wash is a subtle inset, but over a light editor it
-               renders as a mid-grey band that drags the line numbers down to
-               2.6:1. --ao-gutter carries a per-theme value. */
-            className="w-[44px] shrink-0 bg-[var(--ao-gutter)] border-r border-r-[var(--line)] pt-[12px] pb-[12px] pl-[8px] pr-[10px] font-[var(--font-mono)] text-[11.5px] leading-[1.6] text-right text-[var(--txt-3)] select-none"
-          >
-            {lines.map((_, i) => <div key={i}>{i + 1}</div>)}
-          </div>
-
-          {/*
-           * Overlay stack
-           * ─────────────
-           * Both <pre> and <textarea> are position:absolute filling the same
-           * container, with identical font/padding so their characters align.
-           *
-           * <pre>      z:0  – renders the syntax-coloured HTML (visual only)
-           * <textarea> z:1  – transparent text + caret, handles all interaction
-           *
-           * -webkit-text-fill-color is used alongside color:transparent because
-           * some browsers honour fill-color for textarea text rendering even
-           * when the inherited `color` property is transparent.
-           */}
-          <div className="relative flex-1 min-w-0">
-            <pre
-              aria-hidden
-              dangerouslySetInnerHTML={{ __html: preHtml }}
-              className="text-txt pointer-events-none"
-              style={{ ...LAYER, zIndex: 0 }}
-            />
-            <textarea
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              spellCheck={false}
-              style={{
-                ...LAYER,
-                zIndex: 1,
-                color: "transparent",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                WebkitTextFillColor: "transparent" as any,
-                caretColor: "var(--txt)",
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                resize: "none",
-              }}
-            />
-          </div>
+            className="absolute left-0 top-0 bottom-0 w-[44px] bg-[var(--ao-gutter)] border-r border-r-[var(--line)] pointer-events-none"
+          />
+          <pre
+            aria-hidden
+            dangerouslySetInnerHTML={{ __html: preHtml }}
+            className="text-txt pointer-events-none"
+            style={{ ...LAYER, zIndex: 0 }}
+          />
+          <textarea
+            ref={taRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            readOnly={readOnly}
+            spellCheck={false}
+            style={{
+              ...LAYER,
+              zIndex: 1,
+              color: "transparent",
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              WebkitTextFillColor: "transparent" as any,
+              caretColor: "var(--txt)",
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              resize: "none",
+            }}
+          />
+        </div>
+      ) : renderPreview ? (
+        <div style={{ minHeight, padding: "18px 22px", overflow: "auto" }}>
+          {renderPreview(value)}
         </div>
       ) : (
         <div
