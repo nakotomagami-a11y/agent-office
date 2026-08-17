@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AgentListGhost } from "./agent-list-ghost";
@@ -282,6 +282,25 @@ function AgentCard({
   const unit = unitForAgent(agent.name, agent.unit);
   const category = categorize(agent);
   const catColor = categoryColor(category);
+
+  // Clamp long ABOUT text to 3 lines with a Read more/less toggle. `overflowing`
+  // is measured (scrollHeight vs the clamped clientHeight) so the button only
+  // appears when the text is actually truncated, and re-measured on resize.
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    const measure = () => {
+      if (expanded) return;
+      setOverflowing(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [agent.description, expanded]);
   const modelColor =
     (agent.defaultModel ?? "").includes("haiku") ? "var(--done)" :
     (agent.defaultModel ?? "").includes("opus") ? "#ffcb6b" :
@@ -325,9 +344,25 @@ function AgentCard({
 
       <div className="border border-line bg-bg-1 relative rounded-[10px] p-[10px_12px]">
         <div className="flex items-center gap-[6px] text-txt-3 uppercase font-[var(--font-mono)] text-[9.5px] tracking-[0.1em] mb-[4px]">about</div>
-        <div className={cn("text-txt font-[var(--font-mono)] text-[12.5px] leading-[1.5]", !agent.description && "text-txt-3")}>
+        <div
+          ref={descRef}
+          className={cn(
+            "text-txt font-[var(--font-mono)] text-[12.5px] leading-[1.5]",
+            !expanded && "line-clamp-3",
+            !agent.description && "text-txt-3",
+          )}
+        >
           {agent.description || t("agent_list.description_empty")}
         </div>
+        {overflowing && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+            className="mt-[5px] font-[var(--font-mono)] text-[10.5px] text-acc hover:underline cursor-pointer"
+          >
+            {expanded ? "Read less" : "Read more"}
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-[10px] border-t border-line pt-[10px] mt-auto">
