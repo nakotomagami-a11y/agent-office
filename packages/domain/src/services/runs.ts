@@ -783,6 +783,21 @@ function finalizeSubAgentFromResult(
 
 function finalizeRun(run: LiveRun, exitCode: number): void {
   if (run.status !== "running") return;
+
+  // Auth failures (expired/unrefreshable OAuth) make the CLI print to stderr and
+  // exit non-zero *before* emitting any stream-json result event, so the
+  // result-error classification (which needs that event) never runs — the run
+  // would surface as a generic error with no way to re-authenticate. Detect it
+  // from stderr here and broadcast the auth card, which offers in-app Sign in.
+  // Gated on empty output so it can't double up with the result-event path,
+  // which always has streamed output by the time a result arrives.
+  if (exitCode !== 0 && !run.aborted && run.output.trim() === "") {
+    const cls = classifyResultError(run.stderrBuf, run.output);
+    if (cls.code === "auth_expired") {
+      broadcast(run, { name: "error", data: { runId: run.id, ...cls } });
+    }
+  }
+
   run.status = exitCode === 0 ? "done" : "error";
   run.exitCode = exitCode;
   run.finishedAt = Date.now();
