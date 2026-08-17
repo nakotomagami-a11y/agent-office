@@ -23,15 +23,19 @@
 export type PlanetType =
   | "gas-giant"
   | "rocky"
-  | "dry"
   | "terran"
+  | "ringed-terran"
+  | "toxic"
   | "ice"
   | "islands"
   | "lava"
+  | "ice-moon"
+  | "eclipse"
   | "black-hole"
   | "galaxy"
   | "star"
-  | "asteroid";
+  | "asteroid"
+  | "comet";
 
 /**
  * Serialisable planet configuration. Safe to store in JSON / YAML / a database.
@@ -82,6 +86,46 @@ export interface PlanetConfig {
    * palette needed at render time.
    */
   customPalette?: [number, number, number][][];
+
+  /**
+   * Per-type tunable parameters, keyed by `PlanetParamDef.key`. Values are in
+   * the intuitive "more of the named thing" units the editor slider shows —
+   * `getPlanetParams` applies each `PlanetParamDef` (including its `invert`
+   * flag) to translate them into the underlying shader field. Unknown keys are
+   * ignored, so switching type and back never corrupts the render.
+   */
+  params?: Record<string, number>;
+}
+
+/**
+ * Describes one adjustable knob for a planet type (rendered as a slider).
+ *
+ * Each def maps onto a single field of one layer template. `min`/`max`/`default`
+ * are expressed in intuitive units (higher = more of the thing the label names).
+ * When `invert` is set the stored slider value `v` is translated to the shader
+ * field as `(min + max) - v` — needed because several shader cutoffs run
+ * backwards (e.g. a higher `cloudCover` means *fewer* clouds).
+ */
+export interface PlanetParamDef {
+  key: string;
+  label: string;
+  /** Index into the type's LAYER_TEMPLATES array. */
+  layer: number;
+  /** Which numeric field of that layer this knob drives. */
+  field: "cloudCover" | "riverCutoff" | "landCutoff" | "glow";
+  min: number;
+  max: number;
+  step: number;
+  /** Slider default, in intuitive units. */
+  default: number;
+  /** Reverse slider direction relative to the raw shader field. */
+  invert?: boolean;
+  /**
+   * Denominator for the editor's % readout (default `max`). Lets the slider cap
+   * at `max` while displaying an absolute percentage — e.g. glow caps at
+   * max 0.56 but with displayMax 1.0 the readout tops out at 56%, not 100%.
+   */
+  displayMax?: number;
 }
 
 // Internal render types (derived from PlanetConfig by getPlanetParams)
@@ -104,7 +148,17 @@ export type ShaderName =
   | "galaxy"         // tilted spiral disc (freeform)
   | "star-blobs"     // blob corona around the star body (freeform)
   | "star-main"      // Voronoi-cell star surface
-  | "star-flares";   // spiky solar flares (freeform)
+  | "star-flares"    // spiky solar flares (freeform)
+  | "atmo-glow"      // atmospheric corona hugging the planet edge (freeform)
+  | "eclipse-corona" // eclipse ring of fire + streamers + diamond bead (freeform)
+  | "atmo-ring"      // transparent, fbm-distorted tilted ring (freeform)
+  | "embers"         // floating spark particles around the planet (freeform)
+  | "debris"         // scattered rock chunks orbiting the planet (freeform)
+  | "comet-tail"     // directional fiery trail streaming off the planet (freeform)
+  | "explosions"     // bright eruption flashes blooming across a molten surface
+  | "ejecta"         // fiery eruption plumes flung outward off a molten rim
+  | "fracture"       // impact-shattered plates with glowing molten fissures
+  | "shade";         // spherical terminator + limb darkening overlay (depth)
 
 /**
  * A single compositing layer ready to upload to the GPU.
@@ -134,6 +188,12 @@ export interface PlanetLayer {
    * ocean that the layer below shows through).
    */
   landCutoff?: number;
+
+  /**
+   * atmo-glow / atmo-ring: intensity/opacity multiplier (default 1.0). Exposed
+   * as the "Glow" slider on toxic-style types.
+   */
+  glow?: number;
 
   /**
    * Multiplied against global elapsed seconds before being passed to the
@@ -181,4 +241,17 @@ export interface PlanetParams {
    * - 3 × — black hole (ring extends to ~1.5 × the disc radius)
    */
   canvasScale: number;
+
+  /**
+   * Disc shrink factor for terrain/gas/gas-ring layers on an oversized canvas
+   * (canvasScale > 1). The planet disc radius is `(1/(canvasScale*2)) * discShrink`.
+   *
+   * - 0.7 — gas-giant / ringed-terran: shrink the body to leave room for a wide
+   *         Saturn-style ring far outside it.
+   * - 1.0+ — toxic: keep the body near full size so a close-hugging corona/ring
+   *          sits right against the surface (the "slightly bigger planet" look).
+   *
+   * Ignored at canvasScale = 1 (disc always fills the canvas there).
+   */
+  discShrink: number;
 }
