@@ -5,6 +5,7 @@ import { Portal } from "@/components/ui/portal";
 import { useOfficeAgents } from "../../hooks/use-office-agents";
 import { useOfficeStore, type AgentTab } from "../../hooks/use-office-store";
 import { ChatPanel } from "@/modules/summon/components/chat-panel";
+import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
 import { HistoryTab } from "./tabs/history-tab";
@@ -23,6 +24,7 @@ import { toast } from "@/lib/toast-store";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { AgentStrip } from "./agent-strip";
+import { ProjectActionsMenu } from "../office-toolbar";
 import { useSettings } from "@/modules/settings/hooks/use-settings";
 import { formatAgentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
@@ -106,7 +108,7 @@ function InstanceCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-[6px] font-mono text-[13px] font-semibold text-ao-fg-0">
-            <span className="shrink-0">#{index + 1}</span>
+            <span className="shrink-0">Session {index + 1}</span>
             {instance.label && (
               <>
                 <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
@@ -438,6 +440,20 @@ export function AgentDetailsModal() {
 
   const isWorking = effectiveStatus === "working" || effectiveStatus === "thinking";
 
+  // Status bubble shown inline with the agent name in the header.
+  const statusDot = (
+    <span
+      className={cn(
+        "inline-block w-[9px] h-[9px] rounded-full shrink-0",
+        isWorking
+          ? "bg-[var(--ao-ok)] shadow-[0_0_6px_var(--ao-ok)] animate-[ao-pulse_1.5s_infinite]"
+          : "bg-[var(--ao-fg-3)]",
+      )}
+      title={isWorking ? "working" : "idle"}
+      aria-hidden
+    />
+  );
+
   // usage stream reserved for future use
 
   // Breadcrumb: instance index + label for the currently selected instance
@@ -534,12 +550,7 @@ export function AgentDetailsModal() {
           {/* ── Agent header ── */}
           <div className="flex items-center gap-[14px] px-6 h-[84px] border-b border-ao-line-1 bg-gradient-to-b from-white/[0.015] to-transparent shrink-0">
             <div className="relative shrink-0 w-[40px] h-[70px] flex items-center justify-center">
-              <UnitSprite unit={agent.unitChoice} size={70} label={agent.name} animate action={isWorking ? "working" : "idle"} />
-              <span className={`absolute right-[-2px] bottom-0 mb-2 w-[12px] h-[12px] rounded-full border-2 border-[var(--ao-bg-1)] ${
-                isWorking
-                  ? "bg-[var(--ao-ok)] shadow-[0_0_6px_var(--ao-ok)] animate-[ao-pulse_1.5s_infinite]"
-                  : "bg-[var(--ao-fg-3)]"
-              }`} />
+              <UnitSprite unit={agent.unitChoice} size={70} label={agent.name} animate action={isWorking ? "attack" : "idle"} />
             </div>
             <div className="flex flex-col gap-0.5 min-w-0">
               {/* Breadcrumb: agent name › #N label — only when multi-instance */}
@@ -555,7 +566,7 @@ export function AgentDetailsModal() {
                   </button>
                   <span className="text-ao-fg-3 shrink-0" aria-hidden>›</span>
                   <span className="text-ao-fg-0 shrink-0">
-                    #{selectedInstIdx + 1}
+                    Session {selectedInstIdx + 1}
                   </span>
                   {selectedInst.label && (
                     <>
@@ -563,11 +574,15 @@ export function AgentDetailsModal() {
                       <span className="text-ao-fg-1 truncate">{selectedInst.label}</span>
                     </>
                   )}
+                  {statusDot}
                 </div>
               ) : (
-                <div className="font-bold text-base text-ao-fg-0">{formatAgentDisplayName(agent.name)}</div>
+                <div className="flex items-center gap-[7px] min-w-0">
+                  <span className="font-bold text-base text-ao-fg-0 truncate">{formatAgentDisplayName(agent.name)}</span>
+                  {statusDot}
+                </div>
               )}
-              <div className="flex items-center gap-1 text-ao-fg-2 font-mono text-[12px]">
+              <div className="flex items-center gap-[10px] text-ao-fg-2 font-mono text-[12px]">
                 <DropdownMenu
                   align="start"
                   ariaLabel="Model"
@@ -585,7 +600,6 @@ export function AgentDetailsModal() {
                     onSelect: () => void applyRuntime({ model: m }),
                   }))}
                 />
-                <span className="w-[3px] h-[3px] bg-ao-fg-3 rounded-full" />
                 <DropdownMenu
                   align="start"
                   ariaLabel="Effort"
@@ -606,6 +620,8 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
+              {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
               {/* Alt+← / Alt+→ navigator when multi-instance */}
               {isMultiAgentSelected && (
                 <div className="flex items-center gap-[2px] mr-1">
@@ -714,6 +730,7 @@ export function AgentDetailsModal() {
           <div className="ao-modal-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-color:var(--ao-bg-4)_transparent] [scrollbar-width:thin] relative flex flex-col">
             {tab === "conversation" && (
               <ChatPanel
+                key={transcriptKey(agent.id, selectedInstanceId)}
                 agent={agent}
                 projectId={activeProjectId ?? undefined}
                 instanceId={selectedInstanceId ?? undefined}
