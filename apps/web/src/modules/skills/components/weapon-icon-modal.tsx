@@ -5,7 +5,8 @@ import type { IconConfig, IconClassSelector } from "@agent-office/pixel-icons";
 import { createRandomSeed } from "@agent-office/pixel-icons";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { Button } from "@/components/ui/button";
+import { TextInput } from "@/components/ui/text-input";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 
 const WEAPON_TYPES: { value: IconClassSelector; label: string }[] = [
@@ -48,21 +49,13 @@ export function WeaponIconModal({ open, name, current, onSave, onClose }: Weapon
       maxWidth={460}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center px-4 py-[7px] rounded-[8px] text-[13px] font-medium text-txt-2 bg-transparent border border-line hover:bg-bg-3 hover:text-txt transition-colors"
-          >
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className={`inline-flex items-center gap-[6px] px-4 py-[7px] rounded-[8px] text-[13px] font-semibold ${ACCENT_BTN} transition-colors cursor-pointer`}
-          >
+          </Button>
+          <Button variant="primary" onClick={handleSave}>
             <Icon name="check" size={13} />
             Save
-          </button>
+          </Button>
         </>
       }
     >
@@ -109,20 +102,19 @@ export function WeaponIconModal({ open, name, current, onSave, onClose }: Weapon
           <div>
             <div className="text-[9px] font-mono text-txt-3 uppercase tracking-wide mb-[5px]">Seed</div>
             <div className="flex items-center gap-[6px]">
-              <input
-                type="text"
+              <TextInput
                 value={draft.seed}
                 onChange={(e) => setDraft((d) => ({ ...d, seed: e.target.value }))}
-                className="flex-1 min-w-0 bg-bg-3 border border-line text-txt text-[11px] font-mono rounded-[6px] px-[8px] py-[4px] outline-none focus:border-line-2"
+                className="flex-1 min-w-0 font-mono"
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={() => setDraft((d) => ({ ...d, seed: createRandomSeed() }))}
-                className="shrink-0 inline-flex items-center gap-[4px] px-[8px] py-[4px] rounded-[6px] text-[11px] font-semibold text-txt-2 bg-bg-3 border border-line hover:bg-[rgba(255,255,255,0.06)] hover:text-txt transition-colors cursor-pointer"
+                className="shrink-0"
               >
                 <Icon name="refresh" size={10} />
                 Random
-              </button>
+              </Button>
             </div>
           </div>
         </div>
