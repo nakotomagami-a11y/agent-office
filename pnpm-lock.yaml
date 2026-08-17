@@ -6956,7 +6956,7 @@ snapshots:
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.15
+      postcss: 8.5.23
       rolldown: 1.0.2
       tinyglobby: 0.2.16
     optionalDependencies:
