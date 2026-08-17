@@ -217,6 +217,8 @@ interface TreeEntry {
   path: string;
   type: string;
   sha: string;
+  /** Blob byte size (present for type === "blob" in the GitHub tree API). */
+  size?: number;
 }
 
 async function fetchTree(source: string, ref: string): Promise<TreeEntry[]> {
@@ -337,6 +339,7 @@ async function refreshRegistry(prev: CachedRegistry | null): Promise<RegistrySki
           description,
           path: dirPath,
           sha: blob.sha,
+          size: blob.size,
         };
       });
 
@@ -349,6 +352,7 @@ async function refreshRegistry(prev: CachedRegistry | null): Promise<RegistrySki
           description: r.description,
           path: r.path,
           sha: r.sha,
+          size: r.size,
           tags: deriveTags(r.source, r.rawName, r.description, r.path),
           installed: isInstalled(name),
         });

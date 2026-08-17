@@ -198,7 +198,7 @@
     "sub": "· local-only configuration"
   },
   "skills_page": {
-    "sub": "· browse and install agent capability packages"
+    "sub": "· forge, import, and equip agent capabilities"
   },
   "run": {
     "title": "Run"
@@ -583,18 +583,54 @@
     "bad_request": "Bad request.",
     "missing_file": "Choose a file first.",
     "run": {
-      "interrupted": { "title": "Run interrupted", "body": "You can pick the task back up now, or schedule it to resume later." },
-      "auth_expired": { "title": "Sign-in required", "body": "This agent's Claude session expired. Sign in again to keep going — no terminal needed." },
-      "worktree_missing": { "title": "Worktree missing", "body": "This agent's git worktree is gone. Repair it, then retry." },
-      "claude_unavailable": { "title": "Claude unavailable", "body": "The Claude CLI isn't available on this machine." },
-      "secret_invalid": { "title": "Secret check failed", "body": "A required secret failed its live check, so the run was blocked." },
-      "unknown_agent": { "title": "Agent unavailable", "body": "This agent or instance no longer exists." },
-      "max_runtime": { "title": "Run timed out", "body": "The run exceeded the maximum runtime of 4 hours." },
-      "spawn_failed": { "title": "Couldn't start", "body": "The Claude process failed to start." },
-      "no_output": { "title": "No response", "body": "The run ended without producing a response. Try sending your message again." },
-      "server_restart": { "title": "Response unavailable", "body": "The server may have restarted mid-run. Retry to try again." },
-      "start_failed": { "title": "Couldn't start the run", "body": "Something went wrong starting this run." },
-      "unknown": { "title": "Run error", "body": "The agent hit an error." }
+      "interrupted": {
+        "title": "Run interrupted",
+        "body": "You can pick the task back up now, or schedule it to resume later."
+      },
+      "auth_expired": {
+        "title": "Sign-in required",
+        "body": "This agent's Claude session expired. Sign in again to keep going — no terminal needed."
+      },
+      "worktree_missing": {
+        "title": "Worktree missing",
+        "body": "This agent's git worktree is gone. Repair it, then retry."
+      },
+      "claude_unavailable": {
+        "title": "Claude unavailable",
+        "body": "The Claude CLI isn't available on this machine."
+      },
+      "secret_invalid": {
+        "title": "Secret check failed",
+        "body": "A required secret failed its live check, so the run was blocked."
+      },
+      "unknown_agent": {
+        "title": "Agent unavailable",
+        "body": "This agent or instance no longer exists."
+      },
+      "max_runtime": {
+        "title": "Run timed out",
+        "body": "The run exceeded the maximum runtime of 4 hours."
+      },
+      "spawn_failed": {
+        "title": "Couldn't start",
+        "body": "The Claude process failed to start."
+      },
+      "no_output": {
+        "title": "No response",
+        "body": "The run ended without producing a response. Try sending your message again."
+      },
+      "server_restart": {
+        "title": "Response unavailable",
+        "body": "The server may have restarted mid-run. Retry to try again."
+      },
+      "start_failed": {
+        "title": "Couldn't start the run",
+        "body": "Something went wrong starting this run."
+      },
+      "unknown": {
+        "title": "Run error",
+        "body": "The agent hit an error."
+      }
     }
   },
   "workflows": {
