@@ -31,13 +31,14 @@ export const settingsScanQuerySchema = z.object({
 const rgbTriple = z.tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)]);
 
 const planetConfigSchema = z.object({
-  type: z.enum(["gas-giant", "rocky", "dry", "terran", "ice", "islands", "lava", "black-hole", "galaxy", "star", "asteroid"]),
+  type: z.enum(["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"]),
   seed: z.number().int(),
   paletteIdx: z.number().int().min(0),
   pixels: z.number().int().min(10).max(1000).optional(),
   rotation: z.number().optional(),
   dither: z.boolean().optional(),
   customPalette: z.array(z.array(rgbTriple)).optional(),
+  params: z.record(z.string(), z.number()).optional(),
 });
 
 export const projectMetaPatchSchema = z.object({
