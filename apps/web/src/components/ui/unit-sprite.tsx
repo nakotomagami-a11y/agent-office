@@ -23,7 +23,7 @@ export type UnitSpriteProps = {
   /** Which action sheet to play. Each named action requires the kind to
    *  declare the matching sheet in UNIT_DEFS (pawn does); otherwise the
    *  sprite gracefully falls back to idle. */
-  action?: "idle" | "working" | "axe" | "hammer" | "pickaxe" | "knife";
+  action?: "idle" | "working" | "attack" | "axe" | "hammer" | "pickaxe" | "knife";
   /** Mirror horizontally - used when the contextual target (e.g. a tree
    *  being chopped) is on the pawn's left rather than its default right. */
   flip?: boolean;
@@ -66,7 +66,8 @@ export function UnitSprite({
   let frames = 1;
   if (def) {
     let sheetPreview = def.idle;
-    if (action === "working") sheetPreview = def.run;
+    if (action === "attack") sheetPreview = def.attack ?? def.run;
+    else if (action === "working") sheetPreview = def.run;
     else if (action === "axe"     && def.axe)     sheetPreview = def.axe;
     else if (action === "hammer"  && def.hammer)  sheetPreview = def.hammer;
     else if (action === "pickaxe" && def.pickaxe) sheetPreview = def.pickaxe;
@@ -98,7 +99,12 @@ export function UnitSprite({
   // if a future rule routes an unsupported action their way.
   let sheet = def.idle;
   let state: UnitSheetState = "idle";
-  if (action === "working") {
+  if (action === "attack") {
+    // Prefer the signature attack sheet; fall back to run so kinds without one
+    // (pawn) still animate instead of freezing on idle.
+    if (def.attack) { sheet = def.attack; state = "attack"; }
+    else { sheet = def.run; state = "run"; }
+  } else if (action === "working") {
     sheet = def.run;
     state = "run";
   } else if (action === "axe" && def.axe) {

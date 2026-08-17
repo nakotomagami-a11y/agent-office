@@ -40,6 +40,11 @@ interface UnitDef {
   /** Sheep-shearing / knife animation. Pawn-only; routed when an agent
    *  is co-located with a sheep decoration while working. */
   knife?: SheetSpec;
+  /** Combat / signature action sheet — warrior sword swing, archer shoot,
+   *  monk heal, lancer spear thrust. Used as the "working" animation in
+   *  headers where present. Absent on the pawn (which has the tool anims
+   *  above as its working states). Right-facing, same frame box as idle/run. */
+  attack?: SheetSpec;
   /**
    * Character bounding box inside one frame, in native sprite pixels. We crop
    * to this region so the avatar shows the character, not the empty padding
@@ -88,6 +93,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     frameH: 192,
     idle: { frames: 8 },
     run: { frames: 6 },
+    attack: { frames: 8 }, // Warrior_Attack1 + Attack2 combo (1536x192): swings 1→2 then loops
     // Pixel-verified across every idle + run frame (native 192x192): content
     // spans y:46-136, x:53-145. The old shared {56,56,80,112} box put the top
     // 10px below the head's actual highest point, so the head clipped
@@ -100,6 +106,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     frameH: 192,
     idle: { frames: 6 },
     run: { frames: 4 },
+    attack: { frames: 8 }, // Archer_Shoot (1536x192)
     // Pixel-verified across every idle + run frame: content spans y:46-135,
     // x:56-129 — same head-clipping issue as warrior, same fix.
     bbox: { x: 56, y: 46, w: 73, h: 89 },
@@ -110,6 +117,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     frameH: 192,
     idle: { frames: 6 },
     run: { frames: 4 },
+    attack: { frames: 11 }, // Monk Heal (2112x192)
     // Pixel-verified across every idle + run frame: content spans y:63-133,
     // x:55-137 — same undersized/floating issue as pawn, same fix.
     bbox: { x: 55, y: 63, w: 82, h: 70 },
@@ -120,6 +128,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     frameH: 320,
     idle: { frames: 12 },
     run: { frames: 6 },
+    attack: { frames: 3 }, // Lancer_Right_Attack (960x320 → 3 frames @320)
     // bbox.x/w are pixel-verified to the character's body only (helmet to
     // boots, x:128-183 in the native 320x320 frame) so `bodyCenterX` centres
     // on the human, not the spear. bbox.h stays the old spear-inflated value
@@ -168,7 +177,7 @@ export function formatUnit(u: UnitSelection): string {
   return `${u.faction}/${u.kind}`;
 }
 
-export type UnitSheetState = "idle" | "run" | "axe" | "hammer" | "pickaxe" | "knife";
+export type UnitSheetState = "idle" | "run" | "axe" | "hammer" | "pickaxe" | "knife" | "attack";
 
 export function unitSheetSrc(
   faction: UnitFaction,
