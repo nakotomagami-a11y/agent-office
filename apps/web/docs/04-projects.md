@@ -82,7 +82,10 @@ Manage secrets from the **Environment bar** on the project detail page, alongsid
 
 ### Git status widget
 
-The Project card shows a compact git status: branch, ahead/behind, uncommitted-file count. Data comes from `GET /api/projects/:id/git-status`.
+A compact git status shows on the Project card **and** on the Office header's project chip: current branch, ahead/behind arrows (`↑`/`↓` vs upstream), and an uncommitted-file count (`·N`). Data comes from `GET /api/projects/:id/git-status`, polled every 30s.
+
+- **Branch** — `git rev-parse --abbrev-ref HEAD` in the project's `cwd` (the base checkout, not the per-agent worktrees).
+- **`·N`** — changed-file count from `git status --porcelain --untracked-files=all`, so it **includes untracked files and matches VS Code's Source Control badge**. (The `+N` / `-N` line churn on the project detail page is separate — that comes from `git diff --shortstat`, tracked lines only.)
 
 ### Actions
 
