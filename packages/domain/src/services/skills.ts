@@ -22,9 +22,9 @@ import type {
   SkillUpdate,
 } from "../types/index";
 import { ensureDir, writeFileAtomic } from "./fs-atomic";
-import { SKILLS_DIR } from "./paths";
+import { SKILLS_DIR, isValidIdSegment } from "./paths";
 import { log } from "./log";
-import { parseYaml } from "./yaml";
+import { parseYaml, stringifyYaml, type YamlValue } from "./yaml";
 
 const REGISTRY_CACHE = join(SKILLS_DIR, "_registry.json");
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -450,6 +450,92 @@ export function uninstallSkill(name: string): boolean {
   rmSync(dest, { recursive: true, force: true });
   log.info("skill.removed", { name });
   return true;
+}
+
+// ── Local skill authoring (forge / edit / fork / import) ───────────────────
+// User-authored skills are written straight to _skills/<name>/SKILL.md with no
+// .source.json, so they classify as "local" (owned) and are never clobbered by
+// a registry update.
+
+/** Thrown when forging/importing a skill whose name is already taken. */
+export class SkillExistsError extends Error {
+  constructor(public readonly skillName: string) {
+    super(`a skill named "${skillName}" already exists`);
+    this.name = "SkillExistsError";
+  }
+}
+
+export interface WriteSkillInput {
+  name: string;
+  description?: string;
+  tags?: string[];
+  /** Markdown body, or a full SKILL.md — any leading frontmatter is stripped. */
+  body: string;
+}
+
+/** Return the markdown below a leading `--- … ---` block (or the input as-is). */
+function stripFrontmatter(content: string): string {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const m = normalized.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
+  return (m ? m[1]! : normalized).trim();
+}
+
+/** Assemble a canonical SKILL.md from structured fields + body. */
+function assembleSkillMd(input: WriteSkillInput): string {
+  const fm: Record<string, YamlValue> = { name: input.name };
+  if (input.description) fm.description = input.description;
+  if (input.tags?.length) fm.tags = input.tags;
+  const front = stringifyYaml(fm).trimEnd();
+  return `---\n${front}\n---\n\n${stripFrontmatter(input.body)}\n`;
+}
+
+/**
+ * Forge (or overwrite) a user-owned local skill. `overwrite: false` refuses to
+ * clobber an existing skill of the same name (SkillExistsError); edit/fork pass
+ * `overwrite: true`.
+ */
+export function writeLocalSkill(
+  input: WriteSkillInput,
+  opts: { overwrite?: boolean } = {},
+): InstalledSkill {
+  const name = input.name.trim();
+  if (!isValidIdSegment(name)) throw new Error(`invalid skill name: "${name}"`);
+  ensureSkillsDir();
+  if (!opts.overwrite && isInstalled(name)) throw new SkillExistsError(name);
+
+  const dest = join(SKILLS_DIR, name);
+  ensureDir(dest);
+  writeFileAtomic(join(dest, "SKILL.md"), assembleSkillMd(input));
+  // A hand-authored/forked skill is owned locally — drop any stale GitHub
+  // provenance so it reads as "mine" and never gets update-clobbered.
+  const prov = provenancePath(name);
+  if (existsSync(prov)) rmSync(prov, { force: true });
+
+  log.info("skill.forged", { name, overwrite: !!opts.overwrite });
+  const saved = readInstalledSkill(name);
+  if (!saved) throw new Error(`failed to read back forged skill "${name}"`);
+  return saved;
+}
+
+/** Import a skill from pasted SKILL.md text; the name comes from frontmatter. */
+export function importPastedSkill(content: string): InstalledSkill {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const fm = normalized.match(/^---\n([\s\S]*?)\n---/);
+  if (!fm) {
+    throw new Error("pasted content has no frontmatter — expected a `--- name/description ---` block");
+  }
+  let meta: { name?: string; description?: string; tags?: string[] } = {};
+  try {
+    meta = parseYaml(fm[1]!) as typeof meta;
+  } catch {
+    throw new Error("could not parse the frontmatter YAML");
+  }
+  const name = (meta.name ?? "").trim();
+  if (!name) throw new Error("frontmatter is missing a `name`");
+  return writeLocalSkill(
+    { name, description: meta.description ?? "", tags: meta.tags, body: normalized },
+    { overwrite: false },
+  );
 }
 
 export function listInstalled(): InstalledSkill[] {

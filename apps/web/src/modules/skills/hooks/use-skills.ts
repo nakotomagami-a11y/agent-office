@@ -109,6 +109,45 @@ export function useInstallSkill() {
   });
 }
 
+export interface CreateSkillInput {
+  name: string;
+  description: string;
+  tags: string[];
+  body: string;
+  /** edit/fork overwrite an existing local skill; forge (create) does not. */
+  overwrite?: boolean;
+}
+
+/** Forge / edit / fork a local skill. */
+export function useCreateSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateSkillInput) =>
+      apiFetch<{ ok: boolean; skill: InstalledSkill }>(API_ROUTES.skillsCreate, {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.skills.all });
+    },
+  });
+}
+
+/** Import a skill from pasted SKILL.md text. */
+export function useImportSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      apiFetch<{ ok: boolean; skill: InstalledSkill }>(API_ROUTES.skillsImport, {
+        method: "POST",
+        body: { content },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.skills.all });
+    },
+  });
+}
+
 export function useSkillManifest() {
   return useQuery({
     queryKey: queryKeys.skills.manifest(),

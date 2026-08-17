@@ -80,6 +80,8 @@ export const API_ROUTES = {
   skillsSources: "/api/skills/sources",
   skillsUpdates: "/api/skills/updates",
   skillsInstall: "/api/skills/install",
+  skillsCreate: "/api/skills/create",
+  skillsImport: "/api/skills/import",
   skillsManifest: "/api/skills/manifest",
   skillsCompatibility: "/api/skills/compatibility",
   skillsIcons: "/api/skills/icons",

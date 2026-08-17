@@ -154,6 +154,18 @@ export const skillInstallSchema = z.object({
   name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
 });
 
+export const skillCreateSchema = z.object({
+  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  description: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+  body: z.string().min(1),
+  overwrite: z.boolean().optional(),
+});
+
+export const skillImportSchema = z.object({
+  content: z.string().min(1),
+});
+
 export const promptPostSchema = z.object({
   prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
 });
