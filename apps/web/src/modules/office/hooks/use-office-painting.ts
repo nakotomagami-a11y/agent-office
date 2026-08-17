@@ -24,8 +24,13 @@ export function useOfficePainting({
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>): boolean => {
+      // `[role="menu"]/[role="dialog"]` also count as overlays: the build
+      // panel's DropdownMenu portals its menu to <body> (to escape the panel's
+      // overflow-hidden), so it isn't a DOM descendant of `.build-panel`. Without
+      // this, clicking a menu item started a paint stroke + setPointerCapture,
+      // stealing the pointerup so the item's click never fired.
       const isOnOverlay = !!(e.target as Element).closest(
-        ".build-panel, .canvas-tools, .build-actions-bar, .canvas-info, .build-entry-btn",
+        ".build-panel, .canvas-tools, .build-actions-bar, .canvas-info, .build-entry-btn, [role=\"menu\"], [role=\"dialog\"], [role=\"listbox\"]",
       );
       if (
         e.button === 0 &&
