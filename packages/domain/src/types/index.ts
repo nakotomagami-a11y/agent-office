@@ -9,6 +9,12 @@ export interface RegistrySkill {
   sha: string;
   tags: string[];
   installed: boolean;
+  /**
+   * Byte size of the skill's `SKILL.md` as reported by the GitHub tree API at
+   * scan time. Proxy for "how heavy" the skill is (context/token cost).
+   * Optional: older cached registries won't have it until the next refresh.
+   */
+  size?: number;
 }
 
 export interface SkillProvenance {
