@@ -22,7 +22,7 @@ export function ChatHead({ agent, onNew, actions }: ChatHeadProps) {
         <UnitSprite
           unit={agent.unitChoice}
           size={40}
-          action={agent.status === "working" || agent.status === "thinking" ? "working" : "idle"}
+          action={agent.status === "working" || agent.status === "thinking" ? "attack" : "idle"}
           animate
         />
       </div>

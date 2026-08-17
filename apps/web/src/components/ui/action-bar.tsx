@@ -18,6 +18,75 @@ function isDivider(item: ActionBarItem): item is ActionBarDivider {
   return "type" in item && (item as ActionBarDivider).type === "divider";
 }
 
+// Overflow tolerance (px) — sub-pixel layout rounding must not trip collapse.
+const TOL = 2;
+// How far up the tree we look for the element that actually overflows.
+const MAX_HOPS = 8;
+// Debounce window for resize-driven re-measurement.
+const RESIZE_DEBOUNCE_MS = 120;
+
+/**
+ * The ActionBar wrapper is `shrink-0` and typically lives inside an `ml-auto`
+ * group whose siblings absorb the shortage (a `min-w-0` title that truncates),
+ * so the wrapper's own parent never reports overflow. Climb ancestors and
+ * return the nearest one whose content actually overflows its box — that is the
+ * element we must measure. Returns null when nothing overflows.
+ */
+function findOverflowingAncestor(start: HTMLElement | null): HTMLElement | null {
+  let node: HTMLElement | null = start;
+  let hops = 0;
+  while (node && hops < MAX_HOPS) {
+    if (node.scrollWidth > node.clientWidth + TOL) return node;
+    node = node.parentElement;
+    hops++;
+  }
+  return null;
+}
+
+function debounce(fn: () => void, ms: number) {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  return Object.assign(
+    () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => { t = null; fn(); }, ms);
+    },
+    { cancel: () => { if (t) { clearTimeout(t); t = null; } } },
+  );
+}
+
+/**
+ * Subscribes to every signal that can change whether the bar fits — a debounced
+ * window resize, a ResizeObserver on the wrapper's ancestor chain, and (via the
+ * caller's own render effect) content changes. `getTargets` is re-invoked on
+ * each subscribe so the observed ancestor can shift as the layout collapses.
+ */
+function useReflowListener(
+  wrapperRef: React.RefObject<HTMLDivElement | null>,
+  runCheckRef: React.RefObject<() => void>,
+) {
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const debounced = debounce(() => runCheckRef.current(), RESIZE_DEBOUNCE_MS);
+
+    const observer = new ResizeObserver(() => debounced());
+    // Observe the immediate parent plus the nearest overflowing/constraining
+    // ancestor so width changes at either level re-trigger the check.
+    const parent = el.parentElement;
+    if (parent) observer.observe(parent);
+    const container = findOverflowingAncestor(parent) ?? parent?.parentElement ?? null;
+    if (container && container !== parent) observer.observe(container);
+
+    window.addEventListener("resize", debounced);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", debounced);
+      debounced.cancel();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
 /**
  * Renders actions inline when the parent flex row has space; collapses to a
  * "⋯" dropdown when the row overflows. Wrap only the actions that should
@@ -39,46 +108,48 @@ export function ActionBar(
 function ActionBarLegacy({ actions }: { actions: ActionBarAction[] }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ collapsed: false, collapseWidth: null as number | null });
+  // `container` is the ancestor we locked onto at collapse time; we keep
+  // measuring the SAME element so the restore threshold stays comparable.
+  const stateRef = useRef({
+    collapsed: false,
+    collapseWidth: null as number | null,
+    container: null as HTMLElement | null,
+  });
+  const runCheckRef = useRef<() => void>(() => {});
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
 
   const runCheck = () => {
     const el = wrapperRef.current;
     if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
 
-    const { collapsed: isCollapsed, collapseWidth } = stateRef.current;
+    const s = stateRef.current;
 
-    if (!isCollapsed) {
-      if (parent.scrollWidth > parent.clientWidth + 2) {
-        stateRef.current.collapseWidth = parent.scrollWidth;
-        stateRef.current.collapsed = true;
+    if (!s.collapsed) {
+      const container = findOverflowingAncestor(el.parentElement);
+      if (container) {
+        s.container = container;
+        s.collapseWidth = container.scrollWidth;
+        s.collapsed = true;
         setCollapsed(true);
       }
     } else {
-      if (collapseWidth !== null && parent.clientWidth > collapseWidth + 4) {
-        stateRef.current.collapsed = false;
-        stateRef.current.collapseWidth = null;
+      const container = s.container;
+      // Restore only when the locked container has grown enough to fit the
+      // full natural width we recorded at collapse time.
+      if (container && s.collapseWidth !== null && container.clientWidth > s.collapseWidth + TOL + 2) {
+        s.collapsed = false;
+        s.collapseWidth = null;
+        s.container = null;
         setCollapsed(false);
       }
     }
   };
+  runCheckRef.current = runCheck;
 
-   
+  // Re-check after every render (cheap — reads layout, no writes unless state flips).
   useEffect(() => { runCheck(); });
-
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
-    const observer = new ResizeObserver(runCheck);
-    observer.observe(parent);
-    return () => observer.disconnect();
-     
-  }, []);
+  useReflowListener(wrapperRef, runCheckRef);
 
   useEffect(() => {
     if (!open) return;
@@ -130,7 +201,8 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
   const segRef = useRef<{
     collapsed: Set<string>;
     collapseWidths: Map<string, number>;
-  }>({ collapsed: new Set(), collapseWidths: new Map() });
+    container: HTMLElement | null;
+  }>({ collapsed: new Set(), collapseWidths: new Map(), container: null });
   const runCheckRef = useRef<() => void>(() => {});
   const [collapsedSegments, setCollapsedSegments] = useState<ReadonlySet<string>>(new Set());
   const [open, setOpen] = useState(false);
@@ -138,10 +210,9 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
   const runCheck = () => {
     const el = wrapperRef.current;
     if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
 
-    const { collapsed, collapseWidths } = segRef.current;
+    const state = segRef.current;
+    const { collapsed, collapseWidths } = state;
 
     // Unique segments sorted by priority desc (highest collapses first)
     const segMap = new Map<string, number>();
@@ -166,44 +237,43 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
       }
     }
 
-    // Try to restore segments that now have enough room
-    for (const seg of [...collapsed]) {
-      const cw = collapseWidths.get(seg);
-      if (cw !== undefined && parent.clientWidth > cw + 4) {
-        collapsed.delete(seg);
-        collapseWidths.delete(seg);
-        changed = true;
-      }
-    }
+    const overflowing = findOverflowingAncestor(el.parentElement);
 
-    // Collapse highest-priority visible segment on overflow
-    if (parent.scrollWidth > parent.clientWidth + 2) {
+    if (overflowing) {
+      // Overflowing → collapse the highest-priority still-visible segment.
+      // Never restore in the same pass; that would churn.
       const target = segments.find((s) => !collapsed.has(s));
       if (target) {
-        collapseWidths.set(target, parent.scrollWidth);
+        state.container = overflowing;
+        collapseWidths.set(target, overflowing.scrollWidth);
         collapsed.add(target);
         changed = true;
       }
+    } else if (collapsed.size > 0) {
+      // Fits now → restore any collapsed segment whose locked container has
+      // grown past the natural width recorded at collapse time. Measure the
+      // SAME element we locked onto (it no longer overflows, so it can't be
+      // re-derived from scratch).
+      const container = state.container;
+      if (container) {
+        for (const seg of [...collapsed]) {
+          const cw = collapseWidths.get(seg);
+          if (cw !== undefined && container.clientWidth > cw + TOL + 2) {
+            collapsed.delete(seg);
+            collapseWidths.delete(seg);
+            changed = true;
+          }
+        }
+      }
+      if (collapsed.size === 0) state.container = null;
     }
 
     if (changed) setCollapsedSegments(new Set(collapsed));
   };
-
   runCheckRef.current = runCheck;
 
-   
   useEffect(() => { runCheck(); });
-
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
-    const observer = new ResizeObserver(() => runCheckRef.current());
-    observer.observe(parent);
-    return () => observer.disconnect();
-     
-  }, []);
+  useReflowListener(wrapperRef, runCheckRef);
 
   useEffect(() => {
     if (!open) return;
