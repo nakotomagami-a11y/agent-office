@@ -40,7 +40,7 @@ function parseMetadataFile(content: string): ParsedMetadata {
   return { meta: yamlToProjectMeta(raw), memory: (m[2] ?? "").trim() };
 }
 
-const PLANET_TYPES = new Set<PlanetType>(["gas-giant", "rocky", "dry", "terran", "ice", "islands", "lava", "black-hole", "galaxy", "star", "asteroid"]);
+const PLANET_TYPES = new Set<PlanetType>(["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"]);
 
 function parsePlanetConfig(raw: unknown): PlanetConfig | undefined {
   if (!raw || typeof raw !== "object") return undefined;
@@ -65,6 +65,13 @@ function parsePlanetConfig(raw: unknown): PlanetConfig | undefined {
       }).filter((c): c is [number, number, number] => c !== null);
     }).filter((l): l is [number, number, number][] => l !== null);
     if (cp.length > 0) out.customPalette = cp;
+  }
+  if (o.params && typeof o.params === "object" && !Array.isArray(o.params)) {
+    const params: Record<string, number> = {};
+    for (const [k, v] of Object.entries(o.params as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v)) params[k] = v;
+    }
+    if (Object.keys(params).length > 0) out.params = params;
   }
   return out;
 }
@@ -167,6 +174,7 @@ function writeMetadata(id: string, meta: Partial<ProjectMeta>, memory: string): 
     if (p.pixels !== undefined) pObj.pixels = p.pixels;
     if (p.rotation !== undefined) pObj.rotation = p.rotation;
     if (p.dither !== undefined) pObj.dither = p.dither;
+    if (p.params && Object.keys(p.params).length > 0) pObj.params = p.params as unknown as YamlValue;
     fmObj.planet = pObj as unknown as YamlValue;
   }
   const fmStr = Object.keys(fmObj).length === 0 ? "" : stringifyYaml(fmObj).trim();
@@ -185,7 +193,11 @@ function projectFromScan(entry: ScannedEntry): Project {
     cwd: entry.fullPath,
     roster: normalizeRoster(md?.meta.roster),
   };
-  if (md?.meta.planet) meta.planet = md.meta.planet;
+  // Every project must carry a planet. Persisted config wins; otherwise fall
+  // back to a deterministic high-quality planet derived from the id so the UI
+  // never renders the low-res procedural placeholder (the "low quality planet"
+  // bug that hit scanned folders and fresh devices).
+  meta.planet = md?.meta.planet ?? defaultPlanetForId(entry.id);
   if (md?.meta.accountId) meta.accountId = md.meta.accountId;
   if (md?.meta.githubAccountId) meta.githubAccountId = md.meta.githubAccountId;
   if (md?.meta.shelved) meta.shelved = true;
@@ -563,25 +575,69 @@ export interface CreateProjectInput {
 const PLANET_TYPE_PALETTE_COUNTS: Record<PlanetType, number> = {
   "gas-giant": 6,
   "rocky": 5,
-  "dry": 5,
   "terran": 5,
+  "ringed-terran": 5,
+  "toxic": 5,
   "ice": 5,
   "islands": 5,
   "lava": 5,
+  "ice-moon": 5,
+  "eclipse": 5,
   "black-hole": 5,
   "galaxy": 5,
   "star": 5,
   "asteroid": 5,
+  "comet": 5,
 };
 
 function autoRandomPlanet(): PlanetConfig {
-  const types: PlanetType[] = ["gas-giant", "rocky", "dry", "terran", "ice", "islands", "lava", "black-hole", "galaxy", "star", "asteroid"];
+  const types = Array.from(PLANET_TYPES);
   const type = types[Math.floor(Math.random() * types.length)]!;
   const paletteCount = PLANET_TYPE_PALETTE_COUNTS[type];
   return {
     type,
     seed: Math.floor(Math.random() * 999999999),
     paletteIdx: Math.floor(Math.random() * paletteCount),
+    pixels: 1000,
+    dither: true,
+  };
+}
+
+/**
+ * Deterministic 32-bit FNV-1a hash of a project id. Stable across sessions,
+ * processes and devices — same id always yields the same number.
+ */
+function hashId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * A stable, high-quality planet derived purely from the project id.
+ *
+ * This is the guarantee that a project ALWAYS has a good-looking planet.
+ * It's used whenever a project has no persisted `planet` in its metadata:
+ * a freshly scanned folder, a fresh device whose `project.md` doesn't exist
+ * yet, or metadata that predates / fails the planet parser. Without it the
+ * frontend falls back to a low-res procedural placeholder (pixels: 50,
+ * gas-giant/rocky only) — the "low quality planet" bug.
+ *
+ * Deterministic (seeded from the id) so the planet never changes between
+ * scans or devices, and full-quality (all curated types, pixels: 1000).
+ */
+function defaultPlanetForId(id: string): PlanetConfig {
+  const types = Array.from(PLANET_TYPES);
+  const h = hashId(id);
+  const type = types[h % types.length]!;
+  const paletteCount = PLANET_TYPE_PALETTE_COUNTS[type];
+  return {
+    type,
+    seed: (h % 999_999_999) + 1,
+    paletteIdx: Math.floor(h / 97) % paletteCount,
     pixels: 1000,
     dither: true,
   };

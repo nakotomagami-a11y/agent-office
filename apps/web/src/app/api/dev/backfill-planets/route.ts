@@ -18,22 +18,26 @@ import type { PlanetConfig, PlanetType } from "@agent-office/domain/types";
 // Kept in-file so the route is self-contained and does not depend on an
 // export that may change between planets refactors.
 const PLANET_TYPES: PlanetType[] = [
-  "gas-giant", "rocky", "dry", "terran", "ice", "islands",
-  "lava", "black-hole", "galaxy", "star", "asteroid",
+  "gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands",
+  "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet",
 ];
 
 const PALETTE_COUNT_BY_TYPE: Record<PlanetType, number> = {
   "gas-giant": 6,
   "rocky": 5,
-  "dry": 5,
   "terran": 5,
+  "ringed-terran": 5,
+  "toxic": 5,
   "ice": 5,
   "islands": 5,
   "lava": 5,
+  "ice-moon": 5,
+  "eclipse": 5,
   "black-hole": 5,
   "galaxy": 5,
   "star": 5,
   "asteroid": 5,
+  "comet": 5,
 };
 
 function randomPlanetConfig(): PlanetConfig {

@@ -52,6 +52,41 @@ export function useInstalledSkills() {
   });
 }
 
+// ── Section-level customization (Phase 1) ─────────────────────────────────
+
+export interface SkillSection {
+  slug: string;
+  heading: string;
+}
+export interface SkillCustomizationData {
+  sections: SkillSection[];
+  disabledSections: string[];
+}
+
+export function useSkillCustomization(name: string | null) {
+  return useQuery({
+    queryKey: ["skill-customization", name] as const,
+    queryFn: () => apiFetch<SkillCustomizationData>(API_ROUTES.skillCustomization(name!)),
+    enabled: !!name,
+  });
+}
+
+export function useSetSkillSections(name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (disabledSections: string[]) =>
+      apiFetch<{ ok: boolean; disabledSections: string[] }>(API_ROUTES.skillCustomization(name), {
+        method: "PUT",
+        body: { disabledSections },
+      }),
+    onSuccess: (res) => {
+      qc.setQueryData<SkillCustomizationData>(["skill-customization", name], (prev) =>
+        prev ? { ...prev, disabledSections: res.disabledSections } : prev,
+      );
+    },
+  });
+}
+
 
 export interface InstallSkillInput {
   source: string;

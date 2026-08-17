@@ -27,6 +27,8 @@ uniform int   OCTAVES;
 uniform float seed;
 uniform float time;
 uniform int   should_dither;
+uniform float uv_offset;   // remap for oversized canvas (0 when canvasScale=1)
+uniform float uv_scale;    // = 1/(2*planetR) (1 when canvasScale=1)
 in  vec2 UV;
 layout(location=0) out vec4 fragColor;
 
@@ -53,12 +55,21 @@ vec2 rotate(vec2 coord, float angle) {
   coord *= mat2(vec2(cos(angle),-sin(angle)), vec2(sin(angle),cos(angle)));
   return coord + 0.5;
 }
+// Surface height at a disc-space point — the same field that drives the colour
+// bands, sampled so we can derive terrain relief (highs and lows) from it.
+float terrainHeight(vec2 p) {
+  p = rotate(p, rotation);
+  float f = fbm(p);
+  return fbm(p * size + f + vec2(time * time_speed, 0.0));
+}
 void main() {
-  vec2 uv = floor(UV * pixels) / pixels;
+  vec2 uv_raw = floor(UV * pixels) / pixels;
+  vec2 uv = (uv_raw - uv_offset) * uv_scale;
   float d_circle = distance(uv, vec2(0.5));
   float d_light  = distance(uv, light_origin);
   float a = step(d_circle, 0.49999);
   bool dith = dither(uv, UV);
+  vec2 puv = uv;                       // disc-space, pre-rotate (for relief)
   uv = rotate(uv, rotation);
   float fbm1 = fbm(uv);
   d_light += fbm(uv * size + fbm1 + vec2(time * time_speed, 0.0)) * 0.3;
@@ -72,5 +83,14 @@ void main() {
     col = colors[2];
     if (d_light < light_border_2 + dither_border && (dith || should_dither == 0)) col = colors[1];
   }
+  // Ground relief: hillshade the height field so slopes facing the light read
+  // as highs (brighter) and shaded slopes as lows (darker). Directional
+  // derivative along the light vector, posterized into chunky pixel-art steps.
+  vec2 ld = normalize(light_origin - vec2(0.5) + 1e-5);
+  float e = 1.6 / pixels;
+  float relief = terrainHeight(puv - ld * e) - terrainHeight(puv + ld * e);
+  relief = clamp(relief * 3.4, -0.5, 0.5);
+  relief = floor(relief * 3.0 + 0.5) / 3.0;
+  col.rgb *= 1.0 + relief * 0.7;
   fragColor = vec4(col.rgb, a * col.a);
 }`;

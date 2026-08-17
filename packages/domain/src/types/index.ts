@@ -138,7 +138,7 @@ export interface AgentInstance {
   worktreeMissing?: boolean;
 }
 
-export type PlanetType = "gas-giant" | "rocky" | "dry" | "terran" | "ice" | "islands" | "lava" | "black-hole" | "galaxy" | "star" | "asteroid";
+export type PlanetType = "gas-giant" | "rocky" | "terran" | "ringed-terran" | "toxic" | "ice" | "islands" | "lava" | "ice-moon" | "eclipse" | "black-hole" | "galaxy" | "star" | "asteroid" | "comet";
 
 export interface PlanetConfig {
   type: PlanetType;
@@ -148,6 +148,7 @@ export interface PlanetConfig {
   rotation?: number; // radians, default derived from seed
   dither?: boolean;  // dither mode, default true
   customPalette?: [number, number, number][][]; // per-layer color overrides (RGB 0-1)
+  params?: Record<string, number>; // per-type tunable knobs (see PLANET_PARAM_DEFS)
 }
 
 export interface ProjectMeta {

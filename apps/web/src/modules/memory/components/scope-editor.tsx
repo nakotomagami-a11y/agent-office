@@ -6,7 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useMemory, isReadOnly, type MemoryScope } from "../hooks/use-memory";
 import { MemoryEditor } from "./memory-editor";
 import { scopeKey } from "../scope/scope";
-import { MarkdownPreview } from "@/modules/office/components/agent-details/tabs/settings-tab/markdown-preview";
+import { CodeEditor } from "@/components/ui/code-editor";
+import { DocsRender } from "@/modules/docs/docs-render";
+import { SkillSectionsPanel } from "./skill-sections-panel";
 
 type ScopeEditorProps = {
   scope: MemoryScope;
@@ -42,17 +44,32 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
   }
 
   if (isReadOnly(scope)) {
-    // Skill preview — no save/edit path. Show the raw markdown inside a
-    // scrollable preview.
+    // Skill / reference preview — no save path. Use the SAME framed CodeEditor
+    // as the editable memory tiers (so it looks consistent, not a bare docs
+    // blob), in read-only mode: opens on the Preview tab and injects the full
+    // GFM renderer so headings, tables, and code fences format properly.
     return (
-      <div className="flex flex-col h-full min-h-0 overflow-y-auto p-[20px] prose prose-invert max-w-none text-[13px] leading-[1.6]">
-        {memory.content ? <MarkdownPreview md={memory.content} /> : <div className="text-txt-3 italic">{t("no_content")}</div>}
+      <div className="relative flex-1 min-h-0">
+        <div className="absolute inset-0 overflow-y-auto p-[20px]">
+          {scope.kind === "agent-skill" && <SkillSectionsPanel slug={scope.skillSlug} />}
+          {memory.content ? (
+            <CodeEditor
+              className="shrink-0"
+              value={memory.content}
+              onChange={() => {}}
+              readOnly
+              renderPreview={(md) => <DocsRender markdown={md} />}
+            />
+          ) : (
+            <div className="text-txt-3 italic">{t("no_content")}</div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-[20px]">
+    <div className="flex flex-col flex-1 min-h-0">
       <MemoryEditor
         value={memory.content}
         onSave={memory.save}

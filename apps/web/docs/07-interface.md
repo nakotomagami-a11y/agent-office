@@ -85,7 +85,7 @@ Filters: by date range, by model, by cost threshold. Bulk-delete supported.
 
 ### Memory tab
 
-The per-agent memory file. Plain textarea, `Cmd/Ctrl+S` to save, 256 KB max. See [Memory](#/memory).
+The per-agent memory file. **Write** / **Preview** tabs — Write is a highlighted markdown editor, Preview renders full GFM (tables, code, callouts). `Cmd/Ctrl+S` to save, 256 KB max. See [Memory](#/memory).
 
 ### Settings tab
 
@@ -313,15 +313,18 @@ Filters (chip-selectable):
 
 ## Global Memory page (the `/memory` route)
 
-The global memory editor. Same textarea as the per-agent memory tab. Applies to every agent, every project. Read on every `summon` call.
+The global memory editor. Same Write/Preview markdown editor as the per-agent memory tab. Applies to every agent, every project. Read on every `summon` call.
 
 ## Skills page (the `/skills` route)
 
 - Installed skills list (from `~/.claude/agents/_skills/`)
-- Registry browser (from configured GitHub sources)
-- Per-skill actions: uninstall, update to latest SHA, view source, edit locally
+- Registry browser (from configured GitHub sources), **paginated 50 per page** (Back / Page X of Y / Next)
+- Per-skill card actions:
+  - **Install** / **Remove**
+  - **Source** — opens the skill's folder on GitHub (`github.com/<source>/tree/<ref>/<path>`) in a new tab
+  - Edit icon (procedural weapon icon: pick seed + weapon class)
 - Source manager: add/remove GitHub sources for skill discovery
-- Registry cache indicator with `?refresh=1` bypass
+- **Registry caching (stale-while-revalidate)** — the registry is served instantly from a local cache and refreshed in the background, so the page never blocks on GitHub. Skill descriptions are reused by git blob SHA, so unchanged skills aren't re-fetched on a refresh. Force a fresh pull with `?refresh=1`.
 
 ## Analytics page (the `/analytics` route)
 

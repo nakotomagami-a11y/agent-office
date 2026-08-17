@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import type { PlanetConfig, PlanetType } from "@agent-office/domain/types";
-import { PLANET_TYPE_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanet, randomPlanetOfType } from "@/lib/planet-seed";
+import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanet, randomPlanetOfType } from "@/lib/planet-seed";
 import { ModalShell } from "./modal-shell";
 import { PlanetCanvas } from "./planet-canvas";
+import { Popover } from "./popover";
 import { Icon } from "./icon";
 import { ACCENT_BTN } from "@/lib/button-styles";
 
@@ -29,7 +30,7 @@ interface PlanetEditorModalProps {
   onClose: () => void;
 }
 
-const PLANET_TYPES: PlanetType[] = ["gas-giant", "rocky", "dry", "terran", "ice", "islands", "lava", "black-hole", "galaxy", "star", "asteroid"];
+const PLANET_TYPES: PlanetType[] = ["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"];
 
 const DEFAULT_PIXELS = 1000;
 const PREVIEW_SIZES = [168, 96, 54] as const;
@@ -70,11 +71,16 @@ export function PlanetEditorModal({
       type,
       paletteIdx: Math.min(d.paletteIdx, palettes.length - 1),
       customPalette: undefined,
+      params: undefined,
     }));
   }, []);
 
   const setPalette = useCallback((idx: number) => {
     setDraft((d) => ({ ...d, paletteIdx: idx, customPalette: undefined }));
+  }, []);
+
+  const setParam = useCallback((key: string, value: number) => {
+    setDraft((d) => ({ ...d, params: { ...d.params, [key]: value } }));
   }, []);
 
   const randomize = useCallback(() => {
@@ -92,6 +98,7 @@ export function PlanetEditorModal({
       seed: r.seed,
       paletteIdx: r.paletteIdx,
       customPalette: undefined,
+      params: undefined,
     }));
   }, []);
 
@@ -115,6 +122,7 @@ export function PlanetEditorModal({
   };
 
   const typeDef = PLANET_TYPE_DEFS[draft.type];
+  const paramDefs = PLANET_PARAM_DEFS[draft.type] ?? [];
   const rotationDeg = Math.round(((draft.rotation ?? 0) * 180) / Math.PI);
   const dither = draft.dither ?? true;
   const isFreeform = FREEFORM_TYPES.has(draft.type);
@@ -202,41 +210,67 @@ export function PlanetEditorModal({
             </div>
           </div>
 
-          {/* Planet type picker — 4 equal columns via flex-wrap (house rule: no CSS grid). */}
+          {/* Planet type picker — collapsed into a dropdown; the panel keeps the
+              live-preview tiles (planets are chosen by look) but the closed
+              state is a single compact row so the roster can grow freely. */}
           <div>
             <div className="text-[9px] font-mono text-txt-3 uppercase tracking-wide mb-[5px]">Type</div>
-            <div className="flex flex-wrap gap-[4px]">
-              {PLANET_TYPES.map((t) => {
-                const def = PLANET_TYPE_DEFS[t];
-                const selected = draft.type === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setType(t)}
-                    className={[
-                      "basis-[calc(25%-3px)] flex flex-col items-center gap-[4px] py-[6px] px-[2px] rounded-[8px] border transition-all duration-100 cursor-pointer",
-                      selected
-                        ? "bg-[rgba(255,120,60,0.10)] border-[rgba(255,120,60,0.45)]"
-                        : "bg-bg-2 border-line hover:bg-bg-3 hover:border-line-2",
-                    ].join(" ")}
-                  >
+            <Popover
+              className="block w-full"
+              width={392}
+              ariaLabel="Choose planet type"
+              triggerClassName="w-full justify-between px-[8px] py-[5px] rounded-[8px] bg-bg-2 !border-line hover:bg-bg-3 hover:!border-line-2 transition-colors"
+              panelClassName="p-[6px]"
+              trigger={
+                <>
+                  <span className="flex items-center gap-[8px] min-w-0">
                     <PlanetCanvas
-                      projectId={`${projectId}-type-${t}`}
-                      config={{ type: t, seed: draft.seed, paletteIdx: 0, pixels: draft.pixels, dither: draft.dither }}
-                      size={28}
-                      className={FREEFORM_TYPES.has(t) ? "" : "rounded-full overflow-hidden"}
+                      projectId={`${projectId}-type-${draft.type}`}
+                      config={{ type: draft.type, seed: draft.seed, paletteIdx: 0, pixels: draft.pixels, dither: draft.dither }}
+                      size={22}
+                      className={FREEFORM_TYPES.has(draft.type) ? "shrink-0" : "shrink-0 rounded-full overflow-hidden"}
                     />
-                    <span className={[
-                      "text-[9px] font-mono leading-[1.2] text-center w-full px-[1px] overflow-hidden",
-                      selected ? "text-acc" : "text-txt-2",
-                    ].join(" ")}>
-                      {def.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <span className="text-[12px] font-semibold text-txt truncate">{typeDef.label}</span>
+                  </span>
+                  <Icon name="chevron-down" size={14} className="text-txt-3 shrink-0" />
+                </>
+              }
+            >
+              {({ close }) => (
+                <div className="flex flex-wrap gap-[4px]">
+                  {PLANET_TYPES.map((t) => {
+                    const def = PLANET_TYPE_DEFS[t];
+                    const selected = draft.type === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => { setType(t); close(); }}
+                        className={[
+                          "basis-[calc(25%-3px)] flex flex-col items-center gap-[4px] py-[6px] px-[2px] rounded-[8px] border transition-all duration-100 cursor-pointer",
+                          selected
+                            ? "bg-[rgba(255,120,60,0.10)] border-[rgba(255,120,60,0.45)]"
+                            : "bg-bg-2 border-line hover:bg-bg-3 hover:border-line-2",
+                        ].join(" ")}
+                      >
+                        <PlanetCanvas
+                          projectId={`${projectId}-type-${t}`}
+                          config={{ type: t, seed: draft.seed, paletteIdx: 0, pixels: draft.pixels, dither: draft.dither }}
+                          size={28}
+                          className={FREEFORM_TYPES.has(t) ? "" : "rounded-full overflow-hidden"}
+                        />
+                        <span className={[
+                          "text-[9px] font-mono leading-[1.2] text-center w-full px-[1px] overflow-hidden",
+                          selected ? "text-acc" : "text-txt-2",
+                        ].join(" ")}>
+                          {def.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Popover>
           </div>
 
           {/* Seed */}
@@ -297,6 +331,33 @@ export function PlanetEditorModal({
               {dither ? "ON" : "OFF"}
             </button>
           </div>
+
+          {/* Per-type adjustable params (cloud density, water level, …). */}
+          {paramDefs.length > 0 && (
+            <div className="flex flex-col gap-[8px]">
+              {paramDefs.map((def) => {
+                const value = draft.params?.[def.key] ?? def.default;
+                const pct = Math.round((value / (def.displayMax ?? def.max)) * 100);
+                return (
+                  <div key={def.key} className="flex items-center gap-[6px]">
+                    <label className="text-[9px] font-mono text-txt-3 uppercase tracking-wide shrink-0 w-[92px] leading-tight">
+                      {def.label}
+                    </label>
+                    <input
+                      type="range"
+                      min={def.min}
+                      max={def.max}
+                      step={def.step}
+                      value={value}
+                      onChange={(e) => setParam(def.key, parseFloat(e.target.value))}
+                      className="flex-1 h-[3px] accent-[var(--acc)] cursor-pointer"
+                    />
+                    <span className="text-[11px] font-mono text-txt-3 w-[36px] text-right">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Palette picker — 3 equal columns via flex-wrap (house rule: no CSS grid). */}
           <div>

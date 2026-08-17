@@ -28,6 +28,8 @@ uniform int   should_dither;
 uniform float light_border_1;
 uniform float light_border_2;
 uniform float river_cutoff;
+uniform float uv_offset;   // remap for oversized canvas (0 when canvasScale=1)
+uniform float uv_scale;    // = 1/(2*planetR) (1 when canvasScale=1)
 uniform vec4  colors[6]; // [land×4, water×2]
 uniform float size;
 uniform int   OCTAVES;
@@ -65,12 +67,21 @@ vec2 rotate(vec2 coord, float angle) {
 bool dither(vec2 uv1, vec2 uv2) {
   return mod(uv1.x + uv2.y, 2.0/pixels) <= 1.0/pixels;
 }
+// Surface height at a disc-space point, used to derive terrain relief.
+float terrainHeight(vec2 p) {
+  p = spherify(p);
+  p = rotate(p, rotation);
+  return fbm(p * size + vec2(time * time_speed, 0.0));
+}
 void main() {
-  vec2 uv = floor(UV * pixels) / pixels;
+  // Remap into the disc sub-region of an oversized canvas (identity at scale 1)
+  vec2 uv_raw = floor(UV * pixels) / pixels;
+  vec2 uv = (uv_raw - uv_offset) * uv_scale;
   bool dith = dither(uv, UV);
   float d_circle = distance(uv, vec2(0.5));
   float a = step(d_circle, 0.49999);
   if (a < 0.5) { fragColor = vec4(0.0); return; }
+  vec2 puv = uv;                       // disc-space, pre-spherify (for relief)
   uv = spherify(uv);
   float d_light = distance(uv, light_origin);
   uv = rotate(uv, rotation);
@@ -97,5 +108,15 @@ void main() {
     col = colors[5];
     if (fbm4+d_light < fbm1*1.5) col = colors[4];
   }
+  // Ground relief: hillshade the height field so land highs read brighter and
+  // valleys darker. Directional derivative along the light vector, posterized
+  // into chunky pixel-art steps. Muted on water so oceans stay flat.
+  vec2 ld = normalize(light_origin - vec2(0.5) + 1e-5);
+  float e = 1.6 / pixels;
+  float relief = terrainHeight(puv - ld * e) - terrainHeight(puv + ld * e);
+  relief = clamp(relief * 3.4, -0.5, 0.5);
+  relief = floor(relief * 3.0 + 0.5) / 3.0;
+  float reliefAmt = (r_mask < fbm1 * 0.5) ? 0.28 : 0.62;
+  col.rgb *= 1.0 + relief * reliefAmt;
   fragColor = vec4(col.rgb, a * col.a);
 }`;

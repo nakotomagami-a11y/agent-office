@@ -192,26 +192,50 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       {/* ps-body */}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col px-[28px] pt-[22px] pb-[48px] gap-[16px] [&>*]:shrink-0">
 
-        {/* HERO */}
-        <div className="relative overflow-hidden border border-line bg-bg-1 rounded-lg">
-          {/* Ambient gradient using avatar color */}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 80% at 100% 0%, rgba(90,139,111,0.18) 0%, transparent 70%)" }} />
+        {/* ===== COSMIC HERO — full-bleed, transparent, dissolving into the page =====
+            Breaks out of the body padding (-mx / -mt) to span edge-to-edge and touch
+            the top. The space background is ALWAYS transparent, so the app's own dark
+            void shows through the empty sky and the whole field is masked to dissolve
+            downward into the page — no card, no border, no box. All hero text lives in
+            the dark upper wash so it stays legible in either app theme; the mask-fade
+            tail below the content is deliberately text-free. */}
+        <div className="flex flex-col">
+        <section className="relative -mx-[28px] -mt-[22px] overflow-hidden isolate">
+          {/* Dark hero wash, masked so the band dissolves into the page below —
+              no card, no border. Preserves the full-bleed hero composition and
+              keeps the white hero text legible in both app themes. */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 56%, transparent 100%)",
+              maskImage: "linear-gradient(to bottom, #000 0%, #000 56%, transparent 100%)",
+            }}
+          >
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(10,12,20,0.94) 0%, rgba(10,12,20,0.60) 26%, rgba(10,12,20,0.22) 50%, rgba(10,12,20,0) 78%)" }} />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(10,12,20,0.86) 0%, rgba(10,12,20,0.44) 30%, rgba(10,12,20,0.08) 58%, transparent 80%)" }} />
+          </div>
 
-          <div className="relative z-[1] p-[24px_26px]">
+          <div className="relative z-[1] px-[28px] pt-[32px] pb-[68px]">
             {/* Top row: planet + (name & counters) */}
-            <div className="flex items-start gap-[22px]">
+            <div className="flex items-start gap-[28px]">
               <button
                 type="button"
                 onClick={() => setPlanetEditorOpen(true)}
                 title="Change planet"
                 aria-label="Change planet"
                 className="relative shrink-0 group cursor-pointer border-0 bg-transparent p-0 transition-transform duration-150 ease-out hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-4"
-                style={{ width: 168, height: 168 }}
+                style={{ width: 200, height: 200 }}
               >
+                {/* Soft glow so the planet reads as a lit body floating in the field. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute -inset-[16%] rounded-full pointer-events-none"
+                  style={{ background: "radial-gradient(circle at 50% 46%, rgba(122,152,224,0.30), rgba(122,152,224,0.06) 55%, transparent 72%)" }}
+                />
                 <PlanetCanvas
                   projectId={id}
                   config={project.meta.planet}
-                  size={168}
+                  size={200}
                 />
                 {/*
                   Avatar-style edit badge anchored to the disc's lower-right
@@ -226,7 +250,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                 */}
                 <span
                   aria-hidden="true"
-                  className="absolute bottom-[8px] right-[8px] flex items-center justify-center w-[34px] h-[34px] rounded-full bg-bg-1 border border-line-2 text-txt-2 shadow-2 transition-all duration-150 ease-out group-hover:bg-acc group-hover:border-acc group-hover:text-acc-ink group-hover:scale-110 group-hover:shadow-3 group-focus-visible:bg-acc group-focus-visible:border-acc group-focus-visible:text-acc-ink"
+                  className="absolute bottom-[10px] right-[10px] flex items-center justify-center w-[36px] h-[36px] rounded-full bg-white/10 border border-white/20 text-white/85 backdrop-blur-md shadow-2 transition-all duration-150 ease-out group-hover:bg-acc group-hover:border-acc group-hover:text-acc-ink group-hover:scale-110 group-hover:shadow-3 group-focus-visible:bg-acc group-focus-visible:border-acc group-focus-visible:text-acc-ink"
                 >
                   <Icon name="edit" size={15} />
                 </span>
@@ -242,10 +266,10 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
               <div className="flex-1 min-w-0 pt-[6px] flex flex-col gap-[10px] relative z-[1]">
                 {/* Name row with counters pushed to the right */}
                 <div className="flex items-start gap-[16px]">
-                  <div className="flex items-center gap-[10px] flex-wrap min-w-0">
-                    <h2 className="font-bold m-0 text-[28px] tracking-[-0.01em] text-txt leading-none truncate hero-title-shadow">
+                  <div className="flex items-center gap-[12px] flex-wrap min-w-0">
+                    <h1 className="font-bold m-0 text-[40px] leading-[0.95] tracking-[-0.025em] text-white truncate hero-title-shadow">
                       {project.meta.name}
-                    </h2>
+                    </h1>
                     {projectWorkingCount > 0 && (
                       <span className="inline-flex items-center gap-[5px] px-[8px] py-[2px] rounded-full text-[10px] font-semibold font-[var(--font-mono)] tracking-[0.03em] text-status-working" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)" }}>
                         <span className="w-[5px] h-[5px] rounded-full animate-pulse bg-status-working" />
@@ -253,16 +277,16 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                       </span>
                     )}
                   </div>
-                  {/* Counters — top-right of the name row */}
-                  <div className="ml-auto flex items-baseline gap-0 shrink-0">
-                    <div className="flex items-baseline gap-[5px] pr-[16px]">
-                      <span className="text-[22px] font-bold text-txt tabular-nums leading-none">{rosterCount}</span>
-                      <span className="text-[11px] text-txt-3 font-[var(--font-mono)]">agents</span>
+                  {/* Counters — top-right stat readouts */}
+                  <div className="ml-auto flex items-baseline gap-0 shrink-0 pt-[8px]">
+                    <div className="flex items-baseline gap-[6px] pr-[18px]">
+                      <span className="text-[27px] font-bold text-white tabular-nums leading-none">{rosterCount}</span>
+                      <span className="text-[11px] text-white/50 font-[var(--font-mono)]">agents</span>
                     </div>
                     {(project.runCount ?? 0) > 0 && (
-                      <div className="flex items-baseline gap-[5px] pl-[16px] border-l border-[rgba(255,255,255,0.06)]">
-                        <span className="text-[22px] font-bold text-txt tabular-nums leading-none">{project.runCount}</span>
-                        <span className="text-[11px] text-txt-3 font-[var(--font-mono)]">runs</span>
+                      <div className="flex items-baseline gap-[6px] pl-[18px] border-l border-white/[0.14]">
+                        <span className="text-[27px] font-bold text-white tabular-nums leading-none">{project.runCount}</span>
+                        <span className="text-[11px] text-white/50 font-[var(--font-mono)]">runs</span>
                       </div>
                     )}
                   </div>
@@ -280,11 +304,11 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                     }}
                     placeholder="What is this project? (Ctrl+Enter to save, Esc to cancel)"
                     rows={3}
-                    className="w-full bg-transparent border border-line rounded-md p-2 outline-none text-[13px] text-txt leading-[1.5] placeholder:text-txt-4 focus:border-acc resize-none"
+                    className="w-full bg-white/[0.06] border border-white/20 rounded-md p-2 outline-none text-[13px] text-white leading-[1.5] placeholder:text-white/40 focus:border-white/50 resize-none"
                   />
                 ) : project.meta.description ? (
                   <p
-                    className="m-0 text-[13px] text-txt-2 leading-[1.55] cursor-text hover:text-txt transition-colors max-w-[720px]"
+                    className="m-0 text-[13px] text-white/75 leading-[1.55] cursor-text hover:text-white transition-colors max-w-[720px] [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
                     title="Click to edit description"
                     onClick={() => { setDescValue(project.meta.description); setEditingDesc(true); }}
                   >
@@ -294,19 +318,20 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   <button
                     type="button"
                     onClick={() => { setDescValue(""); setEditingDesc(true); }}
-                    className="self-start inline-flex items-center gap-[6px] text-[12px] text-txt-3 hover:text-acc bg-transparent border border-dashed border-line rounded-md px-3 py-[6px] cursor-pointer transition-colors"
+                    className="self-start inline-flex items-center gap-[6px] text-[12px] text-white/65 hover:text-white bg-white/[0.06] border border-dashed border-white/25 hover:border-white/45 rounded-md px-3 py-[6px] cursor-pointer transition-colors"
                   >
                     <Icon name="edit" size={11} /> Add a description
                   </button>
                 )}
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Environment bar — the interactive controls that decide who/what this
-                project runs as (Claude account, GitHub identity, secrets) are promoted
-                here as obvious buttons; cwd / git / last-run are demoted to dim ambient
-                facts pushed to the right. */}
-            <div className="flex flex-wrap items-center gap-x-[16px] gap-y-[12px] mt-[20px]">
+        {/* Environment controls flow directly under the dissolving cosmos on the
+            page surface — token-styled so they stay legible in both themes, and no
+            box/border so the whole thing reads as one continuous header. */}
+        <div className="relative flex flex-wrap items-center gap-x-[16px] gap-y-[12px] pt-[14px] pb-[2px]">
               <div className="flex flex-wrap items-center gap-[10px]">
                 <ProjectAccountPicker projectId={id} currentAccountId={project.meta.accountId} />
                 <ProjectGithubAccountPicker projectId={id} currentGithubAccountId={project.meta.githubAccountId} />
@@ -358,7 +383,6 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                 )}
               </div>
             </div>
-          </div>
         </div>
 
         {/* ACTIVITY */}

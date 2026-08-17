@@ -145,6 +145,14 @@ export function useOfficeMapSync(opts: {
     };
   }, [grid, decorations, grassColor, agentPositions, loadState, doSave]);
 
+  // "Saved" is a transient confirmation, not a resting state — auto-dismiss it
+  // back to idle so the pill doesn't sit in the corner forever after a save.
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const id = setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 2000);
+    return () => clearTimeout(id);
+  }, [saveState]);
+
   // Periodic flush — retries failed saves and catches anything the debounce missed.
   useEffect(() => {
     const id = setInterval(() => {

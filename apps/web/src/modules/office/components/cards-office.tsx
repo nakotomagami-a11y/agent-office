@@ -327,13 +327,13 @@ function OfficeCard({
     >
       <div className="flex items-center gap-[12px]">
         <div className="flex items-center justify-center relative overflow-visible w-[48px] h-[48px] shrink-0 before:content-[''] before:absolute before:inset-0 before:pointer-events-none before:[background:radial-gradient(circle_at_75%_80%,rgba(255,255,255,0.10),transparent_60%)] before:rounded-[inherit]">
-          <AgentAvatar unit={agent.unitChoice} size={50} />
+          <AgentAvatar unit={agent.unitChoice} size={58} />
           <span className={cn(
             "absolute rounded-full w-[14px] h-[14px] bottom-[-2px] right-[-2px] border-2 border-bg-2",
             agent.status === "working" ? "bg-[var(--working)] [box-shadow:0_0_8px_var(--working)]" :
-            agent.status === "thinking" ? "bg-[var(--thinking)]" :
-            isError ? "bg-[var(--error)]" :
-            "bg-txt-4",
+            agent.status === "thinking" ? "bg-[var(--thinking)] [box-shadow:0_0_8px_var(--thinking)]" :
+            isError ? "bg-[var(--error)] [box-shadow:0_0_8px_var(--error)]" :
+            "bg-txt-4 [box-shadow:0_0_8px_var(--txt-4)]",
           )} />
         </div>
         <div className="min-w-0 flex-1">

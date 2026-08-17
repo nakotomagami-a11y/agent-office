@@ -17,7 +17,6 @@ import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProcessesStore } from "@/lib/processes-store";
-import { usePaletteStore } from "@/lib/palette-store";
 import {
   useProject,
   useRemoveInstance,
@@ -265,7 +264,6 @@ export function Sidebar() {
           active={isActiveRoute(pathname, PAGE_ROUTES.schedules)}
         />
         <ProcessesNavButton />
-        <CommandPaletteNavButton />
       </nav>
 
       {/* Draggable divider. Geometry + cursor are inline styles on purpose: the
@@ -288,8 +286,10 @@ export function Sidebar() {
       </div>
 
       <div className="flex flex-col min-h-0 flex-1">
-        {/* Roster header */}
-        <div className="flex items-center gap-[6px] px-[10px] py-[8px] border-b border-line shrink-0">
+        {/* Roster header. Top padding is trimmed to offset the ~5px gap left by
+            the split-divider above, so the visible space above "Roster" matches
+            the 8px below it. */}
+        <div className="flex items-center gap-[6px] px-[10px] pt-[3px] pb-[8px] border-b border-line shrink-0">
           <span className="text-[11.5px] font-semibold text-txt tracking-[0.01em] flex-1">Roster</span>
           <span className="font-[var(--font-mono)] text-[10px] bg-bg-3 border border-line text-txt-3 rounded-full px-[7px] py-[1px]">
             {project ? visibleGroups.length : filtered.length}
@@ -487,7 +487,7 @@ function SidebarFoot({ spendToday }: { spendToday: number }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full p-[8px] flex items-center gap-[10px] text-txt hover:bg-bg-3 transition-colors max-[1024px]:justify-center max-[1024px]:px-0 max-[1024px]:py-3"
+        className="w-full px-[8px] py-0 flex items-center gap-[10px] text-txt hover:bg-bg-3 transition-colors max-[1024px]:justify-center max-[1024px]:px-0 max-[1024px]:py-3"
         aria-label={t("common.open_settings")}
         aria-expanded={open}
       >
@@ -591,27 +591,6 @@ function RosterEntry({
     </div>
   );
 }
-
-function CommandPaletteNavButton() {
-  const setOpen = usePaletteStore((s) => s.setOpen);
-  const isMac =
-    typeof navigator !== "undefined" && navigator.platform.includes("Mac");
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-[10px] h-[34px] px-[10px] rounded-[var(--r-sm)] text-[13px] text-txt-3 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline hover:bg-bg-3 w-full"
-      onClick={() => setOpen(true)}
-      aria-label="Open command palette"
-    >
-      <Icon name="search" />
-      <span className="flex-1 text-left">Command palette</span>
-      <span className="bg-bg-2 border border-line text-txt-3 text-[10px] font-[var(--font-mono)] rounded px-[5px] py-[1px]">
-        {isMac ? "⌘K" : "Ctrl+K"}
-      </span>
-    </button>
-  );
-}
-
 
 function ProcessesNavButton() {
   const t = useTranslations();

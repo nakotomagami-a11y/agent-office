@@ -36,9 +36,10 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json<GitStatus>({ isGit: false, added: 0, removed: 0, filesChanged: 0, ahead: 0, behind: 0 });
   }
 
-  const [branchR, diffR, aheadR, behindR] = await Promise.allSettled([
+  const [branchR, diffR, statusR, aheadR, behindR] = await Promise.allSettled([
     git("git rev-parse --abbrev-ref HEAD", cwd),
     git("git diff --shortstat HEAD", cwd),
+    git("git status --porcelain --untracked-files=all", cwd),
     git("git rev-list @{u}..HEAD --count", cwd),
     git("git rev-list HEAD..@{u} --count", cwd),
   ]);
@@ -48,13 +49,23 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json<GitStatus>({ isGit: false, added: 0, removed: 0, filesChanged: 0, ahead: 0, behind: 0 });
   }
 
-  let added = 0, removed = 0, filesChanged = 0;
+  // Line churn (+/-) comes from `git diff`; the changed-FILE count comes from
+  // `git status --porcelain` (one line per file, incl. untracked) so it matches
+  // VS Code's Source Control badge instead of diff's tracked-only file count.
+  let added = 0, removed = 0;
   if (diffR.status === "fulfilled" && diffR.value) {
     const m1 = diffR.value.match(/(\d+) insertion/);
     const m2 = diffR.value.match(/(\d+) deletion/);
-    const m3 = diffR.value.match(/(\d+) file/);
     if (m1) added = parseInt(m1[1]!);
     if (m2) removed = parseInt(m2[1]!);
+  }
+
+  let filesChanged = 0;
+  if (statusR.status === "fulfilled") {
+    filesChanged = statusR.value ? statusR.value.split("\n").length : 0;
+  } else if (diffR.status === "fulfilled" && diffR.value) {
+    // Fallback to diff's file count if porcelain somehow failed.
+    const m3 = diffR.value.match(/(\d+) file/);
     if (m3) filesChanged = parseInt(m3[1]!);
   }
 

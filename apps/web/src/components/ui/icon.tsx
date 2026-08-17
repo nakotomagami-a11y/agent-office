@@ -630,6 +630,16 @@ const ICON_PATHS = {
       </>
     ),
   },
+  "more-vertical": {
+    ...FILL_BASE,
+    body: (
+      <>
+        <circle cx="12" cy="5" r="1.5" />
+        <circle cx="12" cy="12" r="1.5" />
+        <circle cx="12" cy="19" r="1.5" />
+      </>
+    ),
+  },
   smartphone: {
     ...STROKE_BASE,
     body: (

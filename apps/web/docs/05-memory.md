@@ -36,7 +36,14 @@ Currently working on: agent-office (~/Documents/Lab/agent-office)
 - **Project** — Project detail → Memory tab.
 - **Per-agent** — Agent details modal → Memory tab.
 
-The editor is a plain textarea with `Cmd/Ctrl+S` to save. Autosave is off — deliberate to avoid mid-thought writes.
+## Editor and preview
+
+The editor has **Write** and **Preview** tabs:
+
+- **Write** — a syntax-highlighted markdown editor with line numbers and live inline highlighting. Save with `Cmd/Ctrl+S`; autosave is off — deliberate, to avoid mid-thought writes. The pane scrolls independently for long files.
+- **Preview** — renders full GitHub-flavored markdown (headings, tables, code blocks, callouts) through the same renderer as the in-app [Docs](#/usage) tab, so what you see matches how the docs render elsewhere.
+
+Read-only entries surfaced under an agent in the Memory nav — installed **skills** and agent **reference** files — render that same formatted markdown. They have no edit/save path.
 
 ## 256 KB limit
 

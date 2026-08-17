@@ -412,8 +412,10 @@
     "installed_badge": "installed",
     "install_button": "Install",
     "remove_button": "Remove",
+    "source_button": "Source",
     "reroll_icon": "Reroll icon",
     "edit_icon": "Edit icon — pick seed & weapon type",
+    "page_indicator": "Page {page} of {total}",
     "no_results_title": "No skills match",
     "description_empty": "—"
   },

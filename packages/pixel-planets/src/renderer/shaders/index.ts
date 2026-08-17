@@ -19,6 +19,16 @@ import { GALAXY_FRAG_SRC }     from "./galaxy";
 import { STAR_BLOBS_FRAG_SRC } from "./star-blobs";
 import { STAR_MAIN_FRAG_SRC }  from "./star-main";
 import { STAR_FLARES_FRAG_SRC }from "./star-flares";
+import { ATMO_GLOW_FRAG_SRC }  from "./atmo-glow";
+import { ECLIPSE_CORONA_FRAG_SRC } from "./eclipse-corona";
+import { ATMO_RING_FRAG_SRC }  from "./atmo-ring";
+import { EMBERS_FRAG_SRC }     from "./embers";
+import { DEBRIS_FRAG_SRC }     from "./debris";
+import { COMET_TAIL_FRAG_SRC } from "./comet-tail";
+import { EXPLOSIONS_FRAG_SRC } from "./explosions";
+import { EJECTA_FRAG_SRC }     from "./ejecta";
+import { FRACTURE_FRAG_SRC }   from "./fracture";
+import { SHADE_FRAG_SRC }      from "./shade";
 
 export { VERT_SRC };
 
@@ -38,4 +48,14 @@ export const FRAG_SHADERS: Record<ShaderName, string> = {
   "star-blobs":       STAR_BLOBS_FRAG_SRC,
   "star-main":        STAR_MAIN_FRAG_SRC,
   "star-flares":      STAR_FLARES_FRAG_SRC,
+  "atmo-glow":        ATMO_GLOW_FRAG_SRC,
+  "eclipse-corona":   ECLIPSE_CORONA_FRAG_SRC,
+  "atmo-ring":        ATMO_RING_FRAG_SRC,
+  "embers":           EMBERS_FRAG_SRC,
+  "debris":           DEBRIS_FRAG_SRC,
+  "comet-tail":       COMET_TAIL_FRAG_SRC,
+  "explosions":       EXPLOSIONS_FRAG_SRC,
+  "ejecta":           EJECTA_FRAG_SRC,
+  "fracture":         FRACTURE_FRAG_SRC,
+  "shade":            SHADE_FRAG_SRC,
 };

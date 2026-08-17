@@ -22,6 +22,8 @@ uniform vec4  colors[2];
 uniform float size;
 uniform float seed;
 uniform float time;
+uniform float uv_offset;   // remap for oversized canvas (0 when canvasScale=1)
+uniform float uv_scale;    // = 1/(2*planetR) (1 when canvasScale=1)
 in  vec2 UV;
 layout(location=0) out vec4 fragColor;
 
@@ -52,7 +54,8 @@ vec2 rotate(vec2 coord, float angle) {
   return coord + 0.5;
 }
 void main() {
-  vec2 uv = floor(UV * pixels) / pixels;
+  vec2 uv_raw = floor(UV * pixels) / pixels;
+  vec2 uv = (uv_raw - uv_offset) * uv_scale;
   float d_circle = distance(uv, vec2(0.5));
   float d_light  = distance(uv, light_origin);
   float a = step(d_circle, 0.49999);
