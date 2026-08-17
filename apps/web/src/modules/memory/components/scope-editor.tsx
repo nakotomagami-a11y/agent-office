@@ -8,6 +8,7 @@ import { MemoryEditor } from "./memory-editor";
 import { scopeKey } from "../scope/scope";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { DocsRender } from "@/modules/docs/docs-render";
+import { SkillSectionsPanel } from "./skill-sections-panel";
 
 type ScopeEditorProps = {
   scope: MemoryScope;
@@ -50,6 +51,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
     return (
       <div className="relative flex-1 min-h-0">
         <div className="absolute inset-0 overflow-y-auto p-[20px]">
+          {scope.kind === "agent-skill" && <SkillSectionsPanel slug={scope.skillSlug} />}
           {memory.content ? (
             <CodeEditor
               className="shrink-0"

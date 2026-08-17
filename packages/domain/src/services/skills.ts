@@ -555,6 +555,146 @@ export async function updateSkill(name: string): Promise<{ filesWritten: number;
   return { filesWritten: result.filesWritten, sha: newProv?.sha ?? "" };
 }
 
+// ── Skill customizations (global, non-destructive overlay) ────────────────
+//
+// Users can trim a skill down to the parts they want. Customizations live in
+// APP_STATE_DIR (NOT inside `_skills/<name>/`, which `installSkill` rmSyncs on
+// update) so an upstream update never clobbers them. Keyed by skill name →
+// applies globally: any agent using the skill sees the same trimmed version.
+//
+// Phase 1 ships section toggles; `overrideBody`/`basedOnSha` are reserved for
+// the Phase 2 full-edit overlay.
+
+const SKILL_CUSTOMIZATIONS_FILE = join(APP_STATE_DIR, "skill-customizations.json");
+
+export interface SkillCustomization {
+  /** Slugs of `##` sections the user has switched off. */
+  disabledSections?: string[];
+  /** Phase 2: a full user-authored body that replaces upstream. */
+  overrideBody?: string;
+  /** Phase 2: the SKILL.md SHA the override was authored against. */
+  basedOnSha?: string;
+}
+export type SkillCustomizationMap = Record<string, SkillCustomization>;
+
+export interface SkillSection {
+  /** Stable id derived from the heading text (deduped). */
+  slug: string;
+  /** Display text of the `##` heading. */
+  heading: string;
+}
+
+function slugifySection(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "section"
+  );
+}
+
+/**
+ * Split a SKILL.md body into its toggleable `##` sections. Level-2 only —
+ * `###` sub-headings belong to their parent `##` block. Fence-aware so `##`
+ * inside a code block isn't mistaken for a heading. Duplicate slugs get a
+ * `-2`, `-3` suffix, matching stripDisabledSections' counting exactly.
+ */
+export function parseSkillSections(body: string): SkillSection[] {
+  const out: SkillSection[] = [];
+  const seen = new Map<string, number>();
+  let inFence = false;
+  for (const line of body.split("\n")) {
+    if (/^```/.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = /^##\s+(.+)$/.exec(line);
+    if (!m) continue;
+    const heading = m[1]!.trim();
+    let slug = slugifySection(heading);
+    const n = (seen.get(slug) ?? 0) + 1;
+    seen.set(slug, n);
+    if (n > 1) slug = `${slug}-${n}`;
+    out.push({ slug, heading });
+  }
+  return out;
+}
+
+/** Drop the `##` blocks whose slug is in `disabled` (heading → next `##`). */
+function stripDisabledSections(body: string, disabled: Set<string>): string {
+  if (disabled.size === 0) return body;
+  const out: string[] = [];
+  const seen = new Map<string, number>();
+  let inFence = false;
+  let skipping = false;
+  for (const line of body.split("\n")) {
+    if (/^```/.test(line)) {
+      inFence = !inFence;
+      if (!skipping) out.push(line);
+      continue;
+    }
+    const m = !inFence ? /^##\s+(.+)$/.exec(line) : null;
+    if (m) {
+      const heading = m[1]!.trim();
+      let slug = slugifySection(heading);
+      const n = (seen.get(slug) ?? 0) + 1;
+      seen.set(slug, n);
+      if (n > 1) slug = `${slug}-${n}`;
+      skipping = disabled.has(slug);
+      if (skipping) continue;
+    }
+    if (!skipping) out.push(line);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export function getSkillCustomizations(): SkillCustomizationMap {
+  if (!existsSync(SKILL_CUSTOMIZATIONS_FILE)) return {};
+  try {
+    const raw = JSON.parse(readFileSync(SKILL_CUSTOMIZATIONS_FILE, "utf8"));
+    return raw && typeof raw === "object" ? (raw as SkillCustomizationMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getSkillCustomization(name: string): SkillCustomization | undefined {
+  return getSkillCustomizations()[name];
+}
+
+function saveSkillCustomizations(map: SkillCustomizationMap): void {
+  ensureDir(APP_STATE_DIR);
+  writeFileAtomic(SKILL_CUSTOMIZATIONS_FILE, JSON.stringify(map, null, 2));
+}
+
+/** Persist a customization, pruning empty entries so the file stays tidy. */
+export function setSkillCustomization(name: string, cfg: SkillCustomization): SkillCustomization {
+  const map = getSkillCustomizations();
+  const cleaned: SkillCustomization = {};
+  if (cfg.disabledSections?.length) cleaned.disabledSections = cfg.disabledSections;
+  if (cfg.overrideBody) {
+    cleaned.overrideBody = cfg.overrideBody;
+    if (cfg.basedOnSha) cleaned.basedOnSha = cfg.basedOnSha;
+  }
+  if (Object.keys(cleaned).length === 0) delete map[name];
+  else map[name] = cleaned;
+  saveSkillCustomizations(map);
+  return cleaned;
+}
+
+export function isSkillCustomized(cfg: SkillCustomization | undefined): boolean {
+  return !!(cfg?.disabledSections?.length || cfg?.overrideBody);
+}
+
+/**
+ * The effective SKILL.md body after the user's global customization: a full
+ * override body if set (Phase 2), else upstream, with disabled sections stripped.
+ */
+export function resolveSkillBody(name: string, rawBody: string): string {
+  const cfg = getSkillCustomization(name);
+  const base = cfg?.overrideBody ?? rawBody;
+  return stripDisabledSections(base, new Set(cfg?.disabledSections ?? []));
+}
+
 // Skills enter context progressively. Tiny skills are inlined in full (cheap,
 // and always-resident is worth more than the round-trip to read them). Anything
 // substantial is listed as name + description + file path, so the agent reads
@@ -575,8 +715,14 @@ export function buildSkillsPrompt(skills: string[]): string {
   for (const name of skills) {
     const skill = readInstalledSkill(name);
     if (!skill?.body) continue;
-    if (skill.body.length <= INLINE_MAX_CHARS) {
-      inline.push(`### Skill: ${skill.name}\n\n${skill.body}`);
+    // Inject the effective (customized) body. A customized skill is always
+    // inlined — even if large — because the reference-by-path fallback points
+    // at the raw SKILL.md, which would leak the sections the user turned off.
+    const cfg = getSkillCustomization(name);
+    const body = resolveSkillBody(name, skill.body);
+    if (!body) continue;
+    if (body.length <= INLINE_MAX_CHARS || isSkillCustomized(cfg)) {
+      inline.push(`### Skill: ${skill.name}\n\n${body}`);
     } else {
       const path = join(SKILLS_DIR, name, "SKILL.md");
       const desc = skill.description ? ` — ${skill.description.replace(/\s+/g, " ").trim()}` : "";

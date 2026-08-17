@@ -25,7 +25,7 @@ export type SkillAutocompleteInputProps = {
  * (Enter/comma commits whatever the user typed) so power users who know
  * slugs by heart still get one-tap adds; opens a dropdown of matching
  * manifest entries for everyone else. Substring match across slug +
- * description + category mirrors the pattern used in command-palette.
+ * description + category.
  *
  * Combobox pattern per ARIA APG: the <input> owns the combobox role, the
  * dropdown gets listbox, and each row gets option + aria-selected. We wire
