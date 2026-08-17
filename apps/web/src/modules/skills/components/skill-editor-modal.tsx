@@ -7,6 +7,9 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import { TextInput } from "@/components/ui/text-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
+import { CodeEditor } from "@/components/ui/code-editor";
+import { DocsRender } from "@/modules/docs/docs-render";
 import { Icon } from "@/components/ui/icon";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 import type { RegistrySkill } from "@agent-office/domain/types";
@@ -56,7 +59,8 @@ interface SkillEditorModalProps {
 export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
   const [body, setBody] = useState(STARTER_BODY);
   const [icon, setIcon] = useState<IconConfig>({ seed: createRandomSeed(), iconClass: "any" });
 
@@ -66,16 +70,17 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
   useEffect(() => {
     if (!open) return;
     createMut.reset();
+    setTagDraft("");
     if (mode === "edit" && skill) {
       setName(skill.name);
       setDescription(skill.description);
-      setTags(skill.tags.join(", "));
+      setTags(skill.tags);
       setBody(STARTER_BODY.replace("my-skill", skill.name));
       setIcon({ seed: `${skill.source}/${skill.name}`, iconClass: "any" });
     } else {
       setName("");
       setDescription("");
-      setTags("");
+      setTags([]);
       setBody(STARTER_BODY);
       setIcon({ seed: createRandomSeed(), iconClass: "any" });
     }
@@ -88,17 +93,21 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && body.trim().length > 0 && !createMut.isPending;
 
+  const addTag = (raw: string) => {
+    const t = raw.trim().replace(/,+$/, "").trim();
+    if (t && !tags.includes(t)) setTags((prev) => [...prev, t]);
+    setTagDraft("");
+  };
+  const removeTag = (t: string) => setTags((prev) => prev.filter((x) => x !== t));
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     try {
-      const parsedTags = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
+      const finalTags = tagDraft.trim() ? [...tags, tagDraft.trim()] : tags;
       const res = await createMut.mutateAsync({
         name: trimmedName,
         description: description.trim(),
-        tags: parsedTags,
+        tags: finalTags,
         body,
         overwrite: isEdit,
       });
@@ -220,20 +229,48 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
               placeholder="Fills interactive PDF forms from a JSON payload…"
             />
           </Field>
-          <Field label="Tags" hint="comma separated — used for search and category chips">
-            <TextInput
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="documents, automation, pdf"
-            />
+          <Field label="Tags" hint="press Enter or comma to add — used for search and category chips">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tags.map((t) => (
+                <Tag key={t} variant="skill">
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    aria-label={`remove ${t}`}
+                    className="ml-0.5 -mr-0.5 opacity-60 hover:opacity-100 transition-opacity"
+                  >
+                    <Icon name="x" size={10} />
+                  </button>
+                </Tag>
+              ))}
+              <TextInput
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagDraft);
+                  } else if (e.key === "Backspace" && !tagDraft && tags.length) {
+                    removeTag(tags[tags.length - 1]!);
+                  }
+                }}
+                onBlur={() => tagDraft.trim() && addTag(tagDraft)}
+                placeholder={tags.length ? "add another…" : "documents, automation, pdf"}
+                className="flex-1 min-w-[140px]"
+              />
+            </div>
           </Field>
           <Field label="SKILL.md" hint="the full instruction the agent reads on demand">
-            <Textarea
-              rows={10}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="font-mono text-[12px] leading-[1.55]"
-            />
+            <div className="max-h-[46vh] overflow-y-auto rounded-[var(--r-md)]">
+              <CodeEditor
+                value={body}
+                onChange={setBody}
+                minHeight={200}
+                placeholder={"---\nname: my-skill\ndescription: …\n---\n\n# My Skill"}
+                renderPreview={(md) => <DocsRender markdown={md} />}
+              />
+            </div>
           </Field>
         </div>
       </div>
