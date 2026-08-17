@@ -28,6 +28,9 @@ import { listProcesses, getProcess, killProcess } from "@/lib/api/processes";
 // Shared compact button style for all toolbar action buttons
 const TBTN = "inline-flex items-center gap-[5px] px-[9px] h-[30px] rounded-[7px] text-[12px] text-txt-2 border border-transparent hover:bg-bg-3 hover:text-txt transition-[background,color,border-color] duration-[120ms] cursor-pointer select-none shrink-0";
 
+// Full-width labelled row used when an action is rendered inside the kebab menu
+const MROW = "flex items-center gap-[10px] w-full h-[34px] px-[10px] rounded-[7px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors duration-[120ms] cursor-pointer select-none text-left disabled:cursor-default disabled:hover:bg-transparent";
+
 type InstallState = "unknown" | "needed" | "installing" | "done" | "failed";
 
 type RunState =
@@ -36,7 +39,7 @@ type RunState =
   | { phase: "running"; pid: number; port: number | null; url: string | null }
   | { phase: "stopping" };
 
-export function DevServerButton({ projectId }: { projectId: string }) {
+export function DevServerButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
   const [install, setInstall] = useState<InstallState>("unknown");
   const [installError, setInstallError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -178,6 +181,78 @@ export function DevServerButton({ projectId }: { projectId: string }) {
       </button>
     </Tooltip>
   ) : null;
+
+  // ── Menu layout: every command as an inline row, no nested dropdown ─────────
+  if (menu) {
+    const installRow =
+      install === "needed" ? (
+        <button type="button" className={MROW} onClick={() => { void runInstall(); }}>
+          <Icon name="download" size={13} /> Install dependencies
+        </button>
+      ) : install === "installing" ? (
+        <button type="button" className={MROW} disabled>
+          <Icon name="refresh" size={13} className="[animation:spin_1s_linear_infinite]" /> Installing…
+        </button>
+      ) : install === "failed" ? (
+        <button type="button" className={cn(MROW, "text-[var(--error)]")} onClick={() => { void runInstall(); }}>
+          <Icon name="x" size={13} /> Install failed — retry
+        </button>
+      ) : null;
+
+    if (commands.length === 0) return installRow;
+
+    return (
+      <>
+        {installRow}
+        {commands.map((cmd) => {
+          const s = getState(cmd.key);
+          const busy = s.phase === "starting" || s.phase === "stopping";
+          const running = s.phase === "running";
+          return (
+            <div key={cmd.key} className="flex items-center gap-[8px] w-full h-[34px] pl-[10px] pr-[6px] rounded-[7px] hover:bg-bg-3 group">
+              <Icon
+                name="play"
+                size={12}
+                className={cn("shrink-0", running ? "text-[var(--working)]" : "text-txt-3")}
+              />
+              <span className={cn("flex-1 text-[13px] truncate", running ? "text-txt" : "text-txt-2")}>{cmd.name}</span>
+              {running && s.port !== null && (
+                <a
+                  href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[11px] text-[var(--working)] no-underline px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--working)_12%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  :{s.port}
+                </a>
+              )}
+              {busy && <Icon name="refresh" size={13} className="text-txt-3 [animation:spin_1s_linear_infinite] shrink-0" />}
+              {!busy && !running && (
+                <button
+                  type="button"
+                  onClick={() => { void startCmd(cmd.key); }}
+                  disabled={busyInstall}
+                  className="w-6 h-6 flex items-center justify-center rounded-[5px] text-txt-3 hover:text-txt hover:bg-bg-4 shrink-0 disabled:opacity-40"
+                  title={`Start ${cmd.name}`}
+                >
+                  <Icon name="play" size={11} />
+                </button>
+              )}
+              {!busy && running && (
+                <button
+                  type="button"
+                  onClick={() => { void stopCmd(cmd.key); }}
+                  className="w-6 h-6 flex items-center justify-center rounded-[5px] text-txt-3 hover:text-txt hover:bg-bg-4 shrink-0"
+                  title={`Stop ${cmd.name}`}
+                >
+                  <Icon name="stop" size={11} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
 
   // ── Single command: inline buttons ─────────────────────────────────────────
   if (commands.length === 1) {
@@ -330,7 +405,14 @@ export function FlutterDeviceButton() {
   );
 }
 
-export function OpenFolderButton({ projectId }: { projectId: string }) {
+export function OpenFolderButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+  if (menu) {
+    return (
+      <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId); }}>
+        <Icon name="folder" size={13} /> Open project folder
+      </button>
+    );
+  }
   return (
     <Tooltip content="Open project folder" side="bottom">
       <button type="button" className={TBTN}
@@ -341,7 +423,14 @@ export function OpenFolderButton({ projectId }: { projectId: string }) {
   );
 }
 
-export function OpenInVSCodeButton({ projectId }: { projectId: string }) {
+export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+  if (menu) {
+    return (
+      <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId, "code"); }}>
+        <Icon name="code" size={13} /> Open in VS Code
+      </button>
+    );
+  }
   return (
     <Tooltip content="Open in VS Code" side="bottom">
       <button type="button" className={TBTN}
@@ -354,7 +443,7 @@ export function OpenInVSCodeButton({ projectId }: { projectId: string }) {
 
 type BuildPhase = "idle" | "building" | "done" | "error";
 
-export function ClearCacheButton({ projectId }: { projectId: string }) {
+export function ClearCacheButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
   const [phase, setPhase] = useState<"idle" | "clearing" | "done" | "error">("idle");
 
   async function clearCache() {
@@ -367,6 +456,19 @@ export function ClearCacheButton({ projectId }: { projectId: string }) {
       setPhase("error");
     }
     setTimeout(() => setPhase("idle"), 2500);
+  }
+
+  if (menu) {
+    return (
+      <button type="button" className={cn(MROW, phase === "done" && "text-[var(--ok)]", phase === "error" && "text-[var(--error)]")} onClick={() => { void clearCache(); }} disabled={phase !== "idle"}>
+        <Icon
+          name={phase === "clearing" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "trash"}
+          size={13}
+          className={cn("shrink-0", phase === "clearing" && "[animation:spin_1s_linear_infinite]")}
+        />
+        {phase === "clearing" ? "Clearing cache…" : phase === "done" ? "Cache cleared" : phase === "error" ? "Clear failed" : "Clear build cache"}
+      </button>
+    );
   }
 
   if (phase === "clearing") {
@@ -399,7 +501,7 @@ export function ClearCacheButton({ projectId }: { projectId: string }) {
   );
 }
 
-export function BuildButton({ projectId }: { projectId: string }) {
+export function BuildButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
   const [phase, setPhase] = useState<BuildPhase>("idle");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -438,6 +540,19 @@ export function BuildButton({ projectId }: { projectId: string }) {
   }
 
   if (!hasBuild) return null;
+
+  if (menu) {
+    return (
+      <button type="button" className={cn(MROW, phase === "done" && "text-[var(--ok)]", phase === "error" && "text-[var(--error)]")} onClick={() => { void startBuild(); }} disabled={phase !== "idle"}>
+        <Icon
+          name={phase === "building" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "zap"}
+          size={13}
+          className={cn("shrink-0", phase === "building" && "[animation:spin_1s_linear_infinite]")}
+        />
+        {phase === "building" ? "Building…" : phase === "done" ? "Built" : phase === "error" ? "Build failed" : "Build project"}
+      </button>
+    );
+  }
 
   if (phase === "building") {
     return (
@@ -494,6 +609,74 @@ export function ProjectActionsBar({ projectId }: { projectId: string }) {
   );
 }
 
+/**
+ * Kebab (⋮) menu variant of the project actions — used in the agent
+ * conversation modal header, where the horizontal toolbar has no room. Every
+ * action (including each dev command) renders as an inline row; no nested
+ * dropdowns.
+ */
+export function ProjectActionsMenu({ projectId }: { projectId: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const projectQ = useProject(projectId);
+  const hasCwd = !!projectQ.data?.meta.cwd;
+
+  // Mirror BuildButton's own gate so we can bracket it with dividers only when
+  // it actually renders (react-query dedupes this against the child's query).
+  const buildQ = useQuery({
+    queryKey: ["project-build-check", projectId],
+    queryFn: () => getBuildInfo(projectId),
+    staleTime: 60_000,
+  });
+  const hasBuild = buildQ.data?.hasBuild ?? false;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (!hasCwd) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <Tooltip content="Project actions" side="bottom" delayMs={400}>
+        <button
+          type="button"
+          aria-label="Project actions"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            "inline-flex items-center justify-center w-7 h-7 rounded-lg text-txt-2 hover:text-txt hover:bg-bg-3 border border-transparent hover:border-line transition-all duration-[120ms]",
+            open && "bg-bg-3 text-txt border-line",
+          )}
+        >
+          <Icon name="more-vertical" size={16} />
+        </button>
+      </Tooltip>
+      {open && (
+        <div className="absolute top-[calc(100%+6px)] right-0 w-[240px] bg-[var(--bg-elev)] border border-[var(--line-2)] rounded-[10px] shadow-[var(--shadow-3)] z-[9999] p-1 flex flex-col gap-[1px]">
+          <OpenFolderButton projectId={projectId} menu />
+          <OpenInVSCodeButton projectId={projectId} menu />
+          <ClearCacheButton projectId={projectId} menu />
+          <div className="h-px bg-[var(--line-1)] my-1 mx-1" />
+          {hasBuild && (
+            <>
+              <BuildButton projectId={projectId} menu />
+              <div className="h-px bg-[var(--line-1)] my-1 mx-1" />
+            </>
+          )}
+          <DevServerButton projectId={projectId} menu />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export type OfficeToolbarProps = {
   agentCount: number;
   workingCount: number;
@@ -515,7 +698,6 @@ export function OfficeToolbar({ agentCount, workingCount }: OfficeToolbarProps) 
         <h1 className="font-bold m-0 text-[22px] tracking-[-0.01em] shrink-0">The office</h1>
         {activeProjectId ? (
           <>
-            <span className="text-txt-4 text-[14px] shrink-0">·</span>
             <ProjectChip projectId={activeProjectId} project={project} />
             <span className="text-txt-3 font-mono text-[12px] shrink-0 whitespace-nowrap">
               {rosterCount} agent{rosterCount === 1 ? "" : "s"}
