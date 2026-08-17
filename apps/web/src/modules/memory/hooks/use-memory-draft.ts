@@ -13,6 +13,8 @@ export type UseMemoryDraftReturn = {
   draft: string;
   setDraft: (next: string) => void;
   isDirty: boolean;
+  /** Discard local edits and revert to the last-saved value. */
+  reset: () => void;
   save: () => Promise<void>;
   isSaving: boolean;
   savedRecently: boolean;
@@ -40,6 +42,11 @@ export function useMemoryDraft({
     setDraftState(next);
   }, []);
 
+  // Drop the draft — `value` falls back to `initialValue`, isDirty → false.
+  const reset = useCallback(() => {
+    setDraftState(null);
+  }, []);
+
   const save = useCallback(async () => {
     if (draft === null) return;
     setIsSaving(true);
@@ -58,6 +65,7 @@ export function useMemoryDraft({
     draft: value,
     setDraft,
     isDirty,
+    reset,
     save,
     isSaving,
     savedRecently,
