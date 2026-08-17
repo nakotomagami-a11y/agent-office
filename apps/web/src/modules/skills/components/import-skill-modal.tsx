@@ -4,8 +4,9 @@ import { useState } from "react";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { TextInput } from "@/components/ui/text-input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { useImportSkill, useAddSkillSource } from "../hooks/use-skills";
 
 type ImportMode = "github" | "paste";
 
@@ -15,16 +16,46 @@ interface ImportSkillModalProps {
 }
 
 /**
- * Bring an external skill in. Two intakes: a GitHub URL/repo, or a pasted
- * SKILL.md. Visual shell — submit closes; the functional pass maps GitHub to
- * the sources+install path and paste to a local write.
+ * Bring an external skill in. Two intakes: a GitHub repo/URL — added as a skill
+ * source so its skills surface in the list to install — or a pasted SKILL.md,
+ * written straight to a local skill using its frontmatter name.
  */
 export function ImportSkillModal({ open, onClose }: ImportSkillModalProps) {
   const [mode, setMode] = useState<ImportMode>("github");
   const [url, setUrl] = useState("");
   const [paste, setPaste] = useState("");
 
-  const canSubmit = mode === "github" ? url.trim().length > 0 : paste.trim().length > 0;
+  const importMut = useImportSkill();
+  const addSourceMut = useAddSkillSource();
+  const pending = importMut.isPending || addSourceMut.isPending;
+
+  const canSubmit =
+    (mode === "github" ? url.trim().length > 0 : paste.trim().length > 0) && !pending;
+
+  const errorMessage = (() => {
+    const err = (mode === "github" ? addSourceMut.error : importMut.error) as
+      | (Error & { status?: number })
+      | null;
+    if (!err) return null;
+    if (err.message === "skill_exists") return "A skill with that name already exists.";
+    return err.message || "Import failed. Check the input and try again.";
+  })();
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    try {
+      if (mode === "github") {
+        await addSourceMut.mutateAsync(url.trim());
+      } else {
+        await importMut.mutateAsync(paste);
+      }
+      setUrl("");
+      setPaste("");
+      onClose();
+    } catch {
+      // error surfaced inline via errorMessage; keep the modal open.
+    }
+  };
 
   return (
     <ModalShell
@@ -35,21 +66,18 @@ export function ImportSkillModal({ open, onClose }: ImportSkillModalProps) {
       maxWidth={560}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center h-8 px-4 rounded-[8px] text-[13px] font-medium text-txt-2 bg-transparent border border-line hover:bg-bg-3 hover:text-txt transition-colors"
-          >
+          {errorMessage ? (
+            <span className="mr-auto flex items-center gap-1.5 text-[11.5px] font-medium text-status-error">
+              <Icon name="slash" size={12} /> {errorMessage}
+            </span>
+          ) : null}
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={!canSubmit}
-            className={`inline-flex items-center gap-1.5 h-8 px-4 rounded-[8px] text-[13px] font-medium ${ACCENT_BTN}`}
-          >
-            <Icon name="download" size={13} /> Import
-          </button>
+          </Button>
+          <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit}>
+            <Icon name={pending ? "refresh" : mode === "github" ? "branch" : "download"} size={13} />
+            {pending ? (mode === "github" ? "Adding…" : "Importing…") : mode === "github" ? "Add source" : "Import"}
+          </Button>
         </>
       }
     >
