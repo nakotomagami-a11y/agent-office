@@ -570,7 +570,7 @@ html, body { background: var(--bg-0); }
    chrome stays fully visible + interactive while a modal is open. Enforced
    per-instance via inline `style={{ top: 74 }}` on every `.app-modal-backdrop`
    mount (see modal-shell.tsx, agent-details/index.tsx, add-agent-modal.tsx,
-   command-palette.tsx, workflow-picker-dialog.tsx). Kept out of CSS because
+   workflow-picker-dialog.tsx). Kept out of CSS because
    Turbopack's HMR was inconsistent about picking up new class rules for a
    pre-existing class name; inline styles bypass the CSS pipeline entirely. */
 

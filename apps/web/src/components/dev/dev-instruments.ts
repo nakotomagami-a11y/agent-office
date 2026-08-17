@@ -12,7 +12,6 @@ import { useProcessesStore } from "@/lib/processes-store";
 import { useClaudeLimitsStore } from "@/lib/claude-limits-store";
 import { useFlutterStore } from "@/lib/flutter-store";
 import { useDevServerStore } from "@/lib/dev-server-store";
-import { usePaletteStore } from "@/lib/palette-store";
 
 type Readable = { getState: () => unknown };
 
@@ -32,7 +31,6 @@ const STORES: Record<string, Readable> = {
   claudeLimits: useClaudeLimitsStore,
   flutter: useFlutterStore,
   devServer: useDevServerStore,
-  palette: usePaletteStore,
 };
 
 function collectStores(): Record<string, unknown> {
