@@ -12,6 +12,7 @@ import { PlanBadge } from "./plan-badge";
 import { AddAccountModal } from "./add-account-modal";
 import { DeleteAccountModal } from "./delete-account-modal";
 import { AccountsStatsPanel } from "./accounts-stats-panel";
+import { useSignInModalStore } from "@/lib/sign-in-modal-store";
 
 export function AccountsTab() {
   const accountsQ = useAccounts();
@@ -69,6 +70,7 @@ function AccountRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(account.label);
   const rename = useRenameAccount();
+  const openSignIn = useSignInModalStore((s) => s.open);
 
   const commit = async () => {
     const trimmed = draft.trim();
@@ -124,6 +126,11 @@ function AccountRow({
       </div>
       {!editing && (
         <div className="flex items-center gap-[4px]">
+          {!account.ready && (
+            <Button size="sm" variant="primary" onClick={() => openSignIn({ accountId: account.id })}>
+              <Icon name="external-link" size={12} /> Sign in
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
             <Icon name="pen" size={12} />
           </Button>

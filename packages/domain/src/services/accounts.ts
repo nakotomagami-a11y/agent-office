@@ -165,6 +165,10 @@ interface CredentialsBlob {
     emailAddress?: string;
     accountEmail?: string;
     email?: string;
+    /** Epoch ms the access token expires. */
+    expiresAt?: number;
+    /** Present when the session can be renewed without a fresh login. */
+    refreshToken?: string;
   };
 }
 
@@ -200,7 +204,18 @@ export function getEmail(id: string): string | null {
 export function isReady(id: string): boolean {
   const account = get(id);
   if (!account) return false;
-  return existsSync(join(account.configDir, ".credentials.json"));
+  if (!existsSync(join(account.configDir, ".credentials.json"))) return false;
+  // File existence alone is not enough: a session whose access token has
+  // expired AND has no refresh token is dead — the CLI fails with "OAuth
+  // session expired and could not be refreshed". Treat that as not-ready so
+  // the UI shows "needs login" + Sign in. Anything still valid or refreshable
+  // counts as ready.
+  const o = readCredentials(account.configDir)?.claudeAiOauth;
+  if (!o) return false;
+  if (typeof o.expiresAt === "number" && o.expiresAt <= Date.now() && !o.refreshToken) {
+    return false;
+  }
+  return true;
 }
 
 export function getStatus(id: string): AccountWithStatus | null {
