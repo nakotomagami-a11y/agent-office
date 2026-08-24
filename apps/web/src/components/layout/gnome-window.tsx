@@ -15,10 +15,9 @@ export type GnomeWindowProps = {
  *
  * Edge-to-edge in every mode: no border, no rounded corners, no shadow, no
  * chrome inset. The old "floating GNOME window" chrome (18px transparent
- * inset with a shadow) left a light-color ring around the app that leaked
- * whichever background lived behind it — the user asked for it removed.
- * `maximized` is preserved as a hook consumer contract but no longer flips
- * any styles.
+ * inset with a shadow) was dropped because it left a light-color ring that
+ * leaked whichever background lived behind it. `maximized` is preserved as a
+ * hook consumer contract but no longer flips any styles.
  */
 export function GnomeWindow({ children, className }: GnomeWindowProps) {
   useIsMaximized();
