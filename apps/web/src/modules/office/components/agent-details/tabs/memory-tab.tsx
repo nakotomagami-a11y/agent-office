@@ -5,7 +5,7 @@ import type React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAgentMemory, useWriteAgentMemory } from "@/modules/agents/hooks/use-agents";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { parseMemory, serializeMemory, type Fact, type Group } from "@/modules/office/derive/memory-format";
 
 export function MemoryTab({ agentId, discardRef }: { agentId: string; discardRef?: React.MutableRefObject<(() => void) | null> }) {

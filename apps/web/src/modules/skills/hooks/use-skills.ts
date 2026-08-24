@@ -4,37 +4,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
-import type { InstalledSkill, RegistrySkill} from "@agent-office/domain/types";
-
-export interface SkillManifestEntry {
-  slug: string;
-  source_id?: string;
-  source_path?: string;
-  symlink_status?: string;
-  target?: string;
-  category?: string;
-  workflow_depth?: string;
-  token_cost_est?: number;
-  impact_tier?: string;
-  impact_emoji?: string;
-  description?: string;
-}
-
-export interface SkillManifest {
-  generated_at?: string;
-  generator?: string;
-  cost_indicator_scale?: Record<string, string>;
-  workflow_depth_legend?: Record<string, string>;
-  sources?: Record<string, unknown>;
-  skills: SkillManifestEntry[];
-}
-
-export interface SkillCompatibility {
-  conflicts?: unknown;
-  synergies?: unknown;
-  ab_test_pairs?: unknown;
-  [k: string]: unknown;
-}
+import type {
+  InstalledSkill,
+  RegistrySkill,
+  SkillManifest,
+  SkillManifestEntry,
+  SkillCompatibility,
+} from "@agent-office/domain/types";
+// Re-exported so skills components can keep importing these from this hook.
+export type { SkillManifest, SkillManifestEntry, SkillCompatibility };
 
 export function useRegistry(refresh = false) {
   return useQuery({

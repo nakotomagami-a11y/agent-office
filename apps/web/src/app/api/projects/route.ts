@@ -1,3 +1,5 @@
+// GET /api/projects — list project summaries. POST — create a project from a
+// validated body (registers it and provisions its ~/.claude/projects/<id> dir).
 import { NextResponse } from "next/server";
 import { projects } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

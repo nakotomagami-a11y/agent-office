@@ -1,6 +1,7 @@
+// GET /api/skills/installed — list installed skill packs.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 import { serverError } from "@/lib/api-helpers";
 
 export async function GET() {

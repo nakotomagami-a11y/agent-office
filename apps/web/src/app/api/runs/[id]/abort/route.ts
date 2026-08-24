@@ -1,3 +1,4 @@
+// POST /api/runs/<id>/abort — abort a running run (kills its child process).
 import { NextResponse } from "next/server";
 import { runs } from "@agent-office/domain/services";
 import { validateIdParam } from "@/lib/api-helpers";

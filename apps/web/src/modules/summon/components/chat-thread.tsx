@@ -8,7 +8,7 @@ import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { ExpandedStateContext, MessageBubble, ToolGroupRow } from "./message-bubble";
 import { LiveStatus, type ChatPhase } from "./live-status";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import type { ThreadItem } from "../format/thread-types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { groupRows, isAgentRow, looksLikeQuestion } from "../format/thread-rows";
@@ -41,6 +41,8 @@ export type ChatThreadProps = {
   onAbortRun?: () => void;
   /** Dismiss a rate-limit warning card (Continue button). */
   onDismissRateLimit?: (itemId: string) => void;
+  /** Delete a user message from the thread (hover action on own messages). */
+  onDeleteMessage?: (itemId: string) => void;
   /** Schedule a resume of this session when the limit resets (unix seconds). */
   onScheduleRateLimit?: (resetsAtSeconds: number) => Promise<void>;
   /** Schedule a resume from the error/interrupted card at a user-chosen time (ms). */
@@ -64,7 +66,7 @@ const SUGGESTIONS: Array<{ lbl: string; text: string }> = [
   { lbl: "Explain", text: "Walk me through how this part of the system handles errors." },
 ];
 
-export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
+export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
   // server restarts on any server-side edit and the panel replays the active
@@ -275,7 +277,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
             className="rounded-none shrink-0"
           />
           <div>
-            <h2 className="font-bold mt-[6px] mb-[4px] text-[22px] tracking-[-0.02em]">Hi, I&apos;m {formatAgentDisplayName(agent.name)}.</h2>
+            <h2 className="font-bold mt-[6px] mb-[4px] text-[22px] tracking-[-0.02em]">Hi, I&apos;m {agentDisplayName(agent)}.</h2>
             <p className="text-[var(--txt-3)] m-0 text-[13px]">{agent.description || "Ready when you are - pick a starter or ask anything."}</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full mt-3 [&>*]:basis-[calc(50%-4px)]">
@@ -333,6 +335,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
                     hideAvatar={hideAvatar}
                     onReply={isQuestion && onSubmit ? onSubmit : undefined}
                     onRerun={row.item.kind === "you" && onSubmit ? onSubmit : undefined}
+                    onDelete={row.item.kind === "you" && onDeleteMessage ? () => onDeleteMessage(row.item.id) : undefined}
                     onRetry={lastYouText ? () => onSubmit!(lastYouText) : undefined}
                     onRepair={
                       onRepairWorktree

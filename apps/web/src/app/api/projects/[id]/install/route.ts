@@ -1,3 +1,5 @@
+// POST /api/projects/<id>/install — run the project's package-manager install
+// (detected pm) in its working directory.
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename } from "node:path";

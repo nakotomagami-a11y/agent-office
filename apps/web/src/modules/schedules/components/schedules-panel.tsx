@@ -4,8 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import type { ScheduledJob } from "@agent-office/domain/types";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN, Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -18,7 +17,7 @@ import { Tag } from "@/components/ui/tag";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName, formatAgentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
 import {
@@ -501,7 +500,7 @@ function agentItems(
     label: (
       <span className="flex items-center gap-[9px] min-w-0">
         <AgentAvatar unit={a.unitChoice} size={20} className="rounded" />
-        <span className="truncate">{formatAgentDisplayName(a.name)}</span>
+        <span className="truncate">{agentDisplayName(a)}</span>
       </span>
     ),
   }));
@@ -512,7 +511,7 @@ function agentDisplay(agent: { name: string; unitChoice: UnitSelection } | undef
   return (
     <>
       <AgentAvatar unit={agent.unitChoice} size={20} className="rounded shrink-0" />
-      <span className="truncate">{formatAgentDisplayName(agent.name)}</span>
+      <span className="truncate">{agentDisplayName(agent)}</span>
     </>
   );
 }

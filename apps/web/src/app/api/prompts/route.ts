@@ -1,3 +1,4 @@
+// GET /api/prompts — recent prompts across all agents (composer history).
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 

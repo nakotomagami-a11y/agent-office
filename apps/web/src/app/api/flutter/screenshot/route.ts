@@ -1,40 +1,17 @@
-import { spawn } from "node:child_process";
+// GET /api/flutter/screenshot — capture a PNG screenshot from the device via adb.
+// Gated on the `flutter` integration toggle.
 import { NextResponse } from "next/server";
+import { requireIntegration } from "@/lib/api-helpers";
+import { captureScreenshot } from "@/lib/server/flutter";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const deviceId = searchParams.get("deviceId");
+  const gate = requireIntegration("flutter");
+  if (gate) return gate;
+  const deviceId = new URL(req.url).searchParams.get("deviceId") ?? undefined;
 
-  const args: string[] = [];
-  if (deviceId) { args.push("-s", deviceId); }
-  args.push("exec-out", "screencap", "-p");
-
-  return new Promise<Response>((resolve) => {
-    const chunks: Buffer[] = [];
-    const child = spawn("adb", args, { timeout: 12_000 });
-
-    child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-    child.on("close", (code) => {
-      if (code !== 0 || chunks.length === 0) {
-        resolve(NextResponse.json({ error: "screencap failed" }, { status: 500 }));
-        return;
-      }
-      const buf = Buffer.concat(chunks);
-      if (buf.length < 8 || buf[0] !== 0x89 || buf[1] !== 0x50) {
-        resolve(NextResponse.json({ error: "invalid image data" }, { status: 500 }));
-        return;
-      }
-      resolve(
-        new Response(buf, {
-          headers: {
-            "Content-Type": "image/png",
-            "Cache-Control": "no-store",
-          },
-        }),
-      );
-    });
-    child.on("error", () => {
-      resolve(NextResponse.json({ error: "adb not found" }, { status: 500 }));
-    });
+  const shot = await captureScreenshot(deviceId);
+  if (!shot.ok) return NextResponse.json({ error: shot.error }, { status: shot.status });
+  return new Response(new Uint8Array(shot.png), {
+    headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
   });
 }

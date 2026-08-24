@@ -1,37 +1,20 @@
-import { spawn } from "node:child_process";
+// POST/DELETE /api/flutter/mirror — start or stop an always-on-top device mirror
+// window (scrcpy). Gated on the `flutter` integration toggle.
 import { NextResponse } from "next/server";
-
-let mirrorPid: number | null = null;
+import { requireIntegration } from "@/lib/api-helpers";
+import { startMirror, stopMirror } from "@/lib/server/flutter";
 
 export async function POST(req: Request) {
+  const gate = requireIntegration("flutter");
+  if (gate) return gate;
   let body: { deviceId?: string } = {};
   try { body = await req.json() as { deviceId?: string }; } catch { /* no body */ }
-
-  // Kill existing mirror if running
-  if (mirrorPid !== null) {
-    try { process.kill(mirrorPid, "SIGTERM"); } catch { /* already gone */ }
-    mirrorPid = null;
-  }
-
-  const args: string[] = [];
-  if (body.deviceId) args.push("-s", body.deviceId);
-  args.push("--always-on-top", "--window-title", "Phone Mirror");
-
-  const child = spawn("scrcpy", args, {
-    detached: true,
-    stdio: "ignore",
-    env: { ...process.env },
-  });
-  child.unref();
-  mirrorPid = child.pid ?? null;
-
-  return NextResponse.json({ pid: mirrorPid });
+  return NextResponse.json({ pid: startMirror(body.deviceId) });
 }
 
 export async function DELETE() {
-  if (mirrorPid !== null) {
-    try { process.kill(mirrorPid, "SIGTERM"); } catch { /* already gone */ }
-    mirrorPid = null;
-  }
+  const gate = requireIntegration("flutter");
+  if (gate) return gate;
+  stopMirror();
   return NextResponse.json({ ok: true });
 }

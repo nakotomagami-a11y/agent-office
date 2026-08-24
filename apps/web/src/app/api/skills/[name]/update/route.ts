@@ -1,7 +1,8 @@
+// POST /api/skills/<name>/update — update one installed skill to the latest version.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
 import { serverError, validateIdParam } from "@/lib/api-helpers";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 
 type Params = { params: Promise<{ name: string }> };
 

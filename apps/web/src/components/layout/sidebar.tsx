@@ -415,6 +415,7 @@ export function Sidebar() {
       <ModalShell
         open={pendingRemove !== null}
         onClose={() => setPendingRemove(null)}
+        onEnter={confirmRemove}
         title={t("sidebar.remove_from_project_title")}
         size="sm"
         footer={

@@ -1,60 +1,24 @@
-import { readFileSync, existsSync } from "node:fs";
+// GET/DELETE /api/processes/<pid> — inspect or kill one tracked process.
 import { NextResponse } from "next/server";
+import { processes } from "@agent-office/domain/services";
 import { deleteProcess } from "@/lib/server-process-store";
+import { badRequest } from "@/lib/api-helpers";
 
 type Params = { params: Promise<{ pid: string }> };
 
-function readProcUid(pid: number): number | null {
-  try {
-    const status = readFileSync(`/proc/${pid}/status`, "utf8");
-    const match = /^Uid:\s+(\d+)/m.exec(status);
-    if (!match) return null;
-    return parseInt(match[1]!, 10);
-  } catch {
-    return null;
-  }
+export async function GET(_request: Request, { params }: Params) {
+  const pid = processes.parsePid((await params).pid);
+  if (pid === null) return badRequest();
+  return NextResponse.json({ alive: processes.isProcessAlive(pid) });
 }
 
-export async function GET(_request: Request, { params }: Params): Promise<NextResponse> {
-  const rawPid = (await params).pid;
-  const pid = parseInt(rawPid, 10);
-  if (!Number.isInteger(pid) || pid <= 0 || String(pid) !== rawPid) {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
-  }
-  return NextResponse.json({ alive: existsSync(`/proc/${pid}/status`) });
-}
+export async function DELETE(_request: Request, { params }: Params) {
+  const pid = processes.parsePid((await params).pid);
+  if (pid === null) return badRequest();
 
-export async function DELETE(_request: Request, { params }: Params): Promise<NextResponse> {
-  const rawPid = (await params).pid;
-  const pid = parseInt(rawPid, 10);
+  const result = processes.killProcess(pid);
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  if (!Number.isInteger(pid) || pid <= 0 || String(pid) !== rawPid) {
-    return NextResponse.json({ error: "bad_request" }, { status: 400 });
-  }
-
-  const currentUid = typeof process.getuid === "function" ? process.getuid() : null;
-
-  if (currentUid !== null) {
-    const uid = readProcUid(pid);
-    if (uid === null) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    if (uid !== currentUid) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
-    }
-  }
-
-  try {
-    // SIGKILL: cannot be caught or ignored - the process dies immediately.
-    // Using SIGTERM here left processes alive when they ignored the signal.
-    process.kill(pid, "SIGKILL");
-    deleteProcess(pid);
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    const err = e as NodeJS.ErrnoException;
-    if (err.code === "ESRCH") {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-    return NextResponse.json({ error: "internal_error" }, { status: 500 });
-  }
+  deleteProcess(pid);
+  return NextResponse.json({ ok: true });
 }

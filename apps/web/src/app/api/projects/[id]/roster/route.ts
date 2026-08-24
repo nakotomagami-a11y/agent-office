@@ -1,6 +1,8 @@
+// POST /api/projects/<id>/roster — add an agent instance to the project roster.
+// Returns a typed 409 when the per-project instance cap is hit.
 import { NextResponse } from "next/server";
 import { projects, settings } from "@agent-office/domain/services";
-import { InstanceCapError } from "@agent-office/domain/services/projects";
+import { InstanceCapError } from "@agent-office/domain/services/projects/projects";
 import { validateBody } from "@/lib/validation";
 import { rosterAddSchema } from "@/lib/validation-schemas";
 import { tryService, validateIdParam } from "@/lib/api-helpers";

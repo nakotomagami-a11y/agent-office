@@ -3,16 +3,9 @@
 import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { useClaudeLimitsStore, periodEnd } from "@/lib/claude-limits-store";
-
-function fmt(ms: number): string {
-  return new Date(ms).toLocaleString([], {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatWeekdayTime } from "@/lib/format-date";
 
 /**
  * Schedule-resume control for the error / interrupted card. Expands inline
@@ -92,7 +85,7 @@ export function ScheduleResumeMenu({
         <span className="inline-flex items-center gap-[7px]">
           <Icon name="activity" size={13} /> Resume when my limit resets
         </span>
-        <span className="font-mono text-[12px] opacity-90">{fmt(resetMs)}</span>
+        <span className="font-mono text-[12px] opacity-90">{formatWeekdayTime(resetMs)}</span>
       </button>
 
       {/* Specific time — designed picker + confirm */}

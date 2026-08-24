@@ -1,3 +1,4 @@
+// GET /api/runs/<id>/children — list sub-agent runs spawned by this run.
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 import { validateIdParam } from "@/lib/api-helpers";

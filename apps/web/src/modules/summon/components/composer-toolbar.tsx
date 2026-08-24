@@ -2,8 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
-import { Button } from "@/components/ui/button";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN, Button } from "@/components/ui/button";
 import type { ContextProfile } from "@agent-office/domain/types";
 
 export type ComposerToolbarProps = {

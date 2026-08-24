@@ -1,6 +1,7 @@
+// GET /api/skills/manifest — the installed-skills manifest (empty list if none).
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 import { serverError } from "@/lib/api-helpers";
 
 export async function GET() {

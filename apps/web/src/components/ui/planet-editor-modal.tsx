@@ -7,7 +7,7 @@ import { ModalShell } from "./modal-shell";
 import { PlanetCanvas } from "./planet-canvas";
 import { Popover } from "./popover";
 import { Icon } from "./icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 
 function rgbToHex(rgb: [number, number, number]): string {
   const clamp = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0");

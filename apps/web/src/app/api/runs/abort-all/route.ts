@@ -1,3 +1,4 @@
+// POST /api/runs/abort-all — abort every currently-running run.
 import { NextResponse } from "next/server";
 import { runs as runsService } from "@agent-office/domain/services";
 

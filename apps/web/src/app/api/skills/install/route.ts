@@ -1,6 +1,7 @@
+// POST /api/skills/install — install a skill pack from a source.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 import { serverError } from "@/lib/api-helpers";
 import { validateBody } from "@/lib/validation";
 import { skillInstallSchema } from "@/lib/validation-schemas";

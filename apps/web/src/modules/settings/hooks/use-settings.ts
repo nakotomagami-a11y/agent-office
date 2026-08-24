@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { getIntegration } from "@agent-office/domain/config/integrations";
 import type { AppSettings, ScannedEntry } from "@agent-office/domain/types";
 
 export function useSettings() {
@@ -11,6 +12,14 @@ export function useSettings() {
     queryKey: queryKeys.settings.detail(),
     queryFn: () => apiFetch<AppSettings | null>(API_ROUTES.settings),
   });
+}
+
+/** Client mirror of isIntegrationEnabled — stored toggle if set, else registry default. */
+export function useIntegrationEnabled(id: string): boolean {
+  const settingsQ = useSettings();
+  const stored = settingsQ.data?.integrations?.[id];
+  if (typeof stored === "boolean") return stored;
+  return getIntegration(id)?.defaultEnabled ?? false;
 }
 
 export function useScanProjects(root: string, excluded: string[]) {
@@ -33,6 +42,20 @@ export function useWriteSettings() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.settings.all });
       qc.invalidateQueries({ queryKey: queryKeys.projects.all });
+    },
+  });
+}
+
+type SettingsPatch = Partial<Pick<AppSettings, "features" | "integrations" | "firstRunComplete">>;
+
+/** Merge-patch feature flags, integration toggles, or first-run state. */
+export function usePatchSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: SettingsPatch) =>
+      apiFetch<AppSettings>(API_ROUTES.settings, { method: "PATCH", body: patch }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.settings.all });
     },
   });
 }

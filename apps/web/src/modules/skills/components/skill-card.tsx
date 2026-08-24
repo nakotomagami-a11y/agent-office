@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import {
   skillIconKey,
   skillIconConfig,

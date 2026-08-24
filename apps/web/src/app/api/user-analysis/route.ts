@@ -19,8 +19,8 @@ import {
   summon,
   userAnalysis,
 } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
-import { badRequest, serverError } from "@/lib/api-helpers";
+import { log } from "@agent-office/domain/services/infra/log";
+import { badRequest, serverError, requireIntegration } from "@/lib/api-helpers";
 
 const AGENT_ID = "user-analyst";
 const PROJECT_ID = "agent-office";
@@ -28,6 +28,8 @@ const REGEN_PROMPT =
   "Regenerate the user analysis. Read all sources per your system prompt. Write to ~/.claude/agent-office/user_analysis.md.";
 
 export async function GET() {
+  const gate = requireIntegration("about-you");
+  if (gate) return gate;
   try {
     return NextResponse.json(userAnalysis.readUserAnalysis());
   } catch (e) {
@@ -37,6 +39,8 @@ export async function GET() {
 }
 
 export async function POST() {
+  const gate = requireIntegration("about-you");
+  if (gate) return gate;
   const agent = agents.readAgent(AGENT_ID);
   if (!agent) return badRequest(`agent not installed: ${AGENT_ID}`);
 

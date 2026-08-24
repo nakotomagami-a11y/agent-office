@@ -4,6 +4,7 @@
 // React code ships to both targets. Uses dynamic imports so the plugin
 // bundles are never pulled into a browser build where they'd 404.
 
+import { APP_REPO, EXTERNAL_API } from "@agent-office/domain/config/routes";
 import { isTauri, openExternalUrl } from "./tauri-window";
 
 export type UpdateInfo = {
@@ -21,8 +22,7 @@ export type PendingUpdate = {
   install: (onProgress?: DownloadProgress) => Promise<void>;
 };
 
-const REPO = "nakotomagami-a11y/agent-office";
-export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
+export const RELEASES_URL = EXTERNAL_API.github.latestReleasePage(APP_REPO);
 
 /**
  * A detected update, unified across platforms:
@@ -65,7 +65,7 @@ async function getAppVersion(): Promise<string | null> {
 }
 
 async function fetchLatestRelease(): Promise<{ version: string; notes?: string; url: string } | null> {
-  const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+  const res = await fetch(EXTERNAL_API.github.latestReleaseApi(APP_REPO), {
     headers: { Accept: "application/vnd.github+json" },
   });
   if (!res.ok) return null;

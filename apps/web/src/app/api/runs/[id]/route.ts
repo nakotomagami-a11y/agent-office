@@ -1,3 +1,4 @@
+// GET /api/runs/<id> — read one persisted run record.
 import { NextResponse } from "next/server";
 import { runs, store } from "@agent-office/domain/services";
 import { notFound, validateIdParam } from "@/lib/api-helpers";

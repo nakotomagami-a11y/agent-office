@@ -1,3 +1,5 @@
+// GET /api/secrets — list all secrets (read-path shape — no raw values).
+// POST — create a secret.
 import { NextResponse } from "next/server";
 import { secrets } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

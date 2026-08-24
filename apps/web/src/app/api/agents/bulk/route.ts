@@ -1,3 +1,5 @@
+// POST /api/agents/bulk — write many agent definitions in one call. Per-item
+// failures are collected: 200 all-ok, 207 partial, 500 if every item failed.
 import { NextResponse } from "next/server";
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

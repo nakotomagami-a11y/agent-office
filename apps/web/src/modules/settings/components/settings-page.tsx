@@ -15,6 +15,7 @@ import { AboutYouTab } from "./tabs/about-you-tab";
 import { PerformanceTab } from "./tabs/performance-tab";
 import { CleanupPanel } from "./tabs/cleanup-panel";
 import { BundledAgentsTab } from "./tabs/bundled-agents-tab";
+import { IntegrationsTab } from "./tabs/integrations-tab";
 import { SettingsNav, type SettingsTabValue } from "./settings-nav";
 import { AccountsTab } from "@/modules/accounts/components/accounts-tab";
 import { GithubAccountsTab } from "@/modules/github-accounts/components/github-accounts-tab";
@@ -53,6 +54,9 @@ export function SettingsPage() {
         ))
         .with("bundled-agents", () => (
           <SettingsSection><BundledAgentsTab /></SettingsSection>
+        ))
+        .with("integrations", () => (
+          <SettingsSection><IntegrationsTab /></SettingsSection>
         ))
         .with("accounts", () => (
           <SettingsSection wide><AccountsTab /></SettingsSection>

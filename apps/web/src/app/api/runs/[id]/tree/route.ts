@@ -1,3 +1,4 @@
+// GET /api/runs/<id>/tree — the sub-agent spawn tree for a run (via parent_run_id).
 import { NextResponse } from "next/server";
 import { runs } from "@agent-office/domain/services";
 import { notFound, validateIdParam } from "@/lib/api-helpers";

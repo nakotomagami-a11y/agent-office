@@ -2,12 +2,27 @@ import { NextResponse } from "next/server";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { Buffer } from "node:buffer";
-import { MAX_UPLOAD_BYTES, safeFilename, isValidIdSegment } from "@agent-office/domain/services/paths";
-import { writeFileAtomic } from "@agent-office/domain/services/fs-atomic";
-import { log } from "@agent-office/domain/services/log";
+import { MAX_UPLOAD_BYTES, safeFilename, isValidIdSegment } from "@agent-office/domain/services/infra/paths";
+import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
+import { readSettings, isIntegrationEnabled } from "@agent-office/domain/services/settings";
+import { log } from "@agent-office/domain/services/infra/log";
 
 export function notFound(message = "not_found"): NextResponse {
   return NextResponse.json({ error: message }, { status: 404 });
+}
+
+// Dev-only route guard: 404 in production so dev tooling never ships. Returns the
+// response to short-circuit with, or null to continue.
+export function forbidInProd(): NextResponse | null {
+  return process.env.NODE_ENV === "production" ? notFound() : null;
+}
+
+// Gate a route on an integration toggle (see the integration registry). Returns a
+// 404 when the integration is off — call it at the top of every route that belongs
+// to an optional integration so disabled ones behave as if they don't exist.
+export function requireIntegration(id: string): NextResponse | null {
+  if (isIntegrationEnabled(readSettings(), id)) return null;
+  return NextResponse.json({ error: "integration_disabled", integration: id }, { status: 404 });
 }
 
 export function badRequest(message = "bad_request"): NextResponse {

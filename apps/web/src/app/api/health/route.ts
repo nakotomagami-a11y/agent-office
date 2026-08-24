@@ -1,3 +1,4 @@
+// GET /api/health — liveness probe for the app (polled by the client).
 import { NextResponse } from "next/server";
 import { health } from "@agent-office/domain/services";
 import { validateQuery } from "@/lib/validation";

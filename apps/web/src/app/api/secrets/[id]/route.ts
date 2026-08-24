@@ -1,3 +1,4 @@
+// PATCH/DELETE /api/secrets/<id> — update a secret's fields or delete it.
 import { NextResponse } from "next/server";
 import { secrets, paths } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

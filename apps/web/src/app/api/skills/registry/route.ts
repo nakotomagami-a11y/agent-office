@@ -1,6 +1,7 @@
+// GET /api/skills/registry — the remote skills registry (cached).
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 import { serverError } from "@/lib/api-helpers";
 import { validateQuery } from "@/lib/validation";
 import { skillsRegistryQuerySchema } from "@/lib/validation-schemas";

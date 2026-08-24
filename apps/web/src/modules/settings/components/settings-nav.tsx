@@ -2,6 +2,7 @@
 
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
+import { useIntegrationEnabled } from "../hooks/use-settings";
 
 /**
  * Grouped left navigation for the Settings surface.
@@ -15,6 +16,7 @@ import { cn } from "@/lib/cn";
 export type SettingsTabValue =
   | "projects"
   | "bundled-agents"
+  | "integrations"
   | "accounts"
   | "github-accounts"
   | "secrets"
@@ -31,6 +33,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { value: "projects", label: "Projects", icon: "folder" },
       { value: "bundled-agents", label: "Bundled agents", icon: "sparkle" },
+      { value: "integrations", label: "Integrations", icon: "wrench" },
     ],
   },
   {
@@ -63,6 +66,15 @@ export function SettingsNav({
   onChange: (next: SettingsTabValue) => void;
   ariaLabel: string;
 }) {
+  // Some nav items belong to an optional integration and are hidden when it's off.
+  const navEnabled: Partial<Record<SettingsTabValue, boolean>> = {
+    "github-accounts": useIntegrationEnabled("github"),
+    "about-you": useIntegrationEnabled("about-you"),
+  };
+  const groups = GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((it) => navEnabled[it.value] ?? true) }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <nav
       aria-label={ariaLabel}
@@ -76,7 +88,7 @@ export function SettingsNav({
         "max-[640px]:py-[8px] max-[640px]:px-[10px]",
       )}
     >
-      {GROUPS.map((group) => (
+      {groups.map((group) => (
         <div
           key={group.label}
           className={cn(

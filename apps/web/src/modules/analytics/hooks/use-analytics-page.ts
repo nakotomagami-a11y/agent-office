@@ -5,73 +5,30 @@ import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 
-export interface AnalyticsTotals {
-  runs: number;
-  tokensIn: number;
-  tokensOut: number;
-  cost: number;
-  runtimeMs: number;
-  done: number;
-  errors: number;
-}
-
-export interface ModelFamilyRow {
-  family: string;
-  label: string;
-  runs: number;
-  tokens: number;
-  cost: number;
-  variants: string[];
-}
-
-export interface AgentRow {
-  agentId: string;
-  agentName: string;
-  runs: number;
-  cost: number;
-  runtimeMs: number;
-  errors: number;
-}
-
-export interface ProjectRow {
-  projectId: string;
-  runs: number;
-  cost: number;
-  runtimeMs: number;
-}
-
-export interface ToolRow {
-  name: string;
-  calls: number;
-  runs: number;
-}
-
-export interface ActivityCell {
-  dow: number;
-  hour: number;
-  runs: number;
-  cost: number;
-}
-
-export interface SeriesPoint {
-  key: string;
-  cost: number;
-  runs: number;
-  runtimeMs: number;
-}
-
-export interface AnalyticsPageData {
-  totals: AnalyticsTotals;
-  previous: AnalyticsTotals;
-  hasPrevious: boolean;
-  byModel: ModelFamilyRow[];
-  byAgent: AgentRow[];
-  byProject: ProjectRow[];
-  byTool: ToolRow[];
-  activity: ActivityCell[];
-  series: SeriesPoint[];
-  seriesGranularity: "day" | "week";
-}
+// Contracts live in @agent-office/domain/types; re-exported so the analytics
+// components can keep importing them from this hook. `AnalyticsPageData` is the
+// page payload (domain `AnalyticsPage`); the generic row names are analytics-
+// prefixed in the shared types to avoid collisions, aliased back here.
+import type {
+  AnalyticsPage as AnalyticsPageData,
+  AnalyticsTotals,
+  ModelFamilyRow,
+  ToolRow,
+  ActivityCell,
+  SeriesPoint,
+  AnalyticsAgentRow as AgentRow,
+  AnalyticsProjectRow as ProjectRow,
+} from "@agent-office/domain/types";
+export type {
+  AnalyticsPageData,
+  AnalyticsTotals,
+  ModelFamilyRow,
+  ToolRow,
+  ActivityCell,
+  SeriesPoint,
+  AgentRow,
+  ProjectRow,
+};
 
 export interface UseAnalyticsPageOpts {
   start: number;

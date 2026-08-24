@@ -6,6 +6,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
 import { useFlutterStore } from "@/lib/flutter-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
+import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { ApiError } from "@/lib/api-client";
 import { getProcess, getProcessLogs, sendProcessStdin } from "@/lib/api/processes";
 import {
@@ -457,7 +458,8 @@ function RunPanel({
 /* ------------------------------------------------------------------ */
 
 export function FlutterModal() {
-  const open = useFlutterStore((s) => s.open);
+  const flutterEnabled = useIntegrationEnabled("flutter");
+  const open = useFlutterStore((s) => s.open) && flutterEnabled;
   const setOpen = useFlutterStore((s) => s.setOpen);
   const activeDeviceId = useFlutterStore((s) => s.activeDeviceId);
   const setActiveDeviceId = useFlutterStore((s) => s.setActiveDeviceId);

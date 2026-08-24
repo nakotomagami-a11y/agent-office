@@ -1,28 +1,22 @@
-/**
- * Docs content server.
- *
- *   GET /api/docs/content            → returns the tab config from
- *      `apps/web/docs/_index.json`. The /docs page uses this to know
- *      which tabs exist, their labels, and the file for each.
- *
- *   GET /api/docs/content?file=<f>   → returns the raw markdown body of
- *      one file at `apps/web/docs/<f>`. `<f>` is validated against the
- *      basename allow-list from the index so only intentional files can
- *      be requested. Content-Type is `text/markdown; charset=utf-8`.
- *
- * The docs live inside the repo so a fresh clone works. The Next dev
- * server picks up file edits via HMR because the read path is dynamic.
- */
+// Docs content server.
+//   GET /api/docs/content          → tab config from `docs/_index.json` (repo root):
+//      which tabs exist, their labels, and the file for each.
+//   GET /api/docs/content?file=<f> → raw markdown body of `docs/<f>`, validated
+//      against the index's basename allow-list. Content-Type text/markdown.
+// Docs live in-repo so a fresh clone works; the read path is dynamic so Next dev
+// picks up edits via HMR.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import type { DocsIndex } from "@agent-office/domain/types";
 
-// Resolve the docs dir relative to the app cwd. Runs in both dev
-// (apps/web is cwd) and Next `standalone` build (cwd differs).
+// Resolve the repo-root `docs/` dir. `next dev`/`start` run with cwd = apps/web,
+// so we walk up two levels; when cwd is the repo root the first candidate hits.
+// `AGENT_OFFICE_DOCS_DIR` overrides both (needed for a packaged standalone build).
 function resolveDocsDir(): string | null {
   const candidates = [
     process.env["AGENT_OFFICE_DOCS_DIR"],
     join(process.cwd(), "docs"),
-    join(process.cwd(), "apps", "web", "docs"),
+    join(process.cwd(), "..", "..", "docs"),
   ].filter(Boolean) as string[];
   for (const c of candidates) {
     try {
@@ -34,17 +28,6 @@ function resolveDocsDir(): string | null {
     }
   }
   return null;
-}
-
-interface DocsTabConfig {
-  id: string;
-  label: string;
-  file: string;
-}
-
-interface DocsIndex {
-  version: number;
-  tabs: DocsTabConfig[];
 }
 
 function loadIndex(dir: string): DocsIndex | null {

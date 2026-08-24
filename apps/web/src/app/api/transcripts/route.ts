@@ -1,3 +1,4 @@
+// GET/PUT/DELETE /api/transcripts — persist, load, or clear an agent-instance chat thread.
 import { NextResponse } from "next/server";
 import { db } from "@agent-office/domain/services";
 import { badRequest, validateIdParam, readBoundedText } from "@/lib/api-helpers";

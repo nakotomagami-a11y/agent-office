@@ -6,33 +6,15 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-// Kept local because these types are only consumed on the memory page. If a
-// second reader shows up, promote to `@agent-office/domain/types`.
+// Doc contracts live in @agent-office/domain/types; the category catalog in
+// @agent-office/domain/config/doc-categories. Re-exported so the memory-page
+// components can keep importing them from this hook.
+import { DOC_CATEGORIES, type DocCategory } from "@agent-office/domain/config/doc-categories";
+import type { Doc, DocMeta } from "@agent-office/domain/types";
+export { DOC_CATEGORIES };
+export type { DocCategory, Doc, DocMeta };
 
-export const DOC_CATEGORIES = [
-  "architecture",
-  "plan",
-  "notes",
-  "postmortem",
-  "context",
-  "reference",
-] as const;
-
-export type DocCategory = (typeof DOC_CATEGORIES)[number];
-
-export interface DocMeta {
-  owner: string;
-  slug: string;
-  title: string;
-  category: DocCategory;
-  created: string;
-  updated: string;
-}
-
-export interface Doc extends DocMeta {
-  body: string;
-}
-
+/** Web request body for create/update — owner + slug come from the route. */
 export interface UpsertDocInput {
   title: string;
   category: DocCategory;
