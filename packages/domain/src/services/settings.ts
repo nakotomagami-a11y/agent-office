@@ -6,9 +6,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { AppSettings, ScannedEntry } from "../types/index";
-import { writeFileAtomic } from "./fs-atomic";
-import { SETTINGS_FILE, expandTilde } from "./paths";
-import { log } from "./log";
+import { getIntegration } from "../config/integrations";
+import { writeFileAtomic } from "./infra/fs-atomic";
+import { SETTINGS_FILE, expandTilde } from "./infra/paths";
+import { log } from "./infra/log";
 
 export function readSettings(): AppSettings | null {
   if (!existsSync(SETTINGS_FILE)) return null;
@@ -17,11 +18,14 @@ export function readSettings(): AppSettings | null {
     if (typeof raw.projectsRoot !== "string") return null;
     const features: AppSettings["features"] =
       raw.features && typeof raw.features === "object" ? { ...raw.features } : {};
+    const integrations: AppSettings["integrations"] =
+      raw.integrations && typeof raw.integrations === "object" ? { ...raw.integrations } : {};
     return {
       projectsRoot: raw.projectsRoot,
       excluded: Array.isArray(raw.excluded) ? raw.excluded.filter((s) => typeof s === "string") : [],
       firstRunComplete: raw.firstRunComplete === true,
       features,
+      integrations,
     };
   } catch {
     return null;
@@ -33,6 +37,13 @@ export function isFeatureEnabled(
   feature: keyof NonNullable<AppSettings["features"]>,
 ): boolean {
   return settings?.features?.[feature] === true;
+}
+
+/** Whether an integration is on: the stored toggle if set, else the registry default. */
+export function isIntegrationEnabled(settings: AppSettings | null, id: string): boolean {
+  const stored = settings?.integrations?.[id];
+  if (typeof stored === "boolean") return stored;
+  return getIntegration(id)?.defaultEnabled ?? false;
 }
 
 export function writeSettings(s: AppSettings): void {

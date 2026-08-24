@@ -1,3 +1,5 @@
+// GET/PATCH/DELETE /api/projects/<id> — read one project (with run count +
+// last-run time), patch its metadata, or delete it.
 import { NextResponse } from "next/server";
 import { projects, db as dbService } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

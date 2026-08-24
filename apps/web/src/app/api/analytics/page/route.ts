@@ -1,20 +1,11 @@
+// GET /api/analytics/page — everything the /analytics page renders in one round
+// trip (~8 aggregations + a filled time series). One request on purpose: the page
+// shows it all at once, so parallel fetches would only add latency/waterfalls.
+// Query: start (epoch ms incl, default 0), end (epoch ms excl, optional), project.
 import { NextResponse } from "next/server";
 import { analyticsPage } from "@agent-office/domain/services";
 import { badRequest } from "@/lib/api-helpers";
 
-/**
- * Everything the `/analytics` page renders, in one round trip.
- *
- * Separate from `/api/analytics/summary` (which backs the older three-number
- * overview) because this one returns ~8 aggregations and a filled time
- * series. Kept as a single request on purpose: the page shows all of it at
- * once, so eight parallel fetches would only add latency and waterfalls.
- *
- * Query params:
- *   start    epoch ms, inclusive. Defaults to 0 (all time).
- *   end      epoch ms, exclusive. Omit for no upper bound.
- *   project  optional project scope.
- */
 export async function GET(request: Request) {
   const url = new URL(request.url);
 

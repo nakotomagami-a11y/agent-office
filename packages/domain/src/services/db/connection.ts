@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { DB_PATH, APP_STATE_DIR } from "../paths";
+import { DB_PATH, APP_STATE_DIR } from "../infra/paths";
 import { createSchema, migrateFromJsonl } from "./migrations";
 
 declare global {

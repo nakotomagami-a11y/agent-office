@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useProjects } from "../hooks/use-projects";

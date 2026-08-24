@@ -1,5 +1,6 @@
 ---
 name: qa-visual
+display-name: "QA — Visual"
 description: "Visual QA specialist — sweeps Playwright at multiple viewports, hunts pixel-level defects (overlap, misalignment, contrast, motion, hover/focus states, dark/light mode consistency), captures screenshots as evidence. Distinct from web-qa (which is functional QA — clicks, form submits, network) and qa-codebase (static analysis). Read-only. Returns a defect list with screenshots."
 default-model: sonnet
 default-effort: high

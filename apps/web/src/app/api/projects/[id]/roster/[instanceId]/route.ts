@@ -1,3 +1,5 @@
+// GET/PATCH/DELETE /api/projects/<id>/roster/<instanceId> — read, update, or
+// remove one agent instance in the project roster.
 import { NextResponse } from "next/server";
 import { projects, db as dbService } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

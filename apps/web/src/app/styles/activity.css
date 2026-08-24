@@ -1,0 +1,16 @@
+/* Activity — live run rows + heatmap cells. */
+
+/* ─── Activity — color-mix rules ─── */
+.act-live-run {
+  display: grid; align-items: center; position: relative; overflow: hidden;
+  gap: 14px; padding: 11px 14px;
+  background: color-mix(in srgb, var(--working) 6%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--working) 22%, var(--line));
+  border-radius: 10px;
+}
+.hcell.l1 { background: color-mix(in oklab, var(--acc) 18%, var(--bg-3)); border-color: color-mix(in oklab, var(--acc) 24%, var(--line)); }
+.hcell.l2 { background: color-mix(in oklab, var(--acc) 38%, var(--bg-2)); border-color: color-mix(in oklab, var(--acc) 34%, var(--line)); }
+.hcell.l3 { background: color-mix(in oklab, var(--acc) 62%, var(--bg-2)); border-color: color-mix(in oklab, var(--acc) 44%, var(--line)); }
+.act-row.open { background: var(--bg-2); border-color: color-mix(in srgb, var(--acc) 40%, var(--line)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+.act-row-cost-fill { height: 100%; background: linear-gradient(90deg, var(--acc), color-mix(in oklab, var(--acc) 70%, white)); border-radius: 2px; }
+.act-detail { border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--line)); border-top: none; }

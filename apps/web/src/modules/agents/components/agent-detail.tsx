@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CodeBlock } from "@/components/ui/code-block";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useAgent, useAgentBody, useAgentMemory, useWriteAgentMemory } from "../hooks/use-agents";
 import { ActivityFeed } from "@/modules/runs/components/activity-feed";
@@ -57,7 +57,7 @@ export function AgentDetail({ id }: AgentDetailProps) {
             <UnitSprite unit={unit} size={56} animate />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="m-0 text-[18px] font-bold tracking-[-0.01em]">{formatAgentDisplayName(agent.name)}</h2>
+            <h2 className="m-0 text-[18px] font-bold tracking-[-0.01em]">{agentDisplayName(agent)}</h2>
             <div className="text-xs text-txt-3 font-mono">{id}</div>
             <div className="text-[13px] text-txt-2 mt-1">{agent.description || t("agent_list.description_empty")}</div>
           </div>

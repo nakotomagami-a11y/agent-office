@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
+import { EXTERNAL_LINKS } from "@agent-office/domain/config/routes";
 import type { RunErrorCode } from "@agent-office/domain/types";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
@@ -259,6 +260,8 @@ export type MessageBubbleProps = {
   onReply?: (text: string) => void;
   /** Called when the user reruns their own message. */
   onRerun?: (text: string) => void;
+  /** Called when the user deletes their own message from the thread. */
+  onDelete?: () => void;
   /** Called when the user clicks Retry on an error card. */
   onRetry?: () => void;
   /** Called when the user repairs a missing worktree on a cwd error card. */
@@ -322,6 +325,7 @@ function ErrorCard({
     return <InterruptedCard onRetry={onRetry} onScheduleResumeAt={onScheduleResumeAt} resumeResetsAtMs={resumeResetsAtMs} scheduled={scheduled} onScheduled={() => setScheduled(true)} />;
   }
   if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} />;
+  if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} />;
 
   return (
     <div className="border border-[rgba(217,83,79,0.30)] border-l-[3px] border-l-[var(--ao-bad)] rounded-[8px] px-[14px] py-3 bg-[rgba(217,83,79,0.05)] flex items-start gap-[10px]">
@@ -465,7 +469,69 @@ function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => v
   );
 }
 
-export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+/**
+ * The account is valid but Anthropic revoked its Claude Code access (org /
+ * subscription level). Re-authenticating the same account won't help, so the
+ * primary action is a direct link out to the Claude account where the user can
+ * see what's going on; secondary is switching to an account that has access.
+ */
+function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetry?: () => void }) {
+  const t = useTranslations("errors.run");
+  const activeProjectId = useActiveProjectStore((s) => s.id);
+  const projectQ = useProject(activeProjectId);
+  const accountId = projectQ.data?.meta.accountId ?? "default";
+  const openSignIn = useSignInModalStore((s) => s.open);
+
+  const handleSwitch = () => {
+    const { selectedId, selectedInstanceId, select } = useOfficeStore.getState();
+    openSignIn({
+      accountId,
+      onSuccess: () => {
+        if (selectedId) {
+          select(selectedId, { instanceId: selectedInstanceId, tab: "conversation" });
+        }
+      },
+    });
+  };
+
+  return (
+    <div className="border border-[rgba(217,83,79,0.30)] border-l-[3px] border-l-[var(--ao-bad)] rounded-[8px] px-[14px] py-3 bg-[rgba(217,83,79,0.05)] flex items-start gap-[10px]">
+      <div className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-[var(--ao-bad-soft)] text-[var(--ao-bad)] shrink-0">
+        <Icon name="lock" size={13} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-ao-fg-0 text-[13.5px]">{t("subscription_disabled.title")}</div>
+        <div className="text-ao-fg-1 text-[12.5px] mt-0.5 leading-[1.5]">{t("subscription_disabled.body")}</div>
+        {detail && <div className="text-ao-fg-3 text-[11px] mt-1 font-mono break-words line-clamp-3">{detail}</div>}
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <a
+            href={EXTERNAL_LINKS.claudeUsage}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[var(--ao-bad)] text-[12px] cursor-pointer inline-flex items-center gap-1 no-underline"
+          >
+            <Icon name="external-link" size={11} /> {t("subscription_disabled.check_account")}
+          </a>
+          <button
+            onClick={handleSwitch}
+            className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0"
+          >
+            <Icon name="lock" size={11} /> {t("subscription_disabled.switch_account")}
+          </button>
+          <button
+            onClick={onRetry}
+            disabled={!onRetry}
+            className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
+          >
+            <Icon name="refresh" size={11} /> Retry
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDelete, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   return match(item)
     .with({ kind: "you" }, (item) => {
       const youImgs = extractImages(item.text);
@@ -478,7 +544,7 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onRet
               {youText}
               <ImageStrip urls={youImgs} />
             </div>
-            <MsgActions text={item.text} onRerun={onRerun} />
+            <MsgActions text={item.text} onRerun={onRerun} onDelete={onDelete} />
           </div>
         </div>
       );
@@ -497,7 +563,7 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onRet
           <div className="flex-1 min-w-0 pt-0.5">
             {!hideAvatar && (
               <div className="text-[12px] font-semibold text-ao-fg-1 flex items-center gap-2 mb-[6px]">
-                <span>{formatAgentDisplayName(agent.name)}</span>
+                <span>{agentDisplayName(agent)}</span>
                 {item.streaming ? (
                   <span className="text-ao-fg-3 font-mono text-[11px] font-normal text-[var(--ao-accent)]">typing…</span>
                 ) : null}

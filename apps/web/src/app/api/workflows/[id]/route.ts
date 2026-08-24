@@ -1,3 +1,4 @@
+// DELETE /api/workflows/<id> — delete a saved workflow.
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 import { notFound } from "@/lib/api-helpers";

@@ -1,5 +1,8 @@
+// GET/PATCH /api/ui-settings — key/value UI state (layout, theme, active project).
+// Internal keys prefixed `_` are hidden from GET.
 import { NextResponse } from "next/server";
 import { db } from "@agent-office/domain/services";
+import { OFFICE_SETTING_KEYS } from "@agent-office/domain/config/office";
 
 const STATIC_KEYS = new Set([
   "theme",
@@ -7,10 +10,7 @@ const STATIC_KEYS = new Set([
   "tabs-state",
   "claude-limits",
   "performance-mode",
-  "office-grid",
-  "office-decorations",
-  "office-agents",
-  "office-grass-color",
+  ...Object.values(OFFICE_SETTING_KEYS),
   "office-map-rev",
 ]);
 

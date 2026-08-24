@@ -1,12 +1,14 @@
+// GET/PUT /api/skills/<name>/customization — section-level customization for an
+// installed skill: GET returns its `##` sections + which are disabled; PUT replaces
+// the disabled set (global — applies wherever the skill is used).
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
+import { validateBody } from "@/lib/validation";
+import { skillCustomizationSchema } from "@/lib/validation-schemas";
 import { badRequest, notFound, validateIdParam } from "@/lib/api-helpers";
 
 type Params = { params: Promise<{ name: string }> };
 
-// Section-level customization for an installed skill (Phase 1). Global: the
-// disabled set applies wherever the skill is used. GET returns the skill's
-// `##` sections + which are currently off; PUT replaces the disabled set.
 export async function GET(_request: Request, { params }: Params) {
   const { value: name, error } = validateIdParam((await params).name);
   if (error) return error;
@@ -20,18 +22,16 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  const { value: name, error } = validateIdParam((await params).name);
-  if (error) return error;
+  const { value: name, error: paramError } = validateIdParam((await params).name);
+  if (paramError) return paramError;
   const skill = skills.readInstalledSkill(name);
   if (!skill) return notFound();
-  const raw = (await request.json().catch(() => null)) as { disabledSections?: unknown } | null;
-  if (!raw || !Array.isArray(raw.disabledSections)) {
-    return badRequest("disabledSections[] required");
-  }
-  const disabled = raw.disabledSections.filter((s): s is string => typeof s === "string");
+  const raw: unknown = await request.json().catch(() => null);
+  const { data, error } = validateBody(skillCustomizationSchema, raw);
+  if (error) return badRequest("disabled_sections_required");
   const cfg = skills.setSkillCustomization(name, {
     ...skills.getSkillCustomization(name),
-    disabledSections: disabled,
+    disabledSections: data.disabledSections,
   });
   return NextResponse.json({ ok: true, disabledSections: cfg.disabledSections ?? [] });
 }

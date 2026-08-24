@@ -1,3 +1,4 @@
+// POST /api/workflows/bulk — import many saved workflows in one call.
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

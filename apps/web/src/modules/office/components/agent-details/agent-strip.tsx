@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Icon } from "@/components/ui/icon";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import { statusFromRunsForInstance, type AgentStatusInfo } from "../../derive/derive-status";
 import type { OfficeAgent } from "../../hooks/use-office-agents";
 import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
@@ -127,7 +127,7 @@ function StripBubble({
 
   if (!multi) {
     return (
-      <Tooltip content={formatAgentDisplayName(agent.name)} side="right" delayMs={300}>
+      <Tooltip content={agentDisplayName(agent)} side="right" delayMs={300}>
         {bubble}
       </Tooltip>
     );
@@ -149,7 +149,7 @@ function StripBubble({
             className="ao-modal z-[9999] min-w-[190px] max-w-[260px] bg-[#1c1714] border border-[rgba(255,255,255,0.09)] rounded-[8px] p-1 shadow-[0_6px_20px_rgba(0,0,0,0.6)] flex flex-col gap-[1px]"
           >
             <div className="px-2 pt-[5px] pb-[3px] text-[10.5px] font-semibold uppercase tracking-[0.04em] text-white/65">
-              {formatAgentDisplayName(agent.name)}
+              {agentDisplayName(agent)}
             </div>
             {instances.map((inst, i) => {
               const status = statusFromRunsForInstance(inst.instanceId, runs).status;

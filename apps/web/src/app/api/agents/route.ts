@@ -1,3 +1,5 @@
+// GET /api/agents — list all agent definitions. POST — create or overwrite one
+// from a validated body (id derived from the body).
 import { NextResponse } from "next/server";
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

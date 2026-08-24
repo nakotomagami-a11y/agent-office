@@ -140,15 +140,32 @@ export const API_ROUTES = {
   analyticsPage: "/api/analytics/page",
 } as const;
 
+/** This app's own GitHub repo ("owner/name") — the release / self-update source. */
+export const APP_REPO = "nakotomagami-a11y/agent-office";
+
 /**
- * External endpoints (git registries, etc). When new external integrations
- * are added, define their builders here.
+ * External endpoints (git registries, release feeds, etc). When new external
+ * integrations are added, define their builders here — never hardcode a URL in
+ * a feature file. Builders take a combined `"owner/repo"` source string.
  */
 export const EXTERNAL_API = {
   github: {
-    repoContents: (owner: string, repo: string, path: string, ref = "main") =>
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
-    rawFile: (owner: string, repo: string, ref: string, path: string) =>
-      `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`,
+    /** Recursive file tree of a repo at a ref. */
+    gitTree: (source: string, ref: string) =>
+      `https://api.github.com/repos/${source}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+    /** Raw file contents at a ref. */
+    rawFile: (source: string, ref: string, path: string) =>
+      `https://raw.githubusercontent.com/${source}/${ref}/${path}`,
+    /** Latest release — JSON API. */
+    latestReleaseApi: (repo: string) =>
+      `https://api.github.com/repos/${repo}/releases/latest`,
+    /** Latest release — human-facing page. */
+    latestReleasePage: (repo: string) =>
+      `https://github.com/${repo}/releases/latest`,
   },
+} as const;
+
+/** External links opened in the user's browser (not fetched). */
+export const EXTERNAL_LINKS = {
+  claudeUsage: "https://claude.ai/settings/usage",
 } as const;

@@ -1,7 +1,10 @@
+// GET /api/runs — list run records (filterable by agent/project/instance).
+// DELETE — clear run history.
 import { NextResponse } from "next/server";
 import { store, runs as runsService } from "@agent-office/domain/services";
 import { validateQuery } from "@/lib/validation";
 import { runsQuerySchema } from "@/lib/validation-schemas";
+import { badRequest } from "@/lib/api-helpers";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -31,12 +34,12 @@ export async function GET(request: Request) {
   ];
 
   // Live runs are not pre-filtered by the DB query so apply the same filters.
-  const filtered = all.filter((r) => {
-    if (q.agent && r.agentId !== q.agent) return false;
-    if (q.project && r.projectId !== q.project) return false;
-    if (q.instance && r.instanceId !== q.instance) return false;
-    return true;
-  });
+  const filtered = all.filter(
+    (r) =>
+      (!q.agent || r.agentId === q.agent) &&
+      (!q.project || r.projectId === q.project) &&
+      (!q.instance || r.instanceId === q.instance),
+  );
   return NextResponse.json(filtered.slice(0, limit));
 }
 
@@ -45,9 +48,7 @@ const deleteSchema = z.object({ agent: z.string().min(1) });
 export async function DELETE(request: Request) {
   const url = new URL(request.url);
   const parse = deleteSchema.safeParse({ agent: url.searchParams.get("agent") });
-  if (!parse.success) {
-    return NextResponse.json({ error: "agent param required" }, { status: 400 });
-  }
+  if (!parse.success) return badRequest("agent_required");
   const deleted = store.deleteRunsByAgent(parse.data.agent);
   return NextResponse.json({ deleted });
 }

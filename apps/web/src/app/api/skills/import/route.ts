@@ -1,3 +1,4 @@
+// POST /api/skills/import — import a skill from a local path or archive.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
 import { badRequest } from "@/lib/api-helpers";

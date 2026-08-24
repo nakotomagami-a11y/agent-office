@@ -1,6 +1,8 @@
+// GET/PUT /api/projects/<id>/memory — read or replace the project's memory body
+// (plain text, capped at MAX_MEMORY_BYTES).
 import { NextResponse } from "next/server";
 import { projects } from "@agent-office/domain/services";
-import { MAX_MEMORY_BYTES } from "@agent-office/domain/services/paths";
+import { MAX_MEMORY_BYTES } from "@agent-office/domain/services/infra/paths";
 import { notFound, readBoundedText, serverError, validateIdParam } from "@/lib/api-helpers";
 
 type Params = { params: Promise<{ id: string }> };

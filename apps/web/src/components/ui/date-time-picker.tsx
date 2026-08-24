@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
+import { formatDateTimeYear } from "@/lib/format-date";
 
 /**
  * A themed date + time picker that replaces the native `datetime-local` input
@@ -181,9 +182,7 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
   const now = new Date();
   const minDay = startOfDay(now);
   const grid = monthGrid(view);
-  const label = selected
-    ? selected.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : null;
+  const label = selected ? formatDateTimeYear(selected) : null;
 
   const timeInputCls = "w-[38px] h-[30px] text-center bg-bg-1 border border-line-2 rounded-[8px] text-[13px] text-txt outline-none focus:border-acc [font:inherit] placeholder:text-txt-3";
 

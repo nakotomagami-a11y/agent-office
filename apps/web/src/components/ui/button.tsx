@@ -1,7 +1,24 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { ACCENT_BTN } from "@/lib/button-styles";
+
+/**
+ * Accent (purple) button — the raised, glowing look shared by the primary
+ * `<Button>` variant and every bare `<button>`/`<a>` that wants the same CTA
+ * treatment. Pure Tailwind so the style stays co-located with the markup; apply
+ * via `cn()` or string interpolation. Conflicting base classes are resolved by
+ * tailwind-merge (last wins), so passing this after a base string overrides
+ * bg/shadow.
+ */
+export const ACCENT_BTN =
+  "text-[var(--acc-ink)] border border-[color-mix(in_srgb,var(--acc)_35%,transparent)] " +
+  "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--acc)_88%,#fff),var(--acc))] " +
+  "shadow-[0_5px_16px_-4px_color-mix(in_srgb,var(--acc)_55%,transparent),inset_0_1px_0_rgba(255,255,255,0.26)] " +
+  "transition-[filter,transform,box-shadow] duration-150 " +
+  "hover:brightness-[1.07] hover:-translate-y-px " +
+  "hover:shadow-[0_8px_22px_-6px_color-mix(in_srgb,var(--acc)_62%,transparent),inset_0_1px_0_rgba(255,255,255,0.3)] " +
+  "active:translate-y-0 active:brightness-[0.97] " +
+  "disabled:bg-none disabled:bg-bg-3 disabled:border-line disabled:text-txt-3 disabled:shadow-none disabled:brightness-100 disabled:translate-y-0 disabled:cursor-not-allowed";
 
 const BASE =
   "h-8 px-3 inline-flex items-center gap-[7px] bg-bg-1 border border-line-2 rounded-[var(--r-md)] font-[inherit] text-[13px] text-txt cursor-pointer shadow-1 hover:bg-bg-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc";

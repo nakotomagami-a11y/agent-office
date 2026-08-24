@@ -1,5 +1,6 @@
+// GET/PUT /api/memory/global — read or replace the global memory injected into every agent.
 import { agents } from "@agent-office/domain/services";
-import { MAX_MEMORY_BYTES } from "@agent-office/domain/services/paths";
+import { MAX_MEMORY_BYTES } from "@agent-office/domain/services/infra/paths";
 import { readBoundedText } from "@/lib/api-helpers";
 
 export async function GET() {

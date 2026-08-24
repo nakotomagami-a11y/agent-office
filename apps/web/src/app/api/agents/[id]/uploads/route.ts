@@ -1,3 +1,5 @@
+// GET/POST /api/agents/<id>/uploads — list files in the agent's upload dir, or
+// add one (multipart). Storage lives at paths.agentUploadsDir(id).
 import { NextResponse } from "next/server";
 import { paths } from "@agent-office/domain/services";
 import { handleUpload, listDirUploads, validateIdParam } from "@/lib/api-helpers";

@@ -1,3 +1,5 @@
+// GET /api/projects/<id>/spend — total run cost + token usage for a project,
+// aggregated from the runs table.
 import { NextResponse } from "next/server";
 import { db as dbService } from "@agent-office/domain/services";
 import { validateIdParam } from "@/lib/api-helpers";

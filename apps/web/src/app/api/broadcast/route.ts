@@ -1,16 +1,16 @@
+// POST /api/broadcast — start a background run for every agent on a project's
+// roster (build claude args + startRun per instance), outside the summon flow.
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { agents, projects, runs, summon } from "@agent-office/domain/services";
+import type { AgentInstance, Project } from "@agent-office/domain/types";
 import { validateBody } from "@/lib/validation";
 import { broadcastRequestSchema } from "@/lib/validation-schemas";
 import { badRequest } from "@/lib/api-helpers";
 
-type Roster = ReturnType<typeof projects.readProject> extends { meta: { roster: infer R } } | null ? R : never;
-type RosterInst = Roster extends readonly (infer I)[] ? I : never;
-
 function startRunForRosterInstance(
-  inst: RosterInst,
-  project: NonNullable<ReturnType<typeof projects.readProject>>,
+  inst: AgentInstance,
+  project: Project,
   req: { agentId?: string; prompt: string; model?: string; effort?: string; cwd?: string; projectId: string },
 ): string | null {
   const agentResult = agents.readAgent(inst.agentId);

@@ -1,18 +1,10 @@
-/**
- * POST /api/projects/bootstrap
- *
- * Creates a new project directory under the configured projectsRoot,
- * populates it from the bundled template bundles (frontend-react +
- * optionally backend-node or backend-python), runs variable substitution,
- * and `git init`s the result.
- *
- * After the on-disk scaffold lands, this route ALSO registers the project
- * with the project metadata system (writing ~/.claude/projects/<id>/project.md)
- * so the new project shows up in the projects list immediately.
- */
-
+// POST /api/projects/bootstrap — scaffold a new project under projectsRoot from the
+// bundled templates (frontend-react + optional backend-node/python), run variable
+// substitution and `git init`, then register it in the project metadata
+// (~/.claude/projects/<id>/project.md) so it shows in the list immediately.
 import { NextResponse } from "next/server";
 import { projectBootstrap, projects, settings as settingsSvc } from "@agent-office/domain/services";
+import { FRONTEND_TEMPLATES, BACKEND_TEMPLATES } from "@agent-office/domain/config/project-templates";
 import { validateBody } from "@/lib/validation";
 import { bootstrapProjectSchema } from "@/lib/validation-schemas";
 import { tryService } from "@/lib/api-helpers";
@@ -63,22 +55,12 @@ export async function POST(request: Request) {
   });
 }
 
-// Optional: GET returns the list of supported framework choices so the UI
-// can render them without hardcoding.
+// GET returns the supported framework choices (from the project-templates config)
+// so the UI renders the picker without hardcoding, plus whether settings are ready.
 export async function GET() {
   return NextResponse.json({
-    frontend: [
-      { id: "none", label: "None", description: "Backend-only or bare project" },
-      { id: "next", label: "Next.js", description: "App Router, server components" },
-      { id: "vite", label: "Vite", description: "SPA, fast HMR" },
-      { id: "react", label: "React (plain)", description: "Library or widget mounted into a host" },
-    ],
-    backend: [
-      { id: "none", label: "None", description: "Frontend-only project" },
-      { id: "node", label: "Node.js (Hono)", description: "Hono + Drizzle + libSQL" },
-      { id: "python", label: "Python (FastAPI)", description: "FastAPI + SQLAlchemy + libSQL" },
-    ],
-    // Whether settings are configured (required for bootstrap)
+    frontend: FRONTEND_TEMPLATES,
+    backend: BACKEND_TEMPLATES,
     settingsReady: settingsSvc.readSettings() !== null,
   });
 }

@@ -16,6 +16,8 @@ import { RootStep } from "./first-run-wizard-steps/root-step";
 import { ExcludedStep } from "./first-run-wizard-steps/excluded-step";
 import { AgentsStep } from "./first-run-wizard-steps/agents-step";
 import { ProjectStep } from "./first-run-wizard-steps/project-step";
+import { IntegrationsStep } from "./first-run-wizard-steps/integrations-step";
+import { INTEGRATIONS } from "@agent-office/domain/config/integrations";
 
 const DEFAULT_EXCLUDED = [
   "node_modules",
@@ -38,8 +40,8 @@ interface StarterAgent {
   description: string;
 }
 
-type Step = "requirements" | "root" | "excluded" | "agents" | "project";
-const STEP_ORDER: Step[] = ["requirements", "root", "excluded", "agents", "project"];
+type Step = "requirements" | "root" | "excluded" | "integrations" | "agents" | "project";
+const STEP_ORDER: Step[] = ["requirements", "root", "excluded", "integrations", "agents", "project"];
 
 interface WizardDraft {
   step: Step;
@@ -87,6 +89,9 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
   const [excluded, setExcluded] = useState<string[]>(DEFAULT_EXCLUDED);
   const [excludedInput, setExcludedInput] = useState("");
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
+  const [selectedIntegrations, setSelectedIntegrations] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(INTEGRATIONS.map((i) => [i.id, i.defaultEnabled])),
+  );
   const [chosenFolderIds, setChosenFolderIds] = useState<Set<string>>(new Set());
   const [projectName, setProjectName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -170,6 +175,11 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
       await apiFetch<AppSettings>(API_ROUTES.settings, {
         method: "PUT",
         body: { projectsRoot: root.trim(), excluded },
+      });
+
+      await apiFetch<AppSettings>(API_ROUTES.settings, {
+        method: "PATCH",
+        body: { integrations: selectedIntegrations },
       });
 
       if (selectedAgents.size > 0) {
@@ -345,6 +355,13 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
               onInputChange={setExcludedInput}
               onAdd={addExcluded}
               onRemove={removeExcluded}
+            />
+          ) : null}
+
+          {step === "integrations" ? (
+            <IntegrationsStep
+              selected={selectedIntegrations}
+              onToggle={(id, next) => setSelectedIntegrations((prev) => ({ ...prev, [id]: next }))}
             />
           ) : null}
 

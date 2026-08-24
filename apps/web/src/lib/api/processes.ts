@@ -5,7 +5,7 @@
 
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { apiClient } from "@/lib/api-client";
-import type { ProcessInfo } from "@/app/api/processes/route";
+import type { ProcessInfo } from "@agent-office/domain/types";
 
 export type { ProcessInfo };
 

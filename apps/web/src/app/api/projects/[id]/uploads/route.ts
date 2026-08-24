@@ -1,3 +1,5 @@
+// GET/POST /api/projects/<id>/uploads — list files in the project's upload dir,
+// or add one (multipart).
 import { NextResponse } from "next/server";
 import { paths } from "@agent-office/domain/services";
 import { handleUpload, listDirUploads, validateIdParam } from "@/lib/api-helpers";

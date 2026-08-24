@@ -1,7 +1,12 @@
 import { fmtElapsed } from "./phase-format";
 
-/** How long the stream has been silent before we flag it as stale. */
-export const STALE_STREAM_THRESHOLD_MS = 90_000;
+/**
+ * How long the stream has been silent before we show the quiet "still
+ * connected" note. Agents routinely go silent for a minute+ while thinking or
+ * running a long tool, so this is deliberately generous — it's a calm status,
+ * not an alarm.
+ */
+export const STALE_STREAM_THRESHOLD_MS = 150_000;
 
 /**
  * Compute the compact "elapsed · N tok" chip shown next to the running phase.

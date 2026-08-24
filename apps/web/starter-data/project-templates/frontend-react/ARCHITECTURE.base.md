@@ -1,6 +1,20 @@
 # Architecture - {{PROJECT_NAME}}
 
-How the frontend is organized and the rules that keep it that way.
+{{DESCRIPTION}}
+
+How the frontend is organized and the rules that keep it that way. Sits above `PLAN.md` (what we're doing) and `DECISIONS.md` (why we chose what we chose).
+
+## Before you change X, read Y
+
+Read the right doc before touching the corresponding surface, so context isn't skipped.
+
+| Before you change… | Read… |
+|---|---|
+| Data fetching / a backend call | `docs/data-fetching.md` |
+| A design token / color | `docs/styling.md` |
+| A shared store | `docs/state-management.md` |
+| A component's shape | `docs/component-conventions.md` |
+| Anything architectural | this file + add an ADR to `DECISIONS.md` |
 
 ## Stack summary
 
@@ -9,12 +23,14 @@ How the frontend is organized and the rules that keep it that way.
 | Framework | {{FRONTEND}} | See ADR-001 |
 | Language | TypeScript (strict) | No `any`, no implicit any, exact optional property types |
 | Styling | Tailwind CSS v4 + token classes | Single source of truth for design |
-| State (client) | Zustand | Tiny, no provider tree, easy to reason about |
+| UI primitives | shadcn/ui in `components/ui/` | Copied & owned, not a runtime dependency |
+| State (client) | Local state, Zustand only if shared | Reach for a store last, not first |
 | State (server) | TanStack Query | Cache, retry, invalidation as first-class concerns |
+| Data client | `fetch` / Supabase client | Native platform; no axios |
 | Forms | react-hook-form + Zod | Validation as a contract, not scattered checks |
 | Routing | _(see framework-specific section below)_ | |
 | Testing | Vitest + Testing Library | Fast, ESM-native |
-| Package manager | pnpm | Workspace-friendly, fast, deterministic |
+| Package manager | pnpm (or yarn) | Pick one, commit the lockfile, stay consistent |
 
 ## Directory layout
 
@@ -84,7 +100,7 @@ Feature work that crosses components, hooks, and stores **goes in `src/modules/<
 
 - Don't use `useEffect` to derive state from props - use `useMemo` or derive inline.
 - Don't put TanStack Query state in Zustand. Pick the right tool.
-- Don't add a UI library (MUI, Chakra, Ant). The token system + Tailwind is the design system.
+- Don't add a runtime UI library (MUI, Chakra, Ant). The token system + Tailwind is the design system; shadcn/ui primitives (copied into `components/ui/`, owned by us) are fine because they're not a dependency.
 - Don't bypass the type system with `as` casts. Narrow with type guards.
 - Don't use default exports. They make refactoring brittle and IDE tooling weaker.
 - Don't reach into a Zustand store's setter from outside React (e.g. in a utility). Stores are React-shaped state.

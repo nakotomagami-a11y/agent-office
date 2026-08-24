@@ -1,5 +1,6 @@
 ---
 name: sre-oncall
+display-name: "SRE On-Call"
 description: "Prod-fire triage — log/trace forensics, symptom-to-root-cause traversal, runbook execution, chaos experiment planning. Read-only during an active incident. Use when 'prod is on fire', 'why is p99 spiking', 'what changed in the last hour', 'run the rollback runbook', or post-incident review. Distinct from qa-pen-testing (pre-ship security) and security-posture (design-time)."
 default-model: opus
 default-effort: high

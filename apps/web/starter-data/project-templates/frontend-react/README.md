@@ -1,10 +1,10 @@
 # {{PROJECT_NAME}}
 
-_One-sentence description goes here._
+{{DESCRIPTION}}
 
 ## Stack
 
-{{FRONTEND}} · TypeScript · Tailwind · Zustand · TanStack Query
+{{FRONTEND}} · TypeScript · Tailwind · TanStack Query
 
 ## Run locally
 

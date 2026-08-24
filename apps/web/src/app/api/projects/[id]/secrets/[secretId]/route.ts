@@ -1,3 +1,5 @@
+// DELETE /api/projects/<id>/secrets/<secretId> — detach a secret from a project.
+// The secret itself is left intact (still available to other projects). Idempotent.
 import { NextResponse } from "next/server";
 import { secrets, paths } from "@agent-office/domain/services";
 import { badRequest } from "@/lib/api-helpers";

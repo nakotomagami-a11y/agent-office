@@ -1,21 +1,11 @@
+// GET /api/analytics/summary — period-scoped analytics totals, aggregated in SQL
+// (replaces the old fetch-500-runs-and-sum-in-browser approach).
+// Query: start (epoch ms incl, default 0), end (epoch ms excl, optional),
+// project (optional scope), days (also return per-day spend for the trailing N days).
 import { NextResponse } from "next/server";
 import { analyticsSummary } from "@agent-office/domain/services";
 import { badRequest } from "@/lib/api-helpers";
 
-/**
- * Period-scoped analytics totals, aggregated in SQL.
- *
- * Replaces the old client-side approach of fetching `/api/runs?limit=500`
- * and summing in the browser — that capped every window at 500 runs and
- * shipped megabytes of prompt/output text to compute three numbers.
- *
- * Query params:
- *   start     epoch ms, inclusive. Defaults to 0 (all time).
- *   end       epoch ms, exclusive. Omit for "no upper bound".
- *   project   optional project scope.
- *   days      when present, also returns per-day spend for the trailing
- *             N days (used by the daily-spend chart).
- */
 export async function GET(request: Request) {
   const url = new URL(request.url);
 

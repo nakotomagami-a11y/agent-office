@@ -12,6 +12,7 @@ import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
 import { useTabsStore } from "@/lib/tabs-store";
+import { BootstrapProjectModal } from "@/modules/projects/components/bootstrap-project-modal";
 import { ProjectPickerDropdown } from "./project-picker-dropdown";
 
 /**
@@ -76,6 +77,7 @@ export function TabStrip() {
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [bootstrapOpen, setBootstrapOpen] = useState(false);
   const [pickerAnchor, setPickerAnchor] = useState<{ top: number; left: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
@@ -261,6 +263,7 @@ export function TabStrip() {
               onClose={() => setPickerOpen(false)}
               onPickProject={handlePickProject}
               onPickAll={handlePickAll}
+              onPickNew={() => setBootstrapOpen(true)}
               selectedProjectId={
                 activeTabId ? (tabs.find((t2) => t2.id === activeTabId)?.projectId ?? null) : null
               }
@@ -269,6 +272,8 @@ export function TabStrip() {
           </div>
         </Portal>
       ) : null}
+
+      <BootstrapProjectModal open={bootstrapOpen} onClose={() => setBootstrapOpen(false)} />
 
       {contextMenu ? (
         <TabContextMenu

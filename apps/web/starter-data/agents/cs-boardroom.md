@@ -1,5 +1,6 @@
 ---
 name: cs-boardroom
+display-name: "Boardroom"
 description: "Boardroom orchestrator — convenes CEO + CTO + CFO + CPO for cross-functional strategic decisions. Runs a 6-phase protocol: brief, isolated advisor takes, critic, synthesis, founder review, decision log. Use for decisions that span multiple executive domains (pricing + fundraising + product, or hiring wave + runway + roadmap). Not for single-domain questions — those go to the specific C-advisor directly."
 default-model: opus
 default-effort: xhigh

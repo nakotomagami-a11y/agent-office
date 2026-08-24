@@ -1,4 +1,5 @@
-import { runs, store } from "@agent-office/domain/services";
+// GET /api/runs/<id>/stream — SSE stream of a run's live output (chunk/tool/usage/done).
+import { runs } from "@agent-office/domain/services";
 import { createSseStream, SSE_HEADERS } from "@/lib/sse";
 import { validateIdParam } from "@/lib/api-helpers";
 
@@ -19,41 +20,9 @@ export async function GET(request: Request, { params }: Params) {
   const attached = runs.attachEmit(id, emit);
 
   if (!attached) {
-    // Run not in live registry - check DB so we can give the correct exit status.
-    const persisted = store.getRun(id);
-    if (persisted) {
-      // "running" here means another process owns it. Only declare it dead if
-      // that process is actually gone - otherwise the run is alive and simply
-      // unreachable from this worker, and killing it would turn a healthy
-      // agent into a phantom failure.
-      const stillRunning = persisted.status === "running";
-      const orphaned = stillRunning && store.isRunOrphaned(id);
-      if (orphaned) store.markRunAborted(id);
-
-      if (stillRunning && !orphaned) {
-        await writer.write("error", {
-          runId: id,
-          message: "This run is owned by another server process (the dev server restarted mid-run). It is still working - its result will appear in history when it finishes.",
-        });
-        await writer.write("done", { runId: id, exitCode: 1, sessionId: persisted.sessionId });
-      } else {
-        // markRunAborted moved the row to error/-1; `persisted` is the stale
-        // pre-update snapshot, so derive the outcome from `orphaned` too.
-        // Without this an orphan reported exitCode 0 and no message at all -
-        // the UI just stopped mid-task with no explanation.
-        const exitCode = orphaned ? -1 : persisted.exitCode ?? null;
-        const failed = orphaned || persisted.status === "error" || (exitCode != null && exitCode !== 0);
-        if (failed) {
-          const message = exitCode === -1
-            ? "Run was interrupted - the server restarted while this run was in progress"
-            : "Run ended with an error";
-          await writer.write("error", { runId: id, message });
-        }
-        await writer.write("done", { runId: id, exitCode: exitCode ?? (failed ? 1 : 0), sessionId: persisted.sessionId });
-      }
-    } else {
-      await writer.write("error", { runId: id, message: `unknown run: ${id}` });
-      await writer.write("done", { runId: id, exitCode: 1 });
+    // Not live: replay the correct terminal outcome from persisted state.
+    for (const event of runs.resolveDetachedRunEvents(id)) {
+      await writer.write(event.name, event.data);
     }
     await writer.close();
     return new Response(stream, { headers: SSE_HEADERS });

@@ -1,3 +1,4 @@
+// GET /api/processes/<pid>/logs — read a tracked process's captured stdout/stderr.
 import { NextResponse } from "next/server";
 import { getProcess } from "@/lib/server-process-store";
 

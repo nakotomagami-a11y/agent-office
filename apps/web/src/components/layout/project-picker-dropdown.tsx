@@ -47,6 +47,11 @@ export type ProjectPickerDropdownProps = {
   /** Fired when the footer "Manage" button is clicked. Optional — if omitted
    *  the button is hidden. */
   onPickManage?: () => void;
+  /** Fired when the footer "New project" button is clicked. When provided, the
+   *  caller owns the bootstrap modal (it must live outside this component, which
+   *  the parent may unmount on close). If omitted, the modal is rendered and
+   *  managed internally — only safe when this component stays mounted. */
+  onPickNew?: () => void;
   /** Current selection to render with the check-mark + accent bar. Match is
    *  by projectId; pass `null` to mark the "All projects" row as selected. */
   selectedProjectId?: string | null;
@@ -65,6 +70,7 @@ export function ProjectPickerDropdown({
   onPickProject,
   onPickAll,
   onPickManage,
+  onPickNew,
   selectedProjectId,
   openTabProjectIds,
   className,
@@ -133,7 +139,11 @@ export function ProjectPickerDropdown({
   };
 
   const openBootstrap = () => {
-    onClose();
+    if (onPickNew) {
+      onClose();
+      onPickNew();
+      return;
+    }
     setBootstrapOpen(true);
   };
 

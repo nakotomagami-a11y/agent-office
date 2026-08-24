@@ -1,10 +1,11 @@
+// GET/POST /api/skills/icons — read the resolved skill-icon map, or set a skill's icon.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import type { SkillIconClass } from "@agent-office/domain/services/skills";
-import { log } from "@agent-office/domain/services/log";
+import { isSkillIconClass } from "@agent-office/domain/config/skill-icons";
+import { log } from "@agent-office/domain/services/infra/log";
+import { validateBody } from "@/lib/validation";
+import { skillIconSetSchema } from "@/lib/validation-schemas";
 import { badRequest, serverError } from "@/lib/api-helpers";
-
-const CLASSES: SkillIconClass[] = ["any", "anyweapon", "blades", "spears", "axes", "staffs", "tridents"];
 
 export async function GET() {
   try {
@@ -16,20 +17,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const raw = (await request
-    .json()
-    .catch(() => null)) as { key?: unknown; seed?: unknown; iconClass?: unknown } | null;
-  if (!raw || typeof raw.key !== "string" || !raw.key) return badRequest("key required");
-  const iconClass = CLASSES.includes(raw.iconClass as SkillIconClass)
-    ? (raw.iconClass as SkillIconClass)
-    : "any";
+  const raw: unknown = await request.json().catch(() => null);
+  const { data, error } = validateBody(skillIconSetSchema, raw);
+  if (error) return badRequest("key_required");
+  const iconClass = isSkillIconClass(data.iconClass) ? data.iconClass : "any";
   try {
     // Explicit seed → persist that exact config; otherwise reroll a random one.
     const config =
-      typeof raw.seed === "string" && raw.seed
-        ? skills.setSkillIcon(raw.key, { seed: raw.seed, iconClass })
-        : skills.rerollSkillIcon(raw.key, iconClass);
-    return NextResponse.json({ ok: true, key: raw.key, config });
+      data.seed
+        ? skills.setSkillIcon(data.key, { seed: data.seed, iconClass })
+        : skills.rerollSkillIcon(data.key, iconClass);
+    return NextResponse.json({ ok: true, key: data.key, config });
   } catch (e) {
     return serverError(String(e instanceof Error ? e.message : e));
   }

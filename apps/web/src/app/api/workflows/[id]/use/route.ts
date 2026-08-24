@@ -1,3 +1,4 @@
+// POST /api/workflows/<id>/use — mark a workflow used (bumps its use count).
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 

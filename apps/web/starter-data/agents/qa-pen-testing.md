@@ -1,5 +1,6 @@
 ---
 name: qa-pen-testing
+display-name: "QA — Pen Testing"
 description: "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Delegates deeper analysis to marketplace `security-review` / `ai-security` / `security-bounty-hunter` agents when useful. Use before shipping user-facing endpoints, after adding auth flows, when handling sensitive data. Returns a severity-ranked finding list."
 default-model: sonnet
 default-effort: xhigh

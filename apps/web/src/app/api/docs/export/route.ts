@@ -1,4 +1,5 @@
-import { buildDocsExport } from "@agent-office/domain/services/docs-export";
+// GET /api/docs/export — machine-readable export of the app's API + schema surface.
+import { buildDocsExport } from "@agent-office/domain/services/docs/docs-export";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,9 @@
+// GET/POST/DELETE /api/skills/sources — manage the configured skill registry sources.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
+import { validateBody } from "@/lib/validation";
+import { skillSourceAddSchema } from "@/lib/validation-schemas";
 import { badRequest, serverError } from "@/lib/api-helpers";
 
 export async function GET() {
@@ -13,10 +16,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const raw = (await request.json().catch(() => null)) as { input?: unknown } | null;
-  if (!raw || typeof raw.input !== "string") return badRequest("input required");
+  const raw: unknown = await request.json().catch(() => null);
+  const { data, error } = validateBody(skillSourceAddSchema, raw);
+  if (error) return badRequest("input required");
   try {
-    const added = skills.addUserSource(raw.input);
+    const added = skills.addUserSource(data.input);
     return NextResponse.json({ ok: true, source: added });
   } catch (e) {
     return badRequest(String(e instanceof Error ? e.message : e));

@@ -2,7 +2,7 @@
 //
 // Rules:
 //   - Latest run for an agent within last 90s → use that run's status
-//   - "running" obviously trumps; otherwise "done" / "error" stick for 90s
+//   - "running" trumps; otherwise "done" / "error" stick for 90s
 //   - Fallback: "idle"
 //
 // Note: "thinking" (AgentStatus) is not produced here because PersistedRun

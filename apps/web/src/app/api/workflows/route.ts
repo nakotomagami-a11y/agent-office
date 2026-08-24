@@ -1,3 +1,4 @@
+// GET /api/workflows — list saved multi-step prompt workflows. POST — save a new one.
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 import { validateBody, validateQuery } from "@/lib/validation";

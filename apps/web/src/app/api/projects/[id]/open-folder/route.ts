@@ -1,3 +1,5 @@
+// POST /api/projects/<id>/open-folder — open the project's working directory in
+// the host OS file manager.
 import { spawn } from "node:child_process";
 import { NextResponse } from "next/server";
 import { projects } from "@agent-office/domain/services";
