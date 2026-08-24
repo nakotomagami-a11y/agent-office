@@ -1,3 +1,4 @@
+// GET /api/pipeline/<id> — read a pipeline run's status and per-step results.
 import { NextResponse } from "next/server";
 import { pipeline } from "@agent-office/domain/services";
 import { notFound, validateIdParam } from "@/lib/api-helpers";

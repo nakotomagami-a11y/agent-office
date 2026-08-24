@@ -41,7 +41,12 @@ export interface SkillUpdate {
 }
 
 export interface ApiAgent {
+  /** Stable slug / identifier (kebab-case). Used as the ID everywhere. */
   name: string;
+  /** Human-readable name shown in the UI. Editable in agent customization;
+   *  persisted as the `display-name` frontmatter field. Undefined for agents
+   *  that haven't set one — the UI falls back to prettifying the slug. */
+  displayName?: string;
   description: string;
   skills: string[];
   tools: string[];
@@ -60,7 +65,9 @@ export interface ApiAgent {
 }
 
 export interface AgentBody {
+  /** Human-readable display name (persisted as `display-name` frontmatter). */
   name: string;
+  /** Stable slug / identifier — the frontmatter `name` and the filename. */
   id: string;
   desc: string;
   skills: string[];
@@ -269,6 +276,72 @@ export interface AppSettings {
   features?: {
     multiInstance?: boolean;
   };
+  /** Per-integration on/off state (keys from the integration registry). Absent
+   *  keys fall back to the registry's defaultEnabled — see isIntegrationEnabled. */
+  integrations?: Record<string, boolean>;
+}
+
+/** One agent-body backup snapshot — GET /api/agents/<id>/body/history. */
+export interface AgentBodyHistoryEntry {
+  filename: string;
+  ts: number;
+  sizeBytes: number;
+}
+
+/** One tab in the in-app /docs page (from docs/_index.json). */
+export interface DocsTabConfig {
+  id: string;
+  label: string;
+  file: string;
+}
+
+/** The docs tab config served by GET /api/docs/content. */
+export interface DocsIndex {
+  version: number;
+  tabs: DocsTabConfig[];
+}
+
+/** An adb/flutter device — GET /api/flutter/devices. */
+export interface FlutterDevice {
+  id: string;
+  name: string;
+  model: string;
+  status: "device" | "offline" | "unauthorized" | "no permissions";
+  transportType: "usb" | "tcp";
+}
+
+/** A tracked dev/build server process — GET /api/processes. */
+export interface ProcessInfo {
+  pid: number;
+  port: number;
+  address: string;
+  name: string;
+  cmd: string;
+  cwd: string;
+  startedAt: number;
+  memMb: number;
+  projectId?: string;
+  projectName?: string;
+}
+
+/** A project's git working-tree summary — GET /api/projects/<id>/git-status. */
+export interface GitStatus {
+  isGit: boolean;
+  branch?: string;
+  added: number;
+  removed: number;
+  filesChanged: number;
+  ahead: number;
+  behind: number;
+}
+
+/** A runnable dev command detected for a project — GET /api/projects/<id>/dev. */
+export interface DetectedCommand {
+  key: string;
+  name: string;
+  argv: string[];
+  portMode: "next" | "flutter" | "env" | "device";
+  cwd?: string; // override project root (e.g. nested Flutter app)
 }
 
 export interface ScannedEntry {
@@ -372,6 +445,13 @@ export interface SseDoneEvent { runId: string; exitCode: number; sessionId?: str
 // from `@agent-office/domain/types` and this module stays type-only.
 export type { RunErrorCode } from "../config/run-errors";
 import type { RunErrorCode } from "../config/run-errors";
+// Catalog-derived types (runtime const + guard live in ../config/*); re-exported
+// so type-only consumers keep importing from `@agent-office/domain/types`.
+export type { DocCategory } from "../config/doc-categories";
+export type { SkillIconClass } from "../config/skill-icons";
+export type { CleanupKind } from "../config/cleanup";
+import type { DocCategory } from "../config/doc-categories";
+import type { SkillIconClass } from "../config/skill-icons";
 
 export interface SseErrorEvent { runId: string; code: RunErrorCode; detail?: string; interrupted?: boolean }
 export interface SseRateLimitEvent { runId: string; message: string; resetsAt?: number; severity: "warning" | "limit" }
@@ -485,4 +565,201 @@ export interface Tab {
 export interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
+}
+
+// ─── Docs contracts ──────────────────────────────────────────────────────────
+// Produced by the docs service, consumed by the /docs + memory UIs.
+
+export interface DocFrontmatter {
+  title: string;
+  category: DocCategory;
+  created: string; // ISO 8601
+  updated: string; // ISO 8601
+}
+
+export interface DocMeta extends DocFrontmatter {
+  /** Owner slug — either an agent-id or `_global`. */
+  owner: string;
+  /** Filename without extension. Stable, URL-safe id. */
+  slug: string;
+}
+
+export interface Doc extends DocMeta {
+  /** Markdown body (frontmatter stripped). */
+  body: string;
+}
+
+// ─── Skill contracts ─────────────────────────────────────────────────────────
+// Manifest / compatibility / customization shapes exchanged with the skills UI.
+
+export interface SkillManifestEntry {
+  slug: string;
+  source_id?: string;
+  source_path?: string;
+  symlink_status?: string;
+  target?: string;
+  category?: string;
+  workflow_depth?: string;
+  token_cost_est?: number;
+  impact_tier?: string;
+  impact_emoji?: string;
+  description?: string;
+}
+
+export interface SkillManifest {
+  generated_at?: string;
+  generator?: string;
+  cost_indicator_scale?: Record<string, string>;
+  workflow_depth_legend?: Record<string, string>;
+  sources?: Record<string, unknown>;
+  skills: SkillManifestEntry[];
+}
+
+export interface SkillCompatibility {
+  conflicts?: unknown;
+  synergies?: unknown;
+  ab_test_pairs?: unknown;
+  [k: string]: unknown;
+}
+
+export interface SkillCustomization {
+  /** Slugs of `##` sections the user has switched off. */
+  disabledSections?: string[];
+  /** A full user-authored body that replaces upstream. */
+  overrideBody?: string;
+  /** The SKILL.md SHA the override was authored against. */
+  basedOnSha?: string;
+}
+export type SkillCustomizationMap = Record<string, SkillCustomization>;
+
+export interface SkillSection {
+  /** Stable id derived from the heading text (deduped). */
+  slug: string;
+  /** Display text of the `##` heading. */
+  heading: string;
+}
+
+export interface SkillIconConfig {
+  seed: string;
+  iconClass: SkillIconClass;
+}
+export type SkillIconMap = Record<string, SkillIconConfig>;
+
+// ─── Analytics contracts ─────────────────────────────────────────────────────
+// SQL rollups produced by the analytics services, rendered by the analytics UI.
+
+export interface AnalyticsTotals {
+  runs: number;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
+  /** Wall-clock agent runtime, ms. */
+  runtimeMs: number;
+  done: number;
+  errors: number;
+}
+
+export interface ModelFamilyRow {
+  /** Consolidated family key: `opus` | `sonnet` | `haiku` | raw id. */
+  family: string;
+  label: string;
+  runs: number;
+  tokens: number;
+  cost: number;
+  /** Raw model ids folded into this family, for the tooltip. */
+  variants: string[];
+}
+
+export interface AnalyticsAgentRow {
+  agentId: string;
+  agentName: string;
+  runs: number;
+  cost: number;
+  runtimeMs: number;
+  errors: number;
+}
+
+export interface AnalyticsProjectRow {
+  projectId: string;
+  runs: number;
+  cost: number;
+  runtimeMs: number;
+}
+
+export interface ToolRow {
+  name: string;
+  calls: number;
+  runs: number;
+}
+
+/** One cell of the 7x24 activity grid. */
+export interface ActivityCell {
+  /** 0 = Sunday. */
+  dow: number;
+  /** 0-23, local time. */
+  hour: number;
+  runs: number;
+  cost: number;
+}
+
+export interface SeriesPoint {
+  /** Bucket key — `YYYY-MM-DD` for day granularity, `YYYY-MM-DD` (week start) for week. */
+  key: string;
+  cost: number;
+  runs: number;
+  runtimeMs: number;
+}
+
+export interface AnalyticsPage {
+  totals: AnalyticsTotals;
+  /** Same-length window immediately before `start`. Drives the deltas. */
+  previous: AnalyticsTotals;
+  /** Null when the window has no meaningful "previous" (all-time). */
+  hasPrevious: boolean;
+  byModel: ModelFamilyRow[];
+  byAgent: AnalyticsAgentRow[];
+  byProject: AnalyticsProjectRow[];
+  byTool: ToolRow[];
+  activity: ActivityCell[];
+  series: SeriesPoint[];
+  seriesGranularity: "day" | "week";
+}
+
+export interface PageRange {
+  start: number;
+  end: number;
+  projectId?: string;
+}
+
+export interface AnalyticsSummary {
+  totalRuns: number;
+  totalTokens: number;
+  totalCost: number;
+  byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
+  byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
+  /** Present only when trailing per-day spend was requested (merged by the API). */
+  dailySpend?: Array<{ day: string; spend: number }>;
+}
+
+export interface SummaryRange {
+  /** Inclusive lower bound (epoch ms). `0` for all-time. */
+  start: number;
+  /** Exclusive upper bound (epoch ms). `Number.POSITIVE_INFINITY` for all-time. */
+  end: number;
+  projectId?: string;
+}
+
+export interface AccountStats {
+  /** `null` = rows written before account_id existed; folded into `default`. */
+  accountId: string | null;
+  runs24h: number;
+  runs7d: number;
+  runsAllTime: number;
+  cost7dUsd: number;
+}
+
+export interface UserAnalysis {
+  markdown: string | null;
+  updatedAt: string | null;
+  wordCount: number | null;
 }

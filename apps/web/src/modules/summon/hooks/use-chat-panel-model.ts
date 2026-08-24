@@ -8,6 +8,7 @@ import { useRunRecovery, type UseRunRecoveryResult } from "./use-run-recovery";
 import { useRunNotification } from "@/hooks/use-run-notification";
 import { useTranscriptSync } from "./use-transcript-sync";
 import { useStreamingTick } from "./use-streaming-tick";
+import { formatDateTime } from "@/lib/format-date";
 import { useChatActions } from "./use-chat-actions";
 import { useChatState, type ChatState } from "./use-chat-state";
 import { transcriptKey } from "../format/transcript-store";
@@ -207,7 +208,7 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
         label: `${input.agent.name}: resume after rate limit`,
       }),
     });
-    toast(`Resume scheduled for ${new Date(fireAtMs).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`);
+    toast(`Resume scheduled for ${formatDateTime(fireAtMs)}`);
   };
 
   const onScheduleRateLimit = (resetsAtSeconds: number) => scheduleResume(resetsAtSeconds * 1000);

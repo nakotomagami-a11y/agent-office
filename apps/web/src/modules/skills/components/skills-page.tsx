@@ -6,7 +6,7 @@ import { TextInput } from "@/components/ui/text-input";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { SURFACE_HERO } from "./surface";
 import {

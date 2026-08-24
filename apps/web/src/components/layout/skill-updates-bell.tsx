@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useSkillUpdates, useUpdateSkill } from "@/modules/skills/hooks/use-skills";
 

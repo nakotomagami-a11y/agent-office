@@ -1,3 +1,5 @@
+// GET/POST /api/projects/<id>/secrets — list the secrets attached to a project
+// (read path carries no raw values), or attach an existing secret to it. Idempotent.
 import { NextResponse } from "next/server";
 import { secrets, paths } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

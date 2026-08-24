@@ -8,7 +8,7 @@ import { CodeBlock } from "./code-block";
 /**
  * Markdown renderer for the /docs page.
  *
- * All docs content lives as plain .md files under `apps/web/docs/`. Each
+ * All docs content lives as plain .md files under `docs/` (repo root). Each
  * tab renders one file through this component. GFM (tables, task lists,
  * strikethrough) is enabled. Code blocks route through the app's existing
  * <CodeBlock> primitive so syntax highlighting matches the rest of the UI.

@@ -104,6 +104,7 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
         }
         onAbortRun={props.onAbort}
         onDismissRateLimit={(id) => props.setThread((prev) => prev.filter((it) => it.id !== id))}
+        onDeleteMessage={(id) => props.setThread((prev) => prev.filter((it) => it.id !== id))}
         onScheduleRateLimit={props.onScheduleRateLimit}
         onScheduleResumeAt={props.onScheduleResumeAt}
         resumeResetsAtMs={props.resumeResetsAtMs}

@@ -54,7 +54,7 @@ export function parseCsv(value: string): string[] {
 export function fromApi(agent: ApiAgent, body: string): AgentFormValues {
   return {
     id: agent.name,
-    name: agent.name,
+    name: agent.displayName ?? agent.name,
     desc: agent.description,
     skills: toCsv(agent.skills),
     tools: toCsv(agent.tools),

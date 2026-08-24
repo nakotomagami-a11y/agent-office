@@ -2,9 +2,9 @@ import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { APP_STATE_DIR, AGENTS_DIR, CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../paths";
+import { APP_STATE_DIR, AGENTS_DIR, CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 import type { PersistedRun } from "../../types/index";
-import { STARTER_WORKFLOWS, STARTER_WORKFLOW_CATEGORY } from "../workflow-seed";
+import { STARTER_WORKFLOWS, STARTER_WORKFLOW_CATEGORY } from "../execution/workflow-seed";
 
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // v0 → v1: initial schema

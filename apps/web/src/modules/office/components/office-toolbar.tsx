@@ -7,12 +7,13 @@ import { ActionBar } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { cn } from "@/lib/cn";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
 import { useFlutterStore } from "@/lib/flutter-store";
 import { useFlutterDevices } from "@/modules/flutter/hooks/use-flutter-devices";
+import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { useDevServerStore } from "@/lib/dev-server-store";
 import {
   getDevConfig,
@@ -379,14 +380,15 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
 }
 
 export function FlutterDeviceButton() {
+  const flutterEnabled = useIntegrationEnabled("flutter");
   const setOpen = useFlutterStore((s) => s.setOpen);
-  const devicesQ = useFlutterDevices();
+  const devicesQ = useFlutterDevices(flutterEnabled);
   const devices = devicesQ.data?.devices ?? [];
   const available = devicesQ.data?.available ?? false;
   const connected = devices.filter((d) => d.status === "device");
   const hasDevice = connected.length > 0;
 
-  if (!devicesQ.isSuccess || !available || !hasDevice) return null;
+  if (!flutterEnabled || !devicesQ.isSuccess || !available || !hasDevice) return null;
 
   const label = connected.length > 1 ? `${connected.length} devices` : (connected[0]?.model ?? "Device");
   const tip = `${connected.length} device${connected.length !== 1 ? "s" : ""} connected — open Flutter manager`;

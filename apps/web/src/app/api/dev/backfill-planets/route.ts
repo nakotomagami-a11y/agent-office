@@ -1,18 +1,10 @@
+// POST /api/dev/backfill-planets — one-shot, idempotent dev backfill: give every
+// project created before the `planet:` frontmatter key a random planet config.
 import { NextResponse } from "next/server";
 import { projects } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
+import { forbidInProd } from "@/lib/api-helpers";
 import type { PlanetConfig, PlanetType } from "@agent-office/domain/types";
-
-/**
- * One-shot backfill for projects created before the `planet:` frontmatter key
- * shipped. For each project missing `planet` in its metadata, generate a random
- * planet config (across all 11 types) and persist it via `updateProject`.
- *
- * Idempotent: projects that already have a `planet` are skipped, so a second
- * run is a no-op. There is intentionally no GET — this mutates on-disk state.
- * Trigger manually:
- *   curl -X POST http://localhost:3000/api/dev/backfill-planets
- */
 
 // Mirrors autoRandomPlanet() in packages/domain/src/services/projects.ts.
 // Kept in-file so the route is self-contained and does not depend on an
@@ -57,10 +49,8 @@ interface BackfillEntry {
 }
 
 export async function POST() {
-  // Dev-only surface. Prod builds get a 404.
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
+  const gate = forbidInProd();
+  if (gate) return gate;
   const summaries = projects.listProjectSummaries();
 
   const entries: BackfillEntry[] = [];

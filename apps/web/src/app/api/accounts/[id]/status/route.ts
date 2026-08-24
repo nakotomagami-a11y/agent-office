@@ -1,3 +1,5 @@
+// GET /api/accounts/<id>/status — poll target for the add-account modal; returns
+// { ready, plan?, email? } once the account's credentials land in its config dir.
 import { NextResponse } from "next/server";
 import { accounts, paths } from "@agent-office/domain/services";
 import { badRequest, notFound } from "@/lib/api-helpers";

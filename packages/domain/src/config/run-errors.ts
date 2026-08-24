@@ -11,6 +11,7 @@
 export const RUN_ERROR_CODES = [
   "stopped",            // user hit Stop — neutral, not a failure
   "auth_expired",       // Claude session/credentials invalid → sign in
+  "subscription_disabled", // org/subscription access revoked → check account
   "worktree_missing",   // cwd/.worktrees gone → repair
   "claude_unavailable", // claude CLI not installed / not on PATH
   "secret_invalid",     // verify-before-run blocked the spawn

@@ -149,7 +149,6 @@ pnpm build            # next build of apps/web
 pnpm start            # production server
 pnpm typecheck        # tsc --noEmit across the workspace
 pnpm lint
-pnpm --filter @agent-office/web test   # vitest (unit tests in packages/domain, etc.)
 ```
 
 Desktop bundle:

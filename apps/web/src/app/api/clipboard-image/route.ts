@@ -1,3 +1,5 @@
+// POST /api/clipboard-image — read the current clipboard image (PNG) from the
+// Wayland compositor via `wl-paste` and return it. Host convenience for pasting.
 import { spawn } from "node:child_process";
 import { NextResponse } from "next/server";
 

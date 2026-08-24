@@ -1,6 +1,7 @@
 "use client";
 
 import { StreamBanner } from "./stream-banner";
+import { formatTime } from "@/lib/format-date";
 import type { UseRunRecoveryResult } from "../hooks/use-run-recovery";
 import type { useRunStream } from "../hooks/use-run-stream";
 
@@ -152,13 +153,16 @@ function renderConnectionRetryingBanner(stream: StreamState): React.ReactElement
 }
 
 function renderStaleStreamBanner(stream: StreamState, sinceLastEventMs: number): React.ReactElement {
+  // A quiet stream is almost always the agent thinking or running a long tool,
+  // not a fault — so keep this calm and low-key, with Reconnect available if the
+  // stream really is stuck.
   const detail = stream.lastEventAt
-    ? `Last event at ${new Date(stream.lastEventAt).toLocaleTimeString()}. The agent may be thinking, or the stream may be silently stuck.`
+    ? `Last event at ${formatTime(stream.lastEventAt)}. This is usually the agent thinking or running a long step.`
     : "No events received yet.";
   return (
     <StreamBanner
-      kind="warn"
-      title={`No new output for ${Math.floor(sinceLastEventMs / 1000)}s - still waiting.`}
+      kind="muted"
+      title={`Quiet for ${Math.floor(sinceLastEventMs / 1000)}s — still connected.`}
       detail={detail}
       primary={{ label: "Reconnect", onClick: stream.reconnect }}
     />

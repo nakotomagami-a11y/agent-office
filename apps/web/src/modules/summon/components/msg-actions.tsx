@@ -7,17 +7,32 @@ import { useCreateWorkflow } from "@/modules/workflows/hooks/use-workflows";
 export type MsgActionsProps = {
   text: string;
   onRerun?: (t: string) => void;
+  /** Remove this message from the thread. Present ⇒ renders a delete button. */
+  onDelete?: () => void;
 };
 
 /**
  * Floating action pill rendered over a message on hover: copy, rerun, save
- * as workflow. Rerun and save only appear when the caller wires them
- * up (`onRerun` present ⇒ user message with rerun capability).
+ * as workflow, delete. Rerun and save only appear when the caller wires them
+ * up (`onRerun` present ⇒ user message with rerun capability); delete only
+ * when `onDelete` is wired (user messages).
  */
-export function MsgActions({ text, onRerun }: MsgActionsProps) {
+export function MsgActions({ text, onRerun, onDelete }: MsgActionsProps) {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const saveWorkflow = useCreateWorkflow();
+
+  const handleDelete = () => {
+    if (!onDelete) return;
+    // Two-click confirm so a hover-and-misclick can't silently drop a message.
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 2500);
+      return;
+    }
+    onDelete();
+  };
 
   const handleCopy = () => {
     copyText(text);
@@ -48,6 +63,19 @@ export function MsgActions({ text, onRerun }: MsgActionsProps) {
             {saved ? <Icon name="check" size={13} className="text-[var(--ao-ok)]" /> : <Icon name="bookmark" size={13} />}
           </IconButton>
         </>
+      ) : null}
+      {onDelete ? (
+        <IconButton
+          ariaLabel={confirmDelete ? "Confirm delete" : "Delete message"}
+          title={confirmDelete ? "Click again to delete" : "Delete message"}
+          onClick={handleDelete}
+        >
+          <Icon
+            name="trash"
+            size={13}
+            className={confirmDelete ? "text-[var(--ao-bad)]" : undefined}
+          />
+        </IconButton>
       ) : null}
     </div>
   );

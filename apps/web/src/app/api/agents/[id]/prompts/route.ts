@@ -1,3 +1,5 @@
+// GET/POST /api/agents/<id>/prompts — the agent's recent-prompt history
+// (GET reads the list; POST appends one, capped most-recent-first).
 import { NextResponse } from "next/server";
 import { store } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

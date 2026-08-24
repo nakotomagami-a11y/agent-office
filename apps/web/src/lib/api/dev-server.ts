@@ -6,8 +6,7 @@
 
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { apiClient } from "@/lib/api-client";
-import type { DetectedCommand } from "@/app/api/projects/[id]/dev/route";
-import type { GitStatus } from "@/app/api/projects/[id]/git-status/route";
+import type { DetectedCommand, GitStatus } from "@agent-office/domain/types";
 
 export type { DetectedCommand, GitStatus };
 

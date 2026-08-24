@@ -1,24 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, startTransition, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "@/components/ui/icon";
-import { TILE, isToolValidAt, type AgentPositions, type VisibleRange } from "./office-map";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TILE, type AgentPositions, type VisibleRange } from "./office-map";
 import { OfficeMapOverlay } from "./office-map-overlay";
 import { OfficePixiCanvas } from "./office-pixi-canvas";
 import { OfficeBuildToolbar, type BuildTool, type LandGenParams } from "./office-build-toolbar";
 import { generateLand } from "../derive/land-generator";
 import {
   DECORATIONS,
-  applyPlacement,
   decorationKey,
-  familyOf,
   footprintCenterShift,
-  popDecoration,
   type DecorationsMap,
 } from "./decorations";
 import { DecoSelectMenu } from "./deco-select-menu";
 import { AgentSelectMenu } from "./agent-select-menu";
+import {
+  CanvasToolsBar,
+  ViewToggle,
+  BuildFpsBadge,
+  CanvasInfoBar,
+  BuildActionsBar,
+  MapSyncStatus,
+} from "./office-scene-hud";
 import { useCanvasEditing } from "../hooks/use-canvas-editing";
 import { useOfficeAgents } from "../hooks/use-office-agents";
 import { useOfficeStore } from "../hooks/use-office-store";
@@ -43,11 +46,11 @@ import {
 import { useOfficePainting } from "../hooks/use-office-painting";
 import {
   makeSeedGrid,
-  floodFill,
   type Snapshot,
   EMPTY_ROSTER,
   EMPTY_SPEND,
 } from "../derive/office-scene-data";
+import { createCellClickHandler } from "../derive/apply-cell-click";
 import type { OfficeMap } from "../derive/office-map-storage";
 
 /**
@@ -62,9 +65,11 @@ import type { OfficeMap } from "../derive/office-map-storage";
  *
  * Erase: removes a decoration first if one is present, otherwise clears
  * the terrain. Two clicks fully empty a decorated grass cell.
+ *
+ * The dense cell-click mutation engine lives in ../derive/apply-cell-click; the
+ * floating HUD chrome (tools bar, view toggle, info, actions, save status) lives
+ * in ./office-scene-hud. This file is the controller that wires them together.
  */
-
-
 export function OfficeScene({
   projectId,
 }: {
@@ -252,184 +257,23 @@ export function OfficeScene({
   // Clear rectStart when the user switches tools
   useEffect(() => { setRectStart(null); }, [tool]);
 
-  const onCellClick = useCallback(
-    (x: number, y: number, shiftKey = false) => {
-      // Read all state from refs — this callback never closes over state,
-      // so it stays stable ([] deps) and never breaks OfficeMap's memo.
-      const { grid, decorations, agentPositions } = currentStateRef.current;
-      const rectStart = rectStartRef.current;
-      const tool = toolRef.current;
-
-      const key = decorationKey(x, y);
-      const cellHasGrass = grid[y]?.[x] === true;
-
-      if (!tool) return;
-      // Free-hand select never paints — decoration hit-targets in the overlay
-      // handle selection. A click on empty ground just clears the selection.
-      if (tool === "select") { setSelectedDeco(null); return; }
-
-      // Shift-click rectangle fill for paint/erase terrain tools
-      if (shiftKey && rectStart && (tool === "grass" || tool === "erase")) {
-        undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-        redoStack.current = [];
-        const xMin = Math.min(rectStart.x, x);
-        const xMax = Math.max(rectStart.x, x);
-        const yMin = Math.min(rectStart.y, y);
-        const yMax = Math.max(rectStart.y, y);
-        if (tool === "grass") {
-          startTransition(() => {
-            setGrid((prev) => {
-              const next = [...prev];
-              for (let cy = yMin; cy <= yMax; cy++) {
-                next[cy] = [...prev[cy]!];
-                for (let cx = xMin; cx <= xMax; cx++) next[cy]![cx] = true;
-              }
-              return next;
-            });
-          });
-        } else {
-          startTransition(() => {
-            setGrid((prev) => {
-              const next = [...prev];
-              for (let cy = yMin; cy <= yMax; cy++) {
-                next[cy] = [...prev[cy]!];
-                for (let cx = xMin; cx <= xMax; cx++) next[cy]![cx] = false;
-              }
-              return next;
-            });
-            setDecorations((prev) => {
-              const next = { ...prev };
-              for (let cy = yMin; cy <= yMax; cy++)
-                for (let cx = xMin; cx <= xMax; cx++)
-                  delete next[decorationKey(cx, cy)];
-              return next;
-            });
-            setAgentPositions((prev) => {
-              const next = { ...prev };
-              for (let cy = yMin; cy <= yMax; cy++)
-                for (let cx = xMin; cx <= xMax; cx++)
-                  delete next[decorationKey(cx, cy)];
-              return next;
-            });
-          });
-        }
-        setPendingChanges((n) => n + (xMax - xMin + 1) * (yMax - yMin + 1));
-        setRectStart(null);
-        return;
-      }
-
-      if (tool === "grass") {
-        if (cellHasGrass) return;
-        undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-        redoStack.current = [];
-        setRectStart({ x, y });
-        setPendingChanges((n) => n + 1);
-        startTransition(() => {
-          // Only copy the one row that changes — O(GRID_COLS) not O(GRID_ROWS*GRID_COLS)
-          setGrid((prev) => {
-            if (prev[y]?.[x] === true) return prev;
-            const next = [...prev];
-            next[y] = [...prev[y]!];
-            next[y]![x] = true;
-            return next;
-          });
-          // Drop any water-only decorations now stranded on land
-          setDecorations((prev) => {
-            const existing = prev[key];
-            if (!existing) return prev;
-            const kept = existing.filter((k) => DECORATIONS[k.kind].terrain === "land");
-            if (kept.length === existing.length) return prev;
-            const next = { ...prev };
-            if (kept.length === 0) delete next[key];
-            else next[key] = kept;
-            return next;
-          });
-        });
-        return;
-      }
-
-      if (tool === "fill") {
-        if (cellHasGrass) return;
-        const [newGrid, count] = floodFill(grid, x, y);
-        if (count === 0) return;
-        undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-        redoStack.current = [];
-        setPendingChanges((n) => n + count);
-        startTransition(() => {
-          setGrid(newGrid);
-        });
-        return;
-      }
-
-      if (tool === "erase") {
-        // Topmost first: agent → decoration (LIFO from stack) → terrain
-        if (agentPositions[key]) {
-          undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-          redoStack.current = [];
-          setAgentPositions((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            return next;
-          });
-          setPendingChanges((n) => n + 1);
-          return;
-        }
-        const stack = decorations[key];
-        if (stack && stack.length > 0) {
-          const popped = popDecoration(stack);
-          if (popped) {
-            undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-            redoStack.current = [];
-            setDecorations((prev) => {
-              const next = { ...prev };
-              if (popped.stack.length === 0) delete next[key];
-              else next[key] = popped.stack;
-              return next;
-            });
-            // If a bridge was removed from a water cell, evict any agent.
-            const isWater = grid[y]?.[x] !== true;
-            const bridgeGone = isWater && !popped.stack.some((k) => familyOf(k.kind) === "bridge");
-            if (bridgeGone && agentPositions[key]) {
-              setAgentPositions((prev) => {
-                const next = { ...prev };
-                delete next[key];
-                return next;
-              });
-            }
-            setPendingChanges((n) => n + 1);
-          }
-          return;
-        }
-        if (cellHasGrass) {
-          undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-          redoStack.current = [];
-          setRectStart({ x, y });
-          setPendingChanges((n) => n + 1);
-          startTransition(() => {
-            // Only copy the one row that changes
-            setGrid((prev) => {
-              if (prev[y]?.[x] !== true) return prev;
-              const next = [...prev];
-              next[y] = [...prev[y]!];
-              next[y]![x] = false;
-              return next;
-            });
-          });
-        }
-        return;
-      }
-
-      // Decoration tool: validate terrain, bridge ramps, and (for multi-tile
-      // buildings) that the whole footprint is clear land.
-      if (!isToolValidAt(tool, x, y, grid, decorations)) return;
-      undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-      redoStack.current = [];
-      setDecorations((prev) => {
-        const stack = applyPlacement(prev[key], tool);
-        return { ...prev, [key]: stack };
-      });
-      setPendingChanges((n) => n + 1);
-    },
+  // Cell-click mutation engine — reads all live state through refs, so it's
+  // stable forever and never breaks OfficeMap's memo. See apply-cell-click.
+  const onCellClick = useMemo(
+    () =>
+      createCellClickHandler({
+        currentStateRef,
+        rectStartRef,
+        toolRef,
+        undoStack,
+        redoStack,
+        setGrid,
+        setDecorations,
+        setAgentPositions,
+        setRectStart,
+        setPendingChanges,
+        setSelectedDeco,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // stable forever — all state is read through refs
   );
@@ -490,10 +334,6 @@ export function OfficeScene({
     }
   }, [paintPointerUp, camPointerUp]);
 
-  // Drop handler - invoked by OfficeMap when an agent is dropped on a
-  // grid cell that passes its terrain + overlap validation. Move
-  // semantics: if the same agent is already on the map, its old cell
-  // becomes empty.
   const onBuildToggle = useCallback(() => {
     setBuildMode((m) => {
       if (!m) { setAgentSearch(""); setTool("select"); } // entering build mode → select active
@@ -629,9 +469,6 @@ export function OfficeScene({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      {/* Water shader — renders behind PixiJS; only active in iso view */}
-      {/* <WaterShaderCanvas active={view === "iso"} zoomRef={zoomRef} panRef={panRef} /> */}
-
       {/* PixiJS visual layer — camera controlled via panX/panY/zoom props */}
       {containerSize && (
         <OfficePixiCanvas
@@ -751,203 +588,36 @@ export function OfficeScene({
         );
       })()}
 
-      {/* Canvas tools - top-left: zoom + recenter (hidden in build mode) */}
-      <AnimatePresence initial={false}>
-        {!buildMode && (
-          <motion.div
-            key="canvas-tools"
-            className="canvas-tools absolute flex items-center gap-[6px] z-[10] pointer-events-auto top-[14px] left-[14px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px]"
-            initial={{ opacity: 0, scale: 0.85, x: -6, y: -6 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26 } }}
-            exit={{ opacity: 0, scale: 0.8, x: -6, y: -6, transition: { duration: 0.13, ease: "easeIn", delay: 0.04 } }}
-          >
-            <button
-              type="button"
-              className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
-              onClick={() => zoomBy(1 - ZOOM_STEP)}
-              aria-label="Zoom out"
-            >
-              <Icon name="minus" size={11} />
-            </button>
-            <div
-              className="text-center cursor-pointer px-[8px] py-[2px] text-[rgba(199,191,183,0.9)] font-mono text-[11px] min-w-[40px] hover:text-[#f4efea]"
-              onClick={resetCamera}
-              title="Reset camera"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") resetCamera(); }}
-            >
-              {Math.round(zoom * 100)}%
-            </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
-              onClick={() => zoomBy(1 + ZOOM_STEP)}
-              aria-label="Zoom in"
-            >
-              <Icon name="plus" size={11} />
-            </button>
-            <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-            <button
-              type="button"
-              className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
-              title="Recenter"
-              onClick={resetCamera}
-            >
-              <Icon name="crosshair" size={13} />
-            </button>
-            <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-            <div className="relative">
-              <input
-                className="bg-transparent border-none outline-none text-[rgba(199,191,183,0.9)] font-mono text-[11px] w-[110px] px-[4px] py-[2px] focus:text-[#f4efea] placeholder:text-[rgba(199,191,183,0.4)]"
-                type="search"
-                placeholder="Find agent…"
-                value={agentSearch}
-                onChange={(e) => { setAgentSearch(e.target.value); setSearchOpen(true); }}
-                onFocus={() => setSearchOpen(true)}
-                onBlur={() => setTimeout(() => setSearchOpen(false), 120)}
-                aria-label="Search agents"
-              />
-              {searchOpen && searchMatches.length > 0 && (
-                <div className="absolute left-0 top-[calc(100%+6px)] min-w-[180px] max-h-[240px] overflow-y-auto bg-[rgba(20,16,14,0.98)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px] shadow-[var(--shadow-2)] [scrollbar-width:thin]">
-                  {searchMatches.map((m) => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      className="w-full flex items-center gap-[7px] text-left px-[8px] py-[6px] rounded-[5px] text-[rgba(199,191,183,0.9)] font-mono text-[11.5px] transition-[background,color] duration-100 hover:bg-[rgba(233,84,32,0.14)] hover:text-[#f4efea]"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { focusOn(m.x, m.y, 0.75); setSearchOpen(false); }}
-                    >
-                      <span className="w-[6px] h-[6px] rounded-full bg-[#ff2d1e] shrink-0" />
-                      <span className="truncate">{m.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {fpsEnabled && (
-              <>
-                <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-                <FpsCounter />
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CanvasToolsBar
+        show={!buildMode}
+        zoom={zoom}
+        zoomBy={zoomBy}
+        resetCamera={resetCamera}
+        focusOn={focusOn}
+        agentSearch={agentSearch}
+        setAgentSearch={setAgentSearch}
+        searchOpen={searchOpen}
+        setSearchOpen={setSearchOpen}
+        searchMatches={searchMatches}
+        zoomStep={ZOOM_STEP}
+        fpsEnabled={fpsEnabled}
+      />
 
-      {/* View toggle — top-right, animates out when entering build mode. */}
-      <AnimatePresence initial={false}>
-        {!buildMode && (
-          <motion.div
-            key="view-toggle"
-            className="absolute flex items-center z-[10] pointer-events-auto top-[14px] right-[14px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px] gap-[2px]"
-            initial={{ opacity: 0, scale: 0.85, x: 6, y: -6 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26, delay: 0.05 } }}
-            exit={{ opacity: 0, scale: 0.8, x: 6, y: -6, transition: { duration: 0.13, ease: "easeIn" } }}
-          >
-            <button
-              type="button"
-              className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[11.5px] font-mono transition-[background,color] duration-100 bg-[rgba(255,240,230,0.12)] text-[#f4efea]"
-              onClick={() => setView("iso")}
-            >
-              <Icon name="map" size={11} /> Iso
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[11.5px] font-mono transition-[background,color] duration-100 text-[rgba(199,191,183,0.9)] hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
-              onClick={() => setView("cards")}
-            >
-              <Icon name="grid" size={11} /> Cards
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ViewToggle show={!buildMode} setView={setView} />
 
-      {/* Build-mode FPS badge — the canvas-tools bar (which holds the FPS) hides
-          in build mode, so a standalone FPS readout animates in to replace it. */}
-      <AnimatePresence initial={false}>
-        {buildMode && fpsEnabled && (
-          <motion.div
-            key="build-fps"
-            className="absolute z-[10] pointer-events-none flex items-center top-[14px] left-[14px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] px-[6px] py-[3px]"
-            initial={{ opacity: 0, scale: 0.85, x: -6, y: -6 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26, delay: 0.16 } }}
-            exit={{ opacity: 0, scale: 0.8, x: -6, y: -6, transition: { duration: 0.13, ease: "easeIn" } }}
-          >
-            <FpsCounter />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <BuildFpsBadge show={buildMode && fpsEnabled} />
 
-      {/* View toggle - top-left below zoom bar (hidden in build mode) */}
-      {/* Canvas info - bottom-left: tile coords + map stats (hidden in build mode) */}
-      <AnimatePresence initial={false}>
-        {!buildMode && (
-          <motion.div
-            key="canvas-info"
-            className="canvas-info absolute flex z-[10] pointer-events-none bottom-[14px] left-[14px] gap-[14px] px-[12px] py-[8px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] font-mono text-[10.5px] text-[rgba(138,128,121,0.9)]"
-            initial={{ opacity: 0, scale: 0.85, x: -6, y: 6 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26, delay: 0.1 } }}
-            exit={{ opacity: 0, scale: 0.8, x: -6, y: 6, transition: { duration: 0.13, ease: "easeIn", delay: 0.1 } }}
-          >
-            <div className="item">
-              <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Tile</div>
-              <div className="text-[rgba(244,239,234,0.9)]">{hoverTile ? `${hoverTile.x}, ${hoverTile.y}` : "-"}</div>
-            </div>
-            <div className="item">
-              <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Map</div>
-              <div className="text-[rgba(244,239,234,0.9)]">{GRID_COLS} × {GRID_ROWS}</div>
-            </div>
-            <div className="item">
-              <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Placed</div>
-              <div className="text-[rgba(244,239,234,0.9)]">{grassCount + decoCount} tiles</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CanvasInfoBar show={!buildMode} hoverTile={hoverTile} placed={grassCount + decoCount} />
 
-      {/* Build actions bar - bottom-center, build mode only (wrapper handles centering, motion handles anim) */}
-      <div className="absolute bottom-[14px] left-1/2 -translate-x-1/2 z-[15] pointer-events-none">
-      <AnimatePresence>
-        {buildMode && (
-          <motion.div
-            key="done-bar"
-            className="build-actions-bar flex items-center gap-[4px] pointer-events-auto whitespace-nowrap rounded-full p-[5px] bg-[rgba(26,22,20,0.97)] border border-[rgba(255,240,230,0.14)] shadow-[0_14px_40px_-10px_rgba(0,0,0,0.7)]"
-            initial={{ opacity: 0, scale: 0.5, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 360, damping: 28, delay: 0.32 } }}
-            exit={{ opacity: 0, scale: 0.5, y: 20, transition: { duration: 0.12, ease: "easeIn" } }}
-          >
-            <button
-              type="button"
-              className="inline-flex items-center gap-[7px] rounded-full font-semibold px-[16px] py-[8px] text-[12.5px] transition-[background,color] duration-[120ms] bg-[rgba(255,240,230,0.08)] border border-[rgba(255,240,230,0.12)] text-[rgba(244,239,234,0.9)] hover:bg-[rgba(255,240,230,0.12)]"
-              onClick={() => { setBuildMode(false); setPendingChanges(0); undoStack.current = []; redoStack.current = []; }}
-            >
-              {pendingChanges > 0 && <span className="rounded-full shrink-0 w-[6px] h-[6px] bg-[#e6b35a] shadow-[0_0_6px_#e6b35a]" />}
-              <Icon name="check" size={13} />
-              Done{pendingChanges > 0 ? ` · ${pendingChanges} saved` : ""}
-            </button>
-            {projectId && (
-              <>
-                <div className="shrink-0 w-[1px] h-[20px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-[5px] rounded-full bg-transparent cursor-pointer font-medium text-[12px] px-[11px] py-[5px] border border-[rgba(255,240,230,0.15)] text-[rgba(255,240,230,0.55)] transition-[background,color,border-color] duration-100 hover:bg-[rgba(255,240,230,0.07)] hover:text-[rgba(255,240,230,0.8)]${useCustomMap ? " !border-[rgba(233,84,32,0.5)] !bg-[rgba(233,84,32,0.12)] !text-[#e95420]" : ""}`}
-                  title={
-                    useCustomMap
-                      ? "Switch back to the default shared layout (used by all projects)"
-                      : "Create a project-specific layout for this project"
-                  }
-                  onClick={useCustomMap ? disableCustomMap : enableCustomMap}
-                >
-                  <Icon name="map" size={12} />
-                  {useCustomMap ? "Project layout" : "Default layout"}
-                </button>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
+      <BuildActionsBar
+        show={buildMode}
+        pendingChanges={pendingChanges}
+        onDone={() => { setBuildMode(false); setPendingChanges(0); undoStack.current = []; redoStack.current = []; }}
+        projectId={projectId}
+        useCustomMap={useCustomMap}
+        enableCustomMap={enableCustomMap}
+        disableCustomMap={disableCustomMap}
+      />
 
       <OfficeBuildToolbar
         active={buildMode}
@@ -964,77 +634,12 @@ export function OfficeScene({
         onGenerateLand={onGenerateLand}
       />
 
-      {/* Save status — server is the source of truth, so surface every state. */}
-      {loadState === "loaded" && saveState !== "idle" && (
-        <div className="absolute right-3 top-3 z-40 flex items-center gap-2 rounded-full bg-[rgba(28,25,23,0.9)] px-3 py-1.5 text-[11px] shadow-md">
-          {saveState === "saving" && <span className="text-[rgba(220,214,209,0.9)]">Saving…</span>}
-          {saveState === "dirty" && <span className="text-[rgba(220,214,209,0.7)]">Unsaved changes…</span>}
-          {saveState === "saved" && <span className="text-[rgba(150,190,120,0.95)]">Saved</span>}
-          {saveState === "error" && (
-            <>
-              <span className="text-[rgba(230,140,120,0.95)]">Save failed</span>
-              <button
-                onClick={retrySave}
-                className="rounded bg-[rgba(255,255,255,0.1)] px-2 py-0.5 text-[10px] font-medium text-white hover:bg-[rgba(255,255,255,0.18)]"
-              >
-                Retry
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Load failure — pause editing so a default/empty map can never overwrite
-          good server data (the exact clobber that erased earlier progress). */}
-      {loadState === "error" && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgba(20,18,17,0.72)]">
-          <div className="flex flex-col items-center gap-3 rounded-lg bg-[rgba(38,34,31,0.98)] px-6 py-5 text-center shadow-xl">
-            <div className="text-[13px] font-medium text-[rgba(244,239,234,0.95)]">Couldn’t load your office from the server</div>
-            <div className="max-w-[280px] text-[11px] leading-relaxed text-[rgba(200,193,187,0.8)]">
-              Your saved map is safe on the server — editing is paused so nothing gets overwritten. Make sure the app
-              is running, then retry.
-            </div>
-            <button
-              onClick={retryLoad}
-              className="rounded-md bg-[rgba(120,160,90,0.9)] px-4 py-1.5 text-[12px] font-medium text-white hover:bg-[rgba(120,160,90,1)]"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Live FPS readout — rAF loop, updates the label ~4×/sec to avoid re-render spam.
-function FpsCounter() {
-  const [fps, setFps] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    let frames = 0;
-    let last = performance.now();
-    const loop = (now: number) => {
-      frames++;
-      if (now - last >= 250) {
-        setFps(Math.round((frames * 1000) / (now - last)));
-        frames = 0;
-        last = now;
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  const color = fps >= 50 ? "#7fd88a" : fps >= 30 ? "#e0c060" : "#e0705a";
-  return (
-    <div
-      className="font-mono text-[11px] px-[6px] py-[2px] tabular-nums select-none"
-      style={{ color }}
-      title="Frames per second"
-      aria-label={`${fps} frames per second`}
-    >
-      {fps} fps
+      <MapSyncStatus
+        loadState={loadState}
+        saveState={saveState}
+        retrySave={retrySave}
+        retryLoad={retryLoad}
+      />
     </div>
   );
 }

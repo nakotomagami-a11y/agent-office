@@ -1,3 +1,6 @@
+// /api/accounts — registry of Claude Code accounts (each its own CLAUDE_CONFIG_DIR)
+// that agent-office can spawn `claude` under. GET lists them with status; POST
+// provisions a new empty one for the user to log into.
 import { NextResponse } from "next/server";
 import { accounts } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

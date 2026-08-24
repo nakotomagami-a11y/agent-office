@@ -1,12 +1,11 @@
+// POST /api/cleanup/<kind> — run a named maintenance cleanup task; <kind> must be
+// one of CLEANUP_KINDS.
 import { NextResponse } from "next/server";
 import { cleanup } from "@agent-office/domain/services";
+import { isCleanupKind } from "@agent-office/domain/config/cleanup";
 import { badRequest } from "@/lib/api-helpers";
 
 type Params = { params: Promise<{ kind: string }> };
-
-function isCleanupKind(v: string): v is cleanup.CleanupKind {
-  return (cleanup.CLEANUP_KINDS as readonly string[]).includes(v);
-}
 
 export async function POST(_request: Request, { params }: Params) {
   const { kind } = await params;

@@ -1,3 +1,5 @@
+// GET/DELETE /api/projects/<id>/uploads/<filename> — serve or delete one uploaded
+// project file. Filename safety is enforced by the helpers.
 import { paths } from "@agent-office/domain/services";
 import { handleDeleteUpload, handleServeUpload, validateIdParam } from "@/lib/api-helpers";
 

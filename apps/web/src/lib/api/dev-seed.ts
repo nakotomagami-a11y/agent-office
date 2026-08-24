@@ -6,7 +6,7 @@
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { apiClient } from "@/lib/api-client";
 
-export type SeedAction = "office" | "memory" | "all" | "clear" | "clear-all-runs" | "fix-orphans" | "showcase" | "clear-showcase";
+export type SeedAction = "clear-all-runs" | "fix-orphans" | "showcase" | "clear-showcase";
 
 export interface DbStats {
   runsCount: number;

@@ -1,6 +1,7 @@
+// POST /api/skills/create — scaffold a new local skill.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
-import { log } from "@agent-office/domain/services/log";
+import { log } from "@agent-office/domain/services/infra/log";
 import { badRequest, serverError } from "@/lib/api-helpers";
 import { validateBody } from "@/lib/validation";
 import { skillCreateSchema } from "@/lib/validation-schemas";

@@ -1,3 +1,4 @@
+// PATCH/DELETE /api/schedules/<id> — update or cancel a scheduled job.
 import { NextResponse } from "next/server";
 import { scheduler } from "@agent-office/domain/services";
 import { notFound, validateIdParam } from "@/lib/api-helpers";

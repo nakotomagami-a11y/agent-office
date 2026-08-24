@@ -5,15 +5,8 @@ import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 
-export interface AnalyticsSummary {
-  totalRuns: number;
-  totalTokens: number;
-  totalCost: number;
-  byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
-  byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
-  /** Present only when `days` was requested. */
-  dailySpend?: Array<{ day: string; spend: number }>;
-}
+import type { AnalyticsSummary } from "@agent-office/domain/types";
+export type { AnalyticsSummary };
 
 export interface UseAnalyticsSummaryOpts {
   /** Inclusive lower bound, epoch ms. */

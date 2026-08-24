@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
 import { categorize } from "@/modules/agents/form/categorize";
@@ -348,6 +348,7 @@ function AgentPickerStep({
                   <AgentRow
                     key={a.name}
                     name={a.name}
+                    displayName={a.displayName}
                     description={a.description}
                     defaultModel={a.defaultModel}
                     unit={a.unit}
@@ -372,6 +373,7 @@ function AgentPickerStep({
                   <AgentRow
                     key={a.name}
                     name={a.name}
+                    displayName={a.displayName}
                     description={a.description}
                     defaultModel={a.defaultModel}
                     unit={a.unit}
@@ -389,6 +391,7 @@ function AgentPickerStep({
               <AgentRow
                 key={a.name}
                 name={a.name}
+                displayName={a.displayName}
                 description={a.description}
                 defaultModel={a.defaultModel}
                 unit={a.unit}
@@ -457,10 +460,11 @@ function AgentPickerStep({
 /* ── Agent row ──────────────────────────────────────────────────── */
 
 function AgentRow({
-  name, description, defaultModel, unit, category,
+  name, displayName, description, defaultModel, unit, category,
   rosterCount, stagedCount, onAdd, onRemove, onDetails,
 }: {
   name: string;
+  displayName?: string | null;
   description?: string | null;
   defaultModel?: string | null;
   unit?: string | null;
@@ -485,7 +489,7 @@ function AgentRow({
       </div>
       <div className="min-w-0">
         <div className="flex items-center flex-wrap gap-[7px]">
-          <span className="font-bold text-txt text-[14.5px]">{formatAgentDisplayName(name)}</span>
+          <span className="font-bold text-txt text-[14.5px]">{agentDisplayName({ name, displayName })}</span>
           <span className="text-txt-4 font-[var(--font-mono)] text-[10.5px]">{name}</span>
           {defaultModel && (
             <span className="inline-flex items-center bg-bg-1 border border-line text-txt-2 gap-[5px] px-[6px] pr-[7px] py-[2px] rounded-[5px] font-[var(--font-mono)] text-[10.5px]">

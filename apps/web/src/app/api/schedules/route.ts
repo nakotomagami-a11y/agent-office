@@ -1,3 +1,4 @@
+// GET /api/schedules — list scheduled jobs. POST — schedule a summon to fire later.
 import { NextResponse } from "next/server";
 import { scheduler } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";

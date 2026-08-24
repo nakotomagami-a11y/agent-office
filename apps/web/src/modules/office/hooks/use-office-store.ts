@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
+import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 
 /**
  * Persisted server-side to `ui_settings.office-view`, matching the tabs and
@@ -71,10 +72,12 @@ type OfficeState = {
   hydrate: () => void;
 };
 
-/** The subset written to `ui_settings` — mirrors the old persist partialize. */
+/** The subset written to `ui_settings` — mirrors the old persist partialize.
+ *  `isoEnabled` is NOT persisted here: it's driven by the `iso-view` integration
+ *  toggle (Settings → Integrations), mirrored into the store by useOfficeHydration. */
 type PersistShape = Pick<
   OfficeState,
-  "view" | "isoEnabled" | "expandedGroups" | "pinnedGroups" | "navHeight"
+  "view" | "expandedGroups" | "pinnedGroups" | "navHeight"
 >;
 
 function isGroupMap(v: unknown): v is Record<string, string[]> {
@@ -90,10 +93,9 @@ function parse(raw: string | undefined): Partial<PersistShape> | null {
   try {
     const obj = JSON.parse(raw) as unknown;
     if (!obj || typeof obj !== "object") return null;
-    const { view, isoEnabled, expandedGroups, pinnedGroups, navHeight } = obj as Partial<PersistShape>;
+    const { view, expandedGroups, pinnedGroups, navHeight } = obj as Partial<PersistShape>;
     const out: Partial<PersistShape> = {};
     if (view === "iso" || view === "cards") out.view = view;
-    if (typeof isoEnabled === "boolean") out.isoEnabled = isoEnabled;
     if (isGroupMap(expandedGroups)) out.expandedGroups = expandedGroups;
     if (isGroupMap(pinnedGroups)) out.pinnedGroups = pinnedGroups;
     if (navHeight === null || typeof navHeight === "number") out.navHeight = navHeight;
@@ -126,9 +128,10 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
     set({ view: next });
     persistState(get());
   },
+  // Mirror of the `iso-view` integration toggle (see useOfficeHydration). Not
+  // persisted here — the setting is the source of truth.
   setIsoEnabled: (next) => {
     set({ isoEnabled: next });
-    persistState(get());
   },
   select: (id, opts) =>
     set({
@@ -196,7 +199,6 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
 function persistState(s: OfficeState): void {
   const shape: PersistShape = {
     view: s.view,
-    isoEnabled: s.isoEnabled,
     expandedGroups: s.expandedGroups,
     pinnedGroups: s.pinnedGroups,
     navHeight: s.navHeight,
@@ -206,10 +208,16 @@ function persistState(s: OfficeState): void {
   });
 }
 
-/** Mount in the app shell (e.g. Titlebar) so the store hydrates once on boot. */
+/** Mount in the app shell (e.g. Titlebar) so the store hydrates once on boot and
+ *  the iso renderer follows the `iso-view` integration toggle. */
 export function useOfficeHydration(): void {
   const hydrate = useOfficeStore((s) => s.hydrate);
+  const setIsoEnabled = useOfficeStore((s) => s.setIsoEnabled);
+  const isoEnabled = useIntegrationEnabled("iso-view");
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+  useEffect(() => {
+    setIsoEnabled(isoEnabled);
+  }, [isoEnabled, setIsoEnabled]);
 }

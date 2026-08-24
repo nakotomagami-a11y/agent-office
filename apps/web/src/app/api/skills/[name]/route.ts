@@ -1,3 +1,4 @@
+// GET/DELETE /api/skills/<name> — read a skill's details or uninstall it.
 import { NextResponse } from "next/server";
 import { skills } from "@agent-office/domain/services";
 import { notFound, validateIdParam } from "@/lib/api-helpers";

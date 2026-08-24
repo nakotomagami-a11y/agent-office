@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { getDbStats, runSeed, type DbStats, type SeedAction } from "@/lib/api/dev-seed";
-import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
 import { useFpsMeterStore } from "@/lib/fps-meter-store";
 import { dumpStores, appStateSnapshot } from "./dev-instruments";
@@ -98,42 +98,6 @@ function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: st
       {hint ? <span className="font-[var(--font-mono)] text-[10px] text-txt-4">{hint}</span> : null}
       <span className="flex-1 h-px bg-line" />
     </div>
-  );
-}
-
-function Switch({
-  checked,
-  onChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative w-[34px] h-[19px] rounded-full shrink-0 cursor-pointer transition-colors duration-[140ms]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
-        disabled && "opacity-40 cursor-not-allowed",
-        checked ? "bg-acc" : "bg-bg-3 border border-line-2",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-[2px] left-[2px] w-[15px] h-[15px] rounded-full bg-white [box-shadow:0_1px_2px_rgba(0,0,0,0.25)] transition-transform duration-[140ms]",
-          checked && "translate-x-[15px]",
-        )}
-      />
-    </button>
   );
 }
 
@@ -302,7 +266,6 @@ export function DevMenu() {
   const [cat, setCat] = useState<DevCat>("interface");
   const [stats, setStats] = useState<DbStats | null>(null);
   const [states, setStates] = useState<Record<SeedAction, BtnState>>({
-    office: "idle", memory: "idle", all: "idle", clear: "idle",
     "clear-all-runs": "idle", "fix-orphans": "idle",
     showcase: "idle", "clear-showcase": "idle",
   });
@@ -310,8 +273,6 @@ export function DevMenu() {
   const queryClient = useQueryClient();
 
   // Wired interface state.
-  const isoEnabled = useOfficeStore((s) => s.isoEnabled);
-  const setIsoEnabled = useOfficeStore((s) => s.setIsoEnabled);
   const perfMode = usePerformanceStore((s) => s.mode);
   const setPerfMode = usePerformanceStore((s) => s.setMode);
   const fpsEnabled = useFpsMeterStore((s) => s.enabled);
@@ -403,7 +364,6 @@ export function DevMenu() {
     }
   }
 
-  const isoForced = perfMode !== "full";
 
   return (
     <>
@@ -477,15 +437,6 @@ export function DevMenu() {
               <div>
                 <SectionLabel>Interface</SectionLabel>
                 <div className="flex flex-col gap-2">
-                  <ToggleRow
-                    icon="layers"
-                    label="Isometric view"
-                    desc="Render the office as a 3D isometric floor (PixiJS). Off hides it entirely — no iso/cards switch, only the flat card grid."
-                    checked={isoEnabled}
-                    onChange={setIsoEnabled}
-                    disabled={isoForced}
-                    hint={isoForced ? "Rendering budget is forcing cards — set it to Full to enable." : undefined}
-                  />
                   <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bg-2 border border-line">
                     <span className="text-txt-3 shrink-0"><Icon name="gauge" size={15} /></span>
                     <div className="flex-1 min-w-0">
@@ -513,10 +464,6 @@ export function DevMenu() {
                 <div className="flex flex-col gap-2">
                   <DevButton icon="sparkle" label="Seed showcase world (3 projects, chats, activity)" variant="accent" state={states.showcase} message={messages.showcase} onClick={() => handleAction("showcase")} />
                   <DevButton icon="trash" label="Clear showcase" variant="danger" state={states["clear-showcase"]} message={messages["clear-showcase"]} onClick={() => handleAction("clear-showcase")} />
-                  <DevButton icon="home" label="Seed office floor + runs" state={states.office} message={messages.office} onClick={() => handleAction("office")} />
-                  <DevButton icon="memory" label="Seed agent memories" state={states.memory} message={messages.memory} onClick={() => handleAction("memory")} />
-                  <DevButton icon="sparkle" label="Seed everything" state={states.all} message={messages.all} onClick={() => handleAction("all")} />
-                  <DevButton icon="trash" label="Clear demo data" variant="danger" state={states.clear} message={messages.clear} onClick={() => handleAction("clear")} />
                 </div>
               </div>
             )}

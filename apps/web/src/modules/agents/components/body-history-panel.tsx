@@ -2,15 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
+import type { AgentBodyHistoryEntry } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-
-export type HistoryEntry = {
-  filename: string;
-  ts: number;
-  sizeBytes: number;
-};
 
 type Props = {
   agentId: string;
@@ -21,12 +16,12 @@ export function BodyHistoryPanel({ agentId, onRestore }: Props) {
   const historyQ = useQuery({
     queryKey: ["agents", "body-history", agentId],
     queryFn: () =>
-      apiFetch<HistoryEntry[]>(`/api/agents/${encodeURIComponent(agentId)}/body/history`),
+      apiFetch<AgentBodyHistoryEntry[]>(`/api/agents/${encodeURIComponent(agentId)}/body/history`),
   });
 
   const entries = historyQ.data ?? [];
 
-  const handleRestore = async (entry: HistoryEntry) => {
+  const handleRestore = async (entry: AgentBodyHistoryEntry) => {
     try {
       const content = await apiFetch<string>(
         `/api/agents/${encodeURIComponent(agentId)}/body/history/${encodeURIComponent(entry.filename)}`,

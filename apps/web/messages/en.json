@@ -88,6 +88,8 @@
     "excluded_placeholder": "node_modules, dist, …",
     "excluded_add": "Add",
     "excluded_remove": "Remove {name}",
+    "integrations_title": "Choose your integrations",
+    "integrations_hint": "Enable the parts of the app you need — you can change these any time in Settings → Integrations.",
     "agents_title": "Pick your starter team",
     "agents_hint": "These are demo agents you can import. They give you a sense of how the app works — feel free to delete the ones you won't use, or untick them now.",
     "agents_select_all": "Select all ({count})",
@@ -590,6 +592,12 @@
       "auth_expired": {
         "title": "Sign-in required",
         "body": "This agent's Claude session expired. Sign in again to keep going — no terminal needed."
+      },
+      "subscription_disabled": {
+        "title": "Claude access disabled",
+        "body": "Anthropic reports this account can't use Claude Code right now — its subscription access was disabled or revoked. Open your Claude account to check what's going on, switch to an account that has access, or ask your admin to re-enable it.",
+        "check_account": "Open Claude account",
+        "switch_account": "Switch account"
       },
       "worktree_missing": {
         "title": "Worktree missing",

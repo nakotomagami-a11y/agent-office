@@ -6,7 +6,7 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { AgentInstance, Project, ProjectMeta, ProjectSummary } from "@agent-office/domain/types";
 import { getGitStatus } from "@/lib/api/dev-server";
-import type { GitStatus } from "@/app/api/projects/[id]/git-status/route";
+import type { GitStatus } from "@agent-office/domain/types";
 
 export function useProjects() {
   return useQuery({

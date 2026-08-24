@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import {
   CHECK_UPDATE_EVENT,
   detectUpdate,

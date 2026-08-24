@@ -1,3 +1,4 @@
+// GET /api/settings/scan — scan the projects root for candidate project folders.
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { NextResponse } from "next/server";

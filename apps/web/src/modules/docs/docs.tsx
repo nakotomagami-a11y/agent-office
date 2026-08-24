@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { DocsIndex } from "@agent-office/domain/types";
 import { DocsRender, extractHeadings, type DocHeading } from "./docs-render";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -8,7 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
  * `/docs` page — thin fetch-and-render shell.
  *
  * Every tab's content lives as a plain markdown file under
- * `apps/web/docs/`. The tab config is served by `GET /api/docs/content`
+ * `docs/` (repo root). The tab config is served by `GET /api/docs/content`
  * (from `_index.json`). Each tab body is fetched from
  * `GET /api/docs/content?file=<name>` and rendered via {@link DocsRender}.
  *
@@ -22,18 +23,6 @@ declare const process: { env: Record<string, string | undefined> };
 // ── Design tokens ──────────────────────────────────────────────────────────
 const B = "border-[rgba(255,255,255,0.08)]";
 
-// ── Tab config ─────────────────────────────────────────────────────────────
-
-interface DocsTabConfig {
-  id: string;
-  label: string;
-  file: string;
-}
-
-interface DocsIndex {
-  version: number;
-  tabs: DocsTabConfig[];
-}
 
 // ── Data hook ──────────────────────────────────────────────────────────────
 
@@ -238,7 +227,7 @@ export default function DocsPage() {
             )}
             {index && !activeTab && index.tabs.length === 0 && (
               <div className="text-[13px] text-[var(--txt-3)] py-6">
-                No documentation tabs configured. Add entries to <code>apps/web/docs/_index.json</code>.
+                No documentation tabs configured. Add entries to <code>docs/_index.json</code>.
               </div>
             )}
             {activeTab && content.loading && (

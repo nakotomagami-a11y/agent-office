@@ -9,6 +9,10 @@ import { useRegisterModal } from "@/lib/modal-manager";
 export type ModalShellProps = {
   open: boolean;
   onClose: () => void;
+  /** Opt-in: fired when Enter is pressed while the modal is open and focus is
+   *  not inside a textarea/text input. Use for confirm dialogs so Enter
+   *  triggers the primary action. Omit for form modals that own Enter. */
+  onEnter?: () => void;
   title?: string;
   /** Footer slot - usually action buttons. */
   footer?: ReactNode;
@@ -32,6 +36,7 @@ const SIZE_PX: Record<NonNullable<ModalShellProps["size"]>, number> = {
 export function ModalShell({
   open,
   onClose,
+  onEnter,
   title,
   footer,
   size = "md",
@@ -57,6 +62,19 @@ export function ModalShell({
         onClose();
         return;
       }
+      if (e.key === "Enter" && onEnter) {
+        const el = document.activeElement as HTMLElement | null;
+        const tag = el?.tagName;
+        const isTextEntry =
+          tag === "TEXTAREA" ||
+          (tag === "INPUT" && (el as HTMLInputElement).type !== "checkbox" && (el as HTMLInputElement).type !== "radio") ||
+          el?.isContentEditable === true;
+        if (!isTextEntry) {
+          e.preventDefault();
+          onEnter();
+          return;
+        }
+      }
       if (e.key !== "Tab" || !dialog) return;
       const focusable = Array.from(
         dialog.querySelectorAll<HTMLElement>(focusableSelector),
@@ -81,7 +99,7 @@ export function ModalShell({
       document.removeEventListener("keydown", onKey);
       previousActive?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open, onClose, onEnter]);
 
   if (!open) return null;
 

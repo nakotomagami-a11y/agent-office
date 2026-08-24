@@ -1,3 +1,4 @@
+// GET/PUT /api/drafts — persist or load a composer draft for an agent instance.
 import { NextResponse } from "next/server";
 import { db } from "@agent-office/domain/services";
 import { badRequest, validateIdParam, readBoundedText } from "@/lib/api-helpers";

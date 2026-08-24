@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
-import type { ProcessInfo } from "@/app/api/processes/route";
+import type { ProcessInfo } from "@agent-office/domain/types";
 
 export type { ProcessInfo };
 

@@ -26,7 +26,7 @@ import { UnitSprite } from "@/components/ui/unit-sprite";
 import { AgentStrip } from "./agent-strip";
 import { ProjectActionsMenu } from "../office-toolbar";
 import { useSettings } from "@/modules/settings/hooks/use-settings";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
+import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import type { OfficeAgent } from "../../hooks/use-office-agents";
 import { statusFromRuns, statusFromRunsForInstance, type AgentStatusInfo } from "../../derive/derive-status";
@@ -215,7 +215,7 @@ function InstanceOverview({
         </button>
         <span className="text-ao-fg-2 text-[13px]">
           All instances of{" "}
-          <span className="text-ao-fg-0 font-semibold">{formatAgentDisplayName(agent.name)}</span>
+          <span className="text-ao-fg-0 font-semibold">{agentDisplayName(agent)}</span>
         </span>
         <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-[8px] rounded-full bg-ao-bg-3 border border-ao-line-1 text-ao-fg-2 font-mono text-[11.5px]">
           {instances.length}
@@ -562,7 +562,7 @@ export function AgentDetailsModal() {
                     className="text-ao-fg-2 hover:text-ao-fg-0 transition-colors duration-[120ms] underline-offset-2 hover:underline truncate max-w-[160px]"
                     title={`View all instances of ${agent.name}`}
                   >
-                    {formatAgentDisplayName(agent.name)}
+                    {agentDisplayName(agent)}
                   </button>
                   <span className="text-ao-fg-3 shrink-0" aria-hidden>›</span>
                   <span className="text-ao-fg-0 shrink-0">
@@ -578,7 +578,7 @@ export function AgentDetailsModal() {
                 </div>
               ) : (
                 <div className="flex items-center gap-[7px] min-w-0">
-                  <span className="font-bold text-base text-ao-fg-0 truncate">{formatAgentDisplayName(agent.name)}</span>
+                  <span className="font-bold text-base text-ao-fg-0 truncate">{agentDisplayName(agent)}</span>
                   {statusDot}
                 </div>
               )}

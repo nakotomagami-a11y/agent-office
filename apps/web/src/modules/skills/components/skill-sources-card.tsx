@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
-import { ACCENT_BTN } from "@/lib/button-styles";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { useSkillSources, useAddSkillSource, useRemoveSkillSource } from "../hooks/use-skills";
 
 /**

@@ -1,3 +1,5 @@
+// /api/accounts/<id>/login — drive the `claude auth login` flow for one account:
+// POST starts it, GET polls login state (for the sign-in modal), DELETE cancels.
 import { NextResponse } from "next/server";
 import { accountLogin, paths } from "@agent-office/domain/services";
 import { badRequest, serverError } from "@/lib/api-helpers";
