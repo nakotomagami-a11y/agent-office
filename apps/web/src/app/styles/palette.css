@@ -1,0 +1,232 @@
+/* Theme palette — raw CSS variables (:root light + [data-theme=dark]). */
+
+:root {
+  /* Tell the browser which palette native controls should adopt. This makes
+     date/time picker indicator icons and native popups follow the app theme
+     (light icon on dark, dark icon on light) instead of a fixed default. */
+  color-scheme: light;
+  --bg-0: #f2f3f5;
+  --bg-1: #ffffff;
+  --bg-2: #f2f3f5;
+  --bg-3: #e3e5e8;
+  --bg-elev: #ffffff;
+
+  --line:        rgba(0, 0, 0, 0.06);
+  --line-2:      rgba(0, 0, 0, 0.10);
+  --line-strong: rgba(0, 0, 0, 0.18);
+
+  /* Muted text ramp. Every tier clears WCAG AA (4.5:1) against --bg-1
+     (#fff) so de-emphasised copy stays legible in light mode; the tiers
+     stay visually distinct via ~1.3x luminance steps between them.
+     Previous values (#6e7681 / #9ea6b0 / #c4c9d1) measured 4.14 / 2.22 /
+     1.50 on the app's own surfaces — well under AA. */
+  --txt:   #2e3338;
+  --txt-2: #545a63;
+  --txt-3: #5f6773;
+  --txt-4: #6e7682;
+
+  --acc:        #7c6af5;
+  --acc-hover:  #6a58e6;
+  --acc-faint:  rgba(124, 106, 245, 0.10);
+  --acc-tint:   rgba(124, 106, 245, 0.16);
+  --acc-ink:    #FFFFFF;
+
+  /* Status ramp — light-mode values. These are deliberately darker than
+     the dark-theme versions below: the vivid #22c55e / #eab308 / #f97316
+     family scores 2.0-2.3:1 as *text* on white. Dark mode re-declares the
+     bright originals, so status dots stay vivid there. */
+  --working: #15803d;
+  --done:    #166534;
+  --idle:    #5f6773;
+  --queued:  #a16207;
+  --error:   #dc2626;
+  --thinking:#c2410c;
+
+  /* Code block — light surface + One Light-family syntax palette.
+     Dark theme re-declares all of these below. */
+  --code-bg:          #f6f7f9;
+  --code-fg:          #383a42;
+  --code-head-bg:     rgba(0, 0, 0, 0.03);
+  --code-head-border: rgba(0, 0, 0, 0.07);
+  --code-head-fg:     #5f6773;
+  --code-head-muted:  rgba(0, 0, 0, 0.45);
+  --code-head-faint:  rgba(0, 0, 0, 0.30);
+  --code-cp-border:   rgba(0, 0, 0, 0.14);
+  /* Inline `code` text. A darkened accent so mono file-paths clear WCAG AA
+     (4.5:1) on the light chip — the raw --acc (#7c6af5) only scores ~3.6:1. */
+  --code-inline-fg:   #5b4bd4;
+  --hl-k:  #a626a4;
+  --hl-s:  #50a14f;
+  --hl-c:  #a0a1a7;
+  --hl-n:  #b76b01;
+  --hl-fn: #4078f2;
+  --hl-i:  #986801;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* ao-modal palette — light values */
+  --ao-bg-0:   #e3e5e8;
+  --ao-bg-1:   #ffffff;
+  --ao-bg-2:   #f2f3f5;
+  --ao-bg-3:   #e3e5e8;
+  --ao-bg-4:   #d8dbe0;
+  --ao-line-0: rgba(0, 0, 0, 0.04);
+  --ao-line-1: rgba(0, 0, 0, 0.08);
+  --ao-line-2: rgba(0, 0, 0, 0.14);
+  --ao-fg-0:   #2e3338;
+  --ao-fg-1:   #4a5260;
+  --ao-fg-2:   #545a63;
+  --ao-fg-3:   #5f6773;
+  --ao-shadow-modal:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 30px 60px -20px rgba(0, 0, 0, 0.12),
+    0 50px 120px -40px rgba(0, 0, 0, 0.10);
+
+  /* Modal scrim. Light mode dims to a soft neutral haze instead of the
+     near-black wash the dark theme uses — a #0a0a12 scrim under a white
+     dialog reads as a completely different (dark) app. */
+  --ao-backdrop: rgba(122, 128, 140, 0.42);
+
+  /* Code-editor line-number gutter fill. */
+  --ao-gutter: rgba(0, 0, 0, 0.04);
+
+  /* Markdown highlighter palette (code-editor.tsx writes these into inline
+     styles on generated HTML). The originals were a one-atom dark theme —
+     amber-on-charcoal plus a set of rgba(255,255,255,…) washes that are
+     simply invisible over a white page. */
+  --md-code:      #8a5a00;
+  --md-link:      #0b62c4;
+  --md-fence:     #3f7a3f;
+  --md-pre-bg:    rgba(0, 0, 0, 0.05);
+  --md-inline-bg: rgba(0, 0, 0, 0.05);
+
+  /* Analytics page. Model hues are semantic, not decorative: the warm end
+     of the ramp is the expensive model, so the stacked spend bar reads
+     correctly before you get to the numbers. */
+  --an-line:       #6d5ae8;
+  --an-opus:       #c2410c;
+  --an-sonnet:     #2563eb;
+  --an-haiku:      #15803d;
+  --an-fable:      #a21caf;
+  --an-other:      #78808c;
+  --an-tool:       #0e7490;
+  --an-cell:       #5b49d4;
+  --an-cell-empty: rgba(0, 0, 0, 0.05);
+  /* Micro-label tier. The global --txt-3/--txt-4 steps are tuned for light
+     mode; in dark they land at 2.3:1 and 1.4:1, which is unusable for the
+     9.5px labels this page is built from. --an-muted clears AA on both. */
+  --an-muted:      #646c78;
+  --status-up:     #b45309;
+  --status-down:   #15803d;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: #0f0f0f;
+  --bg-1: #1a1a1a;
+  --bg-2: #202020;
+  --bg-3: #2a2a2a;
+  --bg-elev: #1a1a1a;
+
+  --line:        rgba(255, 255, 255, 0.06);
+  --line-2:      rgba(255, 255, 255, 0.10);
+  --line-strong: rgba(255, 255, 255, 0.18);
+
+  /* Muted text ramp — dark. The original #555 / #333 steps measured ~2.3:1
+     and ~1.4:1 on --bg-1 (#1a1a1a): mono sub-labels and file paths were
+     effectively invisible. Raised so EVERY tier — including the faintest —
+     clears WCAG AA (4.5:1) on --bg-1, because in practice --txt-4 carries real
+     content (file paths, ids), not just decoration. #808080 measured 4.3:1 —
+     just under AA — so the faintest tier is nudged to #8a8a8a to actually clear
+     it, while staying a clear step below --txt-3.
+     On --bg-1: #b4b4b4 ≈ 8.3:1 · #969696 ≈ 5.8:1 · #8a8a8a ≈ 4.9:1. */
+  --txt:   #dcddde;
+  --txt-2: #b4b4b4;
+  --txt-3: #969696;
+  --txt-4: #8a8a8a;
+
+  --acc:        #7c6af5;
+  --acc-faint:  rgba(124, 106, 245, 0.12);
+  --acc-tint:   rgba(124, 106, 245, 0.20);
+
+  /* Status ramp — dark-mode values. Restores the vivid originals that
+     :root now overrides for light mode (see the note there). */
+  --working: #22c55e;
+  --done:    #16a34a;
+  --queued:  #eab308;
+  --error:   #ef4444;
+  --thinking:#f97316;
+  --idle:    #666666;
+
+  /* Code block — dark surface + One Dark-family syntax palette. */
+  --code-bg:          #1c1714;
+  --code-fg:          #e8ddd5;
+  --code-head-bg:     rgba(255, 255, 255, 0.04);
+  --code-head-border: rgba(255, 255, 255, 0.07);
+  --code-head-fg:     #c7bfb7;
+  --code-head-muted:  rgba(255, 255, 255, 0.45);
+  --code-head-faint:  rgba(255, 255, 255, 0.25);
+  --code-cp-border:   rgba(255, 255, 255, 0.12);
+  /* Lighter than --acc so inline code clears AA on the dark chip too
+     (raw #7c6af5 scored ~3.3:1). */
+  --code-inline-fg:   #a78bfa;
+  --hl-k:  #c792ea;
+  --hl-s:  #98c379;
+  --hl-c:  #5c6370;
+  --hl-n:  #f78c6c;
+  --hl-fn: #82aaff;
+  --hl-i:  #e5c07b;
+
+  --shadow-window: 0 1px 0 rgba(255,255,255,0.04) inset,
+                   0 20px 50px rgba(0,0,0,0.50),
+                   0 4px 14px rgba(0,0,0,0.30);
+
+  /* ao-modal palette — dark values */
+  --ao-bg-0:   #0f0f0f;
+  --ao-bg-1:   #1a1a1a;
+  --ao-bg-2:   #202020;
+  --ao-bg-3:   #2a2a2a;
+  --ao-bg-4:   #333333;
+  --ao-line-0: rgba(255, 255, 255, 0.04);
+  --ao-line-1: rgba(255, 255, 255, 0.07);
+  --ao-line-2: rgba(255, 255, 255, 0.12);
+  /* Modal text ramp — dark. Raised in lockstep with the global --txt ramp:
+     the old #666 / #444 steps measured ~3:1 / ~1.8:1 on the modal surface,
+     so secondary and muted modal copy was barely legible. The faintest tier
+     (#808080 ≈ 4.3:1, just under AA) is nudged to #8a8a8a (≈4.9:1) to match the
+     --txt-4 floor, so muted modal/office-panel copy clears AA everywhere. */
+  --ao-fg-0:   #dcddde;
+  --ao-fg-1:   #b4b4b4;
+  --ao-fg-2:   #969696;
+  --ao-fg-3:   #8a8a8a;
+  --ao-shadow-modal:
+    0 24px 80px rgba(0,0,0,0.70),
+    0 0 0 1px rgba(255,255,255,0.06);
+
+  --ao-backdrop: rgba(10, 10, 18, 0.55);
+  --ao-gutter:   rgba(0, 0, 0, 0.15);
+
+  /* Markdown highlighter — the original dark-theme values. */
+  --md-code:      #e6c07b;
+  --md-link:      #79b8ff;
+  --md-fence:     #98c379;
+  --md-pre-bg:    rgba(0, 0, 0, 0.32);
+  --md-inline-bg: rgba(255, 255, 255, 0.07);
+
+  /* Analytics page — same semantics, lifted for a dark ground. */
+  --an-line:       #9b8bff;
+  --an-opus:       #fb923c;
+  --an-sonnet:     #60a5fa;
+  --an-haiku:      #4ade80;
+  --an-fable:      #e879f9;
+  --an-other:      #71717a;
+  --an-tool:       #22d3ee;
+  --an-cell:       #8b7bf0;
+  --an-cell-empty: rgba(255, 255, 255, 0.045);
+  --an-muted:      #8c8c8c;
+  --status-up:     #fbbf24;
+  --status-down:   #4ade80;
+}

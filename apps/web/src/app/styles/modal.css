@@ -1,0 +1,178 @@
+/* Modals — scrim (light) + agent modal (.ao-modal) subsystem. */
+
+/* Modal backdrops start BELOW the titlebar + tab strip (74 px total) so the
+   chrome stays fully visible + interactive while a modal is open. Enforced
+   per-instance via inline `style={{ top: 74 }}` on every `.app-modal-backdrop`
+   mount (see modal-shell.tsx, agent-details/index.tsx, add-agent-modal.tsx,
+   workflow-picker-dialog.tsx). Kept out of CSS because
+   Turbopack's HMR was inconsistent about picking up new class rules for a
+   pre-existing class name; inline styles bypass the CSS pipeline entirely. */
+
+/* ─── Modal scrim, light mode ─── */
+/* The five backdrop mounts each hardcode their own near-black wash
+   (rgba(10,10,18,.55), rgba(5,5,10,.78), a radial near-#060 60c gradient,
+   bg-black/40). Those are tuned for the dark theme; in light mode they turn
+   the whole app charcoal behind a white dialog, which reads as a theme bug.
+   One rule re-points all of them at --ao-backdrop. The html+class selector
+   (0,2,0) outranks the Tailwind arbitrary utilities (0,1,0); `background`
+   shorthand also clears the gradient variants. The ::after blur layers the
+   two custom mounts add are left alone — they only carry the blur. */
+html:not([data-theme="dark"]) .app-modal-backdrop {
+  background: var(--ao-backdrop);
+}
+html:not([data-theme="dark"]) .app-modal-backdrop::after {
+  background: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Agent modal — CSS variable scope + nested-content selectors only
+   ───────────────────────────────────────────────────────────────── */
+
+.ao-modal {
+  /* Structural and theme-agnostic tokens only. The surface, line, fg,
+     and shadow tokens (--ao-bg-*, --ao-line-*, --ao-fg-*,
+     --ao-shadow-modal) live at :root (light) and [data-theme="dark"]
+     (dark) so the modal automatically follows the active app theme. */
+  --ao-accent:         #7c6af5;
+  --ao-accent-soft:    rgba(124, 106, 245, 0.14);
+  --ao-accent-softer:  rgba(124, 106, 245, 0.07);
+  --ao-accent-line:    rgba(124, 106, 245, 0.26);
+  --ao-ok: #4eb96f;
+  --ao-ok-soft: rgba(78, 185, 111, 0.14);
+  --ao-warn: #e6b35a;
+  --ao-warn-soft: rgba(230, 179, 90, 0.14);
+  --ao-bad: #d9534f;
+  --ao-bad-soft: rgba(217, 83, 79, 0.14);
+  --ao-radius-sm: 6px;
+  --ao-radius-md: 10px;
+  --ao-radius-lg: 14px;
+  --ao-radius-xl: 20px;
+  --ao-font-sans: var(--font-sans, "Ubuntu Sans", "Ubuntu", system-ui, sans-serif);
+  --ao-font-mono: var(--font-mono, "Ubuntu Mono", ui-monospace, monospace);
+  --ao-pad-card: 18px;
+  --ao-pad-row: 14px;
+  --ao-gap-section: 14px;
+  --ao-tab-h: 44px;
+  --ao-header-h: 72px;
+}
+
+/* ao-agent-strip scrollbar */
+.ao-agent-strip::-webkit-scrollbar { display: none; }
+
+/* ao-* keyframes */
+@keyframes ao-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes ao-ping {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes ao-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@keyframes ao-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes ao-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes ao-lb-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ao-prose — generated markdown HTML, cannot use inline classes on inner nodes */
+.ao-modal .ao-prose {
+  color: var(--ao-fg-0); font-size: 14px; line-height: 1.65;
+  /* Break long unbreakable tokens (URL-encoded blobs, hashes, no-space strings)
+     so they wrap inside the bubble instead of overflowing horizontally. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+.ao-modal .ao-prose p { margin: 0 0 12px; overflow-wrap: anywhere; word-break: break-word; }
+.ao-modal .ao-prose p:last-child { margin-bottom: 0; }
+.ao-modal .ao-prose h3 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--ao-fg-0); }
+.ao-modal .ao-prose ul, .ao-modal .ao-prose ol { margin: 0 0 14px; padding-left: 22px; }
+.ao-modal .ao-prose li { margin-bottom: 4px; color: var(--ao-fg-0); }
+.ao-modal .ao-prose li::marker { color: var(--ao-fg-3); }
+.ao-modal .ao-prose strong { color: var(--ao-fg-0); font-weight: 700; }
+.ao-modal .ao-prose em { color: var(--ao-fg-1); font-style: italic; }
+.ao-modal .ao-prose code {
+  background: var(--md-inline-bg); padding: 1px 5px; border-radius: 4px;
+  font-family: var(--ao-font-mono); font-size: 12.5px; color: var(--code-inline-fg);
+}
+
+/* ao-codeblock — generated code block HTML */
+.ao-modal .ao-codeblock { margin: 12px 0 14px; border: 1px solid var(--ao-line-1); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.ao-modal .ao-codeblock pre {
+  margin: 0; padding: 12px 14px; font-family: var(--ao-font-mono);
+  font-size: 12.5px; line-height: 1.6; color: var(--code-fg); overflow-x: auto;
+}
+.ao-modal .ao-codeblock .tk-key { color: var(--hl-k); }
+.ao-modal .ao-codeblock .tk-str { color: var(--hl-s); }
+.ao-modal .ao-codeblock .tk-com { color: var(--hl-c); font-style: italic; }
+.ao-modal .ao-codeblock .tk-num { color: var(--hl-n); }
+.ao-modal .ao-codeblock .tk-typ { color: var(--hl-fn); }
+.ao-modal .ao-codeblock .tk-fn  { color: var(--hl-i); }
+
+/* ao-cursor — streaming cursor */
+.ao-modal .ao-cursor {
+  display: inline-block; width: 7px; height: 1.05em;
+  background: var(--ao-accent); margin-left: 2px; vertical-align: text-bottom;
+  animation: ao-cursor-blink 1.05s step-end infinite;
+}
+
+/* ao-shimmer */
+.ao-modal .ao-shimmer { color: var(--ao-fg-2); animation: ao-shimmer 1.4s ease-in-out infinite; }
+
+/* ao-markdown-editor — complex grid layout */
+.ao-modal .ao-markdown-editor .ao-editor {
+  display: grid; grid-template-columns: 44px 1fr;
+  font-family: var(--ao-font-mono); font-size: 12.5px; line-height: 1.6; min-height: 320px;
+}
+.ao-modal .ao-markdown-editor .ao-gutter {
+  text-align: right; padding: 12px 8px 12px 0; color: var(--ao-fg-3);
+  border-right: 1px solid var(--ao-line-0); user-select: none; background: rgba(0,0,0,0.1);
+}
+.ao-modal .ao-markdown-editor .ao-gutter div { font-size: 11.5px; }
+.ao-modal .ao-markdown-editor .ao-code textarea,
+.ao-modal .ao-markdown-editor textarea.ao-code {
+  background: transparent; border: 0; outline: 0; width: 100%; color: var(--ao-fg-0);
+  font-family: var(--ao-font-mono); font-size: 12.5px; line-height: 1.6;
+  padding: 12px 14px; white-space: pre; overflow: auto;
+}
+.ao-modal .ao-markdown-editor .ao-preview {
+  padding: 14px 18px; min-height: 320px; color: var(--ao-fg-0);
+  font-size: 13.5px; line-height: 1.6; font-family: var(--ao-font-sans);
+}
+.ao-modal .ao-markdown-editor .ao-preview h1 { font-size: 18px; margin: 0 0 8px; }
+.ao-modal .ao-markdown-editor .ao-preview h2 { font-size: 15px; margin: 14px 0 6px; }
+.ao-modal .ao-markdown-editor .ao-preview code {
+  background: rgba(255,255,255,0.06); padding: 0 4px; border-radius: 3px;
+  font-family: var(--ao-font-mono); font-size: 12px; color: var(--ao-accent);
+}
+.ao-modal .ao-markdown-editor .ao-preview p { margin: 0 0 10px; color: var(--ao-fg-1); }
+.ao-modal .ao-markdown-editor .ao-preview ul { margin: 0 0 10px; padding-left: 20px; color: var(--ao-fg-1); }
+.ao-modal .ao-markdown-editor .ao-preview ul li { margin-bottom: 3px; }
+
+/* ao-select — appearance:none with CSS custom arrow (no Tailwind equivalent) */
+.ao-modal .ao-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ao-fg-2) 50%),
+                    linear-gradient(135deg, var(--ao-fg-2) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 30px;
+}
+
+/* ao-modal scrollbar */
+.ao-modal .ao-modal-body::-webkit-scrollbar { width: 10px; }
+.ao-modal .ao-modal-body::-webkit-scrollbar-thumb {
+  background: var(--ao-bg-4); border-radius: 5px; border: 2px solid var(--ao-bg-1);
+}

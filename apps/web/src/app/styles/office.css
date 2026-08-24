@@ -1,0 +1,37 @@
+/* Office scene — desk/of cards + scene background. */
+
+/* ─── Cards — color-mix modifier states ─── */
+.desk-card.working { border-color: var(--working) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--working) 18%, transparent) !important; }
+
+.of-section-head h2 .pip.live {
+  background: color-mix(in srgb, var(--working) 10%, transparent);
+  border-color: color-mix(in srgb, var(--working) 30%, transparent);
+  color: var(--working);
+}
+.of-card.live {
+  border-color: color-mix(in srgb, var(--working) 30%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--working) 10%, transparent);
+}
+.of-card.live::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 60% 30% at 0% 0%, color-mix(in srgb, var(--working) 10%, transparent), transparent 60%);
+}
+.of-card.error { border-color: color-mix(in srgb, var(--error) 30%, transparent); }
+.of-card.selected {
+  border-color: color-mix(in srgb, var(--acc) 30%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 10%, transparent);
+  background-image: radial-gradient(ellipse 60% 30% at 0% 0%, color-mix(in srgb, var(--acc) 10%, transparent), transparent 60%);
+}
+.of-card .status-chip.live {
+  background: color-mix(in srgb, var(--working) 10%, transparent);
+  border-color: color-mix(in srgb, var(--working) 30%, transparent);
+  color: var(--working);
+}
+.of-card.add-card:hover { background: var(--acc-faint); border-color: var(--acc-tint); transform: none; box-shadow: none; }
+
+/* ─── Office scene background ─── */
+/* Overrides any old cached inline style with the ocean background image. */
+.office-scene {
+  background-color: #47aca9 !important;
+  background-image: none !important;
+}

@@ -1,0 +1,25 @@
+/* Code block — theme-aware surface + syntax highlighting. */
+
+/* ─── Code block — theme-aware surface + syntax highlighting ─── */
+.code-block { background: var(--code-bg); color: var(--code-fg); }
+.code-block .hl-k { color: var(--hl-k); }
+.code-block .hl-s { color: var(--hl-s); }
+.code-block .hl-c { color: var(--hl-c); font-style: italic; }
+.code-block .hl-n { color: var(--hl-n); }
+.code-block .hl-fn{ color: var(--hl-fn); }
+.code-block .hl-i { color: var(--hl-i); }
+.code-block .head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  background: var(--code-head-bg);
+  border-bottom: 1px solid var(--code-head-border);
+  font-size: 11px; color: var(--code-head-fg);
+}
+.code-block .head .cp {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; border: 1px solid var(--code-cp-border);
+  color: var(--code-head-fg); cursor: pointer; padding: 2px 8px; border-radius: 4px;
+  font-family: inherit; font-size: 11px;
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+}
+.code-block .head .cp:hover { background: var(--code-head-bg); color: var(--code-fg); }
