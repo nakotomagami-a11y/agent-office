@@ -1,20 +1,22 @@
 # {{PROJECT_NAME}}
 
-Frontend project. {{FRONTEND}} + TypeScript + Tailwind + Zustand.
+Frontend project. {{FRONTEND}} + TypeScript + Tailwind.
 
 ## What this is
 
-One-liner: _replace this with a sentence-long description of what the app does and who uses it_.
+{{DESCRIPTION}}
 
 ## Stack
 
 - **Framework**: {{FRONTEND}}
 - **Language**: TypeScript, strict mode. No `any` outside `node_modules/`.
 - **Styling**: Tailwind CSS v4. **Token classes only** (`text-fg`, `bg-bg-2`, `border-line`). Never inline `style={{ color: "..." }}`. Never raw color names (`text-red-500`). When the design needs a new color, add a token in `globals.css`.
-- **State**: Local component state first. `useState` / `useReducer`. Lift to **Zustand** only when state is shared by two components that don't share a parent-child relationship.
-- **Data fetching**: **TanStack Query + axios**. Server state lives there, not in Zustand. Every backend call goes through an API module in `src/lib/api/<resource>.ts` (axios), consumed by a Query hook. Never bare `fetch`. See `docs/data-fetching.md`.
+- **UI primitives**: [shadcn/ui](https://ui.shadcn.com) copied into `src/components/ui/` (owned, editable — not a runtime dependency). Compose with `clsx` + `tailwind-merge` (`cn()`). Do not add a runtime component library (MUI, Chakra, Ant).
+- **State**: Local component state first — `useState` / `useReducer`. Only reach for a store (Zustand) when state is genuinely shared by components that don't share an ancestor. Most projects never need one.
+- **Data fetching**: Native `fetch` (or the Supabase client) wrapped in **TanStack Query** — server state lives there, not in a store. Route calls through a thin API module in `src/lib/api/`. No `axios`; `fetch` is the platform. See `docs/data-fetching.md`.
 - **Control flow**: **ts-pattern**. Use `match(...).exhaustive()` instead of `switch` / `if-else if` chains over unions, status strings, and event keys.
 - **Forms**: react-hook-form + Zod resolver. Validation schemas live next to the form.
+- **Kit (add when needed)**: `lucide-react` (icons), `framer-motion` (animation), `next-intl` (i18n), `sonner` (toasts). Blessed house defaults — reach for these before alternatives.
 - **Testing**: Vitest + Testing Library. Test behavior, not implementation.
 
 ## House rules (non-negotiable)
@@ -25,7 +27,7 @@ One-liner: _replace this with a sentence-long description of what the app does a
 4. **Props interface above the component.** Inline `({ a, b }: { a: string }) => ...` is fine for trivial sub-components only.
 5. **No `any`.** Use `unknown` + narrowing, or define the type. If a third-party type is missing, declare it in `src/types/`.
 6. **No barrel exports** outside designated public-API files. Direct imports keep tree-shaking honest.
-7. **Server state goes through TanStack Query.** No raw `fetch` calls in components or hooks. Every endpoint is a function in an API module under `src/lib/api/` (axios); URLs come from a central routes config, never hardcoded inline.
+7. **Server state goes through TanStack Query.** No ad-hoc `fetch` scattered in components. Each endpoint is a function in an API module under `src/lib/api/` (native `fetch` or the Supabase client), consumed by a Query hook; URLs come from a central routes config, never hardcoded inline.
 8. **`match()` over `switch`/`if-else` chains.** Use ts-pattern for any branch driven by a value (discriminated union, status, key). Prefer `.exhaustive()`.
 9. **Split logic from markup.** `.tsx` files are for JSX. Pure helpers (formatting, parsing, grouping, classification) go in `src/<module>/utils/`; stateful/derived logic (a `useState`+`useMemo` cluster, data wiring, mutations) goes in a `use-<name>` hook. A component should read as: call a hook, map the result, render. Never declare a module-scope `function foo()` or a fat `reduce`/`filter`/`for` block inside a component file — extract it. Reuse an existing util before writing a near-duplicate. See `docs/component-conventions.md`.
 10. **No CSS Grid. Use Flexbox for all layouts.** `grid`, `grid-cols-*`, `grid-rows-*`, `grid-template-*` are banned. Every layout — page shells, card decks, forms, dashboards, everything — is built with `flex` + `flex-wrap` + gap utilities. Grid consistently produces subtle alignment and sizing bugs in this codebase; flex is the house standard. If you think you need grid, you don't — reach for `flex` with `basis-*` / `w-*` / `flex-1` instead.

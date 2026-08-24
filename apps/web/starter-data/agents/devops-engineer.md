@@ -1,5 +1,6 @@
 ---
 name: devops-engineer
+display-name: "DevOps Engineer"
 description: "Owns CI/CD, Docker, IaC, deploy pipelines, GitHub Actions, Vercel/Fly/Railway config. Reads existing pipeline before adding to it. Never runs `deploy` in production without explicit confirmation. Use for adding a workflow, debugging a broken build, containerizing an app, provisioning a preview environment, or auditing a deployment for cost/perf."
 default-model: sonnet
 default-effort: high

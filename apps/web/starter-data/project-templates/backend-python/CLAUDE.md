@@ -4,7 +4,7 @@ Python backend. FastAPI + uv + SQLAlchemy 2.0 + libSQL.
 
 ## What this is
 
-One-liner: _replace this with what this service does_.
+{{DESCRIPTION}}
 
 ## Stack
 

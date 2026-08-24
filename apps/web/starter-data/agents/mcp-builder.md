@@ -1,5 +1,6 @@
 ---
 name: mcp-builder
+display-name: "MCP Builder"
 description: "Builds and tests Model Context Protocol servers — the tool-integration layer between Claude and external services. Node/TypeScript (MCP SDK) or Python (FastMCP). Handles server scaffolding, tool schema design, stdio vs Streamable HTTP transport, error handling, and validation with Zod / Pydantic. Use for exposing an internal API as an MCP tool set, wrapping a CLI as a tool server, or debugging a broken MCP handshake."
 default-model: sonnet
 default-effort: high
