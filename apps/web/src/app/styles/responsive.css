@@ -1,0 +1,26 @@
+/* Responsive — mobile breakpoints. */
+
+/* ─── Responsive ─── */
+@media (max-width: 600px) {
+  .gnome-window { inset: 0; border-radius: 0; }
+  .main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 600px) {
+  .of-card-actions { display: none !important; }
+}
+@media (max-width: 600px) {
+  .act-row { grid-template-columns: 26px 1fr 18px; }
+  .act-live-run { grid-template-columns: 32px 1fr; }
+  .act-heatmap-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .act-heatmap-grid, .act-heatmap-foot { min-width: 560px; }
+}
+@media (max-width: 600px) {
+  .model-cards { grid-template-columns: 1fr; }
+  .permission-seg { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .aa-modal { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; border: none; }
+}
+@media (max-width: 760px) {
+  .field-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,38 @@
+/* Agent forms — new-agent, add-agent modal, category chips. */
+
+/* ─── New-agent form — color-mix rules ─── */
+.na-section-head .check {
+  display: grid; place-items: center; border-radius: 999px; flex-shrink: 0;
+  width: 22px; height: 22px;
+  background: color-mix(in srgb, var(--working) 10%, transparent);
+  color: var(--working); border: 1px solid rgba(34,197,94,0.30);
+}
+.model-card.active .desc { color: color-mix(in oklab, var(--acc) 50%, var(--txt-2)); }
+.pm-desc { color: color-mix(in oklab, var(--acc) 60%, var(--txt-2)); }
+.tip-card { background: color-mix(in srgb, var(--acc) 6%, var(--bg-2)); }
+
+/* ─── Add-agent modal — color-mix rule ─── */
+.aa-btn-done:not(.cursor-default):hover { background: color-mix(in oklab, var(--acc) 88%, white); }
+
+/* ─── Category chips (add-agent modal) ─── */
+/* Per-chip colours arrive as inline custom properties from catStyle(); the
+   label colour is resolved here so the light theme can swap the dark-tuned
+   --cat-fg for the darkened --cat-fg-light. Keeping `color` out of the
+   inline style is what makes this override possible at all. */
+.cat-chip {
+  color: var(--cat-fg, var(--txt-2));
+}
+html:not([data-theme="dark"]) .cat-chip {
+  color: var(--cat-fg-light, var(--txt-2));
+}
+
+/* Agents-list department tag. Same problem, different palette (see
+   categorize.ts): the raw hue is tuned for a dark card. Rather than maintain
+   a second hand-picked light table, mix the hue toward black — enough to
+   clear AA on the chip's own 12% wash while keeping it recognisably itself. */
+.cat-tag {
+  color: var(--cat-color, var(--txt-2));
+}
+html:not([data-theme="dark"]) .cat-tag {
+  color: color-mix(in srgb, var(--cat-color, var(--txt-2)) 68%, #000);
+}

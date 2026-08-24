@@ -1,0 +1,78 @@
+/* Global keyframes. */
+
+/* ─── @keyframes ─── */
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124,106,245,0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(124,106,245,0); }
+}
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes thinkBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.5px); }
+}
+@keyframes blinkEye { 0%, 90%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes typeShake {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(0.5px, 0); }
+  75%      { transform: translate(-0.5px, 0); }
+}
+@keyframes jump-pill-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+@keyframes of-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes ao-skel-pulse {
+  0%, 100% { background-position: 0% 0; }
+  50%      { background-position: 100% 0; }
+}
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes water-foam {
+  from { background-position-x: 0; }
+  to   { background-position-x: -3072px; }
+}
+@keyframes deco-bush {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1024px; }
+}
+@keyframes deco-water-rock {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1024px; }
+}
+@keyframes deco-duck {
+  from { background-position-x: 0; }
+  to   { background-position-x: -96px; }
+}
+@keyframes deco-tree {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1536px; }
+}
+@keyframes deco-cursed-chest {
+  from { background-position-x: 0; }
+  to   { background-position-x: -384px; }
+}
+@keyframes deco-campfire {
+  from { background-position-x: 0; }
+  to   { background-position-x: -256px; }
+}
+@keyframes deco-butterfly {
+  from { background-position-x: 0; }
+  to   { background-position-x: -80px; }
+}
+@keyframes act-ping {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}

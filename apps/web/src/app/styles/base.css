@@ -1,0 +1,60 @@
+/* Base document — resets, html/body, window backgrounds, hero title. */
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: var(--font-sans);
+  background: #f2f3f5;
+  background-attachment: fixed;
+  color: var(--txt);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 14px;
+  letter-spacing: -0.005em;
+}
+
+[data-theme="dark"] body {
+  background: #0f0f0f;
+  background-attachment: fixed;
+}
+
+
+/* ─── Hero title shadow — keeps the project name legible when a bleeding
+   planet ring (black-hole, star) paints under it. Multi-shadow value
+   collapses in Tailwind's arbitrary-value JIT, so it lives here as a
+   named utility instead. ─── */
+.hero-title-shadow {
+  /* Light mode: a soft white halo, not a black blur — the dark title just
+     needs separation from a colored planet ring, not a heavy drop shadow. */
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.9),
+    0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .hero-title-shadow {
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.85),
+    0 0 10px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(0, 0, 0, 1);
+}
+
+/* ─── Tauri transparent window ─── */
+/* The inline script in layout.tsx adds .tauri to <html> synchronously before
+   first paint when __TAURI_INTERNALS__ is present. This rule removes the
+   decorative body gradient so the OS desktop shows through the 18px gap
+   around GnomeWindow, and prevents a background flash during minimize. */
+html.tauri,
+html.tauri body {
+  background: transparent !important;
+}
+
+/* ─── Browser (non-Tauri) window ─── */
+/* In browser mode there's no OS window frame, so GnomeWindow fills the
+   full viewport (no 18px gap), removing the gradient peaking around it. */
+/* In browser mode the html/body must still render the theme background so
+   the transparent GnomeWindow inset doesn't leak the light html default —
+   otherwise a bright rectangle shows in the 18px frame around the app in
+   dark mode. */
+/* Body always paints the theme background — the app shell is edge-to-edge
+   in every mode now, so nothing should ever leak the html default. */
+html, body { background: var(--bg-0); }

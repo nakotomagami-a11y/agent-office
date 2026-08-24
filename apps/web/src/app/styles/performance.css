@@ -1,0 +1,119 @@
+/* Runtime toggles — reduced motion, dev instruments, performance modes, WebKitGTK. */
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .chat-jump-latest { animation: none; transition: none; }
+}
+
+/* ─── Dev console instruments ─────────────────────────────────────
+   Toggled from the Dev Console → Interface panel via attributes on
+   <html>. Dev-only; no effect unless the flag is set. */
+
+/* "Reduce motion" — same treatment as the OS media query, opt-in. */
+[data-reduce-motion] *,
+[data-reduce-motion] *::before,
+[data-reduce-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* "Component outlines" — outline every element to spot layout bugs. */
+[data-dev-outlines] * {
+  outline: 1px solid color-mix(in oklab, var(--acc) 45%, transparent) !important;
+  outline-offset: -1px;
+}
+
+
+/* ─── Performance mode ───────────────────────────────────────────
+   Gated by the [data-perf] attribute on <html>, written by the
+   performance-store. Two levels stack: "lite" strips the expensive
+   visual layer; "off" additionally kills every animation + hover
+   transition. See docs Interface tab → Performance mode. */
+
+/* Lite — drop expensive filters, keep essential motion */
+html[data-perf="lite"] .planet-icon-canvas,
+html[data-perf="off"]  .planet-icon-canvas {
+  /* Procedural planet icons hide their canvas; a colored fallback is
+     rendered underneath so the icon slot isn't empty. */
+  display: none !important;
+}
+html[data-perf="lite"] *,
+html[data-perf="off"]  * {
+  /* Backdrop blur is disproportionately expensive on Intel iGPUs. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* When we kill backdrop-filter (perf-lite/off, or hardware that silently
+   drops it on Intel Arc iGPU), modals become dangerously see-through —
+   their base bg is designed at 55-65% opacity assuming blur softens the
+   underlying page. Without blur, the project detail behind punches
+   through. Force every `.app-modal-backdrop` to a near-solid dark fill
+   whenever the perf modes disable blur, and use the same fallback via
+   `@supports not` for any renderer that silently refuses the feature.
+   The opaque fallback is per-theme: light mode gets a near-solid light
+   fill for the same reason dark mode gets a near-solid dark one. */
+html[data-perf="lite"][data-theme="dark"] .app-modal-backdrop,
+html[data-perf="off"][data-theme="dark"]  .app-modal-backdrop {
+  background: rgba(4, 4, 8, 0.98) !important;
+}
+html[data-perf="lite"]:not([data-theme="dark"]) .app-modal-backdrop,
+html[data-perf="off"]:not([data-theme="dark"])  .app-modal-backdrop {
+  background: rgba(226, 228, 233, 0.97) !important;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="dark"] .app-modal-backdrop {
+    background: rgba(4, 4, 8, 0.98) !important;
+  }
+  html:not([data-theme="dark"]) .app-modal-backdrop {
+    background: rgba(226, 228, 233, 0.97) !important;
+  }
+}
+html[data-perf="lite"] *,
+html[data-perf="off"]  * {
+  /* Complex box-shadow filters take a full paint pass; strip the
+     nested / offset variants and keep only a single hairline outline. */
+  box-shadow: none !important;
+}
+html[data-perf="lite"] *:not(.of-status-led):not([data-essential-anim]),
+html[data-perf="off"]  *:not(.of-status-led):not([data-essential-anim]) {
+  animation: none !important;
+}
+
+
+/* ─── WebKitGTK (Tauri native) modal scroll perf ─────────────────
+   The Linux app runs on WebKitGTK, which re-blurs the full viewport on
+   every frame while content inside a dialog scrolls — the agent
+   conversation modal crawls on native while staying smooth in Chromium
+   (which GPU-caches the blur). Backdrop blur is also disproportionately
+   expensive on the Intel Arc iGPU. Drop the scrim blur on native and
+   fall back to the same near-solid fill the perf modes use so the modal
+   doesn't turn see-through. */
+html.tauri .app-modal-backdrop,
+html.tauri .app-modal-backdrop::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.tauri[data-theme="dark"] .app-modal-backdrop {
+  background: rgba(4, 4, 8, 0.98) !important;
+}
+html.tauri:not([data-theme="dark"]) .app-modal-backdrop {
+  background: rgba(226, 228, 233, 0.97) !important;
+}
+
+/* Off — additionally kill hover transitions + scroll smoothing */
+html[data-perf="off"] *, html[data-perf="off"] *::before, html[data-perf="off"] *::after {
+  transition-duration: 0ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-perf="off"] .chat-jump-latest {
+  animation: none;
+  transition: none;
+}
