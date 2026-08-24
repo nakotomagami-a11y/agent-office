@@ -1,7 +1,9 @@
 # Data fetching
 
-HTTP stack: **TanStack Query + axios + ts-pattern**. Every browser → backend
-call flows through the same layers. A bare `fetch()` in a component is a bug.
+HTTP stack: **TanStack Query + native `fetch` + ts-pattern**. Every browser →
+backend call flows through the same layers so caching, errors, and URLs are
+consistent. Scattering `fetch()` calls across components is the thing to avoid —
+not `fetch` itself.
 
 ```
 component / hook
@@ -13,49 +15,50 @@ TanStack Query hook      src/hooks/use-<resource>.ts   (cache, invalidation)
 API module               src/lib/api/<resource>.ts     (one fn per endpoint)
       │
       ▼
-axios client             src/lib/api-client.ts          (instance + errors)
+fetch wrapper            src/lib/api-client.ts          (base URL + errors)
 ```
 
-## 1. axios client — `src/lib/api-client.ts`
+> **Supabase projects:** replace the `fetch` wrapper with the generated Supabase
+> client (`src/lib/supabase.ts`). The layers above are unchanged — API modules
+> call `supabase.from(...)`, Query hooks wrap them. Skip sections 1–2 and keep 3.
 
-One shared axios instance. A response interceptor normalizes every non-2xx into
-a single `ApiError` type (`status`, `message`, `fields`, `data`) so callers
-branch on `err.status` instead of re-parsing bodies.
+## 1. fetch wrapper — `src/lib/api-client.ts`
+
+One thin wrapper around `fetch`. It prefixes the base URL and normalizes every
+non-2xx into a single `ApiError` (`status`, `message`, `fields`) so callers
+branch on `err.status` instead of re-parsing bodies. No dependency — `fetch` is
+the platform.
 
 ```ts
-import axios, { type AxiosError } from "axios";
-
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
     public fields?: Record<string, string[]>,
-    public data?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-export const apiClient = axios.create({
-  baseURL: "/api",
-  headers: { "Content-Type": "application/json" },
-});
-
-apiClient.interceptors.response.use(
-  (res) => res,
-  (error: AxiosError) => {
-    const res = error.response;
-    if (!res) throw new ApiError(0, error.message || "Network error");
-    const body = res.data as Record<string, unknown> | undefined;
-    const message =
-      (typeof body?.error === "string" && body.error) || res.statusText || `HTTP ${res.status}`;
-    throw new ApiError(res.status, message, body?.fields as never, body);
-  },
-);
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    headers: { "Content-Type": "application/json", ...init?.headers },
+    ...init,
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new ApiError(
+      res.status,
+      (typeof body.error === "string" && body.error) || res.statusText,
+      body.fields as never,
+    );
+  }
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
 ```
 
-Components and hooks **never import `apiClient`** — only API modules do.
+Components and hooks **never import `api`** directly — only API modules do.
 
 ## 2. API modules — `src/lib/api/<resource>.ts`
 
@@ -64,27 +67,18 @@ function per endpoint. Plain functions, no React — trivially testable.
 
 ```ts
 // src/lib/api/users.ts
-import { apiClient } from "@/lib/api-client";
+import { api } from "@/lib/api-client";
 import { routes } from "@/lib/routes";
 import type { User, NewUser } from "@/types";
 
-export async function listUsers(): Promise<User[]> {
-  return (await apiClient.get<User[]>(routes.users)).data;
-}
-
-export async function getUser(id: string): Promise<User> {
-  return (await apiClient.get<User>(routes.user(id))).data;
-}
-
-export async function createUser(input: NewUser): Promise<User> {
-  return (await apiClient.post<User>(routes.users, input)).data;
-}
+export const listUsers = () => api<User[]>(routes.users);
+export const getUser = (id: string) => api<User>(routes.user(id));
+export const createUser = (input: NewUser) =>
+  api<User>(routes.users, { method: "POST", body: JSON.stringify(input) });
 ```
 
 - URLs come from a **central routes config** (`src/lib/routes.ts`). Never
   hardcode a URL string inline.
-- Query params go through axios `params: { ... }` — never hand-build query
-  strings with `encodeURIComponent`.
 - Type the request and response. No `any`.
 
 ## 3. TanStack Query hooks — `src/hooks/use-<resource>.ts`
@@ -123,7 +117,7 @@ const label = match(user.role)
 
 ## Rules
 
-1. No bare `fetch` in components or hooks — go through an API module.
+1. No ad-hoc `fetch` in components — go through an API module + Query hook.
 2. One API module per resource under `src/lib/api/`, one function per endpoint.
 3. URLs only from the central routes config.
 4. Server state is TanStack Query, never a client store.
@@ -132,8 +126,7 @@ const label = match(user.role)
 
 ## Exceptions
 
-- **Streaming** (SSE / chunked) uses `EventSource` or `fetch` + `ReadableStream`,
-  not axios. Keep it in a dedicated stream hook.
-- **One-shot imperative effects** (migrations, telemetry pings) may call an API
-  module directly from an effect instead of a `useMutation` — still no bare
-  `fetch`.
+- **Streaming** (SSE / chunked) uses `EventSource` or `fetch` + `ReadableStream`
+  in a dedicated stream hook.
+- **Server Components / server actions** may call the data source directly — the
+  client-side layers above only govern browser → backend calls.

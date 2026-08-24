@@ -46,9 +46,9 @@ Rules:
 
 ## TanStack Query conventions
 
-> The HTTP layer (axios client + per-resource API modules) that these hooks
-> call lives in `docs/data-fetching.md`. Query hooks wrap API modules — they
-> don't call `fetch` or `axios` directly.
+> The HTTP layer (`fetch` wrapper / Supabase client + per-resource API modules)
+> that these hooks call lives in `docs/data-fetching.md`. Query hooks wrap API
+> modules — they don't call `fetch` directly.
 
 - Wrap server data hooks: `src/hooks/use-<resource>.ts` exports `useUserList()`, `useUser(id)`, `useCreateUser()`. The `queryFn` is an API-module function (`listUsers`), never an inline `fetch`.
 - Query keys are arrays, structured: `["users", "list", { filter }]`.

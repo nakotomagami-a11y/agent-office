@@ -4,7 +4,7 @@ Node.js backend. Hono + TypeScript + Drizzle + libSQL.
 
 ## What this is
 
-One-liner: _replace this with what this service does_.
+{{DESCRIPTION}}
 
 ## Stack
 
