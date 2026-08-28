@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Portal } from "@/components/ui/portal";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 
 export type DropdownItem = {
@@ -12,6 +13,14 @@ export type DropdownItem = {
   destructive?: boolean;
   /** Marks the currently-chosen option: stays purple/ink regardless of hover. */
   selected?: boolean;
+  /**
+   * How `selected` is rendered. `"fill"` (default) paints the whole row with
+   * the accent background — good for single-choice filters/segments. `"check"`
+   * instead shows a small checkmark before the label and leaves the row's
+   * background to normal hover behaviour — for identity/account pickers where
+   * the active row shouldn't look permanently pressed.
+   */
+  indicatorStyle?: "fill" | "check";
 };
 
 export type DropdownMenuProps = {
@@ -22,9 +31,18 @@ export type DropdownMenuProps = {
   triggerClassName?: string;
   /** Applied to the inline-block wrapper — e.g. `flex-1` to fill a flex row. */
   className?: string;
+  /**
+   * Size the popup to exactly match the trigger's own width instead of
+   * shrink-wrapping to content. Use for `w-full` triggers (e.g. the
+   * Environment-card account pickers) where a narrower popup reads as
+   * visually disconnected from the row that opened it. Leave off for compact
+   * triggers (inline model/effort pickers, filter chips) where the trigger is
+   * much narrower than a usable menu.
+   */
+  matchTriggerWidth?: boolean;
 };
 
-export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className }: DropdownMenuProps) {
+export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className, matchTriggerWidth }: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [style, setStyle] = useState<CSSProperties>({});
@@ -47,12 +65,13 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
     const openUp = spaceBelow < menuH + 8 && rect.top > spaceBelow;
     setStyle({
       position: "fixed",
+      ...(matchTriggerWidth ? { width: rect.width } : {}),
       maxHeight: `${Math.max(120, (openUp ? rect.top : spaceBelow) - 12)}px`,
       overflowY: "auto",
       ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
       ...(align === "end" ? { right: window.innerWidth - rect.right } : { left: rect.left }),
     });
-  }, [open, align, items.length]);
+  }, [open, align, items.length, matchTriggerWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -125,35 +144,44 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
             role="menu"
             aria-label={ariaLabel}
             onKeyDown={onKey}
-            className="min-w-[180px] bg-bg-1 border border-line rounded-[var(--r-md)] shadow-[var(--shadow-2)] p-1 z-[9999]"
+            className={cn("surface-sheen rounded-[var(--r-md)] shadow-[var(--lift)] p-1 z-[9999]", !matchTriggerWidth && "min-w-[180px]")}
             style={style}
           >
-            {items.map((item, i) => (
-              <button
-                key={item.key}
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                onClick={() => {
-                  item.onSelect();
-                  setOpen(false);
-                }}
-                onMouseEnter={() => setActiveIndex(i)}
-                className={cn(
-                "flex items-center gap-[10px] h-[34px] px-[10px] rounded-[var(--r-sm)] text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
-                item.destructive && "text-status-error",
-                // Selected sits on the accent (purple) fill. Use `--txt`, which
-                // is near-white in dark theme and near-black in light theme, so
-                // the label always reads on the purple. `[&_*]` forces nested
-                // label spans/icons to inherit it too (they otherwise keep their
-                // own muted colour and vanish on the fill).
-                item.selected && "bg-acc text-txt [&_*]:!text-txt",
-                !item.selected && i === activeIndex && "bg-bg-3 text-txt"
-              )}
-              >
-                {item.label}
-              </button>
-            ))}
+            {items.map((item, i) => {
+              const checkIndicator = item.indicatorStyle === "check";
+              const fillSelected = item.selected && !checkIndicator;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={() => {
+                    item.onSelect();
+                    setOpen(false);
+                  }}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={cn(
+                  "flex items-center gap-[10px] h-[34px] px-[10px] rounded-[var(--r-sm)] text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
+                  item.destructive && "text-status-error",
+                  // Selected sits on the accent (purple) fill. Use `--txt`, which
+                  // is near-white in dark theme and near-black in light theme, so
+                  // the label always reads on the purple. `[&_*]` forces nested
+                  // label spans/icons to inherit it too (they otherwise keep their
+                  // own muted colour and vanish on the fill).
+                  fillSelected && "bg-acc text-txt [&_*]:!text-txt",
+                  !fillSelected && i === activeIndex && "bg-bg-3 text-txt"
+                )}
+                >
+                  {checkIndicator ? (
+                    <span className="w-[12px] h-[12px] shrink-0 flex items-center justify-center">
+                      {item.selected ? <Icon name="check" size={12} className="text-acc" /> : null}
+                    </span>
+                  ) : null}
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </Portal>
       ) : null}

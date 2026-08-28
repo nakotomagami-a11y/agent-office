@@ -265,6 +265,33 @@ export function deleteProject(id: string): boolean {
 }
 
 /**
+ * Permanently delete a project's folder from disk (its scanned working
+ * directory) plus any ~/.claude/projects/<id> metadata. Destructive and
+ * irreversible — the UI gates this behind a type-to-confirm modal.
+ *
+ * Guarded so it only ever removes a *direct child* of the configured projects
+ * root: it refuses the root itself, nested paths, and anything resolving
+ * outside the root. Returns false when the id doesn't match a scanned folder.
+ */
+export function removeProjectFolder(id: string): boolean {
+  const settings = readSettings();
+  if (!settings) return false;
+  const scanned = scanProjects(settings.projectsRoot, settings.excluded, true).find((e) => e.id === id);
+  if (!scanned) return false;
+
+  const root = expandTilde(settings.projectsRoot);
+  const rel = scanned.fullPath.startsWith(root + sep) ? scanned.fullPath.slice(root.length + 1) : null;
+  if (!rel || rel.includes(sep)) {
+    throw new Error(`refuse to remove '${scanned.fullPath}': not a direct child of the projects root`);
+  }
+
+  rmSync(scanned.fullPath, { recursive: true, force: true });
+  deleteProject(id); // also drop ~/.claude/projects/<id> metadata (no-op if absent)
+  log.warn("project.folder_removed", { id, path: scanned.fullPath });
+  return true;
+}
+
+/**
  * Generate an instance id that's never been used in this roster *and*
  * also includes a short timestamp/random suffix so re-adding the same
  * agent after a remove yields a fresh id - that's how chat transcripts

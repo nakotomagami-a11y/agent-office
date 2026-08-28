@@ -62,6 +62,7 @@ export const API_ROUTES = {
   projectInstall: (id: string) => `/api/projects/${encodeURIComponent(id)}/install`,
   projectOpenFolder: (id: string) => `/api/projects/${encodeURIComponent(id)}/open-folder`,
   projectClearCache: (id: string) => `/api/projects/${encodeURIComponent(id)}/clear-cache`,
+  projectFolder: (id: string) => `/api/projects/${encodeURIComponent(id)}/folder`,
 
   processes: "/api/processes",
   process: (pid: number) => `/api/processes/${pid}`,
