@@ -28,12 +28,12 @@ export function SecretBadges({ secret }: { secret: SecretWithStatus }) {
         <span
           key={b.text}
           className={
-            "inline-flex items-center h-[18px] px-[6px] rounded-[5px] text-[10px] font-mono uppercase tracking-[0.05em] " +
+            "inline-flex items-center py-[1.5px] px-[8px] rounded-full text-[9px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap " +
             {
-              bad: "text-[var(--error)] bg-[color-mix(in_oklab,var(--error)_15%,transparent)]",
-              warn: "text-[var(--warn,#c78a2a)] bg-[color-mix(in_oklab,var(--warn,#c78a2a)_15%,transparent)]",
-              good: "text-status-done bg-[color-mix(in_oklab,var(--status-done,#3a9)_15%,transparent)]",
-              muted: "text-txt-3 bg-bg-3",
+              bad: "text-red bg-red-soft",
+              warn: "text-amber bg-amber-soft",
+              good: "text-green bg-green-soft",
+              muted: "text-txt-3 bg-card-3",
             }[b.tone]
           }
         >
