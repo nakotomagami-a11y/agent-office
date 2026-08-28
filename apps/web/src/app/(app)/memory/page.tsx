@@ -3,12 +3,12 @@
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/components/ui/page-header";
+import { cn } from "@/lib/cn";
 import { type MemoryScope } from "@/modules/memory/hooks/use-memory";
 import { ScopeEditor } from "@/modules/memory/components/scope-editor";
 import { MemoryNav } from "@/modules/memory/components/memory-nav";
 import { DocsTab } from "@/modules/memory/components/docs-tab";
 import { scopeKey } from "@/modules/memory/scope/scope";
-import { cn } from "@/lib/cn";
 
 type TopTab = "memory" | "docs";
 
@@ -33,15 +33,15 @@ export default function MemoryPage() {
         title={t("title")}
         sub={
           tab === "memory"
-            ? "· global, project & agent memory"
-            : "· agent-authored context, plans & postmortems"
+            ? "global, project & agent memory"
+            : "agent-authored context, plans & postmortems"
         }
         actions={<TabSwitcher tab={tab} onChange={setTab} />}
       />
       {tab === "memory" ? (
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 flex gap-[14px] p-[20px]">
           <MemoryNav selected={scope} onSelect={setScope} contentMap={contentMap} />
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0">
             <ScopeEditor
               key={scopeKey(scope)}
               scope={scope}
@@ -58,7 +58,7 @@ export default function MemoryPage() {
 
 function TabSwitcher({ tab, onChange }: { tab: TopTab; onChange: (t: TopTab) => void }) {
   return (
-    <div className="flex items-center gap-[2px] p-[2px] bg-bg-2 border border-line rounded-[7px]">
+    <div className="flex items-center gap-[2px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]">
       <TabButton active={tab === "memory"} onClick={() => onChange("memory")}>
         Memory
       </TabButton>
@@ -83,10 +83,10 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "px-[10px] h-[24px] rounded-[5px] text-[12px] font-medium cursor-pointer border-none [font:inherit] transition-[background,color] duration-[80ms]",
+        "py-[7px] px-[15px] rounded-[12px] text-[12.5px] font-semibold whitespace-nowrap cursor-pointer transition-[filter] duration-150",
         active
-          ? "bg-bg-1 text-txt shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-          : "bg-transparent text-txt-2 hover:text-txt",
+          ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
+          : "bg-transparent text-txt-3 hover:brightness-110",
       )}
     >
       {children}

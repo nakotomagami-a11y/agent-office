@@ -722,7 +722,8 @@
     "empty_select": "Select a scope to edit its memory.",
     "no_content": "Empty — start typing to add memory.",
     "no_projects": "No projects defined yet.",
-    "no_agents": "No agents defined yet."
+    "no_agents": "No agents defined yet.",
+    "project_memory_label": "project memory · {name}"
   },
   "schedules": {
     "attention_stale": "More than 12h overdue — confirm before running.",

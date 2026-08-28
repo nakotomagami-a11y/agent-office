@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemory, isReadOnly, type MemoryScope } from "../hooks/use-memory";
 import { MemoryEditor } from "./memory-editor";
-import { scopeKey } from "../scope/scope";
+import { scopeKey, scopeLabelParts } from "../scope/scope";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { DocsRender } from "@/modules/docs/docs-render";
 import { SkillSectionsPanel } from "./skill-sections-panel";
@@ -18,6 +18,8 @@ type ScopeEditorProps = {
 export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
   const t = useTranslations("memory_page");
   const memory = useMemory(scope);
+  const parts = scopeLabelParts(scope);
+  const scopeLabel = parts.kind === "path" ? parts.path : t("project_memory_label", { name: parts.name });
 
   useEffect(() => {
     if (!memory.isLoading) {
@@ -49,21 +51,20 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
     // blob), in read-only mode: opens on the Preview tab and injects the full
     // GFM renderer so headings, tables, and code fences format properly.
     return (
-      <div className="relative flex-1 min-h-0">
-        <div className="absolute inset-0 overflow-y-auto p-[20px]">
-          {scope.kind === "agent-skill" && <SkillSectionsPanel slug={scope.skillSlug} />}
-          {memory.content ? (
-            <CodeEditor
-              className="shrink-0"
-              value={memory.content}
-              onChange={() => {}}
-              readOnly
-              renderPreview={(md) => <DocsRender markdown={md} />}
-            />
-          ) : (
-            <div className="text-txt-3 italic">{t("no_content")}</div>
-          )}
-        </div>
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[14px]">
+        {scope.kind === "agent-skill" && <SkillSectionsPanel slug={scope.skillSlug} />}
+        {memory.content ? (
+          <CodeEditor
+            className="shrink-0"
+            value={memory.content}
+            onChange={() => {}}
+            readOnly
+            scopeLabel={scopeLabel}
+            renderPreview={(md) => <DocsRender markdown={md} />}
+          />
+        ) : (
+          <div className="text-txt-3 italic">{t("no_content")}</div>
+        )}
       </div>
     );
   }
@@ -74,6 +75,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
         value={memory.content}
         onSave={memory.save}
         placeholder={t("no_content")}
+        scopeLabel={scopeLabel}
       />
     </div>
   );
