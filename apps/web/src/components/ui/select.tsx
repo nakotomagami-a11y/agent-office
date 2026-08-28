@@ -13,12 +13,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <select
       ref={ref}
       className={cn(
-        "h-8 py-0 pr-7 pl-[10px] bg-bg-1 border border-line-2 rounded-md text-txt [font:inherit] text-[13px] outline-none cursor-pointer shadow-1 appearance-none bg-no-repeat bg-[right_8px_center] bg-[length:16px]",
+        "h-8 py-0 pr-7 pl-[10px] bg-bg-1 border border-line-2 rounded-md text-txt [font:inherit] text-[13px] outline-none cursor-pointer shadow-1 appearance-none bg-no-repeat",
         className,
       )}
       style={{
+        // Two CSS gradient triangles instead of an SVG data-URI: `var()`
+        // doesn't resolve inside an encoded SVG document, so the chevron
+        // used to be a hardcoded hex (#8A8079) that ignored the theme.
+        // This mirrors the `.ao-select` chevron in modal.css.
         backgroundImage:
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8079' stroke-width='1.7'><path d='m6 9 6 6 6-6'/></svg>\")",
+          "linear-gradient(45deg, transparent 50%, var(--txt-3) 50%), linear-gradient(135deg, var(--txt-3) 50%, transparent 50%)",
+        backgroundPosition: "calc(100% - 16px) 50%, calc(100% - 11px) 50%",
+        backgroundSize: "5px 5px, 5px 5px",
       }}
       {...rest}
     >

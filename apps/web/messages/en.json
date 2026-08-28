@@ -297,6 +297,25 @@
     "sub_today": "· {amount} today",
     "empty": "No runs yet on this project. Summon an agent from the office."
   },
+  "planet_editor_modal": {
+    "title": "Edit planet",
+    "close_aria": "Close",
+    "custom_palette": "Custom",
+    "randomize_title": "Reshuffle seed + palette, keep current type",
+    "randomize": "Randomize",
+    "reroll_title": "Reroll seed only",
+    "seed_label": "Seed",
+    "type_label": "Type",
+    "rotate_label": "Rotate",
+    "dither_label": "Dither",
+    "palette_label": "Palette",
+    "hide_colors": "Hide colors",
+    "customize_colors": "Customize colors",
+    "layer_color_aria": "Layer {layer} color {color}",
+    "color_label": "Color {layer}.{color}",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
   "add_agent_modal": {
     "title": "Add agent",
     "title_pick_project": "Add agent — pick a project",
