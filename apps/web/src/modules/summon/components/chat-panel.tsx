@@ -10,7 +10,6 @@ export type ChatPanelProps = {
   instanceId?: string;
   onClose: () => void;
   onEdit?: () => void;
-  onNavigateTab?: (tab: "memory" | "history") => void;
   /** When true, skip rendering the ChatHead (it's provided by the parent shell). */
   noHeader?: boolean;
   /** Incrementing this triggers a new thread. */
@@ -43,12 +42,11 @@ export function ChatPanel({
   agent,
   projectId,
   instanceId,
-  onNavigateTab,
   noHeader,
   newThreadSignal,
   onActiveRunChange,
 }: ChatPanelProps) {
-  const m = useChatPanelModel({ agent, projectId, instanceId, newThreadSignal, onNavigateTab, onActiveRunChange });
+  const m = useChatPanelModel({ agent, projectId, instanceId, newThreadSignal, onActiveRunChange });
 
   return (
     <ChatPanelBody

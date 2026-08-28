@@ -31,7 +31,6 @@ type UseChatPanelModelInput = {
   projectId: string | undefined;
   instanceId: string | undefined;
   newThreadSignal: number | undefined;
-  onNavigateTab: ((tab: "memory" | "history") => void) | undefined;
   onActiveRunChange: ((id: string | null) => void) | undefined;
 };
 
@@ -155,8 +154,6 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
 
   const onCommand = (cmd: string) => {
     if (cmd === "/clear" || cmd === "/branch") { newThread(); return; }
-    if (cmd === "/memory") input.onNavigateTab?.("memory");
-    if (cmd === "/history") input.onNavigateTab?.("history");
   };
 
   const liveStats = deriveLiveStats({

@@ -107,11 +107,9 @@ function WorkflowRow({ node, depth }: { node: WorkflowNode; depth: number }) {
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] text-ao-fg-3">
-              {node.tokensIn.toLocaleString()}↓ / {node.tokensOut.toLocaleString()}↑ tok
-            </span>
-          </div>
+          <span className="font-mono text-[11px] text-ao-fg-3">
+            {node.tokensIn.toLocaleString()}↓ / {node.tokensOut.toLocaleString()}↑ tok
+          </span>
         </div>
       )}
 

@@ -12,6 +12,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ThreadItem } from "../format/thread-types";
 import { Icon } from "@/components/ui/icon";
+import { TableBlock } from "@/components/ui/table-block";
 import { splitProse, type ProseItem } from "@/lib/markdown";
 import {
   fmtDuration,
@@ -132,6 +133,7 @@ function ProseBlock({ items, streaming }: { items: ProseItem[]; streaming?: bool
   const out: React.ReactNode[] = [];
   let paraBuf: string[] = [];
   let listBuf: string[] = [];
+  let listOrdered = false;
 
   const flushPara = (key: string) => {
     if (!paraBuf.length) return;
@@ -140,13 +142,10 @@ function ProseBlock({ items, streaming }: { items: ProseItem[]; streaming?: bool
   };
   const flushList = (key: string) => {
     if (!listBuf.length) return;
-    out.push(
-      <ul key={key}>
-        {listBuf.map((it, i) => (
-          <li key={i} dangerouslySetInnerHTML={{ __html: inlineMd(it) }} />
-        ))}
-      </ul>,
-    );
+    const items = listBuf.map((it, i) => (
+      <li key={i} dangerouslySetInnerHTML={{ __html: inlineMd(it) }} />
+    ));
+    out.push(listOrdered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>);
     listBuf = [];
   };
 
@@ -157,14 +156,19 @@ function ProseBlock({ items, streaming }: { items: ProseItem[]; streaming?: bool
       out.push(<CodeBlock key={k} lang={item.lang} body={item.body} />);
       return;
     }
+    if (typeof item === "object" && item.type === "table") {
+      flushPara(`p${k}`); flushList(`l${k}`);
+      out.push(<TableBlock key={k} header={item.header} align={item.align} rows={item.rows} inlineMd={inlineMd} />);
+      return;
+    }
     const ln = item as string;
     if (/^#{2,3}\s+/.test(ln)) {
       flushPara(`p${k}`); flushList(`l${k}`);
       out.push(<h3 key={k} dangerouslySetInnerHTML={{ __html: inlineMd(ln.replace(/^#{2,3}\s+/, "")) }} />);
       return;
     }
-    if (/^[-*]\s+/.test(ln)) { flushPara(`p${k}`); listBuf.push(ln.replace(/^[-*]\s+/, "")); return; }
-    if (/^\d+\.\s+/.test(ln)) { flushPara(`p${k}`); listBuf.push(ln.replace(/^\d+\.\s+/, "")); return; }
+    if (/^[-*]\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = false; listBuf.push(ln.replace(/^[-*]\s+/, "")); return; }
+    if (/^\d+\.\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = true; listBuf.push(ln.replace(/^\d+\.\s+/, "")); return; }
     if (ln.trim() === "") { flushPara(`p${k}`); flushList(`l${k}`); return; }
     flushList(`l${k}`);
     paraBuf.push(ln);
