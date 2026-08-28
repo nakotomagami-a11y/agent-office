@@ -116,7 +116,7 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `GET` | `/api/memory/global` | Read global memory file |
 | `PUT` | `/api/memory/global` | Write global memory (max 256 KB) |
 
-### Runs
+### Runs endpoints
 
 | Method | Path | Description |
 |---|---|---|
