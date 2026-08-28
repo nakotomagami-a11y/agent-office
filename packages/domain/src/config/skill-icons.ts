@@ -1,6 +1,6 @@
 // Skill weapon-icon class catalog — the procedural icon families a skill can use.
 // Runtime const + derived type + guard together (mirrors config/run-errors).
-export const SKILL_ICON_CLASSES = ["any", "anyweapon", "blades", "spears", "axes", "staffs", "tridents"] as const;
+export const SKILL_ICON_CLASSES = ["any", "anyweapon", "blades", "spears", "axes", "staffs", "tridents", "shields"] as const;
 
 export type SkillIconClass = (typeof SKILL_ICON_CLASSES)[number];
 

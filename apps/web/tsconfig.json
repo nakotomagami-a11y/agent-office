@@ -16,12 +16,6 @@
       ],
       "@agent-office/domain/*": [
         "../../packages/domain/src/*"
-      ],
-      "@agent-office/pixel-planets": [
-        "../../packages/pixel-planets/src/index.ts"
-      ],
-      "@agent-office/pixel-planets/*": [
-        "../../packages/pixel-planets/src/*"
       ]
     }
   },

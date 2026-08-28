@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@agent-office/domain": "workspace:*",
-    "@agent-office/pixel-icons": "workspace:*",
-    "@agent-office/pixel-planets": "workspace:*",
+    "@agent-office/pixel-icons": "github:nakotomagami-a11y/pixel-icons-generator#be9ab28bc0e60bc0eee4f538f0ace89c256403f6",
+    "@agent-office/pixel-planets": "github:nakotomagami-a11y/pixel-planets-generator#f708678006d4fb237e51982d6c855f520cb7888c",
     "@pixi/tilemap": "^5.0.2",
     "@tailwindcss/postcss": "^4.3.0",
     "@tanstack/react-query": "^5.59.20",
