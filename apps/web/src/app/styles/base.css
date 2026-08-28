@@ -13,12 +13,6 @@ body {
   letter-spacing: -0.005em;
 }
 
-[data-theme="dark"] body {
-  background: #0f0f0f;
-  background-attachment: fixed;
-}
-
-
 /* ─── Hero title shadow — keeps the project name legible when a bleeding
    planet ring (black-hole, star) paints under it. Multi-shadow value
    collapses in Tailwind's arbitrary-value JIT, so it lives here as a
@@ -36,6 +30,20 @@ body {
     0 2px 4px rgba(0, 0, 0, 0.85),
     0 0 10px rgba(0, 0, 0, 0.7),
     0 0 2px rgba(0, 0, 0, 1);
+}
+
+/* ─── "Sheen" surface ─── */
+/* The gradient-fill + gradient-border chip look used for pills, chips, and
+   floating controls (search bars, segmented controls, stat tiles, the
+   theme toggle, agent cards). Two background
+   layers clipped to different boxes — `--card-bg` fills the content
+   (padding-box), `--sheen` traces a 1px gradient "border" (border-box) —
+   which Tailwind's arbitrary-value syntax can't express as a single
+   utility, hence a named class. Compose with a border-radius utility and
+   (usually) `shadow-[var(--lift)]`. */
+.surface-sheen {
+  background: var(--card-bg) padding-box, var(--sheen) border-box;
+  border: 1px solid transparent;
 }
 
 /* ─── Tauri transparent window ─── */
