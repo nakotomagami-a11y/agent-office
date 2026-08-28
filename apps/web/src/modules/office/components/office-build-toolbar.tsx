@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -11,12 +12,7 @@ import {
 import { type GrassColor } from "./grass-colors";
 import { type LandShape } from "../derive/land-generator";
 import { useBuildToolbar } from "../hooks/use-build-toolbar";
-import {
-  ACC_BORDER, ACC_GRAD, GEN_SHADOW, PANEL_SHADOW, THUMB_BG, TOOLWELL_SHADOW, TOOL_ACTIVE_SHADOW,
-} from "./office-build-toolbar-styles";
-import {
-  BiomeThumb, CATEGORY_TABS, DecoSprite, DecoTileCell, HeaderBtn, InspectorChip, SoonBadge, TOOLS,
-} from "./office-build-toolbar-parts";
+import { BiomeThumb, CATEGORY_TABS, DecoSprite, TOOLS } from "./office-build-toolbar-parts";
 import { TerrainPopover } from "./office-build-toolbar-terrain";
 
 export type BuildTool = "grass" | "erase" | "fill" | "select" | DecorationKind;
@@ -34,6 +30,14 @@ export type OfficeBuildToolbarProps = {
   onRedo: () => void;
   onReset: () => void;
   onGenerateLand: (opts: LandGenParams) => void;
+  // Build-mode exit + layout scope — hosted in the top-center banner so the
+  // whole build overlay lives in one component (was a separate bottom bar).
+  pendingChanges: number;
+  onDone: () => void;
+  projectId: string | null;
+  useCustomMap: boolean;
+  enableCustomMap: () => void;
+  disableCustomMap: () => void;
 };
 
 export type LandGenParams = {
@@ -42,6 +46,14 @@ export type LandGenParams = {
   coverage: number;
   roughness: number;
   rooms: number;
+};
+
+/** Per-tool hint shown in the build-mode banner (mirrors the mockup). */
+const TOOL_HINT: Record<string, string> = {
+  select: "click an object to edit it",
+  grass: "drag to place tiles",
+  erase: "drag to clear tiles",
+  fill: "click an area to flood it",
 };
 
 export const OfficeBuildToolbar = memo(function OfficeBuildToolbar({
@@ -57,279 +69,236 @@ export const OfficeBuildToolbar = memo(function OfficeBuildToolbar({
   onRedo,
   onReset,
   onGenerateLand,
+  pendingChanges,
+  onDone,
+  projectId,
+  useCustomMap,
+  enableCustomMap,
+  disableCustomMap,
 }: OfficeBuildToolbarProps) {
+  const tr = useTranslations("office_build_toolbar");
   const t = useBuildToolbar({ active, tool, grassColor, onGenerateLand });
   const {
     activeTab, setActiveTab,
     terrainOpen, setTerrainOpen, terrainBtnRef,
-    brush, setBrush,
-    scatter, setScatter,
-    shapeDef,
-    grassColorDef,
+    grassColorDef, shapeDef,
     q, setQ,
     filteredKinds,
     searchGroups,
-    selectedDef,
-    paintingTool,
   } = t;
 
-  const activeToolDef = TOOLS.find((t) => t.id === tool);
+  const hint = TOOL_HINT[tool ?? "select"] ?? "click an object to edit it";
+  const searchTiles = q.trim() ? (searchGroups ?? []).flatMap(([, kinds]) => kinds) : filteredKinds;
 
   return (
-    <AnimatePresence>
-      {!active ? (
-        <motion.button
-          key="build-entry"
-          type="button"
-          className="build-entry-btn absolute z-[6] right-[14px] bottom-[14px] inline-flex items-center gap-[7px] px-[15px] py-[9px] rounded-[10px] text-[13px] font-semibold text-white cursor-pointer transition-[filter,transform] duration-150 hover:brightness-[1.07] hover:-translate-y-[1px]"
-          style={{ background: ACC_GRAD, border: `1px solid ${ACC_BORDER}`, boxShadow: GEN_SHADOW }}
-          onClick={onToggle}
-          aria-label="Enter build mode"
-          initial={{ opacity: 0, scale: 0.85, x: 4, y: 4 }}
-          animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26 } }}
-          exit={{ opacity: 0, scale: 0.8, x: 4, y: 4, transition: { duration: 0.13, ease: "easeIn" } }}
-        >
-          <Icon name="hammer" size={13} />
-          Build
-        </motion.button>
-      ) : (
-        <motion.div
-          key="build-panel"
-          className="build-panel absolute flex flex-col min-h-0 overflow-hidden z-[6] right-[14px] top-[14px] bottom-[14px] w-[320px] rounded-[16px] bg-bg-1 border border-line-2"
-          style={{ boxShadow: PANEL_SHADOW }}
-          initial={{ opacity: 0, scale: 0.94, x: 22 }}
-          animate={{ opacity: 1, scale: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 28, delay: 0.16 } }}
-          exit={{ opacity: 0, scale: 0.94, x: 22, transition: { duration: 0.13, ease: "easeIn" } }}
-        >
-          {/* ══ Header ═════════════════════════════════════════════════════ */}
-          <div className="shrink-0 px-[15px] pt-[13px] pb-[12px] border-b border-line">
-            <div className="flex items-center gap-[11px]">
-              <div
-                className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center shrink-0 text-white"
-                style={{ background: ACC_GRAD, boxShadow: "0 3px 10px -2px color-mix(in srgb, var(--acc) 55%, transparent)" }}
+    <>
+      <AnimatePresence>
+        {!active && (
+          <motion.button
+            key="build-entry"
+            type="button"
+            className="build-entry-btn absolute z-[6] right-[16px] bottom-[16px] inline-flex items-center gap-[8px] px-[20px] py-[12px] rounded-[15px] border-none text-[13.5px] font-bold text-white cursor-pointer bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] shadow-[0_16px_34px_-16px_rgba(139,123,255,0.95)] transition-transform duration-150 hover:-translate-y-[2px]"
+            onClick={onToggle}
+            aria-label="Enter build mode"
+            initial={{ opacity: 0, scale: 0.85, x: 4, y: 4 }}
+            animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26 } }}
+            exit={{ opacity: 0, scale: 0.8, x: 4, y: 4, transition: { duration: 0.13, ease: "easeIn" } }}
+          >
+            <Icon name="hammer" size={15} />
+            Build
+          </motion.button>
+        )}
+
+        {active && (
+          <motion.div
+            key="build-frame"
+            className="absolute inset-0 z-[5] pointer-events-none rounded-[24px]"
+            style={{ boxShadow: "inset 0 0 0 2px var(--acc-line)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.18 } }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+          />
+        )}
+
+        {/* ── Top-center banner: mode label + hint + undo/redo/reset + Done ── */}
+        {active && (
+          <motion.div
+            key="build-banner"
+            className="absolute z-[7] left-1/2 top-[16px] flex items-center gap-[4px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]"
+            initial={{ opacity: 0, y: -10, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%", transition: { type: "spring", stiffness: 300, damping: 28, delay: 0.1 } }}
+            exit={{ opacity: 0, y: -10, x: "-50%", transition: { duration: 0.12 } }}
+          >
+            <span className="flex items-center gap-[8px] pl-[8px] pr-[12px]">
+              <span className="w-[7px] h-[7px] rounded-full bg-acc animate-pulse" />
+              <span className="text-[12.5px] font-bold whitespace-nowrap">Build mode</span>
+              <span className="font-mono text-[10.5px] text-txt-4 whitespace-nowrap">{hint}</span>
+            </span>
+            <span className="w-[1px] h-[20px] bg-edge" />
+            <BannerBtn icon="undo" title="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo} label="Undo" />
+            <BannerBtn icon="redo" title="Redo (⌘⇧Z)" onClick={onRedo} disabled={!canRedo} label="Redo" />
+            <BannerBtn icon="trash" title="Reset canvas" onClick={onReset} label="Reset canvas" danger />
+            <span className="w-[1px] h-[20px] bg-edge" />
+            {projectId && (
+              <button
+                type="button"
+                onClick={useCustomMap ? disableCustomMap : enableCustomMap}
+                title={useCustomMap ? tr("switch_to_shared") : tr("switch_to_project")}
+                className={`flex items-center gap-[6px] px-[11px] py-[7px] rounded-[10px] text-[11.5px] font-semibold whitespace-nowrap cursor-pointer transition-colors duration-150 ${useCustomMap ? "bg-acc-soft text-acc" : "text-txt-3 hover:bg-card-2 hover:text-txt"}`}
               >
-                <Icon name="hammer" size={15} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-[14px] text-txt leading-none">Build</div>
-                <div className="text-[10.5px] mt-[3px] font-mono truncate text-txt-2">painting decor</div>
-              </div>
-              <div className="flex items-center gap-[2px]">
-                <HeaderBtn icon="undo" label="Undo" title="Undo (⌘Z)" onClick={onUndo} disabled={!canUndo} />
-                <HeaderBtn icon="redo" label="Redo" title="Redo (⌘⇧Z)" onClick={onRedo} disabled={!canRedo} />
-                <div className="shrink-0 w-[1px] h-[16px] bg-line-2 mx-[4px]" />
-                <button
-                  type="button"
-                  className="w-[27px] h-[27px] rounded-[7px] flex items-center justify-center text-txt-2 cursor-pointer transition-colors duration-100 hover:text-[#f0663a]"
-                  style={{ background: "transparent" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, #e95420 16%, transparent)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  onClick={onReset}
-                  title="Reset canvas"
-                  aria-label="Reset canvas"
-                >
-                  <Icon name="trash" size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* Tools */}
-            <div
-              className="flex gap-[4px] mt-[11px] p-[4px] rounded-[12px] bg-bg-0 border border-line"
-              style={{ boxShadow: TOOLWELL_SHADOW }}
-            >
-              {TOOLS.map((t) => {
-                const on = tool === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`relative flex-1 flex flex-col items-center gap-[5px] px-[4px] pt-[10px] pb-[8px] rounded-[9px] cursor-pointer transition-[background,color] duration-150 ${on ? "text-white" : "text-txt-2 hover:bg-bg-2 hover:text-txt"}`}
-                    style={on ? { background: ACC_GRAD, boxShadow: TOOL_ACTIVE_SHADOW } : undefined}
-                    onClick={() => onSelectTool(t.id)}
-                    title={t.title}
-                    aria-pressed={on}
-                  >
-                    <Icon name={t.icon} size={17} />
-                    <span className="text-[9.5px] font-semibold uppercase tracking-[0.06em]">{t.label}</span>
-                    <span className={`absolute top-[4px] right-[5px] font-mono text-[8.5px] ${on ? "text-white/60" : "text-txt-3"}`}>{t.key}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Terrain summary */}
+                <Icon name="map" size={12} />
+                {useCustomMap ? tr("scope_project") : tr("scope_default")}
+              </button>
+            )}
             <button
-              ref={terrainBtnRef}
               type="button"
-              className={`mt-[9px] w-full flex items-center gap-[11px] px-[11px] py-[9px] rounded-[12px] border cursor-pointer transition-[background,border-color] duration-150 ${terrainOpen ? "border-transparent" : "bg-bg-2 border-line hover:bg-bg-3 hover:border-line-2"}`}
-              style={terrainOpen ? { background: "color-mix(in srgb, var(--acc) 9%, var(--bg-2))", borderColor: ACC_BORDER } : undefined}
-              onClick={() => setTerrainOpen((v) => !v)}
-              aria-expanded={terrainOpen}
-              aria-label="Terrain settings — biome color and land generation"
+              onClick={onDone}
+              className="flex items-center gap-[7px] px-[14px] py-[7px] rounded-[11px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[12px] font-bold cursor-pointer whitespace-nowrap"
             >
-              {grassColorDef && (
-                <BiomeThumb
-                  def={grassColorDef}
-                  size={34}
-                  className="rounded-[8px] border border-line-2"
-                  extraStyle={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06), 0 1px 3px rgba(0,0,0,0.35)" }}
-                />
-              )}
-              <span className="flex flex-col items-start min-w-0 leading-tight gap-[2px]">
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.11em] text-txt-2">Terrain</span>
-                <span className="text-[12px] text-txt font-medium truncate max-w-[188px]">
-                  {grassColorDef?.label ?? "Biome"} <span className="text-txt-3">·</span> {shapeDef.label}
-                </span>
-              </span>
-              <span
-                className={`ml-auto shrink-0 transition-transform duration-200 ${terrainOpen ? "rotate-90 text-acc" : "text-txt-2"}`}
-              >
-                <Icon name="chevron" size={15} />
-              </span>
+              {pendingChanges > 0 && <span className="w-[6px] h-[6px] rounded-full bg-white/80" />}
+              <Icon name="check" size={12} /> Done
             </button>
-          </div>
+          </motion.div>
+        )}
 
-          {/* ══ Search + tabs ══════════════════════════════════════════════ */}
-          <div className="shrink-0 px-[13px] pt-[11px] border-b border-line">
-            <div className="flex items-center gap-[9px] px-[11px] py-[8px] rounded-[10px] bg-bg-0 border border-line text-txt-3 focus-within:border-[color-mix(in_srgb,var(--acc)_45%,transparent)] focus-within:shadow-[0_0_0_3px_var(--acc-faint)] transition-[border-color,box-shadow] duration-150">
-              <Icon name="search" size={14} />
-              <input
-                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-txt text-[12.5px] placeholder:text-txt-3"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search tiles…"
-                aria-label="Search tiles"
-              />
-              {q && (
-                <button type="button" onClick={() => setQ("")} className="flex items-center bg-transparent border-0 cursor-pointer text-txt-2 hover:text-txt !p-0" aria-label="Clear search">
-                  <Icon name="x" size={12} />
+        {/* ── Left tool well ── */}
+        {active && (
+          <motion.div
+            key="build-tools"
+            className="absolute z-[7] left-[16px] top-1/2 flex flex-col gap-[4px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]"
+            initial={{ opacity: 0, x: -12, y: "-50%" }}
+            animate={{ opacity: 1, x: 0, y: "-50%", transition: { type: "spring", stiffness: 300, damping: 28, delay: 0.14 } }}
+            exit={{ opacity: 0, x: -12, y: "-50%", transition: { duration: 0.12 } }}
+          >
+            {TOOLS.map((tl) => {
+              const on = tool === tl.id;
+              return (
+                <button
+                  key={tl.id}
+                  type="button"
+                  onClick={() => onSelectTool(tl.id)}
+                  title={tl.title}
+                  aria-pressed={on}
+                  className={`relative w-[38px] h-[38px] flex items-center justify-center rounded-[12px] cursor-pointer transition-colors duration-150 ${on ? "text-white bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))]" : "text-txt-3 hover:bg-card-2 hover:text-txt"}`}
+                >
+                  <Icon name={tl.icon} size={16} />
+                  <span className={`absolute right-[3px] bottom-[2px] font-mono text-[8px] font-bold ${on ? "text-white/70" : "text-txt-4"}`}>{tl.key}</span>
                 </button>
-              )}
-            </div>
-            {!q && (
-              <div className="flex items-center gap-[2px] mt-[8px] overflow-x-auto pb-[2px] [scrollbar-width:thin] [scrollbar-color:var(--bg-3)_transparent] [&::-webkit-scrollbar]:h-[5px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-bg-3 [&::-webkit-scrollbar-track]:bg-transparent" role="tablist" aria-label="Tile categories">
+              );
+            })}
+          </motion.div>
+        )}
+
+        {/* ── Bottom-center palette dock ── */}
+        {active && (
+          <motion.div
+            key="build-dock"
+            className="absolute z-[7] left-1/2 bottom-[16px] w-[760px] max-w-[calc(100%-160px)] rounded-[20px] surface-sheen shadow-[var(--lift)] overflow-hidden"
+            initial={{ opacity: 0, y: 14, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%", transition: { type: "spring", stiffness: 300, damping: 28, delay: 0.18 } }}
+            exit={{ opacity: 0, y: 14, x: "-50%", transition: { duration: 0.12 } }}
+          >
+            {/* Header: category pills + terrain + search */}
+            <div className="flex items-center gap-[9px] px-[13px] py-[9px] border-b border-edge">
+              <div className="flex items-center gap-[2px] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {CATEGORY_TABS.map(({ id, label }) => {
                   const count = DECORATION_KINDS.filter((k) => DECORATIONS[k].category === id).length;
-                  const on = activeTab === id;
+                  const on = !q.trim() && activeTab === id;
                   return (
                     <button
                       key={id}
                       type="button"
-                      role="tab"
-                      aria-selected={on}
-                      className={`relative shrink-0 inline-flex items-center gap-[6px] px-[10px] pt-[8px] pb-[10px] text-[12px] cursor-pointer transition-colors duration-150 ${on ? "text-txt font-semibold after:content-[''] after:absolute after:left-[8px] after:right-[8px] after:bottom-[-1px] after:h-[2px] after:rounded-[2px_2px_0_0] after:bg-acc after:shadow-[0_0_10px_color-mix(in_srgb,var(--acc)_55%,transparent)]" : "text-txt-2 font-medium hover:text-txt"}`}
-                      onClick={() => setActiveTab(id)}
+                      onClick={() => { setQ(""); setActiveTab(id); }}
+                      className={`flex items-center gap-[6px] px-[12px] py-[6px] rounded-[10px] text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-colors duration-150 ${on ? "bg-acc-soft text-acc" : "text-txt-3 hover:bg-card-2 hover:text-txt"}`}
                     >
                       {label}
-                      <span className={`font-mono text-[9.5px] px-[5px] py-[1px] rounded-full ${on ? "bg-acc-faint text-acc" : "bg-bg-2 text-txt-3"}`}>{count}</span>
+                      <span className="font-mono text-[9.5px] opacity-65">{count}</span>
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          {/* ══ Palette (scrolls) ══════════════════════════════════════════ */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-[13px] py-[12px] [scrollbar-width:thin] [scrollbar-color:var(--bg-3)_transparent]" role="tabpanel">
-            {q.trim() ? (
-              searchGroups && searchGroups.length > 0 ? (
-                <div className="flex flex-col gap-[8px]">
-                  {searchGroups.map(([cat, kinds]) => (
-                    <div key={cat}>
-                      <div className="flex items-center gap-[8px] mb-[8px] text-[9.5px] font-semibold uppercase tracking-[0.11em] text-txt-2 capitalize">
-                        {cat}<span className="flex-1 h-px bg-line" />
-                      </div>
-                      <div className="flex flex-wrap content-start gap-[8px]">
-                        {kinds.map((kind) => (
-                          <DecoTileCell key={kind} kind={kind} selected={tool === kind} onSelect={onSelectTool} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center px-3 py-8 font-mono text-[12px] text-txt-2">No tiles match &ldquo;{q}&rdquo;</div>
-              )
-            ) : (
-              <div className="flex flex-wrap content-start gap-[8px]">
-                {filteredKinds.map((kind) => (
-                  <DecoTileCell key={kind} kind={kind} selected={tool === kind} onSelect={onSelectTool} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ══ Inspector ══════════════════════════════════════════════════ */}
-          <div className="shrink-0 px-[15px] py-[11px] flex flex-col gap-[10px] border-t border-line" style={{ background: "linear-gradient(180deg, var(--bg-2), var(--bg-1))" }}>
-            <div className="flex items-center gap-[12px]">
-              <div
-                className="w-[44px] h-[44px] rounded-[11px] flex items-center justify-center shrink-0 border border-line"
-                style={{ background: THUMB_BG, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}
+              <span className="flex-1" />
+              <button
+                ref={terrainBtnRef}
+                type="button"
+                onClick={() => setTerrainOpen((v) => !v)}
+                aria-expanded={terrainOpen}
+                title="Terrain — biome color and land generation"
+                className={`flex items-center gap-[8px] pl-[6px] pr-[10px] py-[6px] rounded-[10px] border cursor-pointer transition-colors duration-150 shrink-0 ${terrainOpen ? "bg-acc-soft border-acc-line" : "bg-card-2 border-edge hover:border-edge-2"}`}
               >
-                {selectedDef ? (
-                  <DecoSprite def={selectedDef} size={30} />
-                ) : (
-                  <span className="text-txt-2"><Icon name={paintingTool ? "pen" : "crosshair"} size={17} /></span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-txt text-[13px] truncate">
-                  {selectedDef?.label ?? (paintingTool ? `${activeToolDef?.label ?? "Tool"} mode` : "No selection")}
-                </div>
-                <div className="mt-[5px] flex items-center gap-[5px]">
-                  {selectedDef ? (
-                    <>
-                      <InspectorChip>{selectedDef.category}</InspectorChip>
-                      <InspectorChip>{selectedDef.family}</InspectorChip>
-                      <InspectorChip>{selectedDef.terrain}</InspectorChip>
-                    </>
-                  ) : (
-                    <span className="text-[11px] text-txt-2">{paintingTool ? "drag on the canvas to paint" : "pick a tile from the palette"}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {(paintingTool || selectedDef) && (
-              <div className="flex flex-wrap items-center gap-[9px] pt-[9px] border-t border-line">
-                <span className="inline-flex items-center gap-[6px] text-[9.5px] font-semibold uppercase tracking-[0.06em] text-txt-2">Brush <SoonBadge /></span>
-                <div className="flex gap-[2px] p-[2px] rounded-[8px] bg-bg-0 border border-line" role="group" aria-label="Brush size (coming soon)">
-                  {[1, 2, 3].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`min-w-[26px] h-[22px] px-[6px] rounded-[6px] font-mono text-[10px] cursor-pointer transition-colors duration-100 ${brush === s ? "text-white" : "text-txt-2 hover:text-txt"}`}
-                      style={brush === s ? { background: ACC_GRAD, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)" } : undefined}
-                      onClick={() => setBrush(s)}
-                      title={`${s}×${s} brush — coming soon`}
-                      aria-pressed={brush === s}
-                    >
-                      {s}×{s}
-                    </button>
-                  ))}
-                </div>
-                {selectedDef && (
-                  <button
-                    type="button"
-                    className={`inline-flex items-center gap-[6px] px-[9px] py-[5px] rounded-[8px] text-[10px] font-semibold uppercase tracking-[0.05em] border cursor-pointer transition-[background,color,border-color] duration-100 ${scatter ? "text-acc bg-acc-faint" : "text-txt-2 bg-bg-0 border-line hover:text-txt"}`}
-                    style={scatter ? { borderColor: ACC_BORDER } : undefined}
-                    onClick={() => setScatter((v) => !v)}
-                    title="Scatter — randomize variant & rotation while painting (coming soon)"
-                    aria-pressed={scatter}
-                  >
-                    <Icon name="sparkle" size={12} />
-                    Scatter
+                {grassColorDef && <BiomeThumb def={grassColorDef} size={22} className="rounded-[7px] shrink-0" extraStyle={{ boxShadow: "inset 0 0 0 1px var(--edge)" }} />}
+                <span className="text-[11.5px] font-medium text-txt whitespace-nowrap max-w-[120px] truncate">
+                  {grassColorDef?.label ?? "Biome"} <span className="text-txt-4">·</span> {shapeDef.label}
+                </span>
+                <Icon name="chevron" size={13} className={`shrink-0 transition-transform duration-150 ${terrainOpen ? "-rotate-90 text-acc" : "text-txt-4"}`} />
+              </button>
+              <div className="flex items-center gap-[8px] px-[11px] py-[6px] rounded-[10px] bg-card-2 border border-edge shadow-[var(--inset-hi)] shrink-0">
+                <Icon name="search" size={11} className="text-txt-4 shrink-0" />
+                <input
+                  className="w-[120px] bg-transparent border-0 outline-none text-txt text-[11px] placeholder:text-txt-4"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search tiles…"
+                  aria-label="Search tiles"
+                />
+                {q && (
+                  <button type="button" onClick={() => setQ("")} className="flex items-center bg-transparent border-0 cursor-pointer text-txt-4 hover:text-txt !p-0" aria-label="Clear search">
+                    <Icon name="x" size={11} />
                   </button>
                 )}
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* ══ Terrain popover ════════════════════════════════════════════ */}
-          <TerrainPopover t={t} grassColor={grassColor} onSelectGrassColor={onSelectGrassColor} />
-        </motion.div>
-      )}
-    </AnimatePresence>
+            {/* Tile row (horizontal scroll) */}
+            <div className="flex items-center gap-[8px] px-[13px] py-[11px] overflow-x-auto [scrollbar-width:thin]">
+              {searchTiles.length === 0 ? (
+                <div className="w-full text-center py-[14px] font-mono text-[12px] text-txt-3">No tiles match &ldquo;{q}&rdquo;</div>
+              ) : (
+                searchTiles.map((kind) => {
+                  const def = DECORATIONS[kind];
+                  const on = tool === kind;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => onSelectTool(kind)}
+                      title={`${def.label} · ${def.terrain}-only`}
+                      aria-pressed={on}
+                      disabled={def.locked}
+                      className={`relative shrink-0 w-[60px] flex flex-col items-center gap-[6px] px-[4px] pt-[8px] pb-[7px] rounded-[13px] cursor-pointer transition-transform duration-150 hover:-translate-y-[2px] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${on ? "bg-acc-soft shadow-[0_0_0_1px_var(--acc-line)]" : "bg-card-2"}`}
+                    >
+                      <span className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center shadow-[inset_0_0_0_1px_var(--edge)] overflow-hidden">
+                        <DecoSprite def={def} size={28} />
+                      </span>
+                      <span className={`text-[9.5px] font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-[54px] ${on ? "text-acc" : "text-txt-2"}`}>{def.label}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full-canvas bottom-sheet — rendered at the scene-root level (not inside
+          the small dock) so its `absolute inset-0` backdrop covers the whole
+          canvas, matching its original design. */}
+      {active && <TerrainPopover t={t} grassColor={grassColor} onSelectGrassColor={onSelectGrassColor} />}
+    </>
   );
 });
+
+function BannerBtn({ icon, title, onClick, disabled, label, danger }: { icon: Parameters<typeof Icon>[0]["name"]; title: string; onClick: () => void; disabled?: boolean; label: string; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={label}
+      className={`w-[30px] h-[30px] flex items-center justify-center rounded-[10px] text-txt-3 cursor-pointer transition-colors duration-150 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent ${danger ? "hover:bg-red-soft hover:text-red" : "hover:bg-card-2 hover:text-txt"}`}
+    >
+      <Icon name={icon} size={14} />
+    </button>
+  );
+}

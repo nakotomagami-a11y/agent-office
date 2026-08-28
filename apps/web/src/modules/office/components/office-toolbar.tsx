@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/ui/icon";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { cn } from "@/lib/cn";
-import { ACCENT_BTN } from "@/components/ui/button";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
@@ -321,7 +321,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
             </button>
 
             {open && (
-              <div className="absolute top-[calc(100%+6px)] right-0 w-[220px] bg-[var(--bg-elev)] border border-[var(--line-2)] rounded-[10px] shadow-[var(--shadow-3)] z-50 py-1 overflow-hidden">
+              <div className="absolute top-[calc(100%+6px)] right-0 w-[220px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
                 {commands.map((cmd) => {
                   const s = getState(cmd.key);
                   const busy = s.phase === "starting" || s.phase === "stopping";
@@ -661,7 +661,7 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
         </button>
       </Tooltip>
       {open && (
-        <div className="absolute top-[calc(100%+6px)] right-0 w-[240px] bg-[var(--bg-elev)] border border-[var(--line-2)] rounded-[10px] shadow-[var(--shadow-3)] z-[9999] p-1 flex flex-col gap-[1px]">
+        <div className="absolute top-[calc(100%+6px)] right-0 w-[240px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col gap-[1px]">
           <OpenFolderButton projectId={projectId} menu />
           <OpenInVSCodeButton projectId={projectId} menu />
           <ClearCacheButton projectId={projectId} menu />
@@ -685,6 +685,7 @@ export type OfficeToolbarProps = {
 };
 
 export function OfficeToolbar({ agentCount, workingCount }: OfficeToolbarProps) {
+  const t = useTranslations("office");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const setActiveId = useActiveProjectStore((s) => s.setId);
   const projectQ = useProject(activeProjectId);
@@ -695,30 +696,37 @@ export function OfficeToolbar({ agentCount, workingCount }: OfficeToolbarProps) 
   const rosterCount = activeProjectId ? project?.meta.roster.length ?? 0 : 0;
 
   return (
-    <header className="border-b border-line shrink-0 flex items-center gap-[16px] px-[28px] pt-[18px] pb-[14px]">
+    <header className="shrink-0 flex items-center gap-[16px]">
       <div className="flex items-center gap-[14px] min-w-0">
-        <h1 className="font-bold m-0 text-[22px] tracking-[-0.01em] shrink-0">The office</h1>
+        <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.035em] whitespace-nowrap shrink-0">{t("title")}</h1>
         {activeProjectId ? (
           <>
             <ProjectChip projectId={activeProjectId} project={project} />
-            <span className="text-txt-3 font-mono text-[12px] shrink-0 whitespace-nowrap">
-              {rosterCount} agent{rosterCount === 1 ? "" : "s"}
-              {workingCount > 0 && (
-                <> · <span className="text-status-working">{workingCount} working</span></>
-              )}
+            <span className="text-txt-4 font-mono text-[11.5px] shrink-0 whitespace-nowrap">
+              {t("agents_count", { count: rosterCount })}
             </span>
+            {workingCount > 0 && (
+              <span className="flex items-center gap-[6px] font-mono text-[11.5px] text-green whitespace-nowrap shrink-0">
+                <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
+                {t("working_count", { count: workingCount })}
+              </span>
+            )}
           </>
         ) : (
-          <span className="text-txt-3 font-mono text-[12px] shrink-0">
-            · {agentCount} agent{agentCount === 1 ? "" : "s"}
+          <span className="text-txt-4 font-mono text-[11.5px] shrink-0">
+            {t("agents_count", { count: agentCount })}
           </span>
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-[8px]">
+      <div className="ml-auto flex items-center gap-[10px]">
         {activeProjectId && <ProjectActionsBar projectId={activeProjectId} />}
-        <button type="button" className={`inline-flex items-center gap-[6px] ${ACCENT_BTN} font-semibold cursor-pointer px-[14px] py-[8px] rounded-[9px] text-[13px]`} onClick={() => setAddOpen(true)}>
-          <Icon name="plus" size={13} /> Add agent
+        <button
+          type="button"
+          className="flex items-center gap-[8px] px-[18px] py-[11px] rounded-[14px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_14px_30px_-14px_rgba(139,123,255,0.9)] transition-transform duration-150 hover:-translate-y-[2px]"
+          onClick={() => setAddOpen(true)}
+        >
+          <Icon name="plus" size={15} /> {t("add_agent")}
         </button>
       </div>
 

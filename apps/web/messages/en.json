@@ -24,35 +24,30 @@
     "title": "The office",
     "agents_count": "{count, plural, one {# agent} other {# agents}}",
     "working_count": "{count} working",
-    "live_label": "live",
-    "idle_label": "idle",
     "needs_attention_label": "need attention",
-    "spend_today": "Spend today",
     "budget_daily": "Budget",
-    "view_iso": "Iso",
-    "view_cards": "Cards",
     "new_agent": "New agent",
     "add_agent": "Add agent",
-    "no_project_selected": "No project selected",
-    "no_project_hint": "Pick a project from the top-left switcher to scope the floor.",
-    "empty_roster_title": "No agents in this project yet",
-    "empty_roster_hint": "Click \"Add agent\" to drop one onto the floor.",
     "error_filter_banner": "Showing agents needing attention",
     "error_filter_clear": "Clear filter"
   },
-  "office_toolbar": {
-    "view_group_aria": "Office view",
-    "view_iso_aria": "Iso office view",
-    "view_cards_aria": "Cards office view",
-    "zoom_group_aria": "Office zoom",
-    "zoom_in_aria": "Zoom in",
-    "zoom_out_aria": "Zoom out",
-    "zoom_reset_aria": "Reset zoom",
-    "add_to_project_title": "Add an agent instance to {project}",
-    "add_no_project_title": "Pick a project, then add an agent",
-    "no_project_selected": "no project selected",
-    "agents_available": "{count} available",
-    "in_project_label": "in {project}"
+  "office_build_toolbar": {
+    "switch_to_shared": "Switch back to the default shared layout",
+    "switch_to_project": "Create a project-specific layout",
+    "scope_project": "Project",
+    "scope_default": "Default"
+  },
+  "office_scene_hud": {
+    "tile": "Tile",
+    "map": "Map",
+    "placed": "Placed",
+    "placed_count": "{count, plural, one {# tile} other {# tiles}}"
+  },
+  "office_view": {
+    "iso_disabled_title": "Isometric office is off",
+    "iso_disabled_perf_body": "The isometric floor needs the Full rendering budget. Raise the performance mode in Settings to load it.",
+    "iso_disabled_body": "The office renders as a 3D isometric floor. Turn on the Isometric view integration to use it.",
+    "open_settings": "Open Settings"
   },
   "common": {
     "search_placeholder": "Filter…",
