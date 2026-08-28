@@ -37,3 +37,45 @@ export function groupRows(items: ThreadItem[]): RenderRow[] {
   }
   return rows;
 }
+
+/** One user ask plus everything the agent did in response to it, up to (but
+ *  not including) the next "you". Mirrors how the turn-timeline UI reads a
+ *  conversation: one row per ask, with its own cost/token ledger. */
+export type Turn = {
+  id: string;
+  /** null only for stray agent activity that precedes the first "you" in the
+   *  visible window (e.g. right after "Load earlier"). */
+  ask: Extract<ThreadItem, { kind: "you" }> | null;
+  rows: RenderRow[];
+  /** From this turn's own `system-done`, if it has finished. */
+  ledger: { tokens: number; cost: number; durationMs: number | undefined } | null;
+  /** Running total cost through and including this turn. */
+  cumulativeCost: number;
+};
+
+export function groupTurns(rows: RenderRow[]): Turn[] {
+  const turns: Turn[] = [];
+  let current: Turn | null = null;
+
+  for (const row of rows) {
+    const item = row.kind === "single" ? row.item : null;
+    if (item?.kind === "you") {
+      if (current) turns.push(current);
+      current = { id: `turn-${item.id}`, ask: item, rows: [], ledger: null, cumulativeCost: 0 };
+      continue;
+    }
+    if (!current) current = { id: "turn-lead", ask: null, rows: [], ledger: null, cumulativeCost: 0 };
+    current.rows.push(row);
+    if (item?.kind === "system-done") {
+      current.ledger = { tokens: (item.tokensIn ?? 0) + (item.tokensOut ?? 0), cost: item.cost ?? 0, durationMs: item.durationMs };
+    }
+  }
+  if (current) turns.push(current);
+
+  let running = 0;
+  for (const t of turns) {
+    if (t.ledger) running += t.ledger.cost;
+    t.cumulativeCost = running;
+  }
+  return turns;
+}

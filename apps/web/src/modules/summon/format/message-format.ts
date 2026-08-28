@@ -3,6 +3,17 @@
 
 import { escapeHtml } from "@/lib/markdown";
 
+/** Wall-clock "you" item ids are `y_<epoch-ms>` — extract a real HH:MM from
+ *  them for the turn timeline. Returns undefined for non-`y_`-prefixed ids
+ *  (or malformed ones) rather than guessing a time. */
+export function fmtClockTime(itemId: string): string | undefined {
+  const m = /^y_(\d+)$/.exec(itemId);
+  if (!m) return undefined;
+  const ts = Number(m[1]);
+  if (!Number.isFinite(ts)) return undefined;
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export function fmtDuration(ms: number): string {
   const sec = Math.round(ms / 1000);
   if (sec < 60) return `${sec}s`;
@@ -87,5 +98,6 @@ export function inlineMd(s: string): string {
   return escapeHtml(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }

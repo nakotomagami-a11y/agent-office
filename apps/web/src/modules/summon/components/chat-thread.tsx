@@ -7,23 +7,24 @@ import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { ExpandedStateContext, MessageBubble, ToolGroupRow } from "./message-bubble";
+import { MsgActions } from "./msg-actions";
 import { LiveStatus, type ChatPhase } from "./live-status";
 import { agentDisplayName } from "@/lib/agent-display-name";
+import { fmtClockTime, fmtDuration } from "../format/message-format";
 import type { ThreadItem } from "../format/thread-types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
-import { groupRows, isAgentRow, looksLikeQuestion } from "../format/thread-rows";
+import { groupRows, groupTurns, looksLikeQuestion, type Turn } from "../format/thread-rows";
 import { dedupeThread } from "../format/dedupe-thread";
 
 const LIVE_PHASES = new Set<ChatPhase>(["sending", "connecting", "working", "streaming"]);
-const CONVERSATIONAL_KINDS = new Set<string>(["you", "agent-text", "system-done", "system-error", "system-rate-limit", "agent-subagent"]);
 
-/** How many items to render at first. The transcript may hold thousands;
- *  rendering the whole list on every token would be a frame-drop nightmare. */
-const VISIBLE_WINDOW = 50;
-/** How many additional older items to surface when the user clicks "Load
- *  earlier". Tuned so the first paint after a click stays under a frame
- *  budget even on a low-end laptop. */
-const LOAD_MORE_STEP = 50;
+/** How many turns to render at first. The transcript may hold thousands of
+ *  items across hundreds of turns; rendering them all on every token would
+ *  be a frame-drop nightmare. */
+const VISIBLE_TURNS = 30;
+/** How many additional older turns to surface when the user clicks "Load
+ *  earlier". */
+const LOAD_MORE_TURNS = 30;
 /** Distance from the bottom (in CSS px) that still counts as "near bottom".
  *  While the user is inside this band, the thread keeps auto-scrolling on
  *  new tokens; once they scroll above it, auto-follow is paused. */
@@ -66,6 +67,60 @@ const SUGGESTIONS: Array<{ lbl: string; text: string }> = [
   { lbl: "Explain", text: "Walk me through how this part of the system handles errors." },
 ];
 
+function fmtLedgerCost(cost: number): string {
+  return cost > 0 ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : "$0";
+}
+
+/** Left rail for one turn row: connecting line + numbered dot. `variant`
+ *  controls the dot's color/pulse — "live" for the still-streaming tail. */
+function TurnRail({ n, variant }: { n: number | null; variant: "done" | "live" }) {
+  return (
+    <div className="relative pt-[2px] w-[36px] shrink-0 flex flex-col items-center">
+      <span className="absolute top-0 bottom-[-20px] w-px bg-[var(--line)]" aria-hidden />
+      <span
+        className={`relative z-[1] w-[13px] h-[13px] rounded-full bg-[var(--bg-1)] flex items-center justify-center ${
+          variant === "live" ? "shadow-[0_0_0_1px_var(--acc),0_0_0_3px_var(--bg-1)]" : "shadow-[0_0_0_1px_var(--line-2),0_0_0_3px_var(--bg-1)]"
+        }`}
+      >
+        <span
+          className={`w-[5px] h-[5px] rounded-full ${variant === "live" ? "bg-[var(--acc)] animate-[ao-pulse_1.4s_ease-in-out_infinite]" : "bg-[var(--txt-4)]"}`}
+        />
+      </span>
+      {n !== null && (
+        <span className="mt-[8px] font-[var(--font-mono)] text-[9px] text-[var(--txt-4)]">{n}</span>
+      )}
+    </div>
+  );
+}
+
+/** Right rail: this turn's own cost/token ledger plus the running total. */
+function TurnLedger({ turn }: { turn: Turn }) {
+  if (!turn.ledger) return <div className="w-[84px] shrink-0" aria-hidden />;
+  return (
+    <div className="w-[84px] shrink-0 text-right pl-[12px] border-l border-[var(--line)]">
+      <div className="font-[var(--font-mono)] text-[11px] font-bold text-[var(--txt-2)] whitespace-nowrap">
+        {fmtLedgerCost(turn.ledger.cost)}
+      </div>
+      <div className="text-[8.5px] font-bold tracking-[0.08em] uppercase text-[var(--txt-4)] whitespace-nowrap">
+        {turn.ledger.tokens > 0 ? `${turn.ledger.tokens.toLocaleString()} tok` : "0 tok"}
+      </div>
+      {turn.ledger.durationMs !== undefined && (
+        <div className="mt-[3px] font-[var(--font-mono)] text-[10px] text-[var(--txt-4)] whitespace-nowrap">
+          {fmtDuration(turn.ledger.durationMs)}
+        </div>
+      )}
+      {turn.cumulativeCost > 0 && (
+        <div className="mt-[8px] pt-[7px] border-t border-[var(--line)]">
+          <div className="font-[var(--font-mono)] text-[10px] text-[var(--txt-4)] whitespace-nowrap">
+            {fmtLedgerCost(turn.cumulativeCost)}
+          </div>
+          <div className="text-[8px] font-bold tracking-[0.08em] uppercase text-[var(--txt-4)] whitespace-nowrap">running</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
@@ -86,24 +141,24 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
   // ── Auto-follow state ──
   const [followTail, setFollowTail] = useState(true);
   const [hasNewBelow, setHasNewBelow] = useState(false);
-  // visibleCount: number of *rows* (not items) to show. Tool-chain groups count as one row.
-  const [visibleCount, setVisibleCount] = useState(VISIBLE_WINDOW);
+  // visibleCount: number of *turns* (one user ask + everything it triggered)
+  // to show — not items, not rows. A turn with a dozen tool calls still counts as one.
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_TURNS);
 
   // frozenStartRef: when the user scrolls up (!followTail), we lock the
-  // start row index so that new items appended at the tail don't shift the
+  // start turn index so that new turns appended at the tail don't shift the
   // slice the user is reading. null = follow-tail mode.
   const frozenStartRef = useRef<number | null>(null);
 
-  // Group ALL items once so chain IDs (chain-${firstTool.id}) are stable for
-  // the lifetime of the transcript. Windowing on rows (not items) means a
-  // chain that started before the visible window still gets a consistent key,
-  // preventing ToolGroupRow from unmounting/remounting mid-stream and losing
-  // its expanded state.
-  const allRows = useMemo(() => groupRows(items), [items]);
+  // Group ALL items into turns once so turn ids stay stable for the life of
+  // the transcript. Windowing on turns (not raw items) means a turn that
+  // started before the visible window still gets a consistent key, preventing
+  // components from unmounting/remounting mid-stream and losing state.
+  const allTurns = useMemo(() => groupTurns(groupRows(items)), [items]);
 
   // Refs so the scroll handler (created once) can read current values.
-  const allRowsLengthRef = useRef(allRows.length);
-  allRowsLengthRef.current = allRows.length;
+  const allTurnsLengthRef = useRef(allTurns.length);
+  allTurnsLengthRef.current = allTurns.length;
   const visibleCountRef = useRef(visibleCount);
   visibleCountRef.current = visibleCount;
 
@@ -115,35 +170,34 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
     if (prevFirstIdRef.current === firstId) return;
     prevFirstIdRef.current = firstId;
     frozenStartRef.current = null;
-    setVisibleCount(VISIBLE_WINDOW);
+    setVisibleCount(VISIBLE_TURNS);
     setFollowTail(true);
     setHasNewBelow(false);
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [firstId, items.length]);
 
-  // Window into allRows. While frozen, the start index is fixed — new rows
+  // Window into allTurns. While frozen, the start index is fixed — new turns
   // appended at the tail stay outside the visible slice.
-  const visibleRows = useMemo(() => {
+  const visibleTurns = useMemo(() => {
     const frozen = frozenStartRef.current;
     if (frozen !== null) {
-      return allRows.slice(frozen, Math.min(frozen + visibleCount, allRows.length));
+      return allTurns.slice(frozen, Math.min(frozen + visibleCount, allTurns.length));
     }
-    if (visibleCount >= allRows.length) return allRows;
-    return allRows.slice(allRows.length - visibleCount);
+    if (visibleCount >= allTurns.length) return allTurns;
+    return allTurns.slice(allTurns.length - visibleCount);
   // followTail is in deps so the memo re-runs when frozenStartRef changes
   // (frozenStartRef is mutated in the scroll handler then setFollowTail fires).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, visibleCount, followTail]);
+  }, [allTurns, visibleCount, followTail]);
 
-  // Count hidden conversational rows (tool chains don't count toward the pill).
-  const rowWindowStart = frozenStartRef.current !== null
+  // Count hidden turns (the leading orphan turn with no ask, if any, doesn't
+  // count — there's nothing to "load" toward it).
+  const turnWindowStart = frozenStartRef.current !== null
     ? frozenStartRef.current
-    : Math.max(0, allRows.length - visibleCount);
-  const hiddenConversationalCount = rowWindowStart > 0
-    ? allRows.slice(0, rowWindowStart).filter(
-        (row) => row.kind === "single" && CONVERSATIONAL_KINDS.has(row.item.kind)
-      ).length
+    : Math.max(0, allTurns.length - visibleCount);
+  const hiddenTurnCount = turnWindowStart > 0
+    ? allTurns.slice(0, turnWindowStart).filter((turn) => turn.ask !== null).length
     : 0;
 
   // Detect agent-text items that are asking a question and haven't been
@@ -181,7 +235,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
         const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
         const nearBottom = distance <= STICK_THRESHOLD_PX;
         if (!nearBottom && frozenStartRef.current === null) {
-          frozenStartRef.current = Math.max(0, allRowsLengthRef.current - visibleCountRef.current);
+          frozenStartRef.current = Math.max(0, allTurnsLengthRef.current - visibleCountRef.current);
         }
         if (nearBottom) {
           frozenStartRef.current = null;
@@ -206,7 +260,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
     frozenStartRef.current = null;
     setFollowTail(true);
     setHasNewBelow(false);
-     
+
   }, []);
 
   // ── New content effect ──
@@ -241,15 +295,15 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
     const el = scrollRef.current;
     // When frozen, extend the window backward by moving frozenStart earlier.
     if (frozenStartRef.current !== null) {
-      frozenStartRef.current = Math.max(0, frozenStartRef.current - LOAD_MORE_STEP);
+      frozenStartRef.current = Math.max(0, frozenStartRef.current - LOAD_MORE_TURNS);
     }
     if (!el) {
-      setVisibleCount((c) => Math.min(allRowsLengthRef.current, c + LOAD_MORE_STEP));
+      setVisibleCount((c) => Math.min(allTurnsLengthRef.current, c + LOAD_MORE_TURNS));
       return;
     }
     const prevHeight = el.scrollHeight;
     const prevTop = el.scrollTop;
-    setVisibleCount((c) => Math.min(allRowsLengthRef.current, c + LOAD_MORE_STEP));
+    setVisibleCount((c) => Math.min(allTurnsLengthRef.current, c + LOAD_MORE_TURNS));
     requestAnimationFrame(() => {
       const nextHeight = el.scrollHeight;
       el.scrollTop = prevTop + (nextHeight - prevHeight);
@@ -263,6 +317,8 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
     setFollowTail(true);
     setHasNewBelow(false);
   }, []);
+
+  const isLiveTail = LIVE_PHASES.has(phase);
 
   return (
     <ExpandedStateContext.Provider value={expandedCtx}>
@@ -296,81 +352,121 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
         </div>
       ) : (
         <>
-          {hiddenConversationalCount > 0 ? (
-            <div className="max-w-[760px] mx-auto mb-3 px-2 flex justify-center">
+          {hiddenTurnCount > 0 ? (
+            <div className="max-w-[880px] mx-auto mb-3 px-2 flex justify-center">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={loadEarlier}
-                aria-label={t("load_earlier_aria", { count: hiddenConversationalCount })}
+                aria-label={t("load_earlier_aria", { count: hiddenTurnCount })}
               >
                 <span className="inline-flex rotate-180" aria-hidden>
                   <Icon name="chevron-down" size={12} />
                 </span>
-                {t("load_earlier", { count: hiddenConversationalCount })}
+                {t("load_earlier", { count: hiddenTurnCount })}
               </Button>
             </div>
           ) : null}
-          <div className="max-w-[760px] mx-auto px-2 flex flex-col gap-[20px]">
-            {visibleRows.map((row, idx) => {
-              const prevRow = visibleRows[idx - 1] ?? null;
-              const curIsAgent = isAgentRow(row);
-              const hideAvatar = curIsAgent && prevRow !== null && isAgentRow(prevRow);
-
-              if (row.kind === "single") {
-                const isQuestion = questionIds.has(row.item.id);
-                const lastYouText = row.item.kind === "system-error" && onSubmit
-                  ? (items.slice(0, items.indexOf(row.item)).reverse().find(it => it.kind === "you") as { kind: "you"; text: string } | undefined)?.text
-                  : undefined;
-                const rlResetsAt = row.item.kind === "system-rate-limit" ? row.item.resetsAt : undefined;
-                const wasInterrupted = row.item.kind === "system-error" && row.item.interrupted === true;
-                const errLooksLimited =
-                  row.item.kind === "system-error" && (canScheduleResume === true || wasInterrupted);
-                return (
-                  <MessageBubble
-                    key={row.item.id + "mbbl_"+idx}
-                    item={row.item}
-                    agent={agent}
-                    isQuestion={isQuestion}
-                    hideAvatar={hideAvatar}
-                    onReply={isQuestion && onSubmit ? onSubmit : undefined}
-                    onRerun={row.item.kind === "you" && onSubmit ? onSubmit : undefined}
-                    onDelete={row.item.kind === "you" && onDeleteMessage ? () => onDeleteMessage(row.item.id) : undefined}
-                    onRetry={lastYouText ? () => onSubmit!(lastYouText) : undefined}
-                    onRepair={
-                      onRepairWorktree
-                        ? async () => {
-                            await onRepairWorktree();
-                            if (lastYouText) onSubmit?.(lastYouText);
-                          }
-                        : undefined
-                    }
-                    onStopRun={row.item.kind === "system-rate-limit" ? onAbortRun : undefined}
-                    onDismissRateLimit={row.item.kind === "system-rate-limit" && onDismissRateLimit ? () => onDismissRateLimit(row.item.id) : undefined}
-                    onScheduleRateLimit={
-                      rlResetsAt && onScheduleRateLimit ? () => onScheduleRateLimit(rlResetsAt) : undefined
-                    }
-                    onScheduleResumeAt={errLooksLimited ? onScheduleResumeAt : undefined}
-                    resumeResetsAtMs={resumeResetsAtMs}
-                  />
-                );
-              }
-              const isTail = idx === visibleRows.length - 1;
-              const running = isTail && LIVE_PHASES.has(phase);
+          <div className="max-w-[880px] mx-auto px-2 flex flex-col">
+            {visibleTurns.map((turn, turnIdx) => {
+              const isLastTurn = turnIdx === visibleTurns.length - 1;
+              const clockTime = turn.ask ? fmtClockTime(turn.ask.id) : undefined;
               return (
-                <ToolGroupRow
-                  key={row.id + "tgr_"+idx}
-                  id={row.id}
-                  tools={row.tools.map((t) => ({ id: t.id, name: t.name, arg: t.arg }))}
-                  agent={agent}
-                  hideAvatar={hideAvatar}
-                  running={running}
-                />
+                <div key={turn.id} className="flex gap-[14px] pb-[22px]">
+                  <TurnRail n={turn.ask ? turnIdx + 1 : null} variant={isLastTurn && isLiveTail ? "live" : "done"} />
+                  <div className="min-w-0 flex-1 pt-[2px]">
+                    {turn.ask && (
+                      <div className="relative group/msg mb-[14px]">
+                        <div className="flex items-center gap-[9px] mb-[5px]">
+                          <span className="font-[var(--font-mono)] text-[9.5px] font-extrabold tracking-[0.1em] text-[var(--acc)]">YOU</span>
+                          {clockTime && (
+                            <span className="font-[var(--font-mono)] text-[10px] text-[var(--txt-4)]">{clockTime}</span>
+                          )}
+                        </div>
+                        <div className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[var(--txt)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                          {turn.ask.text}
+                        </div>
+                        <MsgActions
+                          text={turn.ask.text}
+                          onRerun={onSubmit}
+                          onDelete={onDeleteMessage ? () => onDeleteMessage(turn.ask!.id) : undefined}
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-[16px]">
+                      {turn.rows.map((row, rowIdx) => {
+                        if (row.kind === "single") {
+                          const item = row.item;
+                          // A clean exit's duration/tokens/cost already live in
+                          // this turn's ledger column — the divider would just
+                          // repeat them. A non-zero exit is real signal (not
+                          // shown anywhere else), so that one still renders.
+                          if (item.kind === "system-done" && item.exitCode === 0) return null;
+                          const isQuestion = questionIds.has(item.id);
+                          const lastYouText = item.kind === "system-error" && onSubmit ? turn.ask?.text : undefined;
+                          const rlResetsAt = item.kind === "system-rate-limit" ? item.resetsAt : undefined;
+                          const wasInterrupted = item.kind === "system-error" && item.interrupted === true;
+                          const errLooksLimited = item.kind === "system-error" && (canScheduleResume === true || wasInterrupted);
+                          return (
+                            <MessageBubble
+                              key={item.id + "mbbl_" + rowIdx}
+                              item={item}
+                              agent={agent}
+                              isQuestion={isQuestion}
+                              hideAvatar
+                              onReply={isQuestion && onSubmit ? onSubmit : undefined}
+                              onRetry={lastYouText ? () => onSubmit!(lastYouText) : undefined}
+                              onRepair={
+                                onRepairWorktree
+                                  ? async () => {
+                                      await onRepairWorktree();
+                                      if (lastYouText) onSubmit?.(lastYouText);
+                                    }
+                                  : undefined
+                              }
+                              onStopRun={item.kind === "system-rate-limit" ? onAbortRun : undefined}
+                              onDismissRateLimit={item.kind === "system-rate-limit" && onDismissRateLimit ? () => onDismissRateLimit(item.id) : undefined}
+                              onScheduleRateLimit={
+                                rlResetsAt && onScheduleRateLimit ? () => onScheduleRateLimit(rlResetsAt) : undefined
+                              }
+                              onScheduleResumeAt={errLooksLimited ? onScheduleResumeAt : undefined}
+                              resumeResetsAtMs={resumeResetsAtMs}
+                            />
+                          );
+                        }
+                        const running = isLastTurn && rowIdx === turn.rows.length - 1 && LIVE_PHASES.has(phase);
+                        return (
+                          <ToolGroupRow
+                            key={row.id + "tgr_" + rowIdx}
+                            id={row.id}
+                            tools={row.tools.map((tl) => ({ id: tl.id, name: tl.name, arg: tl.arg }))}
+                            agent={agent}
+                            hideAvatar
+                            running={running}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <TurnLedger turn={turn} />
+                </div>
               );
             })}
+            {isLiveTail && (
+              <div className="flex gap-[14px] pb-[22px]">
+                <TurnRail n={null} variant="live" />
+                <div className="min-w-0 flex-1 pt-[2px] flex items-center gap-3">
+                  <LiveStatus phase={phase} hint={phaseHint} />
+                  {phaseStats && (
+                    <span className="font-[var(--font-mono)] text-[11.5px] text-[var(--txt-4)] whitespace-nowrap shrink-0">{phaseStats}</span>
+                  )}
+                </div>
+                <div className="w-[84px] shrink-0" aria-hidden />
+              </div>
+            )}
           </div>
           {queuedMessages && queuedMessages.length > 0 ? (
-            <div className="max-w-[760px] mx-auto px-2 mt-5 flex flex-col gap-3">
+            <div className="max-w-[880px] mx-auto px-2 mt-1 flex flex-col gap-3">
               {queuedMessages.map((q, i) => (
                 <div key={q.id + "qm_"+i} className="flex flex-row-reverse ml-auto w-fit max-w-[80%] gap-[12px] relative opacity-[0.55]">
                   <UserAvatar size={60} className="shrink-0" />
@@ -392,12 +488,6 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
               ))}
             </div>
           ) : null}
-          <div className="max-w-[760px] mx-auto px-2 pb-4 mt-5 flex items-center gap-3">
-            <LiveStatus phase={phase} hint={phaseHint} />
-            {phaseStats && phase !== "idle" && phase !== "done" && phase !== "aborted" && (
-              <span className="font-mono text-[11.5px] text-ao-fg-3 whitespace-nowrap shrink-0">{phaseStats}</span>
-            )}
-          </div>
           {/* Sentinel for the stick-to-bottom scroll anchor. Lives at the
               very end of the scroll container so scrollIntoView({block:"end"})
               lands precisely where we want, regardless of LiveStatus height. */}

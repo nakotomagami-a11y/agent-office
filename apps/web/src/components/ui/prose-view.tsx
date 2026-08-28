@@ -2,19 +2,22 @@
 
 import React from "react";
 import { CodeBlock } from "./code-block";
+import { TableBlock } from "./table-block";
 import { splitProse, escapeHtml, type ProseItem } from "@/lib/markdown";
 
 function inlineMd(s: string): string {
   return escapeHtml(s)
     .replace(/`([^`]+)`/g, '<code class="px-[4px] py-[1px] rounded-[4px] bg-[var(--md-inline-bg)] text-[var(--code-inline-fg)] font-mono text-[0.9em]">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a class="text-acc underline underline-offset-2 hover:opacity-80" href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
 function Prose({ items }: { items: ProseItem[] }) {
   const out: React.ReactNode[] = [];
   let paraBuf: string[] = [];
   let listBuf: string[] = [];
+  let listOrdered = false;
 
   const flushPara = (key: string) => {
     if (!paraBuf.length) return;
@@ -26,13 +29,15 @@ function Prose({ items }: { items: ProseItem[] }) {
   };
   const flushList = (key: string) => {
     if (!listBuf.length) return;
+    const cls = "mb-[12px] pl-[20px]";
+    const rows = listBuf.map((it, i) => (
+      <li key={i} className="mb-[3px] text-txt leading-[1.65]"
+        dangerouslySetInnerHTML={{ __html: inlineMd(it) }} />
+    ));
     out.push(
-      <ul key={key} className="mb-[12px] pl-[20px] list-disc">
-        {listBuf.map((it, i) => (
-          <li key={i} className="mb-[3px] text-txt leading-[1.65]"
-            dangerouslySetInnerHTML={{ __html: inlineMd(it) }} />
-        ))}
-      </ul>,
+      listOrdered
+        ? <ol key={key} className={`${cls} list-decimal`}>{rows}</ol>
+        : <ul key={key} className={`${cls} list-disc`}>{rows}</ul>,
     );
     listBuf = [];
   };
@@ -42,6 +47,11 @@ function Prose({ items }: { items: ProseItem[] }) {
     if (typeof item === "object" && item.type === "code") {
       flushPara(`p${k}`); flushList(`l${k}`);
       out.push(<div key={k} className="my-[10px]"><CodeBlock body={item.body} lang={item.lang} /></div>);
+      return;
+    }
+    if (typeof item === "object" && item.type === "table") {
+      flushPara(`p${k}`); flushList(`l${k}`);
+      out.push(<TableBlock key={k} header={item.header} align={item.align} rows={item.rows} inlineMd={inlineMd} />);
       return;
     }
     const ln = item as string;
@@ -57,8 +67,8 @@ function Prose({ items }: { items: ProseItem[] }) {
       out.push(<p key={k} className={cls} dangerouslySetInnerHTML={{ __html: inlineMd(content) }} />);
       return;
     }
-    if (/^[-*]\s+/.test(ln)) { flushPara(`p${k}`); listBuf.push(ln.replace(/^[-*]\s+/, "")); return; }
-    if (/^\d+\.\s+/.test(ln)) { flushPara(`p${k}`); listBuf.push(ln.replace(/^\d+\.\s+/, "")); return; }
+    if (/^[-*]\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = false; listBuf.push(ln.replace(/^[-*]\s+/, "")); return; }
+    if (/^\d+\.\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = true; listBuf.push(ln.replace(/^\d+\.\s+/, "")); return; }
     if (ln.trim() === "") { flushPara(`p${k}`); flushList(`l${k}`); return; }
     flushList(`l${k}`);
     paraBuf.push(ln);

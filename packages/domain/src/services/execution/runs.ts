@@ -498,7 +498,13 @@ export function killAllRuns(): void {
 }
 
 function broadcast(run: LiveRun, event: SseEvent): void {
-  if (event.name === "chunk" || event.name === "tool" || event.name === "usage" || event.name === "subagent") {
+  if (
+    event.name === "chunk" ||
+    event.name === "tool" ||
+    event.name === "usage" ||
+    event.name === "subagent" ||
+    event.name === "rate-limit"
+  ) {
     run.eventLog.push(event as ReplayableEvent);
   }
   for (const emit of run.subscribers) {

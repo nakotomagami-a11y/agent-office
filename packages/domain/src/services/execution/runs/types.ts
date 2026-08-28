@@ -30,7 +30,10 @@ export type SseEvent =
 
 export type SseEmit = (event: SseEvent) => void | Promise<void>;
 
-export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "usage" | "subagent" }>;
+// `rate-limit` is replayable so the limit card survives an SSE reconnect or a
+// chat re-open. Without it, a reconnect replays only the streamed text chunk and
+// the card degrades back to a plain "You've hit your session limit" bubble.
+export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "usage" | "subagent" | "rate-limit" }>;
 
 export interface SubAgentRecord {
   subRunId: string;
