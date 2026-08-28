@@ -48,20 +48,20 @@ export function OfficeHud({
         onErrorFilter ? (
           <button
             type="button"
-            className="pointer-events-auto inline-flex items-center gap-2 border border-line rounded-full text-[12px] bg-[rgba(255,255,255,0.85)] dark:bg-[rgba(42,37,34,0.85)] backdrop-blur-[12px] px-3 py-[6px] shadow-1 cursor-pointer"
+            className="pointer-events-auto inline-flex items-center gap-2 surface-sheen rounded-full text-[12px] px-3 py-[6px] shadow-[var(--lift)] cursor-pointer"
             onClick={onErrorFilter}
             title="Show agents needing attention"
           >
             {errorCard}
           </button>
         ) : (
-          <div className="pointer-events-auto inline-flex items-center gap-2 border border-line rounded-full text-[12px] bg-[rgba(255,255,255,0.85)] dark:bg-[rgba(42,37,34,0.85)] backdrop-blur-[12px] px-3 py-[6px] shadow-1">{errorCard}</div>
+          <div className="pointer-events-auto inline-flex items-center gap-2 surface-sheen rounded-full text-[12px] px-3 py-[6px] shadow-[var(--lift)]">{errorCard}</div>
         )
       ) : null}
       <div className="flex-1" />
       {budgetDaily ? (
         <div
-          className="pointer-events-auto inline-flex items-center gap-2 border border-line rounded-full text-[12px] bg-[rgba(255,255,255,0.85)] dark:bg-[rgba(42,37,34,0.85)] backdrop-blur-[12px] px-3 py-[6px] shadow-1 transition-[background,border-color] duration-300"
+          className="pointer-events-auto inline-flex items-center gap-2 surface-sheen rounded-full text-[12px] px-3 py-[6px] shadow-[var(--lift)] transition-[background,border-color] duration-300"
           style={spendStyle(spendToday, budgetDaily)}
         >
           {t("office.budget_daily")} <b>${budgetDaily.toFixed(2)}/day</b>

@@ -16,10 +16,8 @@ import { DecoSelectMenu } from "./deco-select-menu";
 import { AgentSelectMenu } from "./agent-select-menu";
 import {
   CanvasToolsBar,
-  ViewToggle,
   BuildFpsBadge,
   CanvasInfoBar,
-  BuildActionsBar,
   MapSyncStatus,
 } from "./office-scene-hud";
 import { useCanvasEditing } from "../hooks/use-canvas-editing";
@@ -417,7 +415,6 @@ export function OfficeScene({
   }, [projectId]);
 
   const selectAgent = useOfficeStore((s) => s.select);
-  const setView = useOfficeStore((s) => s.setView);
   const onAgentClick = useCallback(
     (x: number, y: number, ref: DragRef) => {
       if (buildMode && tool === "erase") {
@@ -603,21 +600,9 @@ export function OfficeScene({
         fpsEnabled={fpsEnabled}
       />
 
-      <ViewToggle show={!buildMode} setView={setView} />
-
       <BuildFpsBadge show={buildMode && fpsEnabled} />
 
       <CanvasInfoBar show={!buildMode} hoverTile={hoverTile} placed={grassCount + decoCount} />
-
-      <BuildActionsBar
-        show={buildMode}
-        pendingChanges={pendingChanges}
-        onDone={() => { setBuildMode(false); setPendingChanges(0); undoStack.current = []; redoStack.current = []; }}
-        projectId={projectId}
-        useCustomMap={useCustomMap}
-        enableCustomMap={enableCustomMap}
-        disableCustomMap={disableCustomMap}
-      />
 
       <OfficeBuildToolbar
         active={buildMode}
@@ -632,6 +617,12 @@ export function OfficeScene({
         onRedo={onRedo}
         onReset={onResetCanvas}
         onGenerateLand={onGenerateLand}
+        pendingChanges={pendingChanges}
+        onDone={() => { setBuildMode(false); setPendingChanges(0); undoStack.current = []; redoStack.current = []; }}
+        projectId={projectId}
+        useCustomMap={useCustomMap}
+        enableCustomMap={enableCustomMap}
+        disableCustomMap={disableCustomMap}
       />
 
       <MapSyncStatus

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/ui/icon";
 import { GRID_COLS, GRID_ROWS } from "../hooks/use-office-camera";
@@ -80,21 +81,21 @@ export function CanvasToolsBar({
       {show && (
         <motion.div
           key="canvas-tools"
-          className="canvas-tools absolute flex items-center gap-[6px] z-[10] pointer-events-auto top-[14px] left-[14px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px]"
+          className="canvas-tools absolute flex items-center gap-[4px] z-[10] pointer-events-auto top-[16px] left-[16px] surface-sheen rounded-[15px] shadow-[var(--lift)] p-[5px]"
           initial={{ opacity: 0, scale: 0.85, x: -6, y: -6 }}
           animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26 } }}
           exit={{ opacity: 0, scale: 0.8, x: -6, y: -6, transition: { duration: 0.13, ease: "easeIn", delay: 0.04 } }}
         >
           <button
             type="button"
-            className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
+            className="w-[30px] h-[30px] flex items-center justify-center rounded-[10px] text-txt-3 transition-colors duration-150 hover:bg-card-2 hover:text-txt"
             onClick={() => zoomBy(1 - zoomStep)}
             aria-label="Zoom out"
           >
-            <Icon name="minus" size={11} />
+            <Icon name="minus" size={14} />
           </button>
           <div
-            className="text-center cursor-pointer px-[8px] py-[2px] text-[rgba(199,191,183,0.9)] font-mono text-[11px] min-w-[40px] hover:text-[#f4efea]"
+            className="text-center cursor-pointer min-w-[46px] font-mono text-[11.5px] font-bold text-txt-2 hover:text-txt"
             onClick={resetCamera}
             title="Reset camera"
             role="button"
@@ -105,25 +106,25 @@ export function CanvasToolsBar({
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
+            className="w-[30px] h-[30px] flex items-center justify-center rounded-[10px] text-txt-3 transition-colors duration-150 hover:bg-card-2 hover:text-txt"
             onClick={() => zoomBy(1 + zoomStep)}
             aria-label="Zoom in"
           >
-            <Icon name="plus" size={11} />
+            <Icon name="plus" size={14} />
           </button>
-          <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
           <button
             type="button"
-            className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[rgba(199,191,183,0.9)] text-[11.5px] font-mono transition-[background,color] duration-100 hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
+            className="w-[30px] h-[30px] flex items-center justify-center rounded-[10px] text-txt-3 transition-colors duration-150 hover:bg-card-2 hover:text-txt"
             title="Recenter"
             onClick={resetCamera}
           >
-            <Icon name="crosshair" size={13} />
+            <Icon name="crosshair" size={14} />
           </button>
-          <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-          <div className="relative">
+          <div className="shrink-0 w-[1px] h-[20px] bg-edge mx-[3px]" />
+          <div className="relative flex items-center gap-[8px] pl-[4px] pr-[12px]">
+            <Icon name="search" size={12} className="text-txt-4 shrink-0" />
             <input
-              className="bg-transparent border-none outline-none text-[rgba(199,191,183,0.9)] font-mono text-[11px] w-[110px] px-[4px] py-[2px] focus:text-[#f4efea] placeholder:text-[rgba(199,191,183,0.4)]"
+              className="bg-transparent border-none outline-none text-txt text-[11.5px] w-[110px] py-[2px] placeholder:text-txt-4"
               type="search"
               placeholder="Find agent…"
               value={agentSearch}
@@ -133,16 +134,16 @@ export function CanvasToolsBar({
               aria-label="Search agents"
             />
             {searchOpen && searchMatches.length > 0 && (
-              <div className="absolute left-0 top-[calc(100%+6px)] min-w-[180px] max-h-[240px] overflow-y-auto bg-[rgba(20,16,14,0.98)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px] shadow-[var(--shadow-2)] [scrollbar-width:thin]">
+              <div className="absolute left-0 top-[calc(100%+8px)] min-w-[190px] max-h-[240px] overflow-y-auto surface-sheen rounded-[13px] p-[6px] shadow-[var(--lift)] [scrollbar-width:thin]">
                 {searchMatches.map((m) => (
                   <button
                     key={m.key}
                     type="button"
-                    className="w-full flex items-center gap-[7px] text-left px-[8px] py-[6px] rounded-[5px] text-[rgba(199,191,183,0.9)] font-mono text-[11.5px] transition-[background,color] duration-100 hover:bg-[rgba(233,84,32,0.14)] hover:text-[#f4efea]"
+                    className="w-full flex items-center gap-[8px] text-left px-[9px] py-[7px] rounded-[9px] text-txt-2 font-mono text-[11.5px] transition-colors duration-150 hover:bg-card-2 hover:text-txt"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => { focusOn(m.x, m.y, 0.75); setSearchOpen(false); }}
                   >
-                    <span className="w-[6px] h-[6px] rounded-full bg-[#ff2d1e] shrink-0" />
+                    <span className="w-[6px] h-[6px] rounded-full bg-red shrink-0" />
                     <span className="truncate">{m.name}</span>
                   </button>
                 ))}
@@ -151,48 +152,10 @@ export function CanvasToolsBar({
           </div>
           {fpsEnabled && (
             <>
-              <div className="shrink-0 w-[1px] h-[16px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
+              <div className="shrink-0 w-[1px] h-[20px] bg-edge mx-[3px]" />
               <FpsCounter />
             </>
           )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-// Top-right: iso / cards view toggle (hidden in build mode)
-export function ViewToggle({
-  show,
-  setView,
-}: {
-  show: boolean;
-  setView: (view: "iso" | "cards") => void;
-}) {
-  return (
-    <AnimatePresence initial={false}>
-      {show && (
-        <motion.div
-          key="view-toggle"
-          className="absolute flex items-center z-[10] pointer-events-auto top-[14px] right-[14px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] p-[4px] gap-[2px]"
-          initial={{ opacity: 0, scale: 0.85, x: 6, y: -6 }}
-          animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26, delay: 0.05 } }}
-          exit={{ opacity: 0, scale: 0.8, x: 6, y: -6, transition: { duration: 0.13, ease: "easeIn" } }}
-        >
-          <button
-            type="button"
-            className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[11.5px] font-mono transition-[background,color] duration-100 bg-[rgba(255,240,230,0.12)] text-[#f4efea]"
-            onClick={() => setView("iso")}
-          >
-            <Icon name="map" size={11} /> Iso
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-[4px] px-[8px] py-[5px] rounded-[5px] text-[11.5px] font-mono transition-[background,color] duration-100 text-[rgba(199,191,183,0.9)] hover:bg-[rgba(255,240,230,0.08)] hover:text-[#f4efea]"
-            onClick={() => setView("cards")}
-          >
-            <Icon name="grid" size={11} /> Cards
-          </button>
         </motion.div>
       )}
     </AnimatePresence>
@@ -229,94 +192,30 @@ export function CanvasInfoBar({
   hoverTile: { x: number; y: number } | null;
   placed: number;
 }) {
+  const t = useTranslations("office_scene_hud");
   return (
     <AnimatePresence initial={false}>
       {show && (
         <motion.div
           key="canvas-info"
-          className="canvas-info absolute flex z-[10] pointer-events-none bottom-[14px] left-[14px] gap-[14px] px-[12px] py-[8px] bg-[rgba(20,16,14,0.95)] border border-[rgba(255,240,230,0.12)] rounded-[8px] font-mono text-[10.5px] text-[rgba(138,128,121,0.9)]"
+          className="canvas-info absolute flex items-center z-[10] pointer-events-none bottom-[16px] left-[16px] py-[9px] px-[4px] surface-sheen rounded-[15px] shadow-[var(--lift)]"
           initial={{ opacity: 0, scale: 0.85, x: -6, y: 6 }}
           animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { type: "spring", stiffness: 300, damping: 26, delay: 0.1 } }}
           exit={{ opacity: 0, scale: 0.8, x: -6, y: 6, transition: { duration: 0.13, ease: "easeIn", delay: 0.1 } }}
         >
-          <div className="item">
-            <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Tile</div>
-            <div className="text-[rgba(244,239,234,0.9)]">{hoverTile ? `${hoverTile.x}, ${hoverTile.y}` : "-"}</div>
-          </div>
-          <div className="item">
-            <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Map</div>
-            <div className="text-[rgba(244,239,234,0.9)]">{GRID_COLS} × {GRID_ROWS}</div>
-          </div>
-          <div className="item">
-            <div className="uppercase tracking-[0.06em] text-[rgba(94,86,81,0.9)] text-[9.5px]">Placed</div>
-            <div className="text-[rgba(244,239,234,0.9)]">{placed} tiles</div>
-          </div>
+          {[
+            { label: t("tile"), value: hoverTile ? `${hoverTile.x}, ${hoverTile.y}` : "-" },
+            { label: t("map"), value: `${GRID_COLS} × ${GRID_ROWS}` },
+            { label: t("placed"), value: t("placed_count", { count: placed }) },
+          ].map((item, i, arr) => (
+            <div key={item.label} className={`px-[14px] leading-[1.3] ${i < arr.length - 1 ? "border-r border-edge" : ""}`}>
+              <div className="text-[8.5px] font-extrabold tracking-[0.09em] uppercase text-txt-4 whitespace-nowrap">{item.label}</div>
+              <div className="font-mono text-[11.5px] font-bold text-txt-2 mt-[2px] whitespace-nowrap">{item.value}</div>
+            </div>
+          ))}
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-// Bottom-center: build mode Done + layout scope toggle.
-export function BuildActionsBar({
-  show,
-  pendingChanges,
-  onDone,
-  projectId,
-  useCustomMap,
-  enableCustomMap,
-  disableCustomMap,
-}: {
-  show: boolean;
-  pendingChanges: number;
-  onDone: () => void;
-  projectId: string | null;
-  useCustomMap: boolean;
-  enableCustomMap: () => void;
-  disableCustomMap: () => void;
-}) {
-  return (
-    <div className="absolute bottom-[14px] left-1/2 -translate-x-1/2 z-[15] pointer-events-none">
-      <AnimatePresence>
-        {show && (
-          <motion.div
-            key="done-bar"
-            className="build-actions-bar flex items-center gap-[4px] pointer-events-auto whitespace-nowrap rounded-full p-[5px] bg-[rgba(26,22,20,0.97)] border border-[rgba(255,240,230,0.14)] shadow-[0_14px_40px_-10px_rgba(0,0,0,0.7)]"
-            initial={{ opacity: 0, scale: 0.5, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 360, damping: 28, delay: 0.32 } }}
-            exit={{ opacity: 0, scale: 0.5, y: 20, transition: { duration: 0.12, ease: "easeIn" } }}
-          >
-            <button
-              type="button"
-              className="inline-flex items-center gap-[7px] rounded-full font-semibold px-[16px] py-[8px] text-[12.5px] transition-[background,color] duration-[120ms] bg-[rgba(255,240,230,0.08)] border border-[rgba(255,240,230,0.12)] text-[rgba(244,239,234,0.9)] hover:bg-[rgba(255,240,230,0.12)]"
-              onClick={onDone}
-            >
-              {pendingChanges > 0 && <span className="rounded-full shrink-0 w-[6px] h-[6px] bg-[#e6b35a] shadow-[0_0_6px_#e6b35a]" />}
-              <Icon name="check" size={13} />
-              Done{pendingChanges > 0 ? ` · ${pendingChanges} saved` : ""}
-            </button>
-            {projectId && (
-              <>
-                <div className="shrink-0 w-[1px] h-[20px] bg-[rgba(255,240,230,0.10)] mx-[2px]" />
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-[5px] rounded-full bg-transparent cursor-pointer font-medium text-[12px] px-[11px] py-[5px] border border-[rgba(255,240,230,0.15)] text-[rgba(255,240,230,0.55)] transition-[background,color,border-color] duration-100 hover:bg-[rgba(255,240,230,0.07)] hover:text-[rgba(255,240,230,0.8)]${useCustomMap ? " !border-[rgba(233,84,32,0.5)] !bg-[rgba(233,84,32,0.12)] !text-[#e95420]" : ""}`}
-                  title={
-                    useCustomMap
-                      ? "Switch back to the default shared layout (used by all projects)"
-                      : "Create a project-specific layout for this project"
-                  }
-                  onClick={useCustomMap ? disableCustomMap : enableCustomMap}
-                >
-                  <Icon name="map" size={12} />
-                  {useCustomMap ? "Project layout" : "Default layout"}
-                </button>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 

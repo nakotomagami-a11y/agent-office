@@ -5,8 +5,8 @@ import {
   DECORATIONS,
   applyPlacement,
   decorationKey,
-  familyOf,
   popDecoration,
+  type DecorationKind,
   type DecorationsMap,
 } from "../components/decorations";
 import { floodFill, type Snapshot } from "./office-scene-data";
@@ -19,16 +19,11 @@ import type { BuildTool } from "../components/office-build-toolbar";
  * state) so it stays referentially stable — that's what keeps OfficeMap's memo
  * from breaking on every pointer event.
  *
- * Tool semantics:
- * - select: clears the current decoration selection (overlay hit-targets select).
- * - grass / erase + shift: rectangle fill/clear between the stored rectStart and
- *   the clicked cell.
- * - grass: paints a single land cell, evicting water-only decorations stranded
- *   on the new land.
- * - fill: flood-fills contiguous water from the clicked cell.
- * - erase: removes topmost first — agent → decoration (LIFO) → terrain; removing
- *   a bridge from water evicts any agent standing on it.
- * - decoration tools: validate terrain/footprint, then push onto the cell stack.
+ * Shape: the exported handler is a thin dispatcher — it derives a per-click
+ * `ClickCtx`, handles the shift-rectangle special case, then fans `tool` out to
+ * one small named op per tool (paintGrass / floodFillWater / eraseTopmost /
+ * placeDecoration). Each op owns one tool's semantics; read the op, not the
+ * dispatcher, to understand a given tool.
  */
 export interface CellClickDeps {
   currentStateRef: MutableRefObject<Snapshot>;
@@ -44,197 +39,208 @@ export interface CellClickDeps {
   setSelectedDeco: (value: null) => void;
 }
 
+/** Everything a tool op needs for one click: the target cell, a snapshot of the
+ *  three state maps, an undo checkpoint, and the setters. Assembled once per
+ *  click by the dispatcher and passed to whichever op runs. */
+interface ClickCtx {
+  x: number;
+  y: number;
+  /** `decorationKey(x, y)` — the map key for this cell. */
+  key: string;
+  cellHasGrass: boolean;
+  grid: boolean[][];
+  decorations: DecorationsMap;
+  agentPositions: AgentPositions;
+  /** Snapshot pre-edit state onto the undo stack (and clear redo). Call once,
+   *  before mutating, inside any op that changes state. */
+  pushUndo: () => void;
+  setGrid: Dispatch<SetStateAction<boolean[][]>>;
+  setDecorations: Dispatch<SetStateAction<DecorationsMap>>;
+  setAgentPositions: Dispatch<SetStateAction<AgentPositions>>;
+  setRectStart: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
+  setPendingChanges: Dispatch<SetStateAction<number>>;
+}
+
+type Bounds = { xMin: number; xMax: number; yMin: number; yMax: number };
+
+// ── Immutable map helpers ────────────────────────────────────────────────────
+
+/** Copy `grid` with a single cell set, cloning only the changed row (O(cols),
+ *  not O(rows*cols)). Returns the same reference when already at `value`. */
+function setCell(grid: boolean[][], x: number, y: number, value: boolean): boolean[][] {
+  if (grid[y]?.[x] === value) return grid;
+  const next = [...grid];
+  next[y] = [...grid[y]!];
+  next[y]![x] = value;
+  return next;
+}
+
+/** Copy a keyed map without one entry. */
+function without<T>(map: Record<string, T>, key: string): Record<string, T> {
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
+
+/** Copy a keyed map with every cell inside `b` removed. */
+function deleteRect<T>(map: Record<string, T>, b: Bounds): Record<string, T> {
+  const next = { ...map };
+  for (let cy = b.yMin; cy <= b.yMax; cy++)
+    for (let cx = b.xMin; cx <= b.xMax; cx++) delete next[decorationKey(cx, cy)];
+  return next;
+}
+
+// ── Per-tool operations ──────────────────────────────────────────────────────
+
+/** Shift-click rectangle between the stored corner and the clicked cell.
+ *  grass → fill the box with land; erase → clear terrain, decorations and
+ *  agents in the box. */
+function rectFill(ctx: ClickCtx, corner: { x: number; y: number }, tool: "grass" | "erase") {
+  ctx.pushUndo();
+  const b: Bounds = {
+    xMin: Math.min(corner.x, ctx.x),
+    xMax: Math.max(corner.x, ctx.x),
+    yMin: Math.min(corner.y, ctx.y),
+    yMax: Math.max(corner.y, ctx.y),
+  };
+  const paint = tool === "grass";
+  startTransition(() => {
+    ctx.setGrid((prev) => {
+      const next = [...prev];
+      for (let cy = b.yMin; cy <= b.yMax; cy++) {
+        next[cy] = [...prev[cy]!];
+        for (let cx = b.xMin; cx <= b.xMax; cx++) next[cy]![cx] = paint;
+      }
+      return next;
+    });
+    if (!paint) {
+      ctx.setDecorations((prev) => deleteRect(prev, b));
+      ctx.setAgentPositions((prev) => deleteRect(prev, b));
+    }
+  });
+  ctx.setPendingChanges((n) => n + (b.xMax - b.xMin + 1) * (b.yMax - b.yMin + 1));
+  ctx.setRectStart(null);
+}
+
+/** Paint a single land cell. Evicts water-only decorations stranded on the new
+ *  land, and arms the rectangle corner for a following shift-click. */
+function paintGrass(ctx: ClickCtx) {
+  if (ctx.cellHasGrass) return;
+  const { x, y, key } = ctx;
+  ctx.pushUndo();
+  ctx.setRectStart({ x, y });
+  ctx.setPendingChanges((n) => n + 1);
+  startTransition(() => {
+    ctx.setGrid((prev) => setCell(prev, x, y, true));
+    ctx.setDecorations((prev) => {
+      const existing = prev[key];
+      if (!existing) return prev;
+      const kept = existing.filter((d) => DECORATIONS[d.kind].terrain === "land");
+      if (kept.length === existing.length) return prev;
+      return kept.length === 0 ? without(prev, key) : { ...prev, [key]: kept };
+    });
+  });
+}
+
+/** Flood-fill contiguous water reachable from the clicked cell. No-op on land. */
+function floodFillWater(ctx: ClickCtx) {
+  if (ctx.cellHasGrass) return;
+  const [newGrid, count] = floodFill(ctx.grid, ctx.x, ctx.y);
+  if (count === 0) return;
+  ctx.pushUndo();
+  ctx.setPendingChanges((n) => n + count);
+  startTransition(() => ctx.setGrid(newGrid));
+}
+
+/** Erase the topmost thing on the cell: agent first, then the top decoration
+ *  (LIFO), then terrain. */
+function eraseTopmost(ctx: ClickCtx) {
+  const { key, decorations, agentPositions, x, y } = ctx;
+
+  // 1. Agent sits on top of everything (including any bridge under it).
+  if (agentPositions[key]) {
+    ctx.pushUndo();
+    ctx.setAgentPositions((prev) => without(prev, key));
+    ctx.setPendingChanges((n) => n + 1);
+    return;
+  }
+
+  // 2. Pop the top decoration off the stack.
+  const stack = decorations[key];
+  if (stack && stack.length > 0) {
+    const popped = popDecoration(stack);
+    if (!popped) return;
+    ctx.pushUndo();
+    ctx.setDecorations((prev) =>
+      popped.stack.length === 0 ? without(prev, key) : { ...prev, [key]: popped.stack },
+    );
+    ctx.setPendingChanges((n) => n + 1);
+    return;
+  }
+
+  // 3. Nothing on top — clear the terrain. Arms the rectangle corner.
+  if (ctx.cellHasGrass) {
+    ctx.pushUndo();
+    ctx.setRectStart({ x, y });
+    ctx.setPendingChanges((n) => n + 1);
+    startTransition(() => ctx.setGrid((prev) => setCell(prev, x, y, false)));
+  }
+}
+
+/** Place a decoration if the cell (and, for multi-tile buildings, the whole
+ *  footprint) passes terrain/bridge-ramp validation. */
+function placeDecoration(ctx: ClickCtx, tool: DecorationKind) {
+  if (!isToolValidAt(tool, ctx.x, ctx.y, ctx.grid, ctx.decorations)) return;
+  ctx.pushUndo();
+  ctx.setDecorations((prev) => ({ ...prev, [ctx.key]: applyPlacement(prev[ctx.key], tool) }));
+  ctx.setPendingChanges((n) => n + 1);
+}
+
+// ── Dispatcher ───────────────────────────────────────────────────────────────
+
 export function createCellClickHandler(deps: CellClickDeps) {
-  const {
-    currentStateRef,
-    rectStartRef,
-    toolRef,
-    undoStack,
-    redoStack,
-    setGrid,
-    setDecorations,
-    setAgentPositions,
-    setRectStart,
-    setPendingChanges,
-    setSelectedDeco,
-  } = deps;
+  const { currentStateRef, rectStartRef, toolRef, undoStack, redoStack, setSelectedDeco } = deps;
 
   return (x: number, y: number, shiftKey = false) => {
-    // Read all state from refs — this handler never closes over state.
-    const { grid, decorations, agentPositions } = currentStateRef.current;
-    const rectStart = rectStartRef.current;
     const tool = toolRef.current;
-
-    const key = decorationKey(x, y);
-    const cellHasGrass = grid[y]?.[x] === true;
-
-    // Snapshot the pre-edit state onto the undo stack (and clear redo). Called by
-    // every mutating branch right before it changes state.
-    const pushUndo = () => {
-      undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
-      redoStack.current = [];
-    };
-
-    // Guard: no active tool — nothing to do.
     if (!tool) return;
 
-    // Guard, not a fan-out: this is a conjunction (shiftKey AND a stored corner
-    // AND a terrain tool), so it stays an early `if` rather than a match case.
-    // Shift-click rectangle fill/clear between rectStart and the clicked cell.
+    // Snapshot live state from refs — the handler never closes over React state.
+    const { grid, decorations, agentPositions } = currentStateRef.current;
+    const ctx: ClickCtx = {
+      x,
+      y,
+      key: decorationKey(x, y),
+      cellHasGrass: grid[y]?.[x] === true,
+      grid,
+      decorations,
+      agentPositions,
+      pushUndo: () => {
+        undoStack.current = [...undoStack.current.slice(-49), { grid, decorations, agentPositions }];
+        redoStack.current = [];
+      },
+      setGrid: deps.setGrid,
+      setDecorations: deps.setDecorations,
+      setAgentPositions: deps.setAgentPositions,
+      setRectStart: deps.setRectStart,
+      setPendingChanges: deps.setPendingChanges,
+    };
+
+    // Shift-rectangle is a conjunction (shift + a stored corner + a terrain
+    // tool), not a per-tool fan-out, so it's handled before the match.
+    const rectStart = rectStartRef.current;
     if (shiftKey && rectStart && (tool === "grass" || tool === "erase")) {
-      pushUndo();
-      const xMin = Math.min(rectStart.x, x);
-      const xMax = Math.max(rectStart.x, x);
-      const yMin = Math.min(rectStart.y, y);
-      const yMax = Math.max(rectStart.y, y);
-      if (tool === "grass") {
-        startTransition(() => {
-          setGrid((prev) => {
-            const next = [...prev];
-            for (let cy = yMin; cy <= yMax; cy++) {
-              next[cy] = [...prev[cy]!];
-              for (let cx = xMin; cx <= xMax; cx++) next[cy]![cx] = true;
-            }
-            return next;
-          });
-        });
-      } else {
-        startTransition(() => {
-          setGrid((prev) => {
-            const next = [...prev];
-            for (let cy = yMin; cy <= yMax; cy++) {
-              next[cy] = [...prev[cy]!];
-              for (let cx = xMin; cx <= xMax; cx++) next[cy]![cx] = false;
-            }
-            return next;
-          });
-          setDecorations((prev) => {
-            const next = { ...prev };
-            for (let cy = yMin; cy <= yMax; cy++)
-              for (let cx = xMin; cx <= xMax; cx++)
-                delete next[decorationKey(cx, cy)];
-            return next;
-          });
-          setAgentPositions((prev) => {
-            const next = { ...prev };
-            for (let cy = yMin; cy <= yMax; cy++)
-              for (let cx = xMin; cx <= xMax; cx++)
-                delete next[decorationKey(cx, cy)];
-            return next;
-          });
-        });
-      }
-      setPendingChanges((n) => n + (xMax - xMin + 1) * (yMax - yMin + 1));
-      setRectStart(null);
+      rectFill(ctx, rectStart, tool);
       return;
     }
 
     match(tool)
-      // Free-hand select never paints — decoration hit-targets in the overlay
-      // handle selection. A click on empty ground just clears the selection.
-      .with("select", () => {
-        setSelectedDeco(null);
-      })
-      .with("grass", () => {
-        if (cellHasGrass) return;
-        pushUndo();
-        setRectStart({ x, y });
-        setPendingChanges((n) => n + 1);
-        startTransition(() => {
-          // Only copy the one row that changes — O(GRID_COLS) not O(GRID_ROWS*GRID_COLS)
-          setGrid((prev) => {
-            if (prev[y]?.[x] === true) return prev;
-            const next = [...prev];
-            next[y] = [...prev[y]!];
-            next[y]![x] = true;
-            return next;
-          });
-          // Drop any water-only decorations now stranded on land
-          setDecorations((prev) => {
-            const existing = prev[key];
-            if (!existing) return prev;
-            const kept = existing.filter((k) => DECORATIONS[k.kind].terrain === "land");
-            if (kept.length === existing.length) return prev;
-            const next = { ...prev };
-            if (kept.length === 0) delete next[key];
-            else next[key] = kept;
-            return next;
-          });
-        });
-      })
-      .with("fill", () => {
-        if (cellHasGrass) return;
-        const [newGrid, count] = floodFill(grid, x, y);
-        if (count === 0) return;
-        pushUndo();
-        setPendingChanges((n) => n + count);
-        startTransition(() => {
-          setGrid(newGrid);
-        });
-      })
-      .with("erase", () => {
-        // Topmost first: agent → decoration (LIFO from stack) → terrain
-        if (agentPositions[key]) {
-          pushUndo();
-          setAgentPositions((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            return next;
-          });
-          setPendingChanges((n) => n + 1);
-          return;
-        }
-        const stack = decorations[key];
-        if (stack && stack.length > 0) {
-          const popped = popDecoration(stack);
-          if (popped) {
-            pushUndo();
-            setDecorations((prev) => {
-              const next = { ...prev };
-              if (popped.stack.length === 0) delete next[key];
-              else next[key] = popped.stack;
-              return next;
-            });
-            // If a bridge was removed from a water cell, evict any agent.
-            const isWater = grid[y]?.[x] !== true;
-            const bridgeGone = isWater && !popped.stack.some((k) => familyOf(k.kind) === "bridge");
-            if (bridgeGone && agentPositions[key]) {
-              setAgentPositions((prev) => {
-                const next = { ...prev };
-                delete next[key];
-                return next;
-              });
-            }
-            setPendingChanges((n) => n + 1);
-          }
-          return;
-        }
-        if (cellHasGrass) {
-          pushUndo();
-          setRectStart({ x, y });
-          setPendingChanges((n) => n + 1);
-          startTransition(() => {
-            // Only copy the one row that changes
-            setGrid((prev) => {
-              if (prev[y]?.[x] !== true) return prev;
-              const next = [...prev];
-              next[y] = [...prev[y]!];
-              next[y]![x] = false;
-              return next;
-            });
-          });
-        }
-      })
-      // Decoration tools (DecorationKind): validate terrain, bridge ramps, and
-      // (for multi-tile buildings) that the whole footprint is clear land.
-      .otherwise((decoTool) => {
-        if (!isToolValidAt(decoTool, x, y, grid, decorations)) return;
-        pushUndo();
-        setDecorations((prev) => {
-          const stack = applyPlacement(prev[key], decoTool);
-          return { ...prev, [key]: stack };
-        });
-        setPendingChanges((n) => n + 1);
-      });
+      // Free-hand select never paints — overlay hit-targets handle selection; a
+      // click on empty ground just clears it.
+      .with("select", () => setSelectedDeco(null))
+      .with("grass", () => paintGrass(ctx))
+      .with("fill", () => floodFillWater(ctx))
+      .with("erase", () => eraseTopmost(ctx))
+      .otherwise((decoTool) => placeDecoration(ctx, decoTool));
   };
 }
