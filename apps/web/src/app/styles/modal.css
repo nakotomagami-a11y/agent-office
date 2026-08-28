@@ -1,23 +1,23 @@
 /* Modals — scrim (light) + agent modal (.ao-modal) subsystem. */
 
-/* Modal backdrops start BELOW the titlebar + tab strip (74 px total) so the
-   chrome stays fully visible + interactive while a modal is open. Enforced
-   per-instance via inline `style={{ top: 74 }}` on every `.app-modal-backdrop`
-   mount (see modal-shell.tsx, agent-details/index.tsx, add-agent-modal.tsx,
-   workflow-picker-dialog.tsx). Kept out of CSS because
-   Turbopack's HMR was inconsistent about picking up new class rules for a
-   pre-existing class name; inline styles bypass the CSS pipeline entirely. */
+/* Modal backdrops start BELOW the top bar (see `lib/chrome.ts`'s CHROME_TOP)
+   so it stays visible instead of being covered. Enforced per-instance via
+   inline `style={{ top: CHROME_TOP }}` on every `.app-modal-backdrop` mount
+   (see modal-shell.tsx, agent-details/index.tsx, add-agent-modal.tsx,
+   workflow-picker-dialog.tsx). Kept out of CSS because Turbopack's HMR was
+   inconsistent about picking up new class rules for a pre-existing class
+   name; inline styles bypass the CSS pipeline entirely. */
 
-/* ─── Modal scrim, light mode ─── */
-/* The five backdrop mounts each hardcode their own near-black wash
+/* ─── Modal scrim, both themes ─── */
+/* The backdrop mounts each hardcode their own near-black wash
    (rgba(10,10,18,.55), rgba(5,5,10,.78), a radial near-#060 60c gradient,
-   bg-black/40). Those are tuned for the dark theme; in light mode they turn
-   the whole app charcoal behind a white dialog, which reads as a theme bug.
-   One rule re-points all of them at --ao-backdrop. The html+class selector
-   (0,2,0) outranks the Tailwind arbitrary utilities (0,1,0); `background`
-   shorthand also clears the gradient variants. The ::after blur layers the
-   two custom mounts add are left alone — they only carry the blur. */
-html:not([data-theme="dark"]) .app-modal-backdrop {
+   bg-black/40). One rule re-points all of them at --ao-backdrop so the scrim
+   always tracks the active theme instead of a literal that happens to match
+   dark mode by coincidence. The html+class selector (0,2,0) outranks the
+   Tailwind arbitrary utilities (0,1,0); `background` shorthand also clears
+   the gradient variants. The ::after blur layers the two custom mounts add
+   are left alone — they only carry the blur. */
+html .app-modal-backdrop {
   background: var(--ao-backdrop);
 }
 html:not([data-theme="dark"]) .app-modal-backdrop::after {
@@ -29,14 +29,15 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
    ───────────────────────────────────────────────────────────────── */
 
 .ao-modal {
-  /* Structural and theme-agnostic tokens only. The surface, line, fg,
-     and shadow tokens (--ao-bg-*, --ao-line-*, --ao-fg-*,
-     --ao-shadow-modal) live at :root (light) and [data-theme="dark"]
-     (dark) so the modal automatically follows the active app theme. */
-  --ao-accent:         #7c6af5;
-  --ao-accent-soft:    rgba(124, 106, 245, 0.14);
-  --ao-accent-softer:  rgba(124, 106, 245, 0.07);
-  --ao-accent-line:    rgba(124, 106, 245, 0.26);
+  /* Structural tokens plus accent, which tracks the active theme's
+     --acc/--acc-soft/--acc-line instead of a hardcoded literal. The
+     surface, line, fg, and shadow tokens (--ao-bg-*, --ao-line-*,
+     --ao-fg-*, --ao-shadow-modal) live at :root (dark) and
+     [data-theme="light"] so the modal follows the active app theme. */
+  --ao-accent:         var(--acc);
+  --ao-accent-soft:    var(--acc-soft);
+  --ao-accent-softer:  color-mix(in srgb, var(--acc) 7%, transparent);
+  --ao-accent-line:    var(--acc-line);
   --ao-ok: #4eb96f;
   --ao-ok-soft: rgba(78, 185, 111, 0.14);
   --ao-warn: #e6b35a;
@@ -47,8 +48,8 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
   --ao-radius-md: 10px;
   --ao-radius-lg: 14px;
   --ao-radius-xl: 20px;
-  --ao-font-sans: var(--font-sans, "Ubuntu Sans", "Ubuntu", system-ui, sans-serif);
-  --ao-font-mono: var(--font-mono, "Ubuntu Mono", ui-monospace, monospace);
+  --ao-font-sans: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
+  --ao-font-mono: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
   --ao-pad-card: 18px;
   --ao-pad-row: 14px;
   --ao-gap-section: 14px;
@@ -97,11 +98,17 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
 .ao-modal .ao-prose p { margin: 0 0 12px; overflow-wrap: anywhere; word-break: break-word; }
 .ao-modal .ao-prose p:last-child { margin-bottom: 0; }
 .ao-modal .ao-prose h3 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--ao-fg-0); }
-.ao-modal .ao-prose ul, .ao-modal .ao-prose ol { margin: 0 0 14px; padding-left: 22px; }
+/* Tailwind Preflight zeroes list-style on every ul/ol — restore the browser
+   defaults here since these are ambient/generated nodes with no Tailwind
+   classes to counteract it (list-disc/list-decimal) on the elements themselves. */
+.ao-modal .ao-prose ul { margin: 0 0 14px; padding-left: 22px; list-style-type: disc; }
+.ao-modal .ao-prose ol { margin: 0 0 14px; padding-left: 22px; list-style-type: decimal; }
 .ao-modal .ao-prose li { margin-bottom: 4px; color: var(--ao-fg-0); }
 .ao-modal .ao-prose li::marker { color: var(--ao-fg-3); }
 .ao-modal .ao-prose strong { color: var(--ao-fg-0); font-weight: 700; }
 .ao-modal .ao-prose em { color: var(--ao-fg-1); font-style: italic; }
+.ao-modal .ao-prose a { color: var(--ao-accent); text-decoration: underline; text-underline-offset: 2px; opacity: 0.9; }
+.ao-modal .ao-prose a:hover { opacity: 1; }
 .ao-modal .ao-prose code {
   background: var(--md-inline-bg); padding: 1px 5px; border-radius: 4px;
   font-family: var(--ao-font-mono); font-size: 12.5px; color: var(--code-inline-fg);
@@ -130,14 +137,18 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
 /* ao-shimmer */
 .ao-modal .ao-shimmer { color: var(--ao-fg-2); animation: ao-shimmer 1.4s ease-in-out infinite; }
 
-/* ao-markdown-editor — complex grid layout */
+/* ao-markdown-editor — gutter + code, house rule is flex not grid */
 .ao-modal .ao-markdown-editor .ao-editor {
-  display: grid; grid-template-columns: 44px 1fr;
+  display: flex; align-items: stretch;
   font-family: var(--ao-font-mono); font-size: 12.5px; line-height: 1.6; min-height: 320px;
 }
 .ao-modal .ao-markdown-editor .ao-gutter {
+  flex: 0 0 44px;
   text-align: right; padding: 12px 8px 12px 0; color: var(--ao-fg-3);
   border-right: 1px solid var(--ao-line-0); user-select: none; background: rgba(0,0,0,0.1);
+}
+.ao-modal .ao-markdown-editor .ao-code {
+  flex: 1 1 auto; min-width: 0;
 }
 .ao-modal .ao-markdown-editor .ao-gutter div { font-size: 11.5px; }
 .ao-modal .ao-markdown-editor .ao-code textarea,

@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/cn";
+import { CHROME_TOP } from "@/lib/chrome";
 import {
   useWorkflows,
   useCreateWorkflow,
@@ -301,7 +302,7 @@ export function WorkflowPickerDialog({ open, onClose, onSelect }: WorkflowPicker
       <div
         role="presentation"
         className="app-modal-backdrop fixed inset-0 bg-[rgba(10,10,18,0.60)] backdrop-blur-sm flex items-start justify-center pt-[10vh] px-[16px] z-[200]"
-        style={{ top: 74 }}
+        style={{ top: CHROME_TOP }}
         onClick={onClose}
       >
         {/* Dialog panel */}

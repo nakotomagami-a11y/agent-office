@@ -1,14 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { usePathname } from "next/navigation";
-import { NavItem } from "./nav-item";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
-import { isActiveRoute } from "./sidebar-routing";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { ModalShell } from "@/components/ui/modal-shell";
@@ -16,7 +10,6 @@ import { cn } from "@/lib/cn";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
-import { useProcessesStore } from "@/lib/processes-store";
 import {
   useProject,
   useRemoveInstance,
@@ -30,14 +23,23 @@ import {
   useOfficeDragStore,
   type DragRef,
 } from "@/modules/office/hooks/use-office-drag";
+import { isTauri, closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/lib/tauri-window";
 import { RosterGroup } from "./roster-group";
 import { useRosterDisplay, type RosterRow } from "@/modules/office/hooks/use-roster-display";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
+import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
 
+/**
+ * The roster sidebar is purely the roster — no primary page nav (that lives
+ * in the account chip's dropdown menu, see `main-top-bar.tsx`), no
+ * draggable nav/roster split, no footer account dropdown.
+ *
+ * Traffic-light window controls render at the top of the sidebar instead of
+ * a separate chrome row, moved here from the old `<Titlebar/>`.
+ */
 export function Sidebar() {
   const t = useTranslations();
-  const pathname = usePathname();
-  const { agents, runs, workingCount, spendToday } = useOfficeAgents();
+  const { agents, runs, workingCount } = useOfficeAgents();
   const selectedId = useOfficeStore((s) => s.selectedId);
   const selectedInstanceId = useOfficeStore((s) => s.selectedInstanceId);
   const select = useOfficeStore((s) => s.select);
@@ -46,8 +48,6 @@ export function Sidebar() {
   const setGroupExpanded = useOfficeStore((s) => s.setGroupExpanded);
   const pinnedGroups = useOfficeStore((s) => s.pinnedGroups);
   const togglePin = useOfficeStore((s) => s.togglePin);
-  const navHeight = useOfficeStore((s) => s.navHeight);
-  const setNavHeight = useOfficeStore((s) => s.setNavHeight);
 
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
@@ -64,19 +64,14 @@ export function Sidebar() {
 
   // Track which instance is currently being renamed
   const [renamingInstanceId, setRenamingInstanceId] = useState<string | null>(null);
+  const [addAgentOpen, setAddAgentOpen] = useState(false);
 
   // Pending removal — drives the confirm modal. `null` = no dialog open.
-  // Set by both the row-level X button (`onRemove`) and the caret-menu
-  // action (`onRemoveById`) so a single modal serves both entry points.
   const [pendingRemove, setPendingRemove] = useState<{
     instanceId: string;
     displayName: string;
   } | null>(null);
 
-  // When a project is active, the roster lists *instances* (one row per
-  // entry in `project.meta.roster`). Two `frontend-craftsman` instances
-  // become two separate rows. When no project is active, fall back to a
-  // flat agent-definition list.
   const { rosterRows, rosterGroups } = useRosterDisplay({
     agents,
     runs,
@@ -96,7 +91,6 @@ export function Sidebar() {
     }
   }, [selectedInstanceId, rosterGroups, activeProjectId, isMultiInstance, setGroupExpanded]);
 
-  const [filterFocused, setFilterFocused] = useState(false);
   const { query: filter, setQuery: setFilter, filtered } = useFilter(
     rosterRows,
     (r, q) => {
@@ -114,18 +108,18 @@ export function Sidebar() {
     [pinnedGroups, activeProjectId],
   );
 
-  const visibleGroups = useMemo(
-    () =>
-      (filter
-        ? rosterGroups.filter((g) =>
-            g.agent.name.toLowerCase().includes(filter.toLowerCase())
-          )
-        : rosterGroups
-      )
-        .slice()
-        .sort((a, b) => (pinnedIds.includes(b.agentId) ? 1 : 0) - (pinnedIds.includes(a.agentId) ? 1 : 0)),
-    [rosterGroups, filter, pinnedIds],
-  );
+  // Pinned/rest split: a "Pinned" header only appears when something is
+  // pinned, and the remaining section reads "All agents" in that case, or
+  // plain "Agents" when nothing is pinned.
+  const { pinnedList, restList } = useMemo(() => {
+    const base = filter
+      ? rosterGroups.filter((g) => g.agent.name.toLowerCase().includes(filter.toLowerCase()))
+      : rosterGroups;
+    return {
+      pinnedList: base.filter((g) => pinnedIds.includes(g.agentId)),
+      restList: base.filter((g) => !pinnedIds.includes(g.agentId)),
+    };
+  }, [rosterGroups, filter, pinnedIds]);
 
   const onRemove = useCallback((row: RosterRow) => {
     if (!activeProjectId || !row.instance) return;
@@ -165,222 +159,117 @@ export function Sidebar() {
     setRenamingInstanceId(null);
   }, []);
 
-  // Draggable divider between the links (nav) block and the roster block. The
-  // nav is pinned to `navHeight`; the roster block flexes to fill the rest.
-  const asideRef = useRef<HTMLElement>(null);
-  const [draggingSplit, setDraggingSplit] = useState(false);
-
-  useEffect(() => {
-    if (!draggingSplit) return;
-    const prevCursor = document.body.style.cursor;
-    const prevSelect = document.body.style.userSelect;
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
-    const onMove = (e: PointerEvent) => {
-      const rect = asideRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      // Leave room for the roster header + a few rows + the footer.
-      const max = Math.max(96, rect.height - 220);
-      setNavHeight(Math.round(Math.min(max, Math.max(96, e.clientY - rect.top))));
-    };
-    const onUp = () => setDraggingSplit(false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      document.body.style.cursor = prevCursor;
-      document.body.style.userSelect = prevSelect;
-    };
-  }, [draggingSplit, setNavHeight]);
+  const totalCount = project ? pinnedList.length + restList.length : filtered.length;
+  const tauri = isTauri();
 
   return (
     <aside
-      ref={asideRef}
-      className="bg-bg-2 border-r border-line flex flex-col min-h-0 h-full overflow-hidden max-[1024px]:overflow-hidden max-[600px]:hidden"
+      className="flex flex-col min-h-0 h-full overflow-hidden p-[14px] gap-[16px] max-[1024px]:overflow-hidden max-[600px]:hidden"
       aria-label={t("app.name")}
     >
-      <nav
-        className="p-[6px] flex flex-col gap-[2px] overflow-y-auto"
-        style={
-          navHeight != null
-            ? { flexBasis: navHeight, flexGrow: 0, flexShrink: 1, minHeight: 96 }
-            : { flexShrink: 0, minHeight: 96 }
-        }
-        aria-label={t("nav.primary_label")}
-      >
-        <NavItem
-          href={PAGE_ROUTES.office}
-          icon="home"
-          label={t("nav.office")}
-          badge={workingCount > 0 ? t("nav.live_badge", { count: workingCount }) : undefined}
-          active={isActiveRoute(pathname, PAGE_ROUTES.office, { exact: true })}
-        />
-        <NavItem
-          href={activeProjectId ? PAGE_ROUTES.project(activeProjectId) : PAGE_ROUTES.projects}
-          icon="settings"
-          label={t("nav.project")}
-          active={isActiveRoute(pathname, PAGE_ROUTES.projects)}
-        />
-        <NavItem
-          href={
-            activeProjectId
-              ? `${PAGE_ROUTES.activity}?project=${encodeURIComponent(activeProjectId)}`
-              : PAGE_ROUTES.activity
-          }
-          icon="activity"
-          label={t("nav.activity")}
-          active={isActiveRoute(pathname, PAGE_ROUTES.activity)}
-        />
-        <NavItem
-          href={PAGE_ROUTES.agents}
-          icon="templates"
-          label={t("nav.agents")}
-          active={isActiveRoute(pathname, PAGE_ROUTES.agents)}
-        />
-        <NavItem
-          href={PAGE_ROUTES.memory}
-          icon="memory"
-          label={t("nav.memory")}
-          active={isActiveRoute(pathname, PAGE_ROUTES.memory)}
-        />
-        <NavItem
-          href={PAGE_ROUTES.skills}
-          icon="sparkle"
-          label="Skills"
-          active={isActiveRoute(pathname, PAGE_ROUTES.skills)}
-        />
-        <NavItem
-          href={PAGE_ROUTES.analytics}
-          icon="activity"
-          label="Analytics"
-          badge={`$${spendToday.toFixed(2)}`}
-          active={isActiveRoute(pathname, PAGE_ROUTES.analytics)}
-        />
-        <NavItem
-          href={PAGE_ROUTES.schedules}
-          icon="list"
-          label="Schedules"
-          active={isActiveRoute(pathname, PAGE_ROUTES.schedules)}
-        />
-        <ProcessesNavButton />
-      </nav>
+      {tauri && (
+        <div className="flex items-center gap-2 px-2 pt-[2px] shrink-0" data-tauri-drag-region>
+          <TrafficDot kind="close" onClick={() => void closeWindow()} label={t("titlebar.win_close")} />
+          <TrafficDot kind="min" onClick={() => void minimizeWindow()} label={t("titlebar.win_min")} />
+          <TrafficDot kind="max" onClick={() => void toggleMaximizeWindow()} label={t("titlebar.win_max")} />
+        </div>
+      )}
 
-      {/* Draggable divider. Geometry + cursor are inline styles on purpose: the
-          dev JIT sometimes drops arbitrary utilities mid-session (see MainShell),
-          and a 0-height handle silently kills the drag. */}
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label={t("sidebar.resize_blocks_aria")}
-        onPointerDown={(e) => { e.preventDefault(); setDraggingSplit(true); }}
-        onDoubleClick={() => setNavHeight(null)}
-        title={t("sidebar.resize_blocks_title")}
-        className="group/split relative shrink-0"
-        style={{ height: 11, cursor: "row-resize", touchAction: "none", zIndex: 10 }}
-      >
-        <div
-          className={cn("transition-colors", draggingSplit ? "bg-acc" : "bg-line group-hover/split:bg-acc")}
-          style={{ position: "absolute", left: 0, right: 0, top: 5, height: 1 }}
-        />
-      </div>
-
-      <div className="flex flex-col min-h-0 flex-1">
-        {/* Roster header. Top padding is trimmed to offset the ~5px gap left by
-            the split-divider above, so the visible space above "Roster" matches
-            the 8px below it. */}
-        <div className="flex items-center gap-[6px] px-[10px] pt-[3px] pb-[8px] border-b border-line shrink-0">
-          <span className="text-[11.5px] font-semibold text-txt tracking-[0.01em] flex-1">Roster</span>
-          <span className="font-[var(--font-mono)] text-[10px] bg-bg-3 border border-line text-txt-3 rounded-full px-[7px] py-[1px]">
-            {project ? visibleGroups.length : filtered.length}
-          </span>
-          <button
-            type="button"
-            onClick={() => { setFilterFocused((v) => !v); if (filterFocused) setFilter(""); }}
-            className={cn(
-              "w-[24px] h-[24px] flex items-center justify-center rounded-[5px] transition-[background,color] duration-[120ms]",
-              filterFocused || filter ? "bg-bg-3 text-acc" : "text-txt-3 hover:bg-bg-3 hover:text-txt",
-            )}
-            aria-label={t("sidebar.filter_aria")}
-          >
-            <Icon name="search" size={12} />
-          </button>
+      <div className="flex-1 min-h-0 flex flex-col gap-[3px]">
+        {/* Below 1024px, main-shell.tsx collapses this sidebar's wrapper to a
+            64px icon rail (`max-[1024px]:w-[64px]`). This label row has
+            nothing useful to say at that width — hide it instead of letting
+            `whitespace-nowrap` hard-clip "Roster" mid-word past the rail's
+            edge (found during the Phase 10 responsive sweep). */}
+        <div className="flex items-center gap-[9px] px-[8px] pb-[8px] max-[1024px]:hidden">
+          <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">{t("sidebar.roster_title")}</span>
+          <span className="font-[var(--font-mono)] text-[11px] text-txt-4 whitespace-nowrap">{totalCount}</span>
+          <span className="flex-1" />
+          {workingCount > 0 && (
+            <span className="flex items-center gap-[5px] px-2 py-[2px] rounded-full bg-green-soft text-[10.5px] font-bold text-green whitespace-nowrap">
+              <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
+              {t("nav.live_badge", { count: workingCount })}
+            </span>
+          )}
         </div>
 
-        {/* Expandable search input */}
-        {(filterFocused || filter) && (
-          <div className="px-[8px] py-[6px] border-b border-line shrink-0">
-            <div className="flex items-center gap-[6px] bg-bg-1 border border-line rounded-[7px] px-[8px] focus-within:border-line-2">
-              <Icon name="search" size={11} className="text-txt-4 shrink-0" />
-              <input
-                // Intentional autoFocus — user opened the filter popover
-                // explicitly so we take the cursor.
-                autoFocus
-                type="text"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                onBlur={() => { if (!filter) setFilterFocused(false); }}
-                onKeyDown={(e) => { if (e.key === "Escape") { setFilter(""); setFilterFocused(false); } }}
-                placeholder={t("common.search_placeholder")}
-                aria-label={t("sidebar.filter_aria")}
-                className="flex-1 bg-transparent border-0 outline-none text-txt text-[12px] py-[6px] font-[var(--font-mono)] placeholder:text-txt-4"
-              />
-              {filter && (
-                <button
-                  type="button"
-                  onClick={() => setFilter("")}
-                  className="w-[16px] h-[16px] flex items-center justify-center text-txt-4 hover:text-txt shrink-0"
-                >
-                  <Icon name="x" size={10} />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-2 mx-[6px] mb-[8px] px-[11px] py-[8px] rounded-xl bg-card-2 border border-edge shadow-[var(--inset-hi)]">
+          <Icon name="search" size={13} className="text-txt-4 shrink-0" />
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") setFilter(""); }}
+            placeholder={t("sidebar.filter_placeholder")}
+            aria-label={t("sidebar.filter_aria")}
+            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-txt text-[11.5px] font-[inherit] placeholder:text-txt-4"
+          />
+          {filter && (
+            <button type="button" onClick={() => setFilter("")} className="text-txt-4 hover:text-txt shrink-0" aria-label={t("common.clear")}>
+              <Icon name="x" size={11} />
+            </button>
+          )}
+        </div>
 
-        <div className="overflow-y-auto flex flex-col gap-[2px] min-h-0 pb-2 px-[6px] flex-1">
+        <div className="overflow-y-auto flex flex-col gap-[1px] min-h-0 flex-1 p-[2px]">
           {project && rosterRows.length === 0 ? (
-            <div className="text-txt-3 px-[14px] py-3 text-[12px] leading-[1.4]">
-              {t("sidebar.no_agents_in_project", { project: project.meta.name })}
-            </div>
+            <EmptyHint>{t("sidebar.no_agents_in_project", { project: project.meta.name })}</EmptyHint>
           ) : !project && rosterRows.length === 0 ? (
-            <div className="text-txt-3 px-[14px] py-3 text-[12px] leading-[1.4]">
-              {t("sidebar.no_agent_definitions")}
-            </div>
+            <EmptyHint>{t("sidebar.no_agent_definitions")}</EmptyHint>
           ) : project ? (
-            // Project active: always render grouped rows (multi-instance or not)
             <>
-              {(visibleGroups as typeof rosterGroups).map((group) => (
+              {pinnedList.length > 0 && (
+                <>
+                  <RosterHeader label={t("sidebar.header_pinned")} count={pinnedList.length} pinned />
+                  {pinnedList.map((group) => (
+                    <RosterGroup
+                      key={group.agentId}
+                      group={group}
+                      projectId={activeProjectId ?? ""}
+                      selectedInstanceId={selectedInstanceId}
+                      renamingInstanceId={renamingInstanceId}
+                      onSelect={(instanceId) => select(group.agent.id, { instanceId })}
+                      onSpawn={onSpawn}
+                      onRemove={onRemoveById}
+                      onToggle={() => activeProjectId && toggleGroup(activeProjectId, group.agentId)}
+                      onRenameStart={onRenameStart}
+                      onRenameCommit={onRenameCommit}
+                      onRenameCancel={onRenameCancel}
+                      spendByInstance={spendByInstance}
+                      pinned
+                      onTogglePin={() => activeProjectId && togglePin(activeProjectId, group.agentId)}
+                    />
+                  ))}
+                </>
+              )}
+              <RosterHeader
+                label={pinnedList.length > 0 ? t("sidebar.header_all_agents") : t("sidebar.header_agents")}
+                count={restList.length}
+              />
+              {restList.map((group) => (
                 <RosterGroup
                   key={group.agentId}
                   group={group}
                   projectId={activeProjectId ?? ""}
                   selectedInstanceId={selectedInstanceId}
                   renamingInstanceId={renamingInstanceId}
-                  onSelect={(instanceId) =>
-                    select(group.agent.id, { instanceId })
-                  }
+                  onSelect={(instanceId) => select(group.agent.id, { instanceId })}
                   onSpawn={onSpawn}
                   onRemove={onRemoveById}
-                  onToggle={() =>
-                    activeProjectId && toggleGroup(activeProjectId, group.agentId)
-                  }
+                  onToggle={() => activeProjectId && toggleGroup(activeProjectId, group.agentId)}
                   onRenameStart={onRenameStart}
                   onRenameCommit={onRenameCommit}
                   onRenameCancel={onRenameCancel}
                   spendByInstance={spendByInstance}
-                  pinned={pinnedIds.includes(group.agentId)}
+                  pinned={false}
                   onTogglePin={() => activeProjectId && togglePin(activeProjectId, group.agentId)}
                 />
               ))}
-              {visibleGroups.length === 0 && (
-                <div className="text-txt-3 px-[14px] py-2 text-[11px]">
-                  {t("common.no_matches", { query: filter })}
-                </div>
+              {pinnedList.length === 0 && restList.length === 0 && (
+                <div className="text-txt-3 px-[14px] py-2 text-[11px]">{t("common.no_matches", { query: filter })}</div>
               )}
             </>
           ) : (
-            // Legacy single-instance mode (or no project): flat rows
             <>
               {filtered.map((row) => {
                 const isSelected =
@@ -393,25 +282,32 @@ export function Sidebar() {
                     selected={isSelected}
                     canRemove={!!row.instance}
                     onSelect={() =>
-                      select(row.agent.id, {
-                        instanceId: row.instance?.instanceId ?? null,
-                      })
+                      select(row.agent.id, { instanceId: row.instance?.instanceId ?? null })
                     }
                     onRemove={() => onRemove(row)}
                   />
                 );
               })}
               {filtered.length === 0 && rosterRows.length > 0 ? (
-                <div className="text-txt-3 px-[14px] py-2 text-[11px]">
-                  {t("common.no_matches", { query: filter })}
-                </div>
+                <div className="text-txt-3 px-[14px] py-2 text-[11px]">{t("common.no_matches", { query: filter })}</div>
               ) : null}
             </>
           )}
         </div>
+
+        <button
+          type="button"
+          title={t("sidebar.add_agent_title")}
+          disabled={!activeProjectId}
+          onClick={() => setAddAgentOpen(true)}
+          className="mt-[6px] flex items-center justify-center py-2 rounded-[10px] border border-dashed border-edge-2 bg-transparent text-txt-3 shrink-0 transition-colors duration-150 hover:text-txt hover:border-txt-4 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Icon name="plus" size={14} />
+        </button>
       </div>
 
-      <SidebarFoot spendToday={spendToday} />
+      <AddAgentModal open={addAgentOpen} projectId={activeProjectId} onClose={() => setAddAgentOpen(false)} />
+
       <ModalShell
         open={pendingRemove !== null}
         onClose={() => setPendingRemove(null)}
@@ -442,69 +338,35 @@ export function Sidebar() {
   );
 }
 
-function SidebarFoot({ spendToday }: { spendToday: number }) {
-  const t = useTranslations();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return <div className="text-txt-3 px-[14px] py-3 text-[12px] leading-[1.4]">{children}</div>;
+}
 
+function RosterHeader({ label, count, pinned = false }: { label: string; count: number; pinned?: boolean }) {
   return (
-    <div ref={containerRef} className="relative border-t border-line">
-      {/* Dropdown menu — fixed so it escapes aside's overflow:hidden */}
-      {open && (() => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return null;
-        return (
-          <>
-            <div
-              className="fixed inset-0 z-[49]"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              className="fixed z-50 bg-bg-2 border border-line rounded-t-[8px] overflow-hidden shadow-[0_-8px_24px_rgba(0,0,0,0.3)]"
-              style={{ bottom: window.innerHeight - rect.top + 1, left: rect.left, width: rect.width }}
-            >
-            <Link
-              href={PAGE_ROUTES.settings}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-[10px] px-[12px] py-[9px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors no-underline"
-            >
-              <Icon name="settings" size={14} className="text-txt-3 shrink-0" />
-              <span>{t("nav.settings")}</span>
-            </Link>
-            <Link
-              href={PAGE_ROUTES.docs}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-[10px] px-[12px] py-[9px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors no-underline border-t border-line"
-            >
-              <Icon name="help-circle" size={14} className="text-txt-3 shrink-0" />
-              <span>Documentation</span>
-            </Link>
-          </div>
-        </>
-        );
-      })()}
-
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full px-[8px] py-0 flex items-center gap-[10px] text-txt hover:bg-bg-3 transition-colors max-[1024px]:justify-center max-[1024px]:px-0 max-[1024px]:py-3"
-        aria-label={t("common.open_settings")}
-        aria-expanded={open}
-      >
-        <UserAvatar size={60} className="shrink-0" />
-        <div className="min-w-0 flex flex-col gap-[2px] leading-none text-left max-[1024px]:hidden">
-          <div className="text-[12px] font-medium leading-none">{t("sidebar.me_name")}</div>
-          <div className="text-[10.5px] text-txt-3 font-[var(--font-mono)] leading-none">{t("sidebar.me_sub")}</div>
-        </div>
-        <div className="ml-auto flex items-center gap-[6px] max-[1024px]:hidden shrink-0">
-          <span className="font-[var(--font-mono)] text-[11px] bg-bg-1 border border-line py-1 px-2 rounded-[999px] text-txt-2" aria-label={t("common.spend_today_aria", { amount: spendToday.toFixed(2) })}>
-            ${spendToday.toFixed(2)}
-          </span>
-          <Icon name="chevron" size={12} className={cn("text-txt-4 transition-transform duration-150", open ? "" : "rotate-180")} />
-        </div>
-      </button>
+    <div className="flex items-center gap-[7px] px-[7px] pt-[10px] pb-[6px] max-[1024px]:hidden">
+      {pinned && <Icon name="pin" size={10} className="text-acc shrink-0" />}
+      <span className={cn("text-[9.5px] font-bold tracking-[0.09em] uppercase whitespace-nowrap", pinned ? "text-acc" : "text-txt-4")}>
+        {label}
+      </span>
+      <span className="flex-1 h-px bg-edge" />
+      <span className="font-[var(--font-mono)] text-[9.5px] text-txt-4">{count}</span>
     </div>
+  );
+}
+
+function TrafficDot({ kind, onClick, label }: { kind: "close" | "min" | "max"; onClick: () => void; label: string }) {
+  const bg = { close: "bg-[#FF5F57]", min: "bg-[#FFBD2E]", max: "bg-[#28C840]" }[kind];
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      data-tauri-drag-region="false"
+      className={cn(bg, "w-[12px] h-[12px] rounded-full cursor-pointer border border-[rgba(0,0,0,0.08)]")}
+    />
   );
 }
 
@@ -530,8 +392,6 @@ function RosterEntry({
     : { agentId: agent.id };
 
   const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    // Stash a JSON payload so onDrop can reconstruct the ref; also push
-    // a plain-text fallback for browsers that ignore custom MIME types.
     e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
     e.dataTransfer.setData("text/plain", agent.id);
     e.dataTransfer.effectAllowed = "move";
@@ -541,19 +401,18 @@ function RosterEntry({
   const onDragEnd = () => setDragging(null);
 
   const ledClass = cn(
-    "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-[2px] border-bg-2",
-    (agent.status === "working" || agent.status === "thinking") && "bg-[var(--working)] shadow-[0_0_5px_var(--working)]",
-    (agent.status === "queued" || agent.status === "done") && "bg-[var(--queued)]",
-    agent.status === "error" && "bg-[var(--error)]",
-    !["working","thinking","queued","done","error"].includes(agent.status) && "bg-txt-4",
+    "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-2 border-canvas",
+    (agent.status === "working" || agent.status === "thinking") && "bg-green shadow-[0_0_5px_var(--green)]",
+    (agent.status === "queued" || agent.status === "done") && "bg-amber",
+    agent.status === "error" && "bg-red",
+    !["working", "thinking", "queued", "done", "error"].includes(agent.status) && "bg-txt-4",
   );
 
   return (
     <div
       className={cn(
-        "group relative cursor-grab flex items-center gap-[10px]",
-        "rounded-[8px] hover:bg-bg-3 px-[6px] py-[6px]",
-        selected ? "bg-acc-faint" : "",
+        "group relative cursor-grab flex items-center gap-[9px] rounded-[10px] px-[7px] py-[6px] transition-colors duration-150 hover:bg-card-3",
+        selected && "bg-acc-faint",
       )}
       draggable
       onDragStart={onDragStart}
@@ -564,47 +423,26 @@ function RosterEntry({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(); }}
       title={t("sidebar.row_open_chat_title")}
     >
-      {/* Avatar + LED badge */}
-      <div className="relative shrink-0 w-[30px] h-[30px]">
-        <AgentAvatar unit={agent.unitChoice} size={30} className="rounded-[8px] border border-line" />
+      <div className="relative shrink-0 w-[30px] h-[30px] rounded-[9px] overflow-hidden">
+        <AgentAvatar unit={agent.unitChoice} size={30} className="rounded-[9px] border border-edge" />
         <span className={ledClass} />
       </div>
 
-      {/* Name */}
-      <span className="flex-1 min-w-0 text-[14px] font-semibold text-txt overflow-hidden text-ellipsis whitespace-nowrap">
+      <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-txt overflow-hidden text-ellipsis whitespace-nowrap">
         {displayName}
       </span>
 
-      {/* Remove button on hover */}
-      <div className="relative shrink-0 w-[20px] h-[20px]">
-        {canRemove && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            aria-label={t("sidebar.remove_from_project_aria", { name: displayName })}
-            title={t("sidebar.remove_from_project_title")}
-            className="absolute inset-0 bg-bg-1 border border-line rounded-full inline-flex items-center justify-center text-txt-3 cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[var(--error)] hover:border-[var(--error)] transition-opacity duration-[120ms]"
-          >
-            <Icon name="x" size={10} />
-          </button>
-        )}
-      </div>
+      {canRemove && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          aria-label={t("sidebar.remove_from_project_aria", { name: displayName })}
+          title={t("sidebar.remove_from_project_title")}
+          className="shrink-0 w-[20px] h-[20px] flex items-center justify-center rounded-[6px] text-txt-4 opacity-0 group-hover:opacity-100 hover:bg-red-soft hover:text-red transition-[background,color,opacity] duration-150"
+        >
+          <Icon name="x" size={10} />
+        </button>
+      )}
     </div>
-  );
-}
-
-function ProcessesNavButton() {
-  const t = useTranslations();
-  const setOpen = useProcessesStore((s) => s.setOpen);
-  return (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      className="flex items-center gap-[10px] h-[34px] px-[10px] rounded-[var(--r-sm)] text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline hover:bg-bg-3 w-full"
-      aria-label={t("processes.title")}
-    >
-      <Icon name="server" />
-      <span>{t("nav.processes")}</span>
-    </button>
   );
 }

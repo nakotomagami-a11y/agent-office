@@ -49,7 +49,7 @@ export function SkillUpdatesBell() {
         </span>
       </button>
       {open ? (
-        <div className="absolute top-[calc(100%+6px)] right-0 w-[320px] bg-[var(--bg-elev)] border border-line-2 rounded-[10px] shadow-[var(--shadow-3)] z-[300] overflow-hidden">
+        <div className="absolute top-[calc(100%+6px)] right-0 w-[320px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-[300] overflow-hidden">
           <div className="flex items-center gap-[8px] px-[14px] py-[10px] border-b border-line">
             <Icon name="refresh" size={12} className="text-acc" />
             <span className="font-semibold text-[13px]">Skill updates</span>

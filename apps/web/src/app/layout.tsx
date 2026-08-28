@@ -6,14 +6,17 @@ import { db } from "@agent-office/domain/services";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const ubuntu = localFont({
-  src: "../fonts/Ubuntu.ttf",
+// Both are variable fonts, so no `weight` prop is needed — the single file
+// covers the full axis and every declared font-weight (400/500/600/700/800)
+// renders correctly.
+const plusJakartaSans = localFont({
+  src: "../fonts/PlusJakartaSans-Variable.woff2",
   variable: "--font-sans",
   display: "swap",
 });
 
-const ubuntuMono = localFont({
-  src: "../fonts/UbuntuSansMono.ttf",
+const jetBrainsMono = localFont({
+  src: "../fonts/JetBrainsMono-Variable.woff2",
   variable: "--font-mono",
   display: "swap",
 });
@@ -41,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const initialTheme = storedTheme === "dark" || storedTheme === "light" ? storedTheme : "dark";
 
   return (
-    <html lang={locale} data-theme={initialTheme} className={`${ubuntu.variable} ${ubuntuMono.variable}`}>
+    <html lang={locale} data-theme={initialTheme} className={`${plusJakartaSans.variable} ${jetBrainsMono.variable}`}>
       <head>
         <style>{`button:not(:disabled){cursor:pointer}button:disabled{cursor:not-allowed}`}</style>
         {/* Synchronous Tauri detection — runs before CSS is applied so there's no
