@@ -8,11 +8,12 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
 /**
  * Bare `.card` container. Pair with `<CardHeader>` and any body content.
  * Body padding is intentionally not baked in - different cards need different
- * paddings (table cards bleed, prose cards pad).
+ * paddings (table cards bleed, prose cards pad). Surface is gradient fill +
+ * gradient-border sheen + elevation shadow (see `.surface-sheen` / --lift).
  */
 export function Card({ className, children, ...rest }: CardProps) {
   return (
-    <div className={cn("bg-bg-1 border border-line rounded-[var(--r-lg)] shadow-1", className)} {...rest}>
+    <div className={cn("surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)]", className)} {...rest}>
       {children}
     </div>
   );

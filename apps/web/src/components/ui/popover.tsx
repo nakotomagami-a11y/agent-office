@@ -140,7 +140,7 @@ export function Popover({
               }
             }}
             className={cn(
-              "bg-bg-1 border border-line rounded-[var(--r-md)] shadow-[var(--shadow-2)] z-[9999] outline-none",
+              "surface-sheen rounded-[var(--r-md)] shadow-[var(--lift)] z-[9999] outline-none",
               panelClassName,
             )}
             style={style}

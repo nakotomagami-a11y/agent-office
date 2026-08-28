@@ -68,7 +68,7 @@ export function Tooltip({ content, children, side = "top", delayMs = 450 }: Tool
         <div
           role="tooltip"
           style={style}
-          className="z-[9999] px-2 py-[4px] rounded-[6px] text-[11.5px] font-medium leading-snug text-white bg-[#1c1714] border border-[rgba(255,255,255,0.09)] shadow-[0_4px_14px_rgba(0,0,0,0.55)] pointer-events-none whitespace-nowrap"
+          className="z-[9999] px-2 py-[4px] rounded-[6px] text-[11.5px] font-medium leading-snug text-white bg-[#15161d] border border-[rgba(255,255,255,0.09)] shadow-[0_4px_14px_rgba(0,0,0,0.55)] pointer-events-none whitespace-nowrap"
         >
           {content}
         </div>,

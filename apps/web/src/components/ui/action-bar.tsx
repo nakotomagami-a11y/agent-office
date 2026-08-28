@@ -177,7 +177,7 @@ function ActionBarLegacy({ actions }: { actions: ActionBarAction[] }) {
           </button>
 
           {open && (
-            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] bg-[var(--bg-elev)] border border-[var(--line-2)] rounded-[10px] shadow-[var(--shadow-3)] z-50 py-1 overflow-hidden">
+            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
               {actions.map((a) => (
                 <div key={a.key} className="px-1.5 py-0.5 flex">
                   {a.element}
@@ -329,7 +329,7 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
           </button>
 
           {open && (
-            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] bg-[var(--bg-elev)] border border-[var(--line-2)] rounded-[10px] shadow-[var(--shadow-3)] z-50 py-1 overflow-hidden">
+            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
               {overflowItems.map((item) => {
                 const a = item as ActionBarAction;
                 return (

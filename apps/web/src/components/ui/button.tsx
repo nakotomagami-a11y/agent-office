@@ -10,9 +10,11 @@ import { cn } from "@/lib/cn";
  * tailwind-merge (last wins), so passing this after a base string overrides
  * bg/shadow.
  */
+/* Primary button: acc→acc-2 gradient, glow shadow derived from --acc so it
+   re-tints with the theme automatically instead of a hardcoded color. */
 export const ACCENT_BTN =
-  "text-[var(--acc-ink)] border border-[color-mix(in_srgb,var(--acc)_35%,transparent)] " +
-  "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--acc)_88%,#fff),var(--acc))] " +
+  "text-[var(--acc-ink)] border border-transparent " +
+  "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] " +
   "shadow-[0_5px_16px_-4px_color-mix(in_srgb,var(--acc)_55%,transparent),inset_0_1px_0_rgba(255,255,255,0.26)] " +
   "transition-[filter,transform,box-shadow] duration-150 " +
   "hover:brightness-[1.07] hover:-translate-y-px " +

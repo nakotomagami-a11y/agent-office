@@ -20,12 +20,24 @@ function writeDom(theme: Theme) {
 }
 
 function systemTheme(): Theme {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return "dark";
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/** Reads the theme the server already embedded via `data-theme` on `<html>`
+ *  in layout.tsx (stored pref, else "dark"). Falls back to system
+ *  preference only if that attribute is somehow missing. This is the value
+ *  hydrate() should trust as its starting point — NOT `systemTheme()`,
+ *  which used to run first and stomp the correct SSR value, flashing the
+ *  wrong theme for a frame on every load. */
+function currentDomTheme(): Theme {
+  if (typeof document === "undefined") return "dark";
+  const attr = document.documentElement.getAttribute(DOC_ATTR);
+  return attr === "light" || attr === "dark" ? attr : systemTheme();
+}
+
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  theme: "light",
+  theme: "dark",
   hydrated: false,
   setTheme: (next) => {
     writeDom(next);
@@ -38,15 +50,18 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
   hydrate: () => {
     if (get().hydrated) return;
-    // Set hydrated immediately to prevent double-calls, apply system default first
-    const fallback = systemTheme();
-    writeDom(fallback);
-    set({ theme: fallback, hydrated: true });
-    // Then fetch the stored preference
+    // Trust the theme the server already committed to `<html data-theme>` —
+    // it already reflects the stored preference (or "dark" by default), so
+    // there's nothing to flash here. Set hydrated immediately to prevent
+    // double-calls.
+    set({ theme: currentDomTheme(), hydrated: true });
+    // Re-sync from the network only as a safety net (e.g. the setting
+    // changed via another tab/window since this page loaded); a no-op in
+    // the common case where it already matches.
     getUiSettings()
       .then((data) => {
         const stored = data["theme"];
-        if (stored === "dark" || stored === "light") {
+        if ((stored === "dark" || stored === "light") && stored !== get().theme) {
           writeDom(stored);
           set({ theme: stored });
         }
