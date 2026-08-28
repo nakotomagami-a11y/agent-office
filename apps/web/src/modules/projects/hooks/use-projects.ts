@@ -46,6 +46,23 @@ export function useUpdateProject() {
   });
 }
 
+/**
+ * Permanently delete a project's folder from disk (rm -rf) plus its metadata.
+ * Irreversible — callers must gate this behind an explicit confirmation. Also
+ * refreshes the settings scan so the removed folder disappears from the list.
+ */
+export function useRemoveProjectFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ removed: string }>(API_ROUTES.projectFolder(id), { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects.all });
+      qc.invalidateQueries({ queryKey: queryKeys.settings.all });
+    },
+  });
+}
+
 export function useAddInstance() {
   const qc = useQueryClient();
   return useMutation({

@@ -163,6 +163,14 @@ export type CodeEditorProps = {
    * read-only doc/skill looks identical to the editable memory editors.
    */
   readOnly?: boolean;
+  /** Optional mono label rendered in the toolbar, between the tabs and the meta (e.g. a file path). */
+  scopeLabel?: React.ReactNode;
+  /**
+   * Drop the editor's own `surface-sheen` frame (border, rounding, lift
+   * shadow). Use when the editor sits directly inside another sheen surface —
+   * e.g. a modal — so the corner sheen highlight doesn't render twice.
+   */
+  frameless?: boolean;
 };
 
 // px per logical line: 12.5px font-size × 1.6 line-height = 20px
@@ -198,6 +206,8 @@ export function CodeEditor({
   className,
   renderPreview,
   readOnly = false,
+  scopeLabel,
+  frameless = false,
 }: CodeEditorProps) {
   const [view, setView] = useState<"write" | "preview">(readOnly ? "preview" : "write");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -245,31 +255,33 @@ export function CodeEditor({
     .join("");
 
   return (
-    <div className={cn("flex flex-col overflow-hidden border border-line rounded-[var(--r-md)] bg-bg-2", className)}>
+    <div className={cn("flex flex-col overflow-hidden", frameless ? "" : "rounded-[22px] surface-sheen shadow-[var(--lift)]", className)}>
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-[2px] px-[6px] py-[5px] bg-bg-3 border-b border-line shrink-0">
+      <div className="flex items-center gap-[12px] px-[16px] py-[12px] border-b border-edge shrink-0">
         {showPreview && (
-          <>
+          <div className="flex items-center gap-[2px] p-[3px] rounded-[12px] bg-card-2 border border-edge shadow-[var(--inset-hi)] shrink-0">
             <button type="button" onClick={() => setView("write")}
-              className={cn("inline-flex items-center px-[10px] py-[4px] rounded-[5px] font-[var(--font-mono)] text-[11.5px] transition-[background,color] duration-[100ms]",
-                view === "write" ? "bg-bg-2 text-txt shadow-[0_1px_2px_rgba(0,0,0,.18)]" : "text-txt-3 hover:text-txt-2")}>
+              className={cn("py-[6px] px-[14px] rounded-[9px] text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
+                view === "write" ? "bg-card text-txt shadow-[var(--inset-hi),0_0_0_1px_var(--edge)]" : "text-txt-3 hover:text-txt")}>
               Write
             </button>
             <button type="button" onClick={() => setView("preview")}
-              className={cn("inline-flex items-center px-[10px] py-[4px] rounded-[5px] font-[var(--font-mono)] text-[11.5px] transition-[background,color] duration-[100ms]",
-                view === "preview" ? "bg-bg-2 text-txt shadow-[0_1px_2px_rgba(0,0,0,.18)]" : "text-txt-3 hover:text-txt-2")}>
+              className={cn("py-[6px] px-[14px] rounded-[9px] text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
+                view === "preview" ? "bg-card text-txt shadow-[var(--inset-hi),0_0_0_1px_var(--edge)]" : "text-txt-3 hover:text-txt")}>
               Preview
             </button>
-          </>
+          </div>
         )}
-        <div className="ml-auto flex items-center gap-[10px]">
-          <span className="font-[var(--font-mono)] text-[10.5px] text-[var(--txt-3)]">
-            {value.length > 0 ? `${value.length.toLocaleString()} chars · ~${Math.round(value.length / 4)} tokens` : "empty"}
-          </span>
-          <span className="font-[var(--font-mono)] text-[10px] text-[var(--txt-3)] bg-[var(--bg-1)] border border-[var(--line)] px-[6px] py-[1px] rounded-[4px]">
-            {lang}
-          </span>
-        </div>
+        {scopeLabel ? (
+          <span className="font-mono text-[10.5px] text-txt-4 whitespace-nowrap truncate min-w-0">{scopeLabel}</span>
+        ) : null}
+        <span className="flex-1" />
+        <span className="font-mono text-[10.5px] text-txt-4 whitespace-nowrap shrink-0">
+          {value.length > 0 ? `${value.length.toLocaleString()} chars · ~${Math.round(value.length / 4)} tokens` : "empty"}
+        </span>
+        <span className="font-mono text-[10px] text-txt-3 bg-card-2 border border-edge py-[3px] px-[8px] rounded-full whitespace-nowrap shrink-0">
+          {lang}
+        </span>
       </div>
 
       {view === "write" ? (
@@ -294,7 +306,7 @@ export function CodeEditor({
               legible per-theme. */}
           <div
             aria-hidden
-            className="absolute left-0 top-0 bottom-0 w-[44px] bg-[var(--ao-gutter)] border-r border-r-[var(--line)] pointer-events-none"
+            className="absolute left-0 top-0 bottom-0 w-[44px] bg-[var(--ao-gutter)] border-r border-r-edge pointer-events-none"
           />
           <pre
             aria-hidden

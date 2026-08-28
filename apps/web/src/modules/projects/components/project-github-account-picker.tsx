@@ -45,13 +45,13 @@ export function ProjectGithubAccountPicker({
   ) : undefined;
 
   const trigger = (
-    <EnvControlTrigger icon="branch" label="GitHub" value={activeLabel} accessory={accessory} />
+    <EnvControlTrigger icon="branch" label="GitHub" value={activeLabel} accessory={accessory} tone="cyan" />
   );
 
   if (!accountsQ.data) {
     return (
-      <div className={`inline-flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
-        <EnvControlTrigger icon="branch" label="GitHub" value="…" />
+      <div className={`flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
+        <EnvControlTrigger icon="branch" label="GitHub" value="…" tone="cyan" />
       </div>
     );
   }
@@ -59,6 +59,7 @@ export function ProjectGithubAccountPicker({
   const items: DropdownItem[] = accountsQ.data.map((a) => ({
     key: a.id,
     selected: a.id === activeId,
+    indicatorStyle: "check",
     label: (
       <span className="flex items-center gap-[8px]">
         <span>{a.label}</span>
@@ -86,6 +87,7 @@ export function ProjectGithubAccountPicker({
       triggerClassName={ENV_CONTROL_TRIGGER}
       trigger={trigger}
       items={items}
+      matchTriggerWidth
     />
   );
 }

@@ -52,7 +52,7 @@ export function ProjectAccountPicker({
   // Still loading — render the same shell so the bar doesn't jump.
   if (!accountsQ.data) {
     return (
-      <div className={`inline-flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
+      <div className={`flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
         <EnvControlTrigger icon="users" label="Claude account" value="…" />
       </div>
     );
@@ -61,6 +61,7 @@ export function ProjectAccountPicker({
   const items: DropdownItem[] = accountsQ.data.map((a) => ({
     key: a.id,
     selected: a.id === activeId,
+    indicatorStyle: "check",
     label: (
       <span className="flex items-center gap-[8px]">
         <span>{a.label}</span>
@@ -86,6 +87,7 @@ export function ProjectAccountPicker({
       triggerClassName={ENV_CONTROL_TRIGGER}
       trigger={trigger}
       items={items}
+      matchTriggerWidth
     />
   );
 }
