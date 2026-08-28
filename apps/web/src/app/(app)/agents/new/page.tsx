@@ -1,7 +1,7 @@
 "use client";
 
-import { NewAgentForm } from "@/modules/agents/components/new-agent-form";
+import { AgentEditorForm } from "@/modules/agents/components/agent-editor-form";
 
 export default function NewAgentPage() {
-  return <NewAgentForm />;
+  return <AgentEditorForm mode="new" />;
 }

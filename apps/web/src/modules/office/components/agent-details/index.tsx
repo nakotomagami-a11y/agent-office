@@ -8,13 +8,13 @@ import { ChatPanel } from "@/modules/summon/components/chat-panel";
 import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
-import { HistoryTab } from "./tabs/history-tab";
-import { MemoryTab } from "./tabs/memory-tab";
-import { SettingsTab } from "./tabs/settings-tab";
+import { AgentEditorForm } from "@/modules/agents/components/agent-editor-form";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useRegisterModal } from "@/lib/modal-manager";
+import { CHROME_TOP } from "@/lib/chrome";
 import { useProject, useAddInstance, useRemoveInstance } from "@/modules/projects/hooks/use-projects";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
@@ -37,9 +37,7 @@ type Tab = AgentTab;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "conversation", label: "Conversation" },
-  { id: "history", label: "History" },
-  { id: "memory", label: "Memory" },
-  { id: "settings", label: "Settings" },
+  { id: "customization", label: "Customization" },
 ];
 
 /** Row label for the model/effort dropdowns — check marks the current value. */
@@ -328,12 +326,6 @@ export function AgentDetailsModal() {
     }
   };
 
-  const runsQ = useRuns({
-    agentId: agent?.id,
-    instanceId: selectedInstanceId ?? undefined,
-    limit: 50,
-  });
-
   // Runs scoped to this project only — an agent busy on another project must
   // not read as active here.
   const projectRunsQ = useRuns({ projectId: activeProjectId ?? undefined, limit: 100 });
@@ -351,6 +343,13 @@ export function AgentDetailsModal() {
   const agentDetailQ = useAgent(selectedId);
   const agentBodyQ = useAgentBody(selectedId);
   const writeAgentMut = useWriteAgent();
+  // Customization tab reuses the same AgentEditorForm as `/agents/new` and
+  // `/agents/[id]/edit` — single source of truth for "edit an agent" instead
+  // of a fourth bespoke reimplementation.
+  const customizationInitial =
+    agentDetailQ.data && agentBodyQ.data !== undefined
+      ? fromApi(agentDetailQ.data, agentBodyQ.data)
+      : null;
   const applyRuntime = async (patch: { model?: string; effort?: string }) => {
     // Guard against clobbering the body before it has loaded.
     if (!agentDetailQ.data || agentBodyQ.data === undefined) return;
@@ -370,8 +369,6 @@ export function AgentDetailsModal() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- changeTab is stable across renders
   }, [inspectorOpen, selectedId, consumePendingTab]);
-
-  const memoryDiscardRef = useRef<(() => void) | null>(null);
 
   // Close on Escape
   const ref = useRef<HTMLDivElement>(null);
@@ -431,8 +428,6 @@ export function AgentDetailsModal() {
 
   if (!inspectorOpen || !agent) return null;
 
-  const runCount = runsQ.data?.length ?? 0;
-
   const isStreamActive =
     stream.phase === "starting" ||
     stream.phase === "streaming";
@@ -462,6 +457,11 @@ export function AgentDetailsModal() {
     : -1;
   const selectedInst =
     selectedInstIdx >= 0 ? agentInstances[selectedInstIdx] : null;
+  // Git branch for the current instance's worktree, when one exists — real
+  // data lifted straight off AgentInstance.worktree, never fabricated.
+  const currentInstance =
+    agentInstances.find((i) => i.instanceId === selectedInstanceId) ?? agentInstances[0] ?? null;
+  const branchLabel = currentInstance?.worktree?.branch;
 
   const handleSelectFromOverview = (instanceId: string) => {
     selectAgent(selectedId!, { instanceId, tab });
@@ -471,8 +471,8 @@ export function AgentDetailsModal() {
   return (
     <Portal>
       <div
-        className="app-modal-backdrop fixed inset-0 flex items-center justify-center z-[200] bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none"
-        style={{ top: 74, padding: 8 }}
+        className="app-modal-backdrop fixed inset-0 flex items-center justify-center z-[200] p-2 bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none"
+        style={{ top: CHROME_TOP }}
         role="presentation"
         onClick={closeInspector}
       >
@@ -497,9 +497,6 @@ export function AgentDetailsModal() {
                 type="button"
               >
                 <span>{t.label}</span>
-                {t.id === "history" && runCount > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-[6px] rounded-[9px] bg-ao-bg-3 text-ao-fg-1 text-[11px] font-semibold border border-ao-line-1">{runCount}</span>
-                )}
                 {tab === t.id && (
                   <span className="absolute left-3 right-3 bottom-[-1px] h-[2px] bg-[var(--ao-accent)] rounded-[2px]" />
                 )}
@@ -617,6 +614,11 @@ export function AgentDetailsModal() {
                     onSelect: () => void applyRuntime({ effort: e }),
                   }))}
                 />
+                {branchLabel && (
+                  <span className="text-ao-fg-3 truncate max-w-[220px]" title={branchLabel}>
+                    {branchLabel}
+                  </span>
+                )}
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
@@ -668,15 +670,6 @@ export function AgentDetailsModal() {
                   disabled={addMut.isPending}
                 >
                   <Icon name="plus" size={13} /> New
-                </button>
-              )}
-              {tab === "memory" && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-[6px] h-7 px-[10px] rounded-lg bg-ao-bg-3 border border-ao-line-1 text-ao-fg-1 text-[13px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 hover:border-ao-line-2"
-                  onClick={() => memoryDiscardRef.current?.()}
-                >
-                  <Icon name="refresh" size={13} /> Discard
                 </button>
               )}
               {activeProjectId && selectedInstanceId && (
@@ -735,23 +728,25 @@ export function AgentDetailsModal() {
                 projectId={activeProjectId ?? undefined}
                 instanceId={selectedInstanceId ?? undefined}
                 onClose={closeInspector}
-                onEdit={() => changeTab("settings")}
-                onNavigateTab={(tab) => changeTab(tab)}
+                onEdit={() => changeTab("customization")}
                 noHeader
                 newThreadSignal={newThreadSignal}
                 onActiveRunChange={setActiveRunId}
               />
             )}
-            {tab === "history" && (
-              <HistoryTab agentId={agent.id} instanceId={selectedInstanceId} />
-            )}
-            {tab === "memory" && <MemoryTab agentId={agent.id} discardRef={memoryDiscardRef} />}
-            {tab === "settings" && (
-              <SettingsTab
-                agentId={agent.id}
-                onAfterSave={() => {}}
-                onAfterDelete={closeInspector}
-              />
+            {tab === "customization" && (
+              customizationInitial ? (
+                <AgentEditorForm
+                  key={agent.id}
+                  mode="edit"
+                  initial={customizationInitial}
+                  embedded
+                  onSaved={() => {}}
+                  onDeleted={closeInspector}
+                />
+              ) : (
+                <div className="p-6"><Skeleton width="100%" height={240} /></div>
+              )
             )}
           </div>
             </>
