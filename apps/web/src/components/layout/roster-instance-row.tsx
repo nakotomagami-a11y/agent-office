@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
+import { RosterSessionActionButton, RosterSessionActions, RosterSessionRow } from "./roster-row-controls";
 
 export interface RosterInstanceRowProps {
   instanceId: string;
@@ -57,7 +58,7 @@ export function RosterInstanceRow({
 
   if (isRenaming) {
     return (
-      <div className="ses">
+      <RosterSessionRow>
         <input
           ref={inputRef}
           type="text"
@@ -67,20 +68,14 @@ export function RosterInstanceRow({
           placeholder={`Session ${instanceNumber}`}
           aria-label={t("sidebar.rename_instance_aria", { number: instanceNumber })}
           onClick={(e) => e.stopPropagation()}
-          className="[grid-column:1/-1] bg-bg-1 border border-line-2 rounded-[4px] px-[6px] py-[2px] text-[12px] text-txt outline-none focus:border-acc"
+          className="flex-1 min-w-0 bg-bg-1 border border-line-2 rounded-[4px] px-[6px] py-[2px] text-[12px] text-txt outline-none focus:border-acc"
         />
-      </div>
+      </RosterSessionRow>
     );
   }
 
   return (
-    <div
-      className={cn("ses", isSelected && "ses-active")}
-      onClick={onSelect}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(); }}
-    >
+    <RosterSessionRow active={isSelected} onClick={onSelect}>
       {/* Session name */}
       <span className={cn(
         "text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
@@ -103,30 +98,27 @@ export function RosterInstanceRow({
         isLive ? "bg-[var(--working)] shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
       )} />
 
-      {/* Hover actions — absolutely positioned via ses-actions CSS */}
-      <div className="ses-actions">
+      <RosterSessionActions>
         <Tooltip content="Rename" side="top" delayMs={300}>
-          <button
-            type="button"
+          <RosterSessionActionButton
             onClick={(e) => { e.stopPropagation(); onRename(); }}
             aria-label={`Rename session ${instanceNumber}`}
             data-instance-id={instanceId}
           >
             <Icon name="edit" size={11} />
-          </button>
+          </RosterSessionActionButton>
         </Tooltip>
         <Tooltip content={t("sidebar.remove_from_project_title")} side="top" delayMs={300}>
-          <button
-            type="button"
-            className="danger"
+          <RosterSessionActionButton
+            danger
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
             aria-label={t("sidebar.remove_instance_aria", { number: instanceNumber, label: label ?? "" })}
             data-instance-id={instanceId}
           >
             <Icon name="x" size={11} />
-          </button>
+          </RosterSessionActionButton>
         </Tooltip>
-      </div>
-    </div>
+      </RosterSessionActions>
+    </RosterSessionRow>
   );
 }

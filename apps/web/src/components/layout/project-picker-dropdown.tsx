@@ -83,15 +83,19 @@ export function ProjectPickerDropdown({
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [filter, setFilter] = useState<"active" | "shelved">("active");
+  const [query, setQuery] = useState("");
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
+  const activeCount = useMemo(() => projects.filter((p) => !p.shelved).length, [projects]);
   const shelvedCount = useMemo(() => projects.filter((p) => p.shelved).length, [projects]);
-  const visibleProjects = useMemo(
-    () => projects.filter((p) => (filter === "shelved" ? p.shelved : !p.shelved)),
-    [projects, filter],
-  );
+  const visibleProjects = useMemo(() => {
+    const scoped = projects.filter((p) => (filter === "shelved" ? p.shelved : !p.shelved));
+    const q = query.trim().toLowerCase();
+    if (!q) return scoped;
+    return scoped.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, filter, query]);
 
   // rows: optional "All projects" + each visible project.
   const rows = useMemo(() => {
@@ -123,7 +127,11 @@ export function ProjectPickerDropdown({
 
   useEffect(() => {
     if (open) setActiveIndex(0);
-  }, [open, filter]);
+  }, [open, filter, query]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
 
   const toggleShelve = (projectId: string, shelved: boolean) => {
     updateProject.mutate({ id: projectId, patch: { meta: { shelved } } });
@@ -185,55 +193,59 @@ export function ProjectPickerDropdown({
           aria-label={t("project_switcher.menu_label")}
           onKeyDown={onKey}
           className={cn(
-            "flex flex-col border border-line-2 bg-bg-elev rounded-[var(--r-lg)] shadow-[var(--shadow-3)] overflow-hidden w-[340px] max-h-[70vh]",
+            "flex flex-col surface-sheen rounded-[20px] shadow-[var(--lift)] overflow-hidden w-[392px]",
             className,
           )}
         >
-          {/* Fixed header */}
-          <div className="shrink-0 p-1 pb-0">
-            {onPickAll ? (
-              <>
-                <PickerRow
-                  primary={t("project_switcher.all_projects")}
-                  secondary={t("project_switcher.all_projects_subtitle")}
-                  italic
-                  selected={selectedProjectId === null}
-                  highlighted={activeIndex === 0}
-                  projectId={null}
-                  onHover={() => setActiveIndex(0)}
-                  onSelect={() => {
-                    onPickAll();
-                    onClose();
-                  }}
-                />
-                <Separator />
-              </>
-            ) : null}
-            <div className="flex items-center gap-2 px-3 pt-2 pb-1">
-              <span className="uppercase text-txt-3 font-[var(--font-mono)] text-[10px] tracking-[0.08em]">
-                {isLoading
-                  ? t("project_switcher.section_loading")
-                  : t("project_switcher.section_count", { count: visibleProjects.length })}
-              </span>
-              <div className="ml-auto flex items-center gap-[2px] p-[2px] rounded-[6px] bg-bg-2 border border-line">
-                <FilterTab active={filter === "active"} onClick={() => setFilter("active")}>
-                  {t("project_switcher.filter_active")}
-                </FilterTab>
-                <FilterTab active={filter === "shelved"} onClick={() => setFilter("shelved")}>
-                  {t("project_switcher.filter_shelved")}
-                  {shelvedCount > 0 && <span className="ml-1 opacity-70">{shelvedCount}</span>}
-                </FilterTab>
-              </div>
+          {/* Search + Active/Shelved filter */}
+          <div className="shrink-0 flex items-center gap-[10px] py-[13px] px-[14px] border-b border-edge">
+            <div className="flex-1 min-w-0 flex items-center gap-[9px] px-[11px] py-[8px] rounded-[12px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-text">
+              <Icon name="search" size={13} className="text-txt-4 shrink-0" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("project_switcher.search_placeholder")}
+                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[11.5px] text-txt placeholder:text-txt-4"
+              />
+            </div>
+            <div className="flex items-center gap-[2px] p-[3px] rounded-[12px] bg-card-2 border border-edge shadow-[var(--inset-hi)] shrink-0">
+              <FilterTab active={filter === "active"} count={activeCount} onClick={() => setFilter("active")}>
+                {t("project_switcher.filter_active")}
+              </FilterTab>
+              <FilterTab active={filter === "shelved"} count={shelvedCount} onClick={() => setFilter("shelved")}>
+                {t("project_switcher.filter_shelved")}
+              </FilterTab>
             </div>
           </div>
 
+          {onPickAll ? (
+            <div className="shrink-0 p-[6px] border-b border-edge">
+              <PickerRow
+                primary={t("project_switcher.all_projects")}
+                secondary={t("project_switcher.all_projects_subtitle")}
+                italic
+                selected={selectedProjectId === null}
+                highlighted={activeIndex === 0}
+                projectId={null}
+                onHover={() => setActiveIndex(0)}
+                onSelect={() => {
+                  onPickAll();
+                  onClose();
+                }}
+              />
+            </div>
+          ) : null}
+
           {/* Scrollable project list */}
-          <div className="overflow-y-auto flex-1 min-h-0 px-1 [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]">
+          <div className="overflow-y-auto flex-1 min-h-0 p-[6px] flex flex-col gap-[1px] max-h-[min(326px,60vh)] [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]">
             {!isLoading && visibleProjects.length === 0 ? (
-              <div className="px-[10px] pt-2 pb-[10px] text-xs text-txt-3 italic">
-                {filter === "shelved"
-                  ? t("project_switcher.no_shelved")
-                  : t("project_switcher.no_projects")}
+              <div className="px-[9px] py-[10px] text-[12px] text-txt-4 italic">
+                {query
+                  ? t("project_switcher.no_projects")
+                  : filter === "shelved"
+                    ? t("project_switcher.no_shelved")
+                    : t("project_switcher.no_projects")}
               </div>
             ) : (
               visibleProjects.map((p, i) => {
@@ -282,20 +294,21 @@ export function ProjectPickerDropdown({
             )}
           </div>
 
-          <div className="flex flex-wrap border-t border-line bg-bg-2 gap-[2px] p-[6px] [&>*]:basis-[calc(50%-1px)]">
+          <div className="shrink-0 flex items-center gap-[10px] py-[9px] px-[12px] border-t border-edge bg-card-2">
             <button
               type="button"
               role="menuitem"
-              className="flex items-center gap-2 text-txt-2 py-[7px] px-[10px] rounded-[6px] text-[12.5px] hover:bg-bg-3 hover:text-txt transition-[background,color] duration-[100ms]"
+              className="flex items-center gap-[8px] py-[7px] px-[10px] rounded-[11px] text-txt-2 text-[12px] font-semibold hover:bg-card-3 hover:text-txt transition-[background,color] duration-[140ms]"
               onClick={openBootstrap}
             >
               <Icon name="plus" size={13} /> {t("project_switcher.new_project")}
             </button>
+            <span className="flex-1" />
             {onPickManage ? (
               <button
                 type="button"
                 role="menuitem"
-                className="flex items-center gap-2 text-txt-2 py-[7px] px-[10px] rounded-[6px] text-[12.5px] hover:bg-bg-3 hover:text-txt transition-[background,color] duration-[100ms]"
+                className="flex items-center gap-[8px] py-[7px] px-[10px] rounded-[11px] text-txt-4 text-[12px] font-semibold hover:bg-card-3 hover:text-txt transition-[background,color] duration-[140ms]"
                 onMouseEnter={() => setActiveIndex(rows.length - 1)}
                 onClick={handleManage}
               >
@@ -309,21 +322,30 @@ export function ProjectPickerDropdown({
   );
 }
 
-function Separator() {
-  return <div className="h-px bg-[var(--line)] my-1" />;
-}
-
-function FilterTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterTab({
+  active,
+  count,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "px-[9px] h-[20px] rounded-[4px] text-[11px] font-medium transition-[background,color] duration-[100ms] inline-flex items-center",
-        active ? "bg-acc text-[var(--acc-ink)]" : "text-txt-3 hover:text-txt hover:bg-bg-3",
+        "flex items-center gap-[5px] py-[5px] px-[10px] rounded-[9px] text-[11px] font-semibold whitespace-nowrap transition-[background,color] duration-[140ms]",
+        active
+          ? "bg-[linear-gradient(120deg,var(--acc),var(--acc-2))] text-white"
+          : "bg-transparent text-txt-4 hover:text-txt-2",
       )}
     >
       {children}
+      <span className="font-mono text-[9.5px] opacity-65">{count}</span>
     </button>
   );
 }
@@ -361,80 +383,89 @@ function PickerRow({
   shelveLabel,
   onToggleShelve,
 }: RowProps) {
+  const isAllRow = projectId === null;
+  const openBg = Boolean(tagLabel) || (isAllRow && selected);
   return (
     <div className="relative group/row" onMouseEnter={onHover}>
-    <button
-      type="button"
-      role="menuitem"
-      onClick={(e) => {
-        e.preventDefault();
-        onSelect();
-      }}
-      className={cn(
-        "flex items-center relative cursor-pointer w-full text-left bg-transparent border-none text-txt gap-[10px] px-[10px] py-2 rounded-[var(--r-sm)] transition-[background] duration-[100ms] hover:bg-bg-3",
-        highlighted && "bg-bg-3",
-        selected &&
-          "bg-acc-faint before:content-[''] before:absolute before:left-0 before:top-[6px] before:bottom-[6px] before:w-[3px] before:bg-[var(--acc)] before:rounded-[0_2px_2px_0]",
-      )}
-    >
-      {projectId ? (
-        <PlanetCanvas
-          projectId={projectId}
-          config={planetConfig}
-          size={32}
-          className="rounded-full shrink-0"
-        />
-      ) : (
-        <span className="flex items-center justify-center shrink-0 text-white font-bold w-[32px] h-[32px] rounded-[8px] text-[12px] border border-[rgba(255,255,255,0.08)] bg-bg-3">
-          <Icon name="folder" size={13} className="text-txt-3" />
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <div
-          className={`text-[13px] font-${projectId ? "semibold" : "medium"}${italic ? " italic" : ""} overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-1.5`}
-        >
-          {primary}
-          {selected && <Icon name="check" size={11} className="text-acc shrink-0" />}
-          {tagLabel ? (
-            <span className="text-[9.5px] uppercase tracking-[0.06em] text-txt-3 border border-line rounded-[3px] px-[5px] py-[1px] leading-[1.4] ml-auto shrink-0">
-              {tagLabel}
-            </span>
-          ) : null}
-        </div>
-        {secondary && (
-          <div className="font-mono text-[10.5px] text-txt-3 overflow-hidden text-ellipsis whitespace-nowrap">
-            {secondary}
-          </div>
-        )}
-      </span>
-      {healthDot && (
-        <span
-          className={cn(
-            "w-1.5 h-1.5 rounded-full shrink-0",
-            onToggleShelve && "group-hover/row:opacity-0 transition-opacity duration-[100ms]",
-          )}
-          style={{
-            background: healthDot === "working" ? "var(--working)" : "var(--error)",
-            boxShadow: healthDot === "working" ? "0 0 5px var(--working)" : "none",
-          }}
-        />
-      )}
-    </button>
-    {onToggleShelve && (
       <button
         type="button"
-        aria-label={shelveLabel}
-        title={shelveLabel}
+        role="menuitem"
         onClick={(e) => {
           e.preventDefault();
-          e.stopPropagation();
-          onToggleShelve();
+          onSelect();
         }}
-        className="absolute right-[8px] top-1/2 -translate-y-1/2 w-[24px] h-[24px] inline-flex items-center justify-center rounded-[6px] text-txt-3 opacity-0 group-hover/row:opacity-100 hover:bg-bg-4 hover:text-txt transition-[opacity,background,color] duration-[120ms] z-[2]"
+        className={cn(
+          "flex items-center relative cursor-pointer w-full text-left bg-transparent border-none gap-[11px] px-[9px] py-[8px] rounded-[12px] transition-[background] duration-[130ms]",
+          highlighted ? "bg-card-3" : openBg ? "bg-acc-soft" : "hover:bg-card-3",
+          selected &&
+            "before:content-[''] before:absolute before:left-0 before:top-[8px] before:bottom-[8px] before:w-[2px] before:bg-[var(--acc)] before:rounded-full",
+        )}
       >
-        <Icon name={shelved ? "undo" : "archive"} size={13} />
+        {projectId !== undefined && projectId !== null ? (
+          <PlanetCanvas
+            projectId={projectId}
+            config={planetConfig}
+            size={28}
+            className="rounded-full shrink-0"
+          />
+        ) : (
+          <span className="flex items-center justify-center shrink-0 text-txt-3 w-[28px] h-[28px] rounded-full border border-edge bg-card-2">
+            <Icon name="folder" size={13} />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 leading-[1.35]">
+          <div
+            className={cn(
+              "text-[12.5px] overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[6px]",
+              openBg ? "font-bold text-txt" : italic ? "font-medium italic text-txt-2" : "font-semibold text-txt-2",
+            )}
+          >
+            {primary}
+            {selected && <Icon name="check" size={11} className="text-acc shrink-0" />}
+          </div>
+          {secondary && (
+            <div className="font-mono text-[10px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">
+              {secondary}
+            </div>
+          )}
+        </span>
+        {tagLabel ? (
+          <span
+            className={cn(
+              "text-[8.5px] font-extrabold uppercase tracking-[0.07em] px-[7px] py-[2px] rounded-full bg-green-soft text-green shrink-0",
+              onToggleShelve && "group-hover/row:opacity-0 transition-opacity duration-[100ms]",
+            )}
+          >
+            {tagLabel}
+          </span>
+        ) : healthDot ? (
+          <span
+            className={cn(
+              "w-[6px] h-[6px] rounded-full shrink-0",
+              onToggleShelve && "group-hover/row:opacity-0 transition-opacity duration-[100ms]",
+            )}
+            style={{
+              background: healthDot === "working" ? "var(--working)" : "var(--error)",
+              boxShadow: healthDot === "working" ? "0 0 5px var(--working)" : "none",
+            }}
+          />
+        ) : null}
       </button>
-    )}
+      {onToggleShelve && (
+        <button
+          type="button"
+          aria-label={shelveLabel}
+          title={shelveLabel}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleShelve();
+          }}
+          className="absolute right-[8px] top-1/2 -translate-y-1/2 w-[24px] h-[24px] inline-flex items-center justify-center rounded-[8px] text-txt-3 opacity-0 group-hover/row:opacity-100 hover:bg-card-3 hover:text-txt transition-[opacity,background,color] duration-[120ms] z-[2]"
+        >
+          <Icon name={shelved ? "undo" : "archive"} size={13} />
+        </button>
+      )}
     </div>
   );
 }

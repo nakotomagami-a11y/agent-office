@@ -7,6 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { RosterInstanceRow } from "./roster-instance-row";
+import { RosterActionButton, RosterSessionRow } from "./roster-row-controls";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { AgentInstance } from "@agent-office/domain/types";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
@@ -17,19 +18,6 @@ import {
 } from "@/modules/office/hooks/use-office-drag";
 
 const LIVE: AgentStatusInfo["status"][] = ["working", "thinking"];
-
-/**
- * Shared style for the roster row's small hover actions (pin / spawn / remove).
- * Flat by default — no border, transparent fill — so on the row's hover surface
- * they read as quiet affordances rather than floating outlined circles (which
- * looked muddy in dark mode and cheap in light). Colour + a soft tinted fill
- * only arrive on hover, tuned per action via the token-based classes appended
- * at each call site. Works on both themes because the tints are translucent.
- */
-const ROSTER_ACTION_BTN =
-  "w-[22px] h-[22px] rounded-[6px] inline-flex items-center justify-center cursor-pointer " +
-  "transition-[background-color,color] duration-[120ms] " +
-  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-acc";
 
 function agentLedClass(status: AgentStatusInfo["status"]) {
   return cn(
@@ -48,19 +36,14 @@ const STATUS_PRIORITY: AgentStatusInfo["status"][] = [
 function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (e: React.MouseEvent) => void }) {
   return (
     <Tooltip content={pinned ? "Unpin" : "Pin to top"} side="top">
-      <button
-        type="button"
+      <RosterActionButton
+        active={pinned}
         onClick={onToggle}
         aria-label={pinned ? "Unpin agent" : "Pin agent to top"}
-        className={cn(
-          ROSTER_ACTION_BTN,
-          pinned
-            ? "text-acc bg-acc-faint opacity-100 hover:bg-acc-tint"
-            : "text-txt-3 opacity-0 group-hover:opacity-100 hover:bg-acc-faint hover:text-acc",
-        )}
+        className={!pinned ? "opacity-0 group-hover:opacity-100" : undefined}
       >
         <Icon name="pin" size={11} />
-      </button>
+      </RosterActionButton>
     </Tooltip>
   );
 }
@@ -134,7 +117,10 @@ export function RosterGroup({
     <div>
       {/* Agent row */}
       <div
-        className={cn("ag-row group relative", isSelected && "bg-acc-faint")}
+        className={cn(
+          "flex items-center gap-[10px] p-[6px] rounded-[8px] cursor-pointer hover:bg-bg-3 group relative",
+          isSelected && "bg-acc-faint",
+        )}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
@@ -213,25 +199,22 @@ export function RosterGroup({
               )}
               <span className="flex gap-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-[120ms]">
                 <Tooltip content={t("sidebar.spawn_instance_title")} side="top">
-                  <button
-                    type="button"
+                  <RosterActionButton
                     onClick={(e) => { e.stopPropagation(); onSpawn(agent.id); }}
                     aria-label={t("sidebar.spawn_instance_aria", { name: agent.name })}
-                    className={cn(ROSTER_ACTION_BTN, "text-txt-3 hover:bg-acc-faint hover:text-acc")}
                   >
                     <Icon name="plus" size={12} />
-                  </button>
+                  </RosterActionButton>
                 </Tooltip>
                 {inst && (
                   <Tooltip content={t("sidebar.remove_from_project_title")} side="top">
-                    <button
-                      type="button"
+                    <RosterActionButton
+                      tone="danger"
                       onClick={(e) => { e.stopPropagation(); onRemove(inst.instanceId); }}
                       aria-label={t("sidebar.remove_from_project_aria", { name: agent.name })}
-                      className={cn(ROSTER_ACTION_BTN, "text-txt-3 hover:bg-[color-mix(in_oklab,var(--error)_16%,transparent)] hover:text-[var(--error)]")}
                     >
                       <Icon name="x" size={12} />
-                    </button>
+                    </RosterActionButton>
                   </Tooltip>
                 )}
               </span>
@@ -242,7 +225,7 @@ export function RosterGroup({
 
       {/* Expanded sessions tree */}
       {isMulti && expanded && (
-        <div className="ag-sessions">
+        <div className="relative ml-[22px] pl-[14px] pt-[2px] pb-[6px] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-[6px] before:w-px before:bg-line-2">
           {instances.map((inst, idx) => {
             const spendKey = `${inst.agentId}|${inst.instanceId}`;
             const instSpend = spendByInstance[spendKey] ?? 0;
@@ -264,15 +247,14 @@ export function RosterGroup({
               />
             );
           })}
-          <button
-            type="button"
-            className="ses-new"
-            onClick={(e) => { e.stopPropagation(); onSpawn(agent.id); }}
+          <RosterSessionRow
+            onClick={() => onSpawn(agent.id)}
             aria-label={t("sidebar.spawn_instance_aria", { name: agent.name })}
+            className="text-txt-3 font-[var(--font-mono)] text-[11px] hover:bg-transparent hover:text-acc"
           >
             <Icon name="plus" size={11} />
             New session
-          </button>
+          </RosterSessionRow>
         </div>
       )}
     </div>

@@ -1,7 +1,5 @@
 import { Suspense, type ReactNode } from "react";
 import { GnomeWindow } from "@/components/layout/gnome-window";
-import { Titlebar } from "@/components/layout/titlebar";
-import { TabStrip } from "@/components/layout/tab-strip";
 import { TabsRouterSync } from "@/components/layout/tabs-router-sync";
 import { TabsKeyboard } from "@/components/layout/tabs-keyboard";
 import { MainShell } from "@/components/layout/main-shell";
@@ -23,9 +21,9 @@ import { Toaster } from "@/components/ui/toaster";
  * global overlays (agent-details + Claude limits modals) so any trigger
  * elsewhere in the app can open them.
  *
- * The Titlebar is rendered as a SIBLING of GnomeWindow (not a child) so it
- * sits in its own stacking context above any portal-rendered modal. The
- * GnomeWindow reserves a 38px row at the top for the titlebar to overlay.
+ * The project tab strip + Docs + theme toggle + account chip live inside
+ * `<MainShell>` (see `main-top-bar.tsx`) instead of as fixed siblings of
+ * `<GnomeWindow>` — there is no app-wide fixed chrome row.
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -44,8 +42,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AgentCapModalMount />
       <RootSignInModal />
     </GnomeWindow>
-    <Titlebar />
-    <TabStrip />
     <Toaster />
     <Suspense><TabsRouterSync /></Suspense>
     <TabsKeyboard />

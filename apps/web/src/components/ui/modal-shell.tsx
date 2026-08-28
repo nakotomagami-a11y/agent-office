@@ -5,6 +5,7 @@ import { Portal } from "./portal";
 import { Icon } from "./icon";
 import { cn } from "@/lib/cn";
 import { useRegisterModal } from "@/lib/modal-manager";
+import { CHROME_TOP } from "@/lib/chrome";
 
 export type ModalShellProps = {
   open: boolean;
@@ -108,8 +109,8 @@ export function ModalShell({
       <div
         role="presentation"
         onClick={onClose}
-        className="app-modal-backdrop fixed inset-0 bg-[rgba(10,10,18,0.55)] backdrop-blur-sm flex items-center justify-center z-[200]"
-        style={{ top: 74, padding: 8 }}
+        className="app-modal-backdrop fixed inset-0 bg-[var(--ao-backdrop)] backdrop-blur-sm flex items-center justify-center z-[200] p-2"
+        style={{ top: CHROME_TOP }}
       >
         <div
           ref={ref}
@@ -118,7 +119,7 @@ export function ModalShell({
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className={cn("bg-bg-1 border border-line rounded-[8px] shadow-1 w-full flex flex-col outline-none", className)}
+          className={cn("surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
           style={{
             maxWidth: maxWidth ?? SIZE_PX[size],
             maxHeight: "calc(100vh - 90px)",

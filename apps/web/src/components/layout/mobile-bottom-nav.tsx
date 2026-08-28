@@ -5,38 +5,39 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
-
-function isActive(pathname: string, href: string, exact = false): boolean {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(href + "/");
-}
+import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
+import { isActiveRoute } from "./sidebar-routing";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  // Office is iso-only; hide its entry unless the Isometric view integration is on.
+  const isoEnabled = useIntegrationEnabled("iso-view");
 
   return (
     <nav
       className="hidden max-[600px]:flex [&>*]:flex-1 [&>*]:basis-0 fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-bg-0 pb-[env(safe-area-inset-bottom)]"
       aria-label="Mobile navigation"
     >
-      <Link
-        href={PAGE_ROUTES.office}
-        aria-current={isActive(pathname, PAGE_ROUTES.office, true) ? "page" : undefined}
-        className={cn(
-          "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
-          isActive(pathname, PAGE_ROUTES.office, true) && "text-acc",
-        )}
-      >
-        <Icon name="home" size={20} />
-        <span>Office</span>
-      </Link>
+      {isoEnabled && (
+        <Link
+          href={PAGE_ROUTES.office}
+          aria-current={isActiveRoute(pathname, PAGE_ROUTES.office, { exact: true }) ? "page" : undefined}
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
+            isActiveRoute(pathname, PAGE_ROUTES.office, { exact: true }) && "text-acc",
+          )}
+        >
+          <Icon name="home" size={20} />
+          <span>Office</span>
+        </Link>
+      )}
 
       <Link
         href={PAGE_ROUTES.activity}
-        aria-current={isActive(pathname, PAGE_ROUTES.activity) ? "page" : undefined}
+        aria-current={isActiveRoute(pathname, PAGE_ROUTES.activity) ? "page" : undefined}
         className={cn(
           "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
-          isActive(pathname, PAGE_ROUTES.activity) && "text-acc",
+          isActiveRoute(pathname, PAGE_ROUTES.activity) && "text-acc",
         )}
       >
         <Icon name="activity" size={20} />
@@ -55,10 +56,10 @@ export function MobileBottomNav() {
 
       <Link
         href={PAGE_ROUTES.agents}
-        aria-current={isActive(pathname, PAGE_ROUTES.agents) ? "page" : undefined}
+        aria-current={isActiveRoute(pathname, PAGE_ROUTES.agents) ? "page" : undefined}
         className={cn(
           "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
-          isActive(pathname, PAGE_ROUTES.agents) && "text-acc",
+          isActiveRoute(pathname, PAGE_ROUTES.agents) && "text-acc",
         )}
       >
         <Icon name="users" size={20} />
@@ -67,10 +68,10 @@ export function MobileBottomNav() {
 
       <Link
         href={PAGE_ROUTES.settings}
-        aria-current={isActive(pathname, PAGE_ROUTES.settings) ? "page" : undefined}
+        aria-current={isActiveRoute(pathname, PAGE_ROUTES.settings) ? "page" : undefined}
         className={cn(
           "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
-          isActive(pathname, PAGE_ROUTES.settings) && "text-acc",
+          isActiveRoute(pathname, PAGE_ROUTES.settings) && "text-acc",
         )}
       >
         <Icon name="settings" size={20} />
