@@ -7,7 +7,7 @@ import { useProcessesStore } from "@/lib/processes-store";
 import { useCompareStore } from "@/lib/compare-store";
 import { useOfficeStore, type AgentTab } from "@/modules/office/hooks/use-office-store";
 
-const AGENT_TABS: AgentTab[] = ["conversation", "history", "memory", "settings"];
+const AGENT_TABS: AgentTab[] = ["conversation", "customization"];
 function isAgentTab(v: string | null): v is AgentTab {
   return AGENT_TABS.includes(v as AgentTab);
 }

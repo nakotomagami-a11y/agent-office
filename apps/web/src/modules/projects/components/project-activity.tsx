@@ -70,7 +70,7 @@ export function ProjectActivity({ projectId, onMeta }: ProjectActivityProps) {
         <RunRow
           key={run.id}
           run={run}
-          onOpen={() => select(run.agentId, { tab: "history", instanceId: run.instanceId ?? null })}
+          onOpen={() => select(run.agentId, { tab: "conversation", instanceId: run.instanceId ?? null })}
         />
       ))}
       {hasMore && (

@@ -13,6 +13,11 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
  * without a manual refresh.
  */
 
+/** Window event: request the agent-migration modal be opened on demand (e.g.
+ *  from the update bell's bundled-agents affordance). The globally-mounted
+ *  AgentMigrationTrigger owns the modal and listens for this. */
+export const OPEN_AGENT_MIGRATION_EVENT = "agent-office:open-agent-migration";
+
 export interface AgentDiffEntry {
   id: string;
   name: string;

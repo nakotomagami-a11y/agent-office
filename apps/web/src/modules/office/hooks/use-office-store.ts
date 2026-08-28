@@ -21,7 +21,7 @@ export type OfficeView = "iso" | "cards";
  * modal) so other surfaces can pre-select a tab when opening the inspector -
  * e.g. clicking the edit icon on an agent card jumps straight to "prompt".
  */
-export type AgentTab = "conversation" | "history" | "memory" | "settings";
+export type AgentTab = "conversation" | "customization";
 
 type SelectOptions = { tab?: AgentTab; instanceId?: string | null };
 
@@ -52,14 +52,7 @@ type OfficeState = {
    * Keyed by projectId, same shape as `expandedGroups`.
    */
   pinnedGroups: Record<string, string[]>;
-  /**
-   * Height (px) the sidebar's nav/links block is pinned to, set by dragging the
-   * divider between the links and roster blocks. `null` = natural content height
-   * (roster takes all remaining space). Persisted.
-   */
-  navHeight: number | null;
   hydrated: boolean;
-  setNavHeight: (px: number | null) => void;
   setView: (next: OfficeView) => void;
   setIsoEnabled: (next: boolean) => void;
   select: (id: string | null, opts?: SelectOptions) => void;
@@ -77,7 +70,7 @@ type OfficeState = {
  *  toggle (Settings → Integrations), mirrored into the store by useOfficeHydration. */
 type PersistShape = Pick<
   OfficeState,
-  "view" | "expandedGroups" | "pinnedGroups" | "navHeight"
+  "view" | "expandedGroups" | "pinnedGroups"
 >;
 
 function isGroupMap(v: unknown): v is Record<string, string[]> {
@@ -93,12 +86,11 @@ function parse(raw: string | undefined): Partial<PersistShape> | null {
   try {
     const obj = JSON.parse(raw) as unknown;
     if (!obj || typeof obj !== "object") return null;
-    const { view, expandedGroups, pinnedGroups, navHeight } = obj as Partial<PersistShape>;
+    const { view, expandedGroups, pinnedGroups } = obj as Partial<PersistShape>;
     const out: Partial<PersistShape> = {};
     if (view === "iso" || view === "cards") out.view = view;
     if (isGroupMap(expandedGroups)) out.expandedGroups = expandedGroups;
     if (isGroupMap(pinnedGroups)) out.pinnedGroups = pinnedGroups;
-    if (navHeight === null || typeof navHeight === "number") out.navHeight = navHeight;
     return out;
   } catch {
     return null;
@@ -118,12 +110,7 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
   activeTab: "conversation",
   expandedGroups: {},
   pinnedGroups: {},
-  navHeight: null,
   hydrated: false,
-  setNavHeight: (px) => {
-    set({ navHeight: px });
-    persistState(get());
-  },
   setView: (next) => {
     set({ view: next });
     persistState(get());
@@ -201,7 +188,6 @@ function persistState(s: OfficeState): void {
     view: s.view,
     expandedGroups: s.expandedGroups,
     pinnedGroups: s.pinnedGroups,
-    navHeight: s.navHeight,
   };
   patchUiSettings({ [STORAGE_KEY]: JSON.stringify(shape) }).catch(() => {
     // Best-effort — matches the `tabs-state` / `active-project` pattern.
