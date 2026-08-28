@@ -1,5 +1,17 @@
+import type { PersistedRun } from "@agent-office/domain/types";
+
 export function fmtTok(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
+}
+
+/**
+ * Presentational-only "XP" for a run — a deterministic transform of its real
+ * duration + token usage, not a persisted game economy (REDESIGN_V3_PLAN §D4:
+ * relabel existing metrics, no schema change). Recomputed on every render.
+ */
+export function xpForRun(run: PersistedRun): number {
+  const base = 10 + Math.round(run.durMs / 5000) + Math.round((run.tokensIn + run.tokensOut) / 500);
+  return Math.min(999, base);
 }
 
 export function isoDay(ts: number): string {

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/icon";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useExpandedState } from "./expanded-state";
 import type { ThreadItem } from "../format/thread-types";
 
@@ -96,16 +94,6 @@ function SubAgentBody({ item, totalTok }: { item: SubAgentItem; totalTok: number
         <div className="flex items-center gap-[10px] font-mono text-[11px] text-ao-fg-3">
           {totalTok !== null ? <span>{totalTok.toLocaleString()} tok</span> : null}
           {item.cost !== undefined && item.cost > 0 ? <span>${item.cost.toFixed(4)}</span> : null}
-          {item.subRunId ? (
-            <Link
-              href={PAGE_ROUTES.run(item.subRunId)}
-              className="ml-auto inline-flex items-center gap-[4px] text-[var(--ao-accent)] no-underline hover:underline text-[11px]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              View transcript
-              <Icon name="chevron" size={10} className="rotate-[-90deg]" />
-            </Link>
-          ) : null}
         </div>
       ) : null}
     </div>

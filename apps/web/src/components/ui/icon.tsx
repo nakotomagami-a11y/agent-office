@@ -668,6 +668,38 @@ const ICON_PATHS = {
       </>
     ),
   },
+  diamond: {
+    ...STROKE_BASE,
+    body: <path d="M12 3l7 7-7 11-7-11 7-7z" />,
+  },
+  coin: {
+    ...STROKE_BASE,
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v10M9.5 9.5h3.2a2 2 0 0 1 0 4H9.5M9.5 14.5h3.2" />
+      </>
+    ),
+  },
+  trophy: {
+    ...STROKE_BASE,
+    body: (
+      <>
+        <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+        <path d="M7 5H4a3 3 0 0 0 3 4M17 5h3a3 3 0 0 1-3 4" />
+        <path d="M12 14v3M9 21h6M9.5 21c0-2 .8-3 2.5-4 1.7 1 2.5 2 2.5 4" />
+      </>
+    ),
+  },
+  clock: {
+    ...STROKE_BASE,
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
+      </>
+    ),
+  },
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

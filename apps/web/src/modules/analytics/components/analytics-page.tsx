@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
@@ -54,34 +55,42 @@ function periodLabel(p: Period): string {
   return p === "all" ? "all time" : p === "week" ? "last 7 days" : p === "month" ? "last 30 days" : "last 90 days";
 }
 
-export function AnalyticsPage() {
+export function AnalyticsPage({
+  embedded = false,
+  projectId,
+}: {
+  /** Rendered inside Activity's "Insights" tab — skip the own page header and
+   * outer scroll container (the parent already owns both). See §D5. */
+  embedded?: boolean;
+  projectId?: string;
+}) {
   const [period, setPeriod] = useState<Period>("month");
   const [metric, setMetric] = useState<TrendMetric>("cost");
 
   const { start, end } = useMemo(() => rangeFor(period), [period]);
-  const q = useAnalyticsPage({ start, end });
+  const q = useAnalyticsPage({ start, end, projectId });
   const d = q.data;
 
-  const header = (
-    <PageHeader
-      title="Analytics"
-      sub="· usage, spend & reliability"
-      actions={
-        <SegControl
-          options={PERIODS.map((p) => ({ id: p.id, label: p.label }))}
-          value={period}
-          onChange={(v) => setPeriod(v as Period)}
-          ariaLabel="Time window"
-        />
-      }
+  const periodControl = (
+    <SegControl
+      options={PERIODS.map((p) => ({ id: p.id, label: p.label }))}
+      value={period}
+      onChange={(v) => setPeriod(v as Period)}
+      ariaLabel="Time window"
     />
   );
+  const header = embedded ? null : (
+    <PageHeader title="Analytics" sub="usage, spend & reliability" actions={periodControl} />
+  );
+  const bodyClass = embedded
+    ? "flex flex-col gap-[16px]"
+    : "flex-1 min-h-0 overflow-y-auto px-[28px] pt-[20px] pb-[48px] flex flex-col gap-[16px]";
 
   if (q.isLoading || !d) {
     return (
       <>
         {header}
-        <div className="flex-1 min-h-0 overflow-y-auto px-[28px] pt-[20px] pb-[48px] flex flex-col gap-[16px]">
+        <div className={bodyClass}>
           <Skeleton width="100%" height={112} />
           <Skeleton width="100%" height={250} />
           <div className="flex gap-[16px] flex-wrap">
@@ -114,7 +123,8 @@ export function AnalyticsPage() {
   return (
     <>
       {header}
-      <div className="flex-1 min-h-0 overflow-y-auto px-[28px] pt-[20px] pb-[48px] flex flex-col gap-[16px] [&>*]:shrink-0">
+      <div className={cn(bodyClass, "[&>*]:shrink-0")}>
+        {embedded && <div className="self-end">{periodControl}</div>}
         <HeroBand
           totals={d.totals}
           previous={d.previous}

@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import type { WorkflowNode } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
 import { StatusBadge } from "@/modules/runs/components/status-badge";
@@ -113,14 +111,6 @@ function WorkflowRow({ node, depth }: { node: WorkflowNode; depth: number }) {
             <span className="font-mono text-[11px] text-ao-fg-3">
               {node.tokensIn.toLocaleString()}↓ / {node.tokensOut.toLocaleString()}↑ tok
             </span>
-            <Link
-              href={PAGE_ROUTES.run(node.runId)}
-              className="inline-flex items-center gap-[5px] text-[11.5px] text-[var(--ao-accent)] font-medium no-underline hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Open full transcript
-              <Icon name="chevron" size={11} className="rotate-[-90deg]" />
-            </Link>
           </div>
         </div>
       )}

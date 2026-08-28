@@ -1,5 +1,6 @@
 import type { PersistedRun } from "@agent-office/domain/types";
 import type { UnitSelection } from "@/components/ui/unit-sprite-registry";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { RunAvatar } from "./run-avatar";
 
@@ -10,17 +11,23 @@ export function ActivityFeedRowAvatar({
   run: PersistedRun;
   unitByAgent: Map<string, UnitSelection>;
 }) {
-  const dotCls =
-    run.status === "error" ? "error" : run.status === "running" ? "running" : "";
   return (
-    <div className="act-row-av relative shrink-0 w-[26px] h-[26px]">
+    <div className="relative shrink-0 w-[32px] h-[32px]">
       <RunAvatar
         run={run}
         unitByAgent={unitByAgent}
-        size={26}
-        className="rounded-[6px] border border-line bg-bg-2"
+        size={32}
+        className="rounded-[8px] border border-edge bg-card-2"
       />
-      <span className={cn("absolute rounded-full bottom-[-2px] right-[-2px] w-[8px] h-[8px] [border:2px_solid_var(--bg-1)]", dotCls === "error" ? "bg-[var(--error)]" : "bg-[var(--working)]", dotCls === "running" && "animate-[pulseDot_1.2s_infinite]")} />
+      <span
+        className={cn(
+          "absolute flex items-center justify-center rounded-full bottom-[-3px] right-[-3px] w-[14px] h-[14px] ring-2 ring-card text-white",
+          run.status === "error" ? "bg-red" : run.status === "running" ? "bg-acc animate-pulse" : "bg-green",
+        )}
+      >
+        {run.status === "done" && <Icon name="check" size={8} />}
+        {run.status === "error" && <Icon name="x" size={8} />}
+      </span>
     </div>
   );
 }

@@ -14,11 +14,11 @@ export function ActivityLiveStrip({
   if (runs.length === 0) return null;
   return (
     <section className="flex flex-col gap-[8px]">
-      <div className="flex items-center uppercase text-txt-3 gap-[10px] font-[var(--font-mono)] text-[10.5px] tracking-[0.1em]">
-        <span className="shrink-0 relative rounded-full w-[7px] h-[7px] after:content-[''] after:absolute after:inset-[-4px] after:rounded-full after:border after:border-[var(--working)] after:opacity-50 after:animate-[act-ping_1.6s_ease-out_infinite]" style={{ background: "var(--working)" }} />
+      <div className="flex items-center uppercase text-txt-4 gap-[10px] font-mono text-[10.5px] tracking-[0.1em]">
+        <span className="shrink-0 relative rounded-full w-[7px] h-[7px] bg-green after:content-[''] after:absolute after:inset-[-4px] after:rounded-full after:border after:border-green after:opacity-50 after:animate-[act-ping_1.6s_ease-out_infinite]" />
         Live now
-        <span className="bg-bg-2 border border-line text-txt-2 rounded-full normal-case px-[8px] py-[1px] tracking-[0]">{runs.length}</span>
-        <span className="flex-1 h-[1px] bg-[var(--line)]" />
+        <span className="bg-card-2 text-txt-2 rounded-full normal-case px-[8px] py-[1px] tracking-[0]">{runs.length}</span>
+        <span className="flex-1" />
         <span className="normal-case tracking-normal">updating live</span>
       </div>
       {runs.map((r) => (

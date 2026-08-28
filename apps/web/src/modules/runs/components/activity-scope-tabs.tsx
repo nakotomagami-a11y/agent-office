@@ -11,13 +11,19 @@ export function ActivityScopeTabs({
   setScope: (s: ActivityScope) => void;
 }) {
   return (
-    <div className="flex bg-bg-2 border border-line p-[3px] max-[600px]:hidden rounded-md">
+    <div role="group" aria-label="Time window" className="flex items-center gap-[2px] p-[3px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)] max-[600px]:hidden">
       {SCOPES.map((s) => (
         <button
           key={s}
-          className={cn("bg-transparent border-none cursor-pointer text-txt-3 px-[11px] py-[4px] rounded-[6px] text-[12px] font-[var(--font-mono)]", scope === s && "bg-bg-3 text-txt [box-shadow:inset_0_0_0_1px_var(--line)]")}
-          onClick={() => setScope(s)}
           type="button"
+          aria-pressed={scope === s}
+          className={cn(
+            "px-[12px] py-[6px] rounded-[10px] text-[11.5px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
+            scope === s
+              ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
+              : "bg-transparent text-txt-3 hover:brightness-110",
+          )}
+          onClick={() => setScope(s)}
         >
           {s.charAt(0).toUpperCase() + s.slice(1)}
         </button>
