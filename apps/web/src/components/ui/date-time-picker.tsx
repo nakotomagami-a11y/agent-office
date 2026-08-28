@@ -211,7 +211,7 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
             role="dialog"
             aria-label={ariaLabel}
             style={{ ...style, width: 300 }}
-            className="bg-bg-1 border border-line-2 rounded-[var(--r-lg)] shadow-[var(--shadow-3)] p-3 z-[9999] flex flex-col gap-[10px]"
+            className="surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)] p-3 z-[9999] flex flex-col gap-[10px]"
           >
             {/* Quick presets — the common case for scheduling. */}
             <div className="flex flex-wrap gap-[6px]">
