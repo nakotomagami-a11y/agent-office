@@ -1,20 +1,32 @@
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/ui/icon";
 import type { StatTile } from "../derive/activity-tiles";
-import { ActivitySpark } from "./activity-spark";
 
 export function ActivityStatTile({ tile }: { tile: StatTile }) {
   return (
-    <div className="bg-bg-1 border border-line relative overflow-hidden flex flex-col px-[16px] py-[14px] rounded-[12px] gap-[5px] min-h-[106px] [box-shadow:var(--shadow-1)]">
-      <div className="text-txt-3 uppercase font-[var(--font-mono)] text-[10px] tracking-[0.1em]">{tile.label}</div>
-      <div className="font-bold text-txt text-[24px] tracking-[-0.01em]">
+    <div className="flex-1 min-w-[190px] flex flex-col gap-[10px] rounded-[16px] surface-sheen shadow-[var(--lift)] px-[16px] py-[14px]">
+      <div className="flex items-center gap-[9px]">
+        <div
+          className="flex items-center justify-center w-[26px] h-[26px] rounded-[8px] shrink-0"
+          style={{ background: `color-mix(in oklab, ${tile.color} 18%, transparent)`, color: tile.color }}
+        >
+          <Icon name={tile.icon} size={14} />
+        </div>
+        <span className="font-mono text-[9.5px] font-extrabold tracking-[0.09em] uppercase text-txt-4">
+          {tile.label}
+        </span>
+      </div>
+      <div className="font-extrabold text-txt text-[22px] tracking-[-0.02em]">
         {tile.value}
-        {tile.unit && <span className="text-txt-3 font-medium text-[12px] ml-[3px] font-[var(--font-mono)]">{tile.unit}</span>}
+        {tile.unit && <span className="text-txt-4 font-medium text-[11px] ml-[4px] font-mono">{tile.unit}</span>}
       </div>
-      <div className={cn("inline-flex items-center gap-[4px] font-[var(--font-mono)] text-[10.5px]", tile.delta.cls === "neg" ? "text-[var(--error)]" : tile.delta.cls === "flat" ? "text-txt-3" : "text-[var(--working)]")}>
+      <div
+        className={cn(
+          "font-mono text-[10.5px]",
+          tile.delta.cls === "neg" ? "text-red" : tile.delta.cls === "flat" ? "text-txt-4" : "text-green",
+        )}
+      >
         {tile.delta.text}
-      </div>
-      <div className="absolute right-[12px] bottom-[12px] w-[70px] h-[34px]">
-        <ActivitySpark data={tile.spark} color={tile.color} />
       </div>
     </div>
   );

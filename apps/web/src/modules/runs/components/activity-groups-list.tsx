@@ -23,14 +23,14 @@ export function ActivityGroupsList({
   unitByAgent: Map<string, UnitSelection>;
 }) {
   if (isLoading) {
-    return <div className="p-8 text-center text-txt-3 font-mono text-[13px]">loading runs…</div>;
+    return <div className="p-8 text-center text-txt-4 font-mono text-[13px]">loading runs…</div>;
   }
   if (groups.length === 0) {
     return (
-      <div className="p-8 text-center text-txt-3 bg-bg-1 border border-line rounded-xl">
+      <div className="p-8 text-center text-txt-3 rounded-[16px] surface-sheen shadow-[var(--lift)]">
         <Icon name="search" size={24} />
         <div className="mt-2.5 text-[14px] text-txt-2">Nothing matches your filter.</div>
-        <div className="mt-1 text-[12px] font-mono">Try widening the agent or status filter.</div>
+        <div className="mt-1 text-[12px] font-mono text-txt-4">Try widening the agent or status filter.</div>
       </div>
     );
   }

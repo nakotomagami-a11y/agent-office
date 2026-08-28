@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { match } from "ts-pattern";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useCompareStore } from "@/lib/compare-store";
 import type { PersistedRun } from "@agent-office/domain/types";
 import { formatCost, formatDuration, formatRelative } from "../format/format-run-meta";
@@ -27,10 +25,10 @@ export function RunRow({ run }: RunRowProps) {
     <div
       className="group flex items-center border-b border-line"
     >
-      {/* The link carries the primary run content */}
-      <Link
-        href={PAGE_ROUTES.run(run.id)}
-        className="flex-1 grid gap-3 px-[14px] py-[10px] no-underline text-txt items-center min-w-0"
+      {/* The primary run content — no longer a navigation link since
+          /runs/[id] was removed; just displays the row's data. */}
+      <div
+        className="flex-1 grid gap-3 px-[14px] py-[10px] text-txt items-center min-w-0"
         style={{ gridTemplateColumns: "auto 1fr auto auto" }}
       >
         <StatusDot status={status} hideLabel />
@@ -49,7 +47,7 @@ export function RunRow({ run }: RunRowProps) {
         <span className="font-[var(--font-mono)] text-[11px] text-txt-3 min-w-[56px] text-right">
           {formatRelative(run.ts)}
         </span>
-      </Link>
+      </div>
 
       {/* Fork button - outside the link so click doesn't navigate */}
       <div className="pr-3 shrink-0">

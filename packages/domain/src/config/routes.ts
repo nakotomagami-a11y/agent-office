@@ -14,7 +14,6 @@ export const PAGE_ROUTES = {
   project: (id: string) => `/projects/${encodeURIComponent(id)}`,
   skills: "/skills",
   memory: "/memory",
-  run: (id: string) => `/runs/${encodeURIComponent(id)}`,
   settings: "/settings",
   activity: "/activity",
   analytics: "/analytics",

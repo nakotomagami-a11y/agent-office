@@ -38,7 +38,7 @@ export function ActivityDayGroup({
       {group.runs.length > 10 && (
         <button
           type="button"
-          className="w-full text-center text-txt-3 bg-bg-1 border border-line rounded-[10px] px-[14px] py-[9px] mb-[5px] text-[12px] font-[var(--font-mono)] hover:text-[var(--txt)] hover:border-[var(--line-2)] hover:bg-[var(--bg-2)]"
+          className="w-full text-center text-txt-3 bg-card-2 rounded-[10px] px-[14px] py-[9px] mb-[5px] text-[12px] font-mono hover:text-txt hover:bg-card-3"
           onClick={onToggleDay}
         >
           {expanded ? "Show less" : `Show ${group.runs.length - 10} more`}
