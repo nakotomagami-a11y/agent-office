@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { useIntegrationEnabled } from "../hooks/use-settings";
@@ -17,42 +18,40 @@ export type SettingsTabValue =
   | "projects"
   | "bundled-agents"
   | "integrations"
-  | "accounts"
-  | "github-accounts"
   | "secrets"
   | "about-you"
   | "performance"
   | "cleanup";
 
-type NavItem = { value: SettingsTabValue; label: string; icon: IconName };
-type NavGroup = { label: string; items: NavItem[] };
+// `label`/group `key` below are i18n key stems (see `settings_nav.*` in
+// messages/en.json) — translated at render time, not display strings.
+type NavItem = { value: SettingsTabValue; icon: IconName };
+type NavGroup = { key: string; items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    label: "Workspace",
+    key: "workspace",
     items: [
-      { value: "projects", label: "Projects", icon: "folder" },
-      { value: "bundled-agents", label: "Bundled agents", icon: "sparkle" },
-      { value: "integrations", label: "Integrations", icon: "wrench" },
+      { value: "projects", icon: "folder" },
+      { value: "bundled-agents", icon: "sparkle" },
+      { value: "integrations", icon: "wrench" },
     ],
   },
   {
-    label: "Accounts",
+    key: "credentials",
     items: [
-      { value: "accounts", label: "Claude accounts", icon: "users" },
-      { value: "github-accounts", label: "GitHub accounts", icon: "branch" },
-      { value: "secrets", label: "Secrets", icon: "lock" },
+      { value: "secrets", icon: "lock" },
     ],
   },
   {
-    label: "You",
-    items: [{ value: "about-you", label: "About You", icon: "identity" }],
+    key: "you",
+    items: [{ value: "about-you", icon: "identity" }],
   },
   {
-    label: "System",
+    key: "system",
     items: [
-      { value: "performance", label: "Performance", icon: "gauge" },
-      { value: "cleanup", label: "Cleanup", icon: "trash" },
+      { value: "performance", icon: "gauge" },
+      { value: "cleanup", icon: "trash" },
     ],
   },
 ];
@@ -66,9 +65,9 @@ export function SettingsNav({
   onChange: (next: SettingsTabValue) => void;
   ariaLabel: string;
 }) {
+  const t = useTranslations("settings_nav");
   // Some nav items belong to an optional integration and are hidden when it's off.
   const navEnabled: Partial<Record<SettingsTabValue, boolean>> = {
-    "github-accounts": useIntegrationEnabled("github"),
     "about-you": useIntegrationEnabled("about-you"),
   };
   const groups = GROUPS
@@ -79,18 +78,19 @@ export function SettingsNav({
     <nav
       aria-label={ariaLabel}
       className={cn(
-        // Desktop: vertical rail
-        "shrink-0 w-[210px] px-[12px] py-[16px] border-r border-line overflow-y-auto",
-        "flex flex-col gap-[18px]",
+        // Desktop: vertical rail — surface-sheen card, not a bordered pane.
+        // Exact mockup values: padding:12px 10px; border-radius:22px.
+        "shrink-0 w-[212px] surface-sheen rounded-[22px] shadow-[var(--lift)] py-[12px] px-[10px] overflow-y-auto",
+        "flex flex-col gap-[2px]",
         // Mobile: horizontal scroll strip
         "max-[640px]:w-full max-[640px]:flex-row max-[640px]:items-center max-[640px]:gap-0",
-        "max-[640px]:border-r-0 max-[640px]:border-b max-[640px]:overflow-x-auto max-[640px]:overflow-y-hidden",
+        "max-[640px]:rounded-[14px] max-[640px]:overflow-x-auto max-[640px]:overflow-y-hidden",
         "max-[640px]:py-[8px] max-[640px]:px-[10px]",
       )}
     >
       {groups.map((group) => (
         <div
-          key={group.label}
+          key={group.key}
           className={cn(
             "flex flex-col gap-[2px]",
             // Mobile: lay items in a row, divide groups with a rule
@@ -99,8 +99,11 @@ export function SettingsNav({
             "max-[640px]:first:border-l-0 max-[640px]:first:pl-0 max-[640px]:first:ml-0",
           )}
         >
-          <div className="px-[10px] pb-[2px] text-[10px] font-[var(--font-mono)] uppercase tracking-[0.08em] text-txt-3 max-[640px]:hidden">
-            {group.label}
+          <div className="flex items-center gap-[8px] pt-[12px] px-[8px] pb-[6px] max-[640px]:hidden">
+            <span className="text-[9px] font-extrabold font-[var(--font-mono)] uppercase tracking-[0.1em] text-txt-4 whitespace-nowrap">
+              {t(`group_${group.key}_label`)}
+            </span>
+            <span className="flex-1 h-px bg-edge" aria-hidden />
           </div>
           {group.items.map((item) => {
             const active = item.value === value;
@@ -111,18 +114,15 @@ export function SettingsNav({
                 aria-current={active ? "page" : undefined}
                 onClick={() => onChange(item.value)}
                 className={cn(
-                  "flex items-center gap-[9px] h-[32px] px-[10px] rounded-[8px] w-full text-left",
-                  "text-[13px] whitespace-nowrap cursor-pointer border border-transparent",
-                  "transition-[background-color,color] duration-[120ms]",
+                  "flex items-center gap-[10px] py-[8px] px-[10px] rounded-[12px] w-full text-left",
+                  "text-[12.5px] whitespace-nowrap cursor-pointer transition-colors duration-150",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
                   "max-[640px]:w-auto max-[640px]:shrink-0",
-                  active
-                    ? "bg-acc-faint text-acc font-medium border-[var(--acc-tint)]"
-                    : "text-txt-3 hover:text-txt hover:bg-bg-2",
+                  active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 hover:bg-card-2",
                 )}
               >
-                <Icon name={item.icon} size={15} className="shrink-0" />
-                {item.label}
+                <Icon name={item.icon} size={14} className="shrink-0 opacity-90" />
+                {t(`nav_${item.value.replace(/-/g, "_")}_label`)}
               </button>
             );
           })}
