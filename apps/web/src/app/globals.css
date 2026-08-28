@@ -22,7 +22,6 @@
 @import "./styles/analytics.css";
 @import "./styles/performance.css";
 @import "./styles/responsive.css";
-@import "./styles/roster-tree.css";
 
 @source "../**/*.{ts,tsx}";
 
@@ -64,6 +63,30 @@
   --color-status-error:    var(--error);
   --color-status-thinking: var(--thinking);
 
+  /* `--bg-*`/`--line-*` above already alias onto these raw palette tokens;
+     these entries additionally expose them directly as classes
+     (`bg-canvas`, `bg-card`, `border-edge`, `text-green`, …) for components
+     that want the surface tokens without going through the legacy aliases. */
+  --color-canvas: var(--canvas);
+  --color-card:   var(--card);
+  --color-card-2: var(--card-2);
+  --color-card-3: var(--card-3);
+  --color-edge:   var(--edge);
+  --color-edge-2: var(--edge-2);
+
+  --color-acc-2:    var(--acc-2);
+  --color-acc-soft: var(--acc-soft);
+  --color-acc-line: var(--acc-line);
+  --color-acc-cta:  var(--acc-cta);
+
+  --color-green:      var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-red:        var(--red);
+  --color-red-soft:   var(--red-soft);
+  --color-amber:      var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-cyan:       var(--cyan);
+
   /* Colors — ao-modal palette
      Surface, line, and foreground tokens resolve via theme-aware CSS
      vars defined on :root (light) and [data-theme="dark"] (dark) so
@@ -81,9 +104,9 @@
   --color-ao-fg-1:   var(--ao-fg-1);
   --color-ao-fg-2:   var(--ao-fg-2);
   --color-ao-fg-3:   var(--ao-fg-3);
-  --color-ao-accent:      #7c6af5;
-  --color-ao-accent-soft: rgba(124, 106, 245, 0.14);
-  --color-ao-accent-line: rgba(124, 106, 245, 0.30);
+  --color-ao-accent:      var(--acc);
+  --color-ao-accent-soft: var(--acc-soft);
+  --color-ao-accent-line: var(--acc-line);
   --color-ao-ok:       #4eb96f;
   --color-ao-ok-soft:  rgba(78, 185, 111, 0.14);
   --color-ao-warn:     #e6b35a;
