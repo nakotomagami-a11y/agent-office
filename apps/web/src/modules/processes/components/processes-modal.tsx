@@ -1,213 +1,238 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
+import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProcessesStore } from "@/lib/processes-store";
+import { useMemHistory } from "../hooks/use-mem-history";
 import { useProcesses, type ProcessInfo } from "../hooks/use-processes";
 import {
   fmtMem,
+  fmtMemParts,
   fmtUptime,
   fmtAgo,
   detectFramework,
   detectProto,
+  accentForProto,
+  sparkPath,
   groupByProject,
+  type ProcessGroup,
 } from "../format/process-format";
 
+type Scope = "project" | "all";
+
 /* ------------------------------------------------------------------ */
-/* Server card                                                          */
+/* Server card                                                         */
 /* ------------------------------------------------------------------ */
 
 function ServerCard({
   process: p,
+  history,
   onKill,
   killing,
 }: {
   process: ProcessInfo;
+  history: number[];
   onKill: () => void;
   killing: boolean;
 }) {
+  const t = useTranslations("processes_modal");
   const [open, setOpen] = useState(false);
   const framework = detectFramework(p.name, p.cmd);
   const proto = detectProto(p.name, p.cmd);
+  const accent = accentForProto(proto);
   const isLocal = p.address === "127.0.0.1" || p.address === "::1" || p.address === "0.0.0.0" || p.address === "::";
-  const memPct = Math.min(100, p.memMb / 10);
+  const spark = sparkPath(history);
 
   return (
-    <>
-      <div
-        className={`flex items-center gap-[10px] px-3 py-[10px] bg-ao-bg-2 border border-ao-line-1 rounded-ao-md cursor-pointer transition-[background,border-color] duration-[100ms] relative hover:bg-ao-bg-3 ${open ? "border-[var(--ao-accent-line)] rounded-b-none" : ""}`}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="w-[7px] h-[7px] rounded-full shrink-0 bg-ao-ok shadow-[0_0_5px_var(--ao-ok)]" />
-        <span
-          className="flex items-center gap-[3px] font-mono text-[13px] font-bold text-ao-accent bg-[var(--ao-accent-softer)] border border-ao-accent-line rounded-full px-2 py-[2px] whitespace-nowrap shrink-0 no-underline"
-          onClick={(e) => e.stopPropagation()}
+    <div
+      className="relative flex flex-col rounded-[16px] bg-card-2 shadow-[inset_0_0_0_1px_var(--line),var(--inset-hi)] overflow-hidden transition-[transform,box-shadow] duration-150 hover:-translate-y-px"
+      style={{ boxShadow: open ? `inset 0 0 0 1px ${accent.fg}` : undefined }}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${accent.soft}, transparent)` }}
+        aria-hidden
+      />
+      <div className="flex items-stretch">
+        {/* Port panel */}
+        <div
+          className="relative w-[92px] shrink-0 flex flex-col items-center justify-center gap-[4px] py-[13px] border-r border-line"
+          style={{ background: accent.pad }}
         >
-          <span className="text-[10px] text-ao-fg-3 font-normal mr-[1px]">:{proto}</span>
-          {p.port}
-          {isLocal && (
-            <a
-              href={`http://localhost:${p.port}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center text-ao-fg-3 ml-1 hover:text-ao-accent"
-              title="Open in browser"
-            >
-              <Icon name="globe" size={10} />
-            </a>
-          )}
-        </span>
-        <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
-          <div className="flex items-center gap-[6px] text-[13px] font-semibold text-ao-fg-0">
-            <span>{p.name}</span>
-            {framework !== p.name && (
-              <span className="text-[10px] text-ao-fg-3 bg-ao-bg-3 border border-ao-line-2 rounded-[4px] px-[5px] py-[1px] font-mono font-normal">{framework}</span>
-            )}
-          </div>
-          <div className="text-[11px] font-mono text-ao-fg-3 overflow-hidden text-ellipsis whitespace-nowrap">
-            <span title={p.cmd}>{p.cmd || "-"}</span>
-          </div>
-          <div className="flex items-center gap-0">
-            <span className="flex items-center gap-1 text-[11px]"><span className="text-ao-fg-3 font-mono">PID</span><span className="text-ao-fg-1 font-mono font-medium">{p.pid}</span></span>
-            <span className="w-px h-[10px] bg-[var(--ao-line-0)] mx-2" />
-            <span className="flex items-center gap-1 text-[11px]"><span className="text-ao-fg-3 font-mono">up</span><span className="text-ao-fg-1 font-mono font-medium">{fmtUptime(p.startedAt)}</span></span>
-            <span className="w-px h-[10px] bg-[var(--ao-line-0)] mx-2" />
-            <span className="flex items-center gap-1 text-[11px]"><span className="text-ao-fg-3 font-mono">mem</span><span className="text-ao-fg-1 font-mono font-medium">{fmtMem(p.memMb)}</span></span>
-          </div>
+          <span
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: `radial-gradient(circle at 50% 40%, ${accent.soft}, transparent 70%)` }}
+          />
+          <span className="relative font-[var(--font-mono)] text-[8px] font-bold uppercase tracking-[0.1em] opacity-75" style={{ color: accent.fg }}>
+            {proto}
+          </span>
+          <span className="relative font-[var(--font-mono)] text-[18px] font-extrabold tracking-[-0.02em]" style={{ color: accent.fg }}>
+            {p.port}
+          </span>
+          <span className="relative flex items-center gap-[5px] font-[var(--font-mono)] text-[9px] text-txt-4">
+            <span className="w-[5px] h-[5px] rounded-full bg-green shadow-[0_0_5px_1px_rgba(52,211,153,0.6)] animate-[ao-pulse_2s_ease-in-out_infinite]" />
+            {fmtUptime(p.startedAt)}
+          </span>
         </div>
-        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+
+        {/* Body */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 min-w-0 flex items-center gap-[12px] px-[14px] py-[12px] text-left cursor-pointer bg-transparent border-0"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-[7px]">
+              <span className="text-[13px] font-bold truncate">{p.name}</span>
+              {framework !== p.name && (
+                <span
+                  className="font-[var(--font-mono)] text-[9px] font-bold px-[6px] py-[1.5px] rounded-[6px] whitespace-nowrap shrink-0"
+                  style={{ background: accent.soft, color: accent.fg }}
+                >
+                  {framework}
+                </span>
+              )}
+              <span className="font-[var(--font-mono)] text-[9px] px-[6px] py-[1.5px] rounded-[6px] bg-card-3 text-txt-4 whitespace-nowrap shrink-0">
+                PID {p.pid}
+              </span>
+            </div>
+            <div className="flex items-center gap-[6px] mt-[6px] px-[8px] py-[5px] rounded-[8px] bg-card shadow-[inset_0_0_0_1px_var(--line)]">
+              <span className="font-[var(--font-mono)] text-[9.5px] text-txt-4 shrink-0 opacity-70">$</span>
+              <span className="flex-1 min-w-0 font-[var(--font-mono)] text-[10px] text-txt-3 whitespace-nowrap overflow-hidden text-ellipsis" title={p.cmd}>
+                {p.cmd || "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-[4px] shrink-0">
+            <div className="flex items-baseline gap-[4px]">
+              <span className="font-[var(--font-mono)] text-[12px] font-bold whitespace-nowrap">{fmtMem(p.memMb)}</span>
+              <span className="font-[var(--font-mono)] text-[8.5px] text-txt-4">mem</span>
+            </div>
+            <svg viewBox="0 0 60 20" className="w-[58px] h-[20px] overflow-visible">
+              <path d={spark.area} fill={accent.soft} />
+              <path d={spark.line} fill="none" stroke={accent.fg} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+            </svg>
+          </div>
+        </button>
+
+        {/* Actions */}
+        <div className="flex items-center gap-[2px] px-[8px] shrink-0" onClick={(e) => e.stopPropagation()}>
           {isLocal && (
             <a
               href={`http://localhost:${p.port}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-[26px] h-[26px] rounded-[6px] flex items-center justify-center text-ao-fg-3 transition-[background,color] duration-[100ms] hover:bg-ao-bg-4 hover:text-ao-accent no-underline"
-              title="Open in browser"
+              title={t("open_in_browser")}
+              className="w-[29px] h-[29px] rounded-[9px] flex items-center justify-center text-txt-3 transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--cyan)_14%,transparent)] hover:text-cyan"
             >
               <Icon name="globe" size={13} />
             </a>
           )}
           <button
-            title="View logs"
-            className="w-[26px] h-[26px] rounded-[6px] flex items-center justify-center text-ao-fg-3 transition-[background,color] duration-[100ms] hover:bg-ao-bg-4 hover:text-ao-fg-1 border-0 bg-transparent cursor-pointer p-0"
-            onClick={() => setOpen(true)}
+            type="button"
+            title={t("details")}
+            onClick={() => setOpen((v) => !v)}
+            className="w-[29px] h-[29px] rounded-[9px] flex items-center justify-center text-txt-3 transition-colors duration-150 hover:bg-card-3 hover:text-txt cursor-pointer border-0 bg-transparent"
           >
             <Icon name="list" size={13} />
           </button>
           <button
-            title="Restart process"
-            className="w-[26px] h-[26px] rounded-[6px] flex items-center justify-center text-ao-fg-3 transition-[background,color] duration-[100ms] hover:bg-ao-bg-4 hover:text-ao-fg-1 border-0 bg-transparent cursor-pointer p-0"
+            type="button"
+            title={t("restart_not_supported")}
             disabled
+            className="w-[29px] h-[29px] rounded-[9px] flex items-center justify-center text-txt-4 opacity-40 cursor-not-allowed border-0 bg-transparent"
           >
             <Icon name="refresh" size={13} />
           </button>
           <button
-            title="Stop process"
-            className="w-[26px] h-[26px] rounded-[6px] flex items-center justify-center text-ao-fg-3 transition-[background,color] duration-[100ms] hover:bg-ao-bad-soft hover:text-ao-bad border-0 bg-transparent cursor-pointer p-0"
+            type="button"
+            title={t("kill_process")}
             onClick={onKill}
             disabled={killing}
+            className="w-[29px] h-[29px] rounded-[9px] flex items-center justify-center text-txt-4 transition-colors duration-150 hover:bg-red-soft hover:text-red cursor-pointer border-0 bg-transparent disabled:opacity-40"
           >
             <Icon name={killing ? "refresh" : "x"} size={14} />
           </button>
         </div>
-        <span className={`text-ao-fg-3 shrink-0 flex items-center transition-transform duration-[150ms] ${open ? "rotate-180" : ""}`}>
-          <Icon name="chevron-down" size={11} />
-        </span>
       </div>
 
       {open && (
-        <div className="bg-ao-bg-2 border border-ao-accent-line border-t-0 rounded-b-ao-md px-4 py-[14px] flex flex-col gap-3">
-          <div className="flex flex-col gap-[5px]">
-            {[
-              ["PID", String(p.pid)],
-              ["Working dir", p.cwd || "-"],
-              ["Command", p.cmd || "-"],
-              ["Started", `${fmtAgo(p.startedAt)} · up ${fmtUptime(p.startedAt)}`],
-              ["Address", `${p.address}:${p.port}`],
-            ].map(([k, v]) => (
-              <div key={k} className="flex gap-2 text-[11.5px]">
-                <span className="min-w-[90px] text-ao-fg-3 font-mono shrink-0">{k}</span>
-                <span className="text-ao-fg-1 font-mono break-all">{v}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-1 mt-4">
-            <div className="flex items-center gap-[5px] text-[11px] text-ao-fg-3 font-mono">
-              <Icon name="cpu" size={11} /> Memory
-              <span className="ml-auto text-ao-fg-2">{fmtMem(p.memMb)}</span>
+        <div className="px-[14px] py-[12px] border-t border-line flex flex-col gap-[5px]">
+          {[
+            [t("working_dir"), p.cwd || "-"],
+            [t("command"), p.cmd || "-"],
+            [t("started"), `${fmtAgo(p.startedAt)} · up ${fmtUptime(p.startedAt)}`],
+            [t("address"), `${p.address}:${p.port}`],
+          ].map(([k, v]) => (
+            <div key={k} className="flex gap-[8px] text-[11px]">
+              <span className="min-w-[86px] text-txt-4 font-[var(--font-mono)] shrink-0">{k}</span>
+              <span className="text-txt-2 font-[var(--font-mono)] break-all">{v}</span>
             </div>
-            <div className="h-[5px] bg-ao-bg-4 rounded-full overflow-hidden">
-              <div className="h-full bg-ao-accent rounded-full transition-[width] duration-300" style={{ width: `${memPct}%` }} />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-[6px] mt-[2px]">
-            {isLocal && (
-              <a
-                href={`http://localhost:${p.port}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-[5px] px-[10px] py-[5px] rounded-[6px] text-[11.5px] font-mono bg-ao-bg-3 border border-ao-line-2 text-ao-fg-1 no-underline transition-[background,border-color] duration-[100ms] hover:bg-ao-bg-4"
-              >
-                <Icon name="globe" size={12} /> Open localhost:{p.port}
-              </a>
-            )}
-            <button
-              className="flex items-center gap-[5px] px-[10px] py-[5px] rounded-[6px] text-[11.5px] font-mono bg-ao-bg-3 border border-ao-line-2 text-ao-fg-1 transition-[background,border-color] duration-[100ms] hover:bg-ao-bg-4 cursor-pointer border-solid"
-            >
-              <Icon name="list" size={12} /> Tail logs
-            </button>
-            <button
-              className="flex items-center gap-[5px] px-[10px] py-[5px] rounded-[6px] text-[11.5px] font-mono bg-ao-bg-3 border border-ao-line-2 text-ao-fg-3 cursor-not-allowed opacity-50 border-solid"
-              disabled
-              title="Restart not yet supported"
-            >
-              <Icon name="refresh" size={12} /> Restart
-            </button>
-            <button
-              className="flex items-center gap-[5px] px-[10px] py-[5px] rounded-[6px] text-[11.5px] font-mono bg-ao-bg-3 border border-[rgba(217,83,79,0.30)] text-ao-bad transition-[background,border-color] duration-[100ms] hover:bg-ao-bad-soft cursor-pointer border-solid"
-              onClick={onKill}
-              disabled={killing}
-            >
-              <Icon name={killing ? "refresh" : "x"} size={12} /> {killing ? "Killing…" : "Kill process"}
-            </button>
-          </div>
+          ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Modal                                                                */
+/* Stat tile                                                           */
+/* ------------------------------------------------------------------ */
+
+function StatTile({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div className="flex-1 basis-[calc(25%-8px)] min-w-[100px] px-[13px] py-[11px] rounded-[14px] bg-card-2 shadow-[inset_0_0_0_1px_var(--line)]">
+      <div className="text-[8.5px] font-bold uppercase tracking-[0.08em] text-txt-4 whitespace-nowrap">{label}</div>
+      <div className="flex items-baseline gap-[5px] mt-[5px]">
+        <span className="text-[19px] font-extrabold tracking-[-0.02em]">{value}</span>
+        <span className="text-[10px] font-semibold text-txt-4 whitespace-nowrap">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Modal                                                               */
 /* ------------------------------------------------------------------ */
 
 export function ProcessesModal() {
+  const t = useTranslations("processes_modal");
   const open = useProcessesStore((s) => s.open);
   const setOpen = useProcessesStore((s) => s.setOpen);
+  const activeProjectId = useActiveProjectStore((s) => s.id);
   const processesQ = useProcesses(open);
   const queryClient = useQueryClient();
 
   const processes = useMemo(() => processesQ.data ?? [], [processesQ.data]);
+  const getHistory = useMemHistory(processes);
   const [q, setQ] = useState("");
+  const [scope, setScope] = useState<Scope>("project");
+
+  const scoped = useMemo(
+    () => (scope === "project" && activeProjectId ? processes.filter((p) => p.projectId === activeProjectId) : processes),
+    [processes, scope, activeProjectId],
+  );
 
   const filtered = useMemo(() => {
-    if (!q) return processes;
+    if (!q) return scoped;
     const low = q.toLowerCase();
-    return processes.filter((p) => {
+    return scoped.filter((p) => {
       const blob = `${p.name} ${p.cmd} ${p.port} ${p.projectName ?? ""}`.toLowerCase();
       return blob.includes(low);
     });
-  }, [processes, q]);
+  }, [scoped, q]);
 
-  const groups = useMemo(() => groupByProject(filtered), [filtered]);
+  const groups: ProcessGroup[] = useMemo(() => groupByProject(filtered), [filtered]);
 
   const totalMem = processes.reduce((s, p) => s + p.memMb, 0);
-  const projectCount = processes.filter((p) => !!p.projectId).length;
+  const projectCount = processes.filter((p) => p.projectId === activeProjectId).length;
+  const portsInUse = new Set(processes.map((p) => p.port)).size;
   const [killing, setKilling] = useState<Set<number>>(new Set());
   const [killError, setKillError] = useState<string | null>(null);
 
@@ -233,147 +258,160 @@ export function ProcessesModal() {
       open={open}
       onClose={() => setOpen(false)}
       bareContent
-      maxWidth={680}
-      className="ao-modal"
-      closeLabel="Close running servers"
+      maxWidth={860}
+      closeLabel={t("close_running_servers")}
     >
-          {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--ao-line-0)] shrink-0">
-            <div className="w-8 h-8 bg-ao-accent-soft border border-ao-accent-line rounded-[8px] flex items-center justify-center text-ao-accent" aria-hidden="true">
-              <Icon name="terminal" size={16} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-ao-fg-0">Running servers</div>
-              <div className="text-[11px] text-ao-fg-3 font-mono mt-[1px]">processes listening on a port · refreshes every 5s</div>
-            </div>
+      {/* Header */}
+      <div className="relative flex items-center gap-[14px] px-6 py-5 border-b border-line shrink-0 overflow-hidden">
+        <span
+          className="absolute left-[60px] -top-[80px] w-[260px] h-[200px] pointer-events-none"
+          style={{ background: "radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--green) 16%, transparent), transparent 66%)" }}
+          aria-hidden
+        />
+        <span className="relative w-[40px] h-[40px] shrink-0 flex items-center justify-center rounded-[14px] bg-green-soft text-green shadow-[inset_0_0_0_1px_var(--green)]">
+          <Icon name="server" size={18} />
+        </span>
+        <div className="relative flex-1 min-w-0">
+          <div className="text-[17px] font-extrabold tracking-[-0.02em]">{t("title")}</div>
+          <div className="font-[var(--font-mono)] text-[10.5px] text-txt-4">
+            {t("subtitle")}
+          </div>
+        </div>
+        <span className="relative inline-flex items-center gap-[6px] px-[11px] py-[5px] rounded-full bg-green-soft text-green text-[11px] font-bold whitespace-nowrap shrink-0">
+          <span className="w-[5px] h-[5px] rounded-full bg-green animate-[ao-pulse_1.6s_ease-in-out_infinite]" />
+          {t("healthy_count", { count: processes.length })}
+        </span>
+        <button
+          type="button"
+          title={t("refresh_now")}
+          onClick={() => processesQ.refetch()}
+          className="relative w-8 h-8 rounded-[11px] flex items-center justify-center text-txt-3 transition-colors duration-150 hover:bg-card-2 hover:text-txt cursor-pointer border-0 bg-transparent shrink-0"
+        >
+          <Icon name="refresh" size={15} />
+        </button>
+        <button
+          type="button"
+          title={t("close")}
+          aria-label={t("close")}
+          onClick={() => setOpen(false)}
+          className="relative w-8 h-8 rounded-[11px] flex items-center justify-center text-txt-3 transition-colors duration-150 hover:bg-card-2 hover:text-txt cursor-pointer border-0 bg-transparent shrink-0"
+        >
+          <Icon name="x" size={16} />
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="flex flex-wrap gap-[10px] px-6 py-4 border-b border-line shrink-0">
+        <StatTile label={t("stat_processes")} value={String(processes.length)} unit={t("unit_listening")} />
+        <StatTile label={t("stat_from_project")} value={String(projectCount)} unit={t("unit_servers")} />
+        <StatTile label={t("stat_memory")} {...fmtMemParts(totalMem)} />
+        <StatTile label={t("stat_ports_in_use")} value={String(portsInUse)} unit={t("unit_ports_scanned")} />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-[10px] px-6 py-[13px] shrink-0">
+        <div className="flex-1 min-w-0 flex items-center gap-[9px] px-[13px] py-[10px] rounded-[13px] bg-card-2 shadow-[inset_0_0_0_1px_var(--line)] text-txt-4 focus-within:text-txt-2">
+          <Icon name="search" size={13} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("search_placeholder")}
+            className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-txt placeholder:text-txt-4"
+          />
+        </div>
+        <div className="flex items-center gap-[2px] p-[4px] rounded-[14px] bg-card-2 shadow-[inset_0_0_0_1px_var(--line)] shrink-0">
+          {([
+            ["project", t("scope_this_project"), processes.filter((p) => p.projectId === activeProjectId).length],
+            ["all", t("scope_all"), processes.length],
+          ] as const).map(([id, label, count]) => (
             <button
-              className="w-7 h-7 rounded-[6px] flex items-center justify-center text-ao-fg-3 text-[16px] leading-none transition-[background,color] duration-[120ms] hover:bg-ao-bg-3 hover:text-ao-fg-0 border-0 bg-transparent cursor-pointer p-0"
-              title="Refresh now"
-              onClick={() => processesQ.refetch()}
+              key={id}
+              type="button"
+              onClick={() => setScope(id)}
+              className={`flex items-center gap-[6px] px-[12px] py-[6px] rounded-[10px] text-[11.5px] font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer border-0 ${scope === id ? "bg-card text-txt" : "bg-transparent text-txt-4 hover:text-txt-2"}`}
             >
-              <Icon name="refresh" size={15} />
+              {label}
+              <span className="font-[var(--font-mono)] text-[9.5px] opacity-70">{count}</span>
             </button>
-            <button
-              className="w-7 h-7 rounded-[6px] flex items-center justify-center text-ao-fg-3 text-[16px] leading-none transition-[background,color] duration-[120ms] hover:bg-ao-bg-3 hover:text-ao-fg-0 border-0 bg-transparent cursor-pointer p-0"
-              title="Close"
-              aria-label="Close"
-              onClick={() => setOpen(false)}
-            >
-              <Icon name="x" size={16} />
-            </button>
+          ))}
+        </div>
+      </div>
+
+      {killError && (
+        <div className="mx-6 mb-3 px-[14px] py-[9px] rounded-[10px] bg-red-soft text-red text-[12px] font-[var(--font-mono)] flex items-center justify-between gap-2 shrink-0">
+          <span>{killError}</span>
+          <button onClick={() => setKillError(null)} className="bg-transparent border-0 cursor-pointer text-inherit p-0 leading-none">✕</button>
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-5 flex flex-col gap-[14px] [scrollbar-width:thin] [scrollbar-color:var(--line-2)_transparent]">
+        {processesQ.isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-txt-4">
+            <Icon name="refresh" size={18} />
+            <span>{t("scanning_ports")}</span>
           </div>
-
-          {/* Stats bar */}
-          <div className="flex items-stretch flex-wrap gap-4 px-[22px] py-3 bg-ao-bg-2 border-b border-[var(--ao-line-1)] shrink-0">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] text-ao-fg-3 uppercase tracking-[0.08em] font-mono">Total</span>
-              <span className="text-[14px] font-semibold text-ao-fg-0 font-mono">{processes.length}<span className="text-[11px] text-ao-fg-2 font-normal ml-[3px]">processes</span></span>
-            </div>
-            <span className="w-px self-stretch bg-[var(--ao-line-1)] shrink-0" />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] text-ao-fg-3 uppercase tracking-[0.08em] font-mono">From this project</span>
-              <span className="text-[14px] font-semibold text-ao-fg-0 font-mono">{projectCount}<span className="text-[11px] text-ao-fg-2 font-normal ml-[3px]">servers</span></span>
-            </div>
-            <span className="w-px self-stretch bg-[var(--ao-line-1)] shrink-0" />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] text-ao-fg-3 uppercase tracking-[0.08em] font-mono">Memory</span>
-              <span className="text-[14px] font-semibold text-ao-fg-0 font-mono">{fmtMem(totalMem)}</span>
-            </div>
-            <span className="w-px self-stretch bg-[var(--ao-line-1)] shrink-0" />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] text-ao-fg-3 uppercase tracking-[0.08em] font-mono">Health</span>
-              <span className="text-[14px] font-semibold text-ao-fg-0 font-mono flex items-center gap-1">
-                <span className="inline-flex items-center gap-[5px] py-[2px] px-[6px] rounded-full text-[10px] font-mono normal-case tracking-normal border bg-[var(--ao-ok-soft)] text-[var(--ao-ok)] border-[rgba(78,185,111,0.25)]">
-                  <span className="text-[7px]">●</span>{processes.length} healthy
-                </span>
-              </span>
-            </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-txt-4">
+            <Icon name="server" size={26} />
+            <div>{q ? t("no_matching_servers") : t("no_listening_processes")}</div>
           </div>
-
-          {/* Toolbar */}
-          <div className="flex items-center gap-2 px-5 py-[10px] border-b border-[var(--ao-line-0)] shrink-0">
-            <div className="flex-1 flex items-center gap-2 bg-ao-bg-2 border border-ao-line-1 rounded-[8px] px-3 py-[7px] text-ao-fg-3 focus-within:border-[var(--ao-accent-line)] focus-within:text-ao-fg-1">
-              <Icon name="search" size={13} />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search by name, command, port…"
-                className="flex-1 bg-transparent border-none outline-none text-[12.5px] text-ao-fg-0 font-[var(--ao-font-sans)] placeholder:text-ao-fg-3"
-                autoFocus
-              />
-            </div>
-          </div>
-
-          {killError && (
-            <div className="px-4 py-1.5 bg-[var(--ao-danger-bg,#3a1a1a)] text-[var(--ao-danger,#f87171)] text-[12px] font-[var(--ao-font-mono)] flex items-center justify-between gap-2">
-              <span>{killError}</span>
-              <button onClick={() => setKillError(null)} className="bg-transparent border-none cursor-pointer text-inherit p-0 leading-none">✕</button>
-            </div>
-          )}
-
-          {/* Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 py-3 flex flex-col gap-4 [scrollbar-width:thin] [scrollbar-color:var(--ao-bg-4)_transparent]">
-            {processesQ.isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-ao-fg-3">
-                <Icon name="refresh" size={18} />
-                <span>Scanning ports…</span>
-              </div>
-            ) : groups.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-10 text-ao-fg-3">
-                <div className="text-[28px]">🛰</div>
-                <div>{q ? "No matching servers." : "No listening processes found."}</div>
-              </div>
-            ) : (
-              groups.map((g) => (
-                <div key={g.id} className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-semibold text-ao-fg-2 font-mono uppercase tracking-[0.05em] whitespace-nowrap">
-                      {g.label === "Other" ? "Other system processes" : g.label}
-                    </span>
-                    <span className="text-[10px] text-ao-fg-3 bg-ao-bg-3 border border-ao-line-1 rounded-full px-[6px] font-mono shrink-0">{g.processes.length}</span>
-                    <span className="flex-1 h-px bg-[var(--ao-line-0)]" />
-                    {g.label !== "Other" && (
-                      <span className="text-[10px] text-ao-fg-3 font-mono whitespace-nowrap">
-                        {fmtMem(g.processes.reduce((s, p) => s + p.memMb, 0))}
-                      </span>
-                    )}
-                  </div>
+        ) : (
+          groups.map((g) => {
+            const groupMem = g.processes.reduce((s, p) => s + p.memMb, 0);
+            const isOther = g.label === "Other";
+            return (
+              <div key={g.id}>
+                <div className="flex items-center gap-[9px] pb-[9px]">
+                  <span className={`text-[9.5px] font-bold tracking-[0.09em] uppercase whitespace-nowrap ${isOther ? "text-txt-4" : "text-acc"}`}>
+                    {isOther ? t("other_system_processes") : g.label}
+                  </span>
+                  <span className="font-[var(--font-mono)] text-[10px] px-[7px] py-[1px] rounded-full bg-card-2 shadow-[inset_0_0_0_1px_var(--line)] text-txt-4">
+                    {g.processes.length}
+                  </span>
+                  <span className="flex-1 h-px bg-line" />
+                  <span className="font-[var(--font-mono)] text-[10px] text-txt-4 whitespace-nowrap">{fmtMem(groupMem)}</span>
+                </div>
+                <div className="flex flex-col gap-[8px]">
                   {g.processes.map((p) => (
                     <ServerCard
                       key={p.pid}
                       process={p}
+                      history={getHistory(p.pid)}
                       onKill={() => handleKill(p.pid)}
                       killing={killing.has(p.pid)}
                     />
                   ))}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            );
+          })
+        )}
+      </div>
 
-          {/* Footer */}
-          <div className="flex items-center gap-3 px-5 py-3 border-t border-[var(--ao-line-0)] shrink-0">
-            <div className="flex-1 flex items-center gap-[6px] text-[11px] text-ao-fg-3 font-mono">
-              <Icon name="wrench" size={11} />
-              <span>scanning <kbd className="bg-ao-bg-3 border border-ao-line-2 rounded-[4px] px-[5px] py-px font-mono text-[10.5px]">localhost</kbd> ports <kbd className="bg-ao-bg-3 border border-ao-line-2 rounded-[4px] px-[5px] py-px font-mono text-[10.5px]">1024–65535</kbd></span>
-              <span className="ml-auto text-[10.5px] text-ao-fg-3">last scan {processesQ.dataUpdatedAt ? fmtAgo(processesQ.dataUpdatedAt) : "-"}</span>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                className="px-[14px] py-[7px] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-[background,border-color] duration-[120ms] bg-transparent border border-ao-line-2 text-ao-fg-3 hover:bg-ao-bg-3 hover:text-ao-fg-1"
-                title="Settings (coming soon)"
-                disabled
-              >
-                Settings
-              </button>
-              <button
-                className="flex items-center gap-[5px] px-[14px] py-[7px] rounded-[8px] text-[12.5px] font-semibold cursor-pointer transition-[background] duration-[120ms] bg-ao-accent border-0 text-white hover:bg-[var(--ao-accent-hover,var(--ao-accent))]"
-                onClick={() => setOpen(false)}
-              >
-                <Icon name="check" size={12} /> Done
-              </button>
-            </div>
-          </div>
+      {/* Footer */}
+      <div className="flex items-center gap-[10px] px-6 py-4 border-t border-line shrink-0">
+        <span className="flex items-center gap-[7px] font-[var(--font-mono)] text-[10.5px] text-txt-4 whitespace-nowrap">
+          <span className="w-[5px] h-[5px] rounded-full bg-green animate-[ao-pulse_1.6s_ease-in-out_infinite]" />
+          {t("last_scan", { time: processesQ.dataUpdatedAt ? fmtAgo(processesQ.dataUpdatedAt) : "-" })}
+        </span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          title={t("scan_settings_soon")}
+          disabled
+          className="px-[16px] py-[10px] rounded-[12px] text-[12.5px] font-semibold bg-card-2 shadow-[inset_0_0_0_1px_var(--line)] text-txt-4 opacity-60 cursor-not-allowed"
+        >
+          {t("scan_settings")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-[8px] px-[20px] py-[11px] rounded-[12px] text-[12.5px] font-bold text-white cursor-pointer border-0 bg-[linear-gradient(120deg,var(--acc),var(--acc-2))] shadow-[0_12px_26px_-14px_color-mix(in_srgb,var(--acc)_85%,transparent)] transition-transform duration-150 hover:-translate-y-px"
+        >
+          <Icon name="check" size={12} /> {t("done")}
+        </button>
+      </div>
     </ModalShell>
   );
 }
