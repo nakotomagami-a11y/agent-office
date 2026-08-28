@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { DocsIndex } from "@agent-office/domain/types";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { cn } from "@/lib/cn";
 import { DocsRender, extractHeadings, type DocHeading } from "./docs-render";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -16,13 +18,30 @@ import { PageHeader } from "@/components/ui/page-header";
  * The right-nav TOC is derived from the markdown headings at render time
  * (see {@link extractHeadings}), so adding a new heading in the .md file
  * automatically shows up in the nav — no hand-maintained anchor list.
+ *
+ * Layout mirrors the Settings surface: a left nav rail (`surface-sheen`
+ * rounded card, flips to a horizontal strip under 640px) + a content card
+ * + a right-hand "on this page" TOC — matching the rest of the V3 redesign
+ * instead of the old horizontal underline-tab bar this page shipped with.
  */
 
 declare const process: { env: Record<string, string | undefined> };
 
-// ── Design tokens ──────────────────────────────────────────────────────────
-const B = "border-[rgba(255,255,255,0.08)]";
-
+// Icons are keyed by tab id, not data-driven from `_index.json` (which
+// carries no icon field) — same approach `SettingsNav` uses for its own
+// hardcoded item list.
+const TAB_ICONS: Record<string, IconName> = {
+  features: "sparkle",
+  "getting-started": "zap",
+  concepts: "book",
+  agents: "templates",
+  projects: "folder",
+  memory: "memory",
+  usage: "terminal",
+  schedules: "list",
+  interface: "layers",
+  reference: "code",
+};
 
 // ── Data hook ──────────────────────────────────────────────────────────────
 
@@ -118,9 +137,9 @@ function DocsAside({
   if (headings.length === 0) return null;
 
   return (
-    <aside className="hidden md:block w-[220px] flex-shrink-0">
-      <nav className="sticky top-5 flex flex-col gap-0.5" aria-label="On this page">
-        <span className="font-[var(--font-mono)] text-[8px] font-bold tracking-[0.18em] uppercase text-[var(--txt-4)] px-2 pb-2 select-none">
+    <aside className="hidden xl:block w-[212px] flex-shrink-0">
+      <nav className="sticky top-0 flex flex-col gap-[2px]" aria-label="On this page">
+        <span className="font-[var(--font-mono)] text-[9px] font-extrabold tracking-[0.1em] uppercase text-txt-4 px-[8px] pb-[8px] select-none">
           On this page
         </span>
         {headings.map((h) => {
@@ -139,14 +158,12 @@ function DocsAside({
                   });
                 }
               }}
-              className={[
-                "text-[12px] leading-[1.4] px-2 py-1.5 rounded-[5px] transition-colors duration-100",
+              className={cn(
+                "text-[12px] leading-[1.4] px-[8px] py-[6px] rounded-[9px] transition-colors duration-150",
                 // h3 subheadings indent under their parent h2 for a natural outline.
-                h.level === 3 ? "pl-5" : "",
-                isActive
-                  ? "font-semibold text-[var(--acc)] bg-[var(--acc-faint)]"
-                  : "text-[var(--txt-3)] hover:text-[var(--txt-2)] hover:bg-[var(--bg-2)]",
-              ].join(" ")}
+                h.level === 3 && "pl-[20px]",
+                isActive ? "font-semibold text-acc bg-acc-soft" : "text-txt-3 hover:text-txt-2 hover:bg-card-2",
+              )}
             >
               {h.text}
             </a>
@@ -157,12 +174,52 @@ function DocsAside({
   );
 }
 
-// ── Tab bar styling ────────────────────────────────────────────────────────
-const TAB_BASE =
-  "px-4 py-2 mr-1 text-[12.5px] font-medium transition-all duration-100 border-b-2 -mb-px cursor-pointer whitespace-nowrap rounded-t-[4px]";
-const TAB_ACTIVE = "text-[var(--txt)] border-[var(--acc)] bg-[var(--bg-0)]";
-const TAB_INACTIVE =
-  "text-[var(--txt-3)] border-transparent hover:text-[var(--txt-2)] hover:bg-[var(--bg-0)]/50";
+// ── Left nav rail — mirrors `SettingsNav`'s surface-sheen card treatment ──
+
+function DocsNav({
+  tabs,
+  activeId,
+  onChange,
+}: {
+  tabs: DocsIndex["tabs"];
+  activeId: string | null;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <nav
+      aria-label="Documentation sections"
+      className={cn(
+        "shrink-0 w-[212px] surface-sheen rounded-[22px] shadow-[var(--lift)] py-[12px] px-[10px] overflow-y-auto",
+        "flex flex-col gap-[2px]",
+        "max-[640px]:w-full max-[640px]:flex-row max-[640px]:items-center",
+        "max-[640px]:rounded-[14px] max-[640px]:overflow-x-auto max-[640px]:overflow-y-hidden",
+        "max-[640px]:py-[8px] max-[640px]:px-[10px]",
+      )}
+    >
+      {tabs.map((t) => {
+        const active = t.id === activeId;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            aria-current={active ? "page" : undefined}
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "flex items-center gap-[10px] py-[8px] px-[10px] rounded-[12px] w-full text-left",
+              "text-[12.5px] whitespace-nowrap cursor-pointer transition-colors duration-150",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
+              "max-[640px]:w-auto max-[640px]:shrink-0",
+              active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 hover:bg-card-2",
+            )}
+          >
+            <Icon name={TAB_ICONS[t.id] ?? "book"} size={14} className="shrink-0 opacity-90" />
+            {t.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
@@ -186,63 +243,53 @@ export default function DocsPage() {
   const headings = useMemo(() => extractHeadings(content.markdown), [content.markdown]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[var(--bg-0)]">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       {/* ── Page header ─────────────────────────────────── */}
       {/* Use the shared PageHeader so /docs matches Agents / Memory /
           Activity / Settings / Skills. Do NOT hand-roll a header here. */}
       <PageHeader
         title="Documentation"
-        sub={`· Agent Office v${process.env.NEXT_PUBLIC_APP_VERSION ?? "dev"}`}
+        sub={`Agent Office v${process.env.NEXT_PUBLIC_APP_VERSION ?? "dev"}`}
       />
 
-      {/* ── Tab bar ─────────────────────────────────────── */}
-      <div className={`flex-shrink-0 bg-[var(--bg-1)] border-b ${B}`}>
-        <div className="max-w-[1280px] mx-auto px-[28px]">
-          <div className="flex flex-wrap pt-3">
-            {(index?.tabs ?? []).map((t) => {
-              const active = activeId === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setActiveId(t.id);
-                    scrollRef.current?.scrollTo({ top: 0 });
-                  }}
-                  className={`${TAB_BASE} ${active ? TAB_ACTIVE : TAB_INACTIVE}`}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      {/* ── Nav rail + content, same shell shape as SettingsPage ──── */}
+      <div className="flex-1 min-h-0 flex flex-nowrap gap-[16px] px-[20px] pt-[16px] pb-[20px] max-[640px]:flex-col max-[640px]:gap-[10px] overflow-hidden">
+        <DocsNav
+          tabs={index?.tabs ?? []}
+          activeId={activeId}
+          onChange={(id) => {
+            setActiveId(id);
+            scrollRef.current?.scrollTo({ top: 0 });
+          }}
+        />
 
-      {/* ── Content ─────────────────────────────────────── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-[1280px] mx-auto flex gap-6 px-[28px] pt-5 pb-24">
-          <div className="flex-1 min-w-0">
-            {!index && (
-              <div className="text-[13px] text-[var(--txt-3)] font-mono py-6">Loading docs config…</div>
-            )}
-            {index && !activeTab && index.tabs.length === 0 && (
-              <div className="text-[13px] text-[var(--txt-3)] py-6">
-                No documentation tabs configured. Add entries to <code>docs/_index.json</code>.
+        <div ref={scrollRef} className="flex-1 min-w-0 overflow-y-auto">
+          <div className="flex items-start gap-[16px] pb-[20px]">
+            <div className="flex-1 min-w-0 surface-sheen rounded-[22px] shadow-[var(--lift)] overflow-hidden">
+              <div className="px-[32px] py-[28px]">
+                {!index && (
+                  <div className="text-[13px] text-txt-3 font-mono py-6">Loading docs config…</div>
+                )}
+                {index && !activeTab && index.tabs.length === 0 && (
+                  <div className="text-[13px] text-txt-3 py-6">
+                    No documentation tabs configured. Add entries to <code>docs/_index.json</code>.
+                  </div>
+                )}
+                {activeTab && content.loading && (
+                  <div className="text-[13px] text-txt-3 font-mono py-6">Loading {activeTab.file}…</div>
+                )}
+                {activeTab && content.error && (
+                  <div className="text-[13px] text-red py-6">
+                    Failed to load {activeTab.file}: {content.error}
+                  </div>
+                )}
+                {activeTab && !content.loading && !content.error && (
+                  <DocsRender markdown={content.markdown} />
+                )}
               </div>
-            )}
-            {activeTab && content.loading && (
-              <div className="text-[13px] text-[var(--txt-3)] font-mono py-6">Loading {activeTab.file}…</div>
-            )}
-            {activeTab && content.error && (
-              <div className="text-[13px] text-red-300 font-mono py-6">
-                Failed to load {activeTab.file}: {content.error}
-              </div>
-            )}
-            {activeTab && !content.loading && !content.error && (
-              <DocsRender markdown={content.markdown} />
-            )}
+            </div>
+            <DocsAside headings={headings} scrollContainer={scrollRef} />
           </div>
-          <DocsAside headings={headings} scrollContainer={scrollRef} />
         </div>
       </div>
     </div>

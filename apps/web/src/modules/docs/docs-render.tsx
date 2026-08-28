@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CodeBlock } from "./code-block";
+import { CodeBlock } from "@/components/ui/code-block";
 
 /**
  * Markdown renderer for the /docs page.
@@ -28,10 +28,6 @@ import { CodeBlock } from "./code-block";
  * with a leading [!KIND] line becomes a styled aside instead of a plain
  * blockquote. This mirrors GitHub's rendering.
  */
-
-// ── Design tokens ──────────────────────────────────────────────────────────
-const B = "border-[rgba(255,255,255,0.08)]";
-const BH = "border-[rgba(255,255,255,0.06)]";
 
 // ── Callout preprocessing ──────────────────────────────────────────────────
 
@@ -63,18 +59,21 @@ function preprocessCallouts(md: string): string {
 
 // ── Callout rendering ──────────────────────────────────────────────────────
 
+// Uses the app's theme-aware status tokens (cyan/green/acc/amber/red)
+// instead of hardcoded Tailwind palette colors, so callouts stay correct
+// in both dark and light mode like every other status chip in the app.
 const CALLOUT_STYLES: Record<string, { border: string; bg: string; label: string; tint: string; icon: string }> = {
-  note:      { border: "border-l-[3px] border-l-blue-400/70",    bg: "bg-blue-500/[0.06]",    label: "Note",      tint: "text-blue-300",    icon: "ℹ" },
-  tip:       { border: "border-l-[3px] border-l-emerald-400/70", bg: "bg-emerald-500/[0.06]", label: "Tip",       tint: "text-emerald-300", icon: "✓" },
-  important: { border: "border-l-[3px] border-l-purple-400/70",  bg: "bg-purple-500/[0.06]",  label: "Important", tint: "text-purple-300",  icon: "!" },
-  warning:   { border: "border-l-[3px] border-l-amber-400/70",   bg: "bg-amber-500/[0.06]",   label: "Warning",   tint: "text-amber-300",   icon: "⚠" },
-  caution:   { border: "border-l-[3px] border-l-red-400/70",     bg: "bg-red-500/[0.06]",     label: "Caution",   tint: "text-red-300",     icon: "⚠" },
+  note:      { border: "border-l-[3px] border-l-cyan/70",   bg: "bg-cyan/[0.07]",   label: "Note",      tint: "text-cyan",   icon: "ℹ" },
+  tip:       { border: "border-l-[3px] border-l-green/70",  bg: "bg-green/[0.08]",  label: "Tip",       tint: "text-green",  icon: "✓" },
+  important: { border: "border-l-[3px] border-l-acc",       bg: "bg-acc-soft",      label: "Important", tint: "text-acc",    icon: "!" },
+  warning:   { border: "border-l-[3px] border-l-amber/70",  bg: "bg-amber/[0.08]",  label: "Warning",   tint: "text-amber",  icon: "⚠" },
+  caution:   { border: "border-l-[3px] border-l-red/70",    bg: "bg-red/[0.08]",    label: "Caution",   tint: "text-red",    icon: "⚠" },
 };
 
 function Callout({ kind, body }: { kind: string; body: string }) {
   const style = CALLOUT_STYLES[kind] ?? CALLOUT_STYLES.note!;
   return (
-    <div className={`my-4 px-4 py-3 ${style.border} ${style.bg}`}>
+    <div className={`my-4 px-[16px] py-[13px] rounded-[10px] ${style.border} ${style.bg}`}>
       <div className={`flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] font-semibold ${style.tint} mb-2`}>
         <span aria-hidden>{style.icon}</span>
         <span>{style.label}</span>
@@ -82,7 +81,7 @@ function Callout({ kind, body }: { kind: string; body: string }) {
       {/* react-markdown wraps a fenced block in <pre>, which would force
           `white-space: pre` + a monospace font onto this body (long lines
           then clip instead of wrapping). Reset both back to normal prose. */}
-      <div className="text-[13px] text-[var(--txt-2)] leading-[1.65] whitespace-normal break-words [font-family:var(--font-sans)]">
+      <div className="text-[13px] text-txt-2 leading-[1.65] whitespace-normal break-words [font-family:var(--font-sans)]">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
       </div>
     </div>
@@ -162,7 +161,7 @@ const MD_COMPONENTS: Components = {
   h1: ({ children, ...rest }) => (
     <h1
       id={slugifyHeading(childrenToText(children))}
-      className="text-[26px] font-bold text-[var(--txt)] tracking-[-0.01em] mt-8 mb-4 first:mt-0"
+      className="text-[26px] font-bold text-txt tracking-[-0.01em] mt-8 mb-4 first:mt-0"
       {...rest}
     >
       {children}
@@ -171,7 +170,7 @@ const MD_COMPONENTS: Components = {
   h2: ({ children, ...rest }) => (
     <h2
       id={slugifyHeading(childrenToText(children))}
-      className={`text-[20px] font-semibold text-[var(--txt)] tracking-[-0.01em] mt-10 mb-3 pb-2 border-b ${BH} scroll-mt-24`}
+      className="text-[20px] font-semibold text-txt tracking-[-0.01em] mt-10 mb-3 pb-2 border-b border-edge scroll-mt-24"
       {...rest}
     >
       {children}
@@ -180,14 +179,14 @@ const MD_COMPONENTS: Components = {
   h3: ({ children, ...rest }) => (
     <h3
       id={slugifyHeading(childrenToText(children))}
-      className="text-[15px] font-semibold text-[var(--txt)] mt-6 mb-2 scroll-mt-24"
+      className="text-[15px] font-semibold text-txt mt-6 mb-2 scroll-mt-24"
       {...rest}
     >
       {children}
     </h3>
   ),
   h4: ({ children, ...rest }) => (
-    <h4 className="text-[13.5px] font-semibold text-[var(--txt)] mt-4 mb-2 uppercase tracking-[0.04em]" {...rest}>
+    <h4 className="text-[13.5px] font-semibold text-txt mt-4 mb-2 uppercase tracking-[0.04em]" {...rest}>
       {children}
     </h4>
   ),
@@ -195,7 +194,7 @@ const MD_COMPONENTS: Components = {
   a:  ({ children, href, ...rest }) => (
     <a
       href={href}
-      className="text-[var(--acc)] underline decoration-[var(--acc-faint)] underline-offset-[3px] hover:decoration-[var(--acc)]"
+      className="text-acc underline decoration-acc-faint underline-offset-[3px] hover:decoration-acc"
       target={href?.startsWith("http") ? "_blank" : undefined}
       rel={href?.startsWith("http") ? "noreferrer noopener" : undefined}
       {...rest}
@@ -203,35 +202,35 @@ const MD_COMPONENTS: Components = {
       {children}
     </a>
   ),
-  strong: ({ children, ...rest }) => <strong className="text-[var(--txt)] font-semibold" {...rest}>{children}</strong>,
-  em:     ({ children, ...rest }) => <em className="italic text-[var(--txt-2)]" {...rest}>{children}</em>,
-  ul: ({ children, ...rest }) => <ul className="my-3 pl-6 list-disc marker:text-[var(--txt-4)]" {...rest}>{children}</ul>,
-  ol: ({ children, ...rest }) => <ol className="my-3 pl-6 list-decimal marker:text-[var(--txt-4)]" {...rest}>{children}</ol>,
+  strong: ({ children, ...rest }) => <strong className="text-txt font-semibold" {...rest}>{children}</strong>,
+  em:     ({ children, ...rest }) => <em className="italic text-txt-2" {...rest}>{children}</em>,
+  ul: ({ children, ...rest }) => <ul className="my-3 pl-6 list-disc marker:text-txt-4" {...rest}>{children}</ul>,
+  ol: ({ children, ...rest }) => <ol className="my-3 pl-6 list-decimal marker:text-txt-4" {...rest}>{children}</ol>,
   li: ({ children, ...rest }) => <li className="my-1 leading-[1.65]" {...rest}>{children}</li>,
   blockquote: ({ children, ...rest }) => (
-    <blockquote className={`my-4 pl-4 border-l-[3px] ${B} text-[var(--txt-3)] italic`} {...rest}>
+    <blockquote className="my-4 pl-4 border-l-[3px] border-edge-2 text-txt-3 italic" {...rest}>
       {children}
     </blockquote>
   ),
-  hr: () => <hr className={`my-8 border-t ${BH}`} />,
+  hr: () => <hr className="my-8 border-t border-edge" />,
   table: ({ children, ...rest }) => (
-    <div className={`my-4 overflow-x-auto rounded-[8px] border ${B}`}>
+    <div className="my-4 overflow-x-auto rounded-[12px] border border-edge">
       <table className="w-full border-collapse text-[12.5px]" {...rest}>{children}</table>
     </div>
   ),
-  thead: ({ children, ...rest }) => <thead className="bg-[var(--bg-2)]" {...rest}>{children}</thead>,
+  thead: ({ children, ...rest }) => <thead className="bg-card-2" {...rest}>{children}</thead>,
   th:    ({ children, ...rest }) => (
-    <th className={`text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-[var(--txt-4)] border-b ${BH}`} {...rest}>
+    <th className="text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-txt-4 border-b border-edge" {...rest}>
       {children}
     </th>
   ),
   tr: ({ children, ...rest }) => (
-    <tr className={`border-b ${BH} last:border-b-0 hover:bg-[var(--bg-2)] transition-colors duration-75`} {...rest}>
+    <tr className="border-b border-edge last:border-b-0 hover:bg-card-2 transition-colors duration-75" {...rest}>
       {children}
     </tr>
   ),
   td: ({ children, ...rest }) => (
-    <td className="px-4 py-3 text-[var(--txt-2)] align-top leading-[1.55]" {...rest}>
+    <td className="px-4 py-3 text-txt-2 align-top leading-[1.55]" {...rest}>
       {children}
     </td>
   ),
@@ -253,7 +252,7 @@ const MD_COMPONENTS: Components = {
     // Inline code (no language, no newlines).
     if (!lang && !body.includes("\n")) {
       return (
-        <code className="font-[var(--font-mono)] text-[0.84em] text-[var(--acc)] bg-[var(--acc-faint)] px-[5px] py-[1px] rounded-[4px] whitespace-nowrap">
+        <code className="font-[var(--font-mono)] text-[0.84em] text-acc bg-acc-faint px-[5px] py-[1px] rounded-[5px] whitespace-nowrap">
           {children}
         </code>
       );
@@ -273,7 +272,7 @@ export function DocsRender({ markdown }: DocsRenderProps) {
   const preprocessed = useMemo(() => preprocessCallouts(markdown), [markdown]);
 
   return (
-    <div className="docs-content flex flex-col gap-[8px] text-[13.5px] leading-[1.7] text-[var(--txt-2)]">
+    <div className="docs-content flex flex-col gap-[8px] text-[13.5px] leading-[1.7] text-txt-2">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
         {preprocessed}
       </ReactMarkdown>
