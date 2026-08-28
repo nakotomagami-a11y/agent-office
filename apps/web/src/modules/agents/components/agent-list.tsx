@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AgentListGhost } from "./agent-list-ghost";
 import { Icon } from "@/components/ui/icon";
-import { AgentAvatar } from "@/components/ui/agent-avatar";
+import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { cn } from "@/lib/cn";
-import { ACCENT_BTN } from "@/components/ui/button";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
@@ -19,10 +18,12 @@ import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
 
 /**
- * Agent gallery. Card grid styled after the v3 `TemplatesView`, with a
- * search box and category chips (derived from `room` or a name-prefix
- * heuristic in `categorize.ts`). Clicking a card opens the global agent
- * details modal so chat and settings stay inline.
+ * Agent gallery. Cards show the standing unit sprite, name/slug, category
+ * tag, and model/effort badges — no description or persistent buttons, both
+ * only surface on hover. Search box and category chips derive from `room`
+ * or a name-prefix heuristic in `categorize.ts`. Clicking a card spawns a
+ * fresh roster instance and opens it; the small Edit button opens the
+ * global agent details modal's settings tab directly.
  */
 export function AgentList() {
   const t = useTranslations();
@@ -125,14 +126,14 @@ export function AgentList() {
           {t("agent_list.no_matches")}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-[14px] [&>*]:[flex:1_1_300px] max-[1024px]:[&>*]:[flex:1_1_calc(50%-7px)] max-[600px]:[&>*]:[flex:1_1_100%]">
+        <div className="flex flex-wrap gap-[12px] [&>*]:[flex:1_1_150px] [&>*]:max-w-[220px] max-[900px]:[&>*]:[flex:1_1_calc(33%-8px)] max-[600px]:[&>*]:[flex:1_1_calc(50%-6px)]">
           {visible.map((a) => (
             <AgentCard
               key={a.name}
               agent={a}
               uses={usesByAgent[a.name] ?? 0}
               onOpen={() => { void openAgentAsNewInstance(a.name); }}
-              onEdit={() => select(a.name, { tab: "settings" })}
+              onEdit={() => select(a.name, { tab: "customization" })}
             />
           ))}
         </div>
@@ -162,16 +163,13 @@ function FilterBar({
 }) {
   const t = useTranslations();
   return (
-    <div className="flex flex-col gap-[10px]">
-      <div className="flex items-center gap-[10px] flex-wrap">
-        <SearchInput value={search} onChange={onSearchChange} />
-        <span className="font-mono text-[11px] text-txt-3">
-          {t("agent_list.shown_count", { visible, total })}
-        </span>
-      </div>
-
+    <div className="flex items-center gap-[10px]">
+      <SearchInput value={search} onChange={onSearchChange} />
+      <span className="font-mono text-[11px] text-txt-3 shrink-0">
+        {t("agent_list.shown_count", { visible, total })}
+      </span>
       {categories.length > 0 ? (
-        <div className="flex flex-wrap gap-[6px] items-center">
+        <div className="surface-sheen flex items-center gap-[2px] p-[5px] rounded-2xl shadow-[var(--lift)] shrink-0 overflow-x-auto max-w-full">
           <FilterChip
             label={t("agent_list.filter_all")}
             count={total}
@@ -202,11 +200,11 @@ function SearchInput({
 }) {
   const t = useTranslations();
   return (
-    <label className="relative [flex:1_1_320px] max-w-[480px] flex items-center h-8 bg-bg-1 border border-line-2 rounded-md shadow-1 px-3 pl-8 transition-colors duration-[120ms]">
+    <label className="surface-sheen relative flex-1 min-w-[220px] flex items-center h-[42px] rounded-2xl shadow-[var(--lift)] px-[14px] pl-[38px] transition-colors duration-[120ms]">
       <Icon
         name="search"
-        size={14}
-        className="absolute left-[10px] top-1/2 -translate-y-1/2 text-txt-3 pointer-events-none"
+        size={15}
+        className="absolute left-[14px] top-1/2 -translate-y-1/2 text-txt-4 pointer-events-none"
       />
       <input
         type="search"
@@ -214,7 +212,7 @@ function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t("agent_list.search_placeholder")}
         aria-label={t("agent_list.search_aria")}
-        className="w-full bg-transparent border-none outline-none font-[inherit] text-[13px] text-txt"
+        className="w-full bg-transparent border-none outline-none font-[inherit] text-[13px] text-txt placeholder:text-txt-4"
       />
       {value ? (
         <button
@@ -247,22 +245,14 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={on}
       className={cn(
-        "inline-flex items-center gap-[6px] py-[5px] px-[10px] rounded-full text-xs font-medium cursor-pointer font-[inherit]",
+        "inline-flex items-center gap-[7px] py-[7px] px-[13px] rounded-xl text-[12.5px] font-semibold cursor-pointer font-[inherit] whitespace-nowrap transition-[filter] duration-150",
         on
-          ? "border border-acc bg-acc-faint text-acc"
-          : "border border-line bg-bg-1 text-txt-2",
+          ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--acc)_80%,transparent)]"
+          : "bg-transparent text-txt-3 hover:brightness-110",
       )}
     >
       {label}
-      <span
-        className={cn(
-          "font-mono text-[10.5px] px-[6px] py-[1px] rounded-full",
-          on ? "text-acc" : "bg-bg-2 text-txt-3",
-        )}
-        style={on ? { background: "rgba(233,84,32,0.18)" } : undefined}
-      >
-        {count}
-      </span>
+      <span className={cn("font-mono text-[10px]", on ? "opacity-65" : "text-txt-4")}>{count}</span>
     </button>
   );
 }
@@ -282,116 +272,64 @@ function AgentCard({
   const unit = unitForAgent(agent.name, agent.unit);
   const category = categorize(agent);
   const catColor = categoryColor(category);
-
-  // Clamp long ABOUT text to 3 lines with a Read more/less toggle. `overflowing`
-  // is measured (scrollHeight vs the clamped clientHeight) so the button only
-  // appears when the text is actually truncated, and re-measured on resize.
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-  const descRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = descRef.current;
-    if (!el) return;
-    const measure = () => {
-      if (expanded) return;
-      setOverflowing(el.scrollHeight > el.clientHeight + 1);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [agent.description, expanded]);
-  const modelColor =
-    (agent.defaultModel ?? "").includes("haiku") ? "var(--done)" :
-    (agent.defaultModel ?? "").includes("opus") ? "#ffcb6b" :
-    "#c792ea";
+  const stateDot = uses > 0 ? "var(--green)" : "var(--txt-4)";
 
   return (
     <div
-      className="of-card bg-bg-2 border border-line flex flex-col gap-[12px] cursor-pointer relative overflow-hidden rounded-[14px] p-4 transition-[background,border-color,transform,box-shadow] duration-[120ms] group hover:bg-bg-3 hover:border-line-2 hover:[transform:translateY(-1px)] hover:[box-shadow:var(--shadow-2)]"
+      className="group relative flex flex-col items-center gap-[10px] cursor-pointer surface-sheen rounded-[20px] shadow-[var(--lift)] pt-4 pb-[14px] px-3 transition-transform duration-200 hover:-translate-y-1"
       onClick={onOpen}
       role="button"
       tabIndex={0}
       onKeyDown={e => e.key === "Enter" && onOpen()}
     >
-      <div className="flex items-center gap-[12px]">
-        <div className="bg-bg-3 border border-line flex items-center justify-center relative overflow-visible w-[48px] h-[48px] rounded-[12px] shrink-0">
-          <AgentAvatar unit={unit} size={42} />
-        </div>
-        <div className="min-w-0 flex-1">
-          {/* Big line: human-readable display name derived from the slug.
-              Small line: raw slug (kebab-case) so power users still see the
-              ID they'd type in the CLI or reference in configs. */}
-          <div className="font-bold text-txt flex items-center gap-[6px] whitespace-nowrap overflow-hidden text-ellipsis text-[15px]">{agentDisplayName(agent)}</div>
-          <div className="text-txt-3 whitespace-nowrap overflow-hidden text-ellipsis font-[var(--font-mono)] text-[11px] mt-[2px]">{agent.name}</div>
-        </div>
-        {/* `color` is resolved by the .cat-tag rule in globals.css, not here:
-            these palette entries are mid-tone saturated hues picked for a dark
-            card, and as text on the light theme's 12% wash they land at
-            2.2-3.5:1. The rule darkens them for light mode only, so an inline
-            colour would defeat it. */}
+      <span className="absolute top-[10px] left-[10px] inline-flex items-center gap-[5px] font-[var(--font-mono)] text-[9.5px] text-txt-4 whitespace-nowrap">
+        <span className="w-[5px] h-[5px] rounded-full shrink-0" style={{ background: stateDot }} />
+        {t("agent_list.uses_count", { count: uses })}
+      </span>
+      <span
+        className="cat-tag absolute top-[9px] right-[10px] text-[9px] font-bold uppercase tracking-[0.05em] px-[7px] py-[2px] rounded-full whitespace-nowrap transition-opacity duration-150 group-hover:opacity-0"
+        style={{
+          "--cat-color": catColor,
+          background: `color-mix(in srgb, ${catColor} 16%, transparent)`,
+          color: catColor,
+        } as React.CSSProperties}
+      >
+        {category}
+      </span>
+
+      <button
+        type="button"
+        title={t("agent_list.edit_title")}
+        aria-label={t("agent_list.edit_aria", { name: agent.name })}
+        onClick={e => { e.stopPropagation(); onEdit(); }}
+        className="absolute top-[9px] right-[10px] w-[22px] h-[22px] flex items-center justify-center rounded-[7px] bg-bg-elev text-txt-2 opacity-0 group-hover:opacity-100 hover:text-txt hover:bg-bg-3 transition-opacity duration-150 z-[1]"
+      >
+        <Icon name="edit" size={11} />
+      </button>
+
+      <div className="relative w-[76px] h-[80px] mt-[14px] flex items-end justify-center">
         <span
-          className="cat-tag inline-flex items-center gap-[6px] rounded-full bg-bg-3 border border-line lowercase shrink-0 px-[9px] py-[4px] font-[var(--font-mono)] text-[10.5px] tracking-[0.04em]"
-          style={{
-            "--cat-color": catColor,
-            background: `color-mix(in srgb, ${catColor} 12%, var(--bg-2))`,
-            border: `1px solid color-mix(in srgb, ${catColor} 30%, transparent)`,
-          } as React.CSSProperties}
-        >
-          {category}
-        </span>
+          aria-hidden
+          className="absolute bottom-[6px] w-[70px] h-[12px] rounded-full"
+          style={{ background: `radial-gradient(ellipse at 50% 50%, color-mix(in srgb, ${catColor} 35%, transparent), transparent 70%)` }}
+        />
+        <UnitSprite unit={unit} size={72} className="relative" />
       </div>
 
-      <div className="border border-line bg-bg-1 relative rounded-[10px] p-[10px_12px]">
-        <div className="flex items-center gap-[6px] text-txt-3 uppercase font-[var(--font-mono)] text-[9.5px] tracking-[0.1em] mb-[4px]">about</div>
-        <div
-          ref={descRef}
-          className={cn(
-            "text-txt font-[var(--font-mono)] text-[12.5px] leading-[1.5]",
-            !expanded && "line-clamp-3",
-            !agent.description && "text-txt-3",
-          )}
-        >
-          {agent.description || t("agent_list.description_empty")}
-        </div>
-        {overflowing && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-            className="mt-[5px] font-[var(--font-mono)] text-[10.5px] text-acc hover:underline cursor-pointer"
-          >
-            {expanded ? "Read less" : "Read more"}
-          </button>
-        )}
+      <div className="text-center leading-[1.3] w-full min-w-0">
+        <div className="text-[13px] font-bold whitespace-nowrap overflow-hidden text-ellipsis">{agentDisplayName(agent)}</div>
+        <div className="font-[var(--font-mono)] text-[9.5px] text-txt-4 mt-[3px] whitespace-nowrap overflow-hidden text-ellipsis">{agent.name}</div>
       </div>
 
-      <div className="flex items-center gap-[10px] border-t border-line pt-[10px] mt-auto">
-        <span className="inline-flex items-center gap-[5px] bg-bg-3 border border-line text-txt-2 px-[6px] pr-[8px] py-[3px] rounded-[6px] font-[var(--font-mono)] text-[10.5px]">
-          <span className="rounded-full w-[4px] h-[4px]" style={{ background: modelColor }} />
+      <div className="flex items-center gap-[5px]">
+        <span className="font-[var(--font-mono)] text-[9.5px] px-[7px] py-[2px] rounded-[6px] bg-card-2 border border-edge text-txt-3 whitespace-nowrap">
           {agent.defaultModel ?? t("agent_list.model_default")}
         </span>
-        <span className="ml-auto font-[var(--font-mono)] text-[10.5px] text-txt-2 inline-flex items-center gap-1">
-          <Icon name="activity" size={10} /> {t("agent_list.uses_count", { count: uses })}
-        </span>
-      </div>
-
-      <div className="of-card-actions absolute flex gap-[3px] border opacity-0 top-[12px] right-[12px] p-[3px] bg-[var(--bg-elev)] border-line-2 rounded-[8px] [box-shadow:var(--shadow-2)] [transform:translateY(-2px)] transition-[opacity,transform] duration-[140ms] z-[2] group-hover:opacity-100 group-hover:[transform:translateY(0)]">
-        <button
-          type="button"
-          className={`${ACCENT_BTN} inline-flex items-center font-semibold px-[10px] py-0 h-[26px] gap-[4px] text-[11.5px] rounded-[5px]`}
-          onClick={e => { e.stopPropagation(); onOpen(); }}
-        >
-          <Icon name="send" size={11} /> Open
-        </button>
-        <button
-          type="button"
-          className="flex items-center justify-center text-txt-3 w-[26px] h-[26px] rounded-[5px] hover:bg-bg-3 hover:text-txt"
-          title={t("agent_list.edit_title")}
-          aria-label={t("agent_list.edit_aria", { name: agent.name })}
-          onClick={e => { e.stopPropagation(); onEdit(); }}
-        >
-          <Icon name="edit" size={13} />
-        </button>
+        {agent.defaultEffort ? (
+          <span className="font-[var(--font-mono)] text-[9.5px] px-[7px] py-[2px] rounded-[6px] bg-card-2 border border-edge text-txt-4 whitespace-nowrap">
+            {agent.defaultEffort}
+          </span>
+        ) : null}
       </div>
     </div>
   );
