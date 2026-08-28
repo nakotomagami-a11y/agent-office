@@ -53,6 +53,10 @@
     "search_placeholder": "Filter…",
     "abort": "Abort",
     "close": "Close",
+    "dismiss": "Dismiss",
+    "copy": "Copy",
+    "copied": "Copied",
+    "line_count": "{count, plural, one {# line} other {# lines}}",
     "save": "Save",
     "saving": "Saving…",
     "saved": "Saved.",
@@ -67,7 +71,28 @@
     "no_matches": "No matches for \"{query}\".",
     "spend_today_aria": "Spend today ${amount}",
     "back": "Back",
-    "next": "Next"
+    "next": "Next",
+    "more_actions": "More actions",
+    "code_label": "code",
+    "date_time_picker": {
+      "placeholder": "Pick date & time",
+      "time_label": "Time",
+      "previous_month": "Previous month",
+      "next_month": "Next month",
+      "hour_label": "Hour",
+      "minute_label": "Minute",
+      "preset_in_1_hour": "In 1 hour",
+      "preset_in_3_hours": "In 3 hours",
+      "preset_tonight_8pm": "Tonight 8 PM",
+      "preset_tomorrow_9am": "Tomorrow 9 AM"
+    },
+    "code_editor": {
+      "write_tab": "Write",
+      "preview_tab": "Preview",
+      "empty": "empty",
+      "char_count": "{count} chars · ~{tokens} tokens",
+      "nothing_to_preview": "Nothing to preview."
+    }
   },
   "first_run": {
     "title": "Welcome to Agent Office",

@@ -60,7 +60,7 @@ export function Sparkline({ values, color, className }: SparklineProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={lastX} cy={lastY} r={3.6} fill={color} stroke="var(--card)" strokeWidth={2.4} />
+      <circle cx={lastX} cy={lastY} r={3.6} fill={color} className="stroke-card" strokeWidth={2.4} />
     </svg>
   );
 }

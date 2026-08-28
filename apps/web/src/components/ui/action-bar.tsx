@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useRef, useState, useEffect, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 
@@ -87,6 +88,60 @@ function useReflowListener(
   }, []);
 }
 
+/** Closes an open dropdown on the first click outside `ref`. */
+function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, open: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+}
+
+/** The "⋯" trigger button + its dropdown panel, shared by both collapse modes. */
+function OverflowMenuButton({
+  dropRef,
+  open,
+  onToggle,
+  label,
+  actions,
+}: {
+  dropRef: React.RefObject<HTMLDivElement | null>;
+  open: boolean;
+  onToggle: () => void;
+  label: string;
+  actions: ActionBarAction[];
+}) {
+  return (
+    <div ref={dropRef} className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "inline-flex items-center justify-center w-8 h-8 rounded-[8px] border border-transparent text-txt-2 transition-[background,border-color,color] duration-[120ms] hover:bg-bg-2 hover:border-line hover:text-txt",
+          open && "bg-bg-2 border-line text-txt",
+        )}
+        title={label}
+      >
+        <Icon name="more-horizontal" size={16} />
+      </button>
+
+      {open && (
+        <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
+          {actions.map((a) => (
+            <div key={a.key} className="px-1.5 py-0.5 flex">
+              {a.element}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Renders actions inline when the parent flex row has space; collapses to a
  * "⋯" dropdown when the row overflows. Wrap only the actions that should
@@ -118,6 +173,7 @@ function ActionBarLegacy({ actions }: { actions: ActionBarAction[] }) {
   const runCheckRef = useRef<() => void>(() => {});
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
+  const t = useTranslations("common");
 
   const runCheck = () => {
     const el = wrapperRef.current;
@@ -150,42 +206,18 @@ function ActionBarLegacy({ actions }: { actions: ActionBarAction[] }) {
   // Re-check after every render (cheap — reads layout, no writes unless state flips).
   useEffect(() => { runCheck(); });
   useReflowListener(wrapperRef, runCheckRef);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (!dropRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+  useCloseOnOutsideClick(dropRef, open, () => setOpen(false));
 
   return (
     <div ref={wrapperRef} className="shrink-0 flex items-center gap-2">
       {collapsed ? (
-        <div ref={dropRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className={cn(
-              "inline-flex items-center justify-center w-8 h-8 rounded-[8px] border border-transparent text-txt-2 transition-[background,border-color,color] duration-[120ms] hover:bg-bg-2 hover:border-line hover:text-txt",
-              open && "bg-bg-2 border-line text-txt",
-            )}
-            title="More actions"
-          >
-            <Icon name="more-horizontal" size={16} />
-          </button>
-
-          {open && (
-            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
-              {actions.map((a) => (
-                <div key={a.key} className="px-1.5 py-0.5 flex">
-                  {a.element}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <OverflowMenuButton
+          dropRef={dropRef}
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+          label={t("more_actions")}
+          actions={actions}
+        />
       ) : (
         <>
           {actions.map((a) => a.element)}
@@ -206,6 +238,7 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
   const runCheckRef = useRef<() => void>(() => {});
   const [collapsedSegments, setCollapsedSegments] = useState<ReadonlySet<string>>(new Set());
   const [open, setOpen] = useState(false);
+  const t = useTranslations("common");
 
   const runCheck = () => {
     const el = wrapperRef.current;
@@ -274,15 +307,7 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
 
   useEffect(() => { runCheck(); });
   useReflowListener(wrapperRef, runCheckRef);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (!dropRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+  useCloseOnOutsideClick(dropRef, open, () => setOpen(false));
 
   // Filter out collapsed segments, then strip orphan dividers
   const filtered = items.filter((item) => {
@@ -297,11 +322,9 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
     return hasBefore && hasAfter;
   });
 
-  const overflowItems = items.filter(
-    (item) =>
-      !isDivider(item) &&
-      (item as ActionBarAction).segment !== undefined &&
-      collapsedSegments.has((item as ActionBarAction).segment!),
+  const overflowItems: ActionBarAction[] = items.filter(
+    (item): item is ActionBarAction =>
+      !isDivider(item) && item.segment !== undefined && collapsedSegments.has(item.segment),
   );
 
   return (
@@ -315,32 +338,13 @@ function ActionBarSegmented({ items }: { items: ActionBarItem[] }) {
       })}
 
       {overflowItems.length > 0 && (
-        <div ref={dropRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className={cn(
-              "inline-flex items-center justify-center w-8 h-8 rounded-[8px] border border-transparent text-txt-2 transition-[background,border-color,color] duration-[120ms] hover:bg-bg-2 hover:border-line hover:text-txt",
-              open && "bg-bg-2 border-line text-txt",
-            )}
-            title="More actions"
-          >
-            <Icon name="more-horizontal" size={16} />
-          </button>
-
-          {open && (
-            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[200px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
-              {overflowItems.map((item) => {
-                const a = item as ActionBarAction;
-                return (
-                  <div key={a.key} className="px-1.5 py-0.5 flex">
-                    {a.element}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <OverflowMenuButton
+          dropRef={dropRef}
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+          label={t("more_actions")}
+          actions={overflowItems}
+        />
       )}
     </div>
   );

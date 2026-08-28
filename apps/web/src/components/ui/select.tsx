@@ -18,9 +18,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       )}
       style={{
         // Two CSS gradient triangles instead of an SVG data-URI: `var()`
-        // doesn't resolve inside an encoded SVG document, so the chevron
-        // used to be a hardcoded hex (#8A8079) that ignored the theme.
-        // This mirrors the `.ao-select` chevron in modal.css.
+        // doesn't resolve inside an encoded SVG document. Mirrors the
+        // `.ao-select` chevron in modal.css.
         backgroundImage:
           "linear-gradient(45deg, transparent 50%, var(--txt-3) 50%), linear-gradient(135deg, var(--txt-3) 50%, transparent 50%)",
         backgroundPosition: "calc(100% - 16px) 50%, calc(100% - 11px) 50%",

@@ -2,8 +2,7 @@ import type { SVGProps } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Icon registry. Mirrors the v3 `II.*` set in design-source/sprites.jsx,
- * collapsed into a single declarative component so callers say
+ * Icon registry — a single declarative component so callers say
  * <Icon name="home" /> instead of pulling individual symbols.
  *
  * Adding a new icon? Append a key to ICON_PATHS - the type updates itself.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { escapeHtml as esc } from "@/lib/markdown";
 
@@ -19,7 +20,7 @@ function hlInline(s: string): string {
   );
   s = s.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '[<span style="color:var(--md-link)">$1</span>](<span style="color:var(--txt-3)">$2</span>)',
+    '[<span style="color:var(--md-link)">$1</span>](<span class="text-txt-3">$2</span>)',
   );
   return s;
 }
@@ -55,7 +56,7 @@ export function highlightMd(text: string, accColor = "var(--acc)"): string {
     if ((m = e.match(/^(> ?)(.*)/))) {
       out.push(
         `<span style="color:${accColor}">${m[1]}</span>` +
-        `<span style="color:var(--txt-2);font-style:italic">${hlInline(m[2]!)}</span>`,
+        `<span class="text-txt-2 italic">${hlInline(m[2]!)}</span>`,
       );
       continue;
     }
@@ -64,7 +65,7 @@ export function highlightMd(text: string, accColor = "var(--acc)"): string {
       continue;
     }
     if (/^-{3,}$/.test(raw.trim())) {
-      out.push(`<span style="color:var(--line-strong)">${e}</span>`);
+      out.push(`<span class="text-line-strong">${e}</span>`);
       continue;
     }
 
@@ -93,7 +94,7 @@ function inlinePrev(s: string): string {
   return r;
 }
 
-function renderMd(md: string): string {
+function renderMd(md: string, emptyLabel: string): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let para: string[] = [], listItems: string[] = [], listOrdered = false, listStart = 1;
@@ -137,7 +138,7 @@ function renderMd(md: string): string {
   }
   flushPara(); flushList();
   if (inFence) flushFence();
-  return out.join("") || `<p style="margin:0;color:var(--txt-4);font-style:italic">Nothing to preview.</p>`;
+  return out.join("") || `<p class="m-0 text-txt-4 italic">${esc(emptyLabel)}</p>`;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ export function CodeEditor({
   scopeLabel,
   frameless = false,
 }: CodeEditorProps) {
+  const t = useTranslations("common.code_editor");
   const [view, setView] = useState<"write" | "preview">(readOnly ? "preview" : "write");
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [measuredH, setMeasuredH] = useState(0);
@@ -243,7 +245,7 @@ export function CodeEditor({
   // bottom — unlike a fixed-line-height gutter column.
   const htmlLines = value
     ? highlightMd(value).replace(/\n$/, "").split("\n")
-    : [placeholder ? `<span style="color:var(--txt-3)">${esc(placeholder)}</span>` : "&nbsp;"];
+    : [placeholder ? `<span class="text-txt-3">${esc(placeholder)}</span>` : "&nbsp;"];
   const preHtml = htmlLines
     .map(
       (h, i) =>
@@ -263,12 +265,12 @@ export function CodeEditor({
             <button type="button" onClick={() => setView("write")}
               className={cn("py-[6px] px-[14px] rounded-[9px] text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
                 view === "write" ? "bg-card text-txt shadow-[var(--inset-hi),0_0_0_1px_var(--edge)]" : "text-txt-3 hover:text-txt")}>
-              Write
+              {t("write_tab")}
             </button>
             <button type="button" onClick={() => setView("preview")}
               className={cn("py-[6px] px-[14px] rounded-[9px] text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
                 view === "preview" ? "bg-card text-txt shadow-[var(--inset-hi),0_0_0_1px_var(--edge)]" : "text-txt-3 hover:text-txt")}>
-              Preview
+              {t("preview_tab")}
             </button>
           </div>
         )}
@@ -277,7 +279,9 @@ export function CodeEditor({
         ) : null}
         <span className="flex-1" />
         <span className="font-mono text-[10.5px] text-txt-4 whitespace-nowrap shrink-0">
-          {value.length > 0 ? `${value.length.toLocaleString()} chars · ~${Math.round(value.length / 4)} tokens` : "empty"}
+          {value.length > 0
+            ? t("char_count", { count: value.length.toLocaleString(), tokens: Math.round(value.length / 4) })
+            : t("empty")}
         </span>
         <span className="font-mono text-[10px] text-txt-3 bg-card-2 border border-edge py-[3px] px-[8px] rounded-full whitespace-nowrap shrink-0">
           {lang}
@@ -341,7 +345,7 @@ export function CodeEditor({
       ) : (
         <div
           style={{ minHeight, padding: "18px 22px", overflow: "auto" }}
-          dangerouslySetInnerHTML={{ __html: renderMd(value) }}
+          dangerouslySetInnerHTML={{ __html: renderMd(value, t("nothing_to_preview")) }}
         />
       )}
     </div>

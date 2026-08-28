@@ -8,12 +8,12 @@ export type StatusDotProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> &
   label?: string;
   /** Hide the text portion - render only the dot. */
   hideLabel?: boolean;
-  /** Pixel size for the dot. Defaults to 8px (matches v3 inline styles). */
+  /** Pixel size for the dot. Defaults to 8px. */
   size?: number;
 };
 
 /**
- * Coloured status pip + uppercase mono label. Mirrors the v3 `StatusDot`.
+ * Coloured status pip + uppercase mono label.
  * Decorative when `hideLabel` is true; the `title` and `aria-label` still
  * carry the status so the dot remains an accessible signal.
  */
@@ -34,8 +34,7 @@ export function StatusDot({
     width: size,
     height: size,
     borderRadius: "50%",
-    background: meta.color,
-    boxShadow: meta.pulse ? `0 0 0 3px color-mix(in srgb, ${meta.color} 20%, transparent)` : "none",
+    boxShadow: meta.pulse ? `0 0 0 3px color-mix(in srgb, var(${meta.cssVar}) 20%, transparent)` : "none",
     animation: meta.pulse ? "pulseDot 1.8s infinite" : undefined,
     flex: "none",
   };
@@ -48,7 +47,7 @@ export function StatusDot({
       aria-label={hideLabel ? text : undefined}
       {...rest}
     >
-      <span style={dotStyle} aria-hidden />
+      <span className={meta.bgClass} style={dotStyle} aria-hidden />
       {hideLabel ? null : text}
     </span>
   );

@@ -144,7 +144,7 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
             role="menu"
             aria-label={ariaLabel}
             onKeyDown={onKey}
-            className={cn("surface-sheen rounded-[var(--r-md)] shadow-[var(--lift)] p-1 z-[9999]", !matchTriggerWidth && "min-w-[180px]")}
+            className={cn("surface-sheen rounded-md shadow-[var(--lift)] p-1 z-[9999]", !matchTriggerWidth && "min-w-[180px]")}
             style={style}
           >
             {items.map((item, i) => {
@@ -162,7 +162,7 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={cn(
-                  "flex items-center gap-[10px] h-[34px] px-[10px] rounded-[var(--r-sm)] text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
+                  "flex items-center gap-[10px] h-[34px] px-[10px] rounded-sm text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
                   item.destructive && "text-status-error",
                   // Selected sits on the accent (purple) fill. Use `--txt`, which
                   // is near-white in dark theme and near-black in light theme, so

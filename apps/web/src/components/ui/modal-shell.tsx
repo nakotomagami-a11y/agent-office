@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Portal } from "./portal";
 import { Icon } from "./icon";
 import { cn } from "@/lib/cn";
@@ -44,9 +45,10 @@ export function ModalShell({
   maxWidth,
   children,
   className,
-  closeLabel = "Close",
+  closeLabel,
   bareContent = false,
 }: ModalShellProps) {
+  const t = useTranslations("common");
   const ref = useRef<HTMLDivElement>(null);
 
   // Single-active-modal: opening this closes any other open modal.
@@ -119,7 +121,7 @@ export function ModalShell({
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className={cn("surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
+          className={cn("surface-sheen rounded-lg shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
           style={{
             maxWidth: maxWidth ?? SIZE_PX[size],
             maxHeight: "calc(100vh - 90px)",
@@ -131,8 +133,8 @@ export function ModalShell({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label={closeLabel}
-                className="ml-auto bg-transparent border-0 w-[26px] h-[26px] rounded-full cursor-pointer text-[var(--txt-3)]"
+                aria-label={closeLabel ?? t("close")}
+                className="ml-auto bg-transparent border-0 w-[26px] h-[26px] rounded-full cursor-pointer text-txt-3"
               >
                 <Icon name="x" />
               </button>
