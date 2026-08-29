@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useRun, useRuns } from "@/modules/runs/hooks/use-runs";
 import { useCompareStore } from "@/lib/compare-store";
 import { formatCost, formatRelative } from "@/modules/runs/format/format-run-meta";
@@ -49,9 +48,7 @@ export function CompareModal() {
         {/* Left pane - base run */}
         <div>
           <PaneLabel>{t("base_run")}</PaneLabel>
-          {baseQ.isLoading ? (
-            <Skeleton width="100%" height={160} />
-          ) : baseRun ? (
+          {baseQ.isLoading ? null : baseRun ? (
             <RunPane run={baseRun} />
           ) : (
             <Empty />
@@ -74,9 +71,7 @@ export function CompareModal() {
               </option>
             ))}
           </select>
-          {compareQ.isLoading ? (
-            <Skeleton width="100%" height={160} />
-          ) : compareRun ? (
+          {compareQ.isLoading ? null : compareRun ? (
             <RunPane run={compareRun} />
           ) : (
             <Empty message={t("pick_run")} />

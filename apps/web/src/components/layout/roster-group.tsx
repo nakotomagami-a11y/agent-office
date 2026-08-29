@@ -7,7 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { RosterInstanceRow } from "./roster-instance-row";
-import { RosterActionButton, RosterSessionRow } from "./roster-row-controls";
+import { LIVE_STATUSES, RosterActionButton, RosterSessionRow } from "./roster-row-controls";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { AgentInstance } from "@agent-office/domain/types";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
@@ -17,15 +17,13 @@ import {
   type DragRef,
 } from "@/modules/office/hooks/use-office-drag";
 
-const LIVE: AgentStatusInfo["status"][] = ["working", "thinking"];
-
 function agentLedClass(status: AgentStatusInfo["status"]) {
   return cn(
     "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-[2px] border-bg-2",
-    LIVE.includes(status) && "bg-[var(--working)] shadow-[0_0_5px_var(--working)]",
-    (status === "queued" || status === "done") && "bg-[#e6b35a]",
-    status === "error" && "bg-[var(--error)]",
-    !LIVE.includes(status) && status !== "queued" && status !== "done" && status !== "error" && "bg-txt-4",
+    LIVE_STATUSES.includes(status) && "bg-status-working shadow-[0_0_5px_var(--working)]",
+    (status === "queued" || status === "done") && "bg-ao-warn",
+    status === "error" && "bg-status-error",
+    !LIVE_STATUSES.includes(status) && status !== "queued" && status !== "done" && status !== "error" && "bg-txt-4",
   );
 }
 
@@ -34,12 +32,13 @@ const STATUS_PRIORITY: AgentStatusInfo["status"][] = [
 ];
 
 function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (e: React.MouseEvent) => void }) {
+  const t = useTranslations();
   return (
-    <Tooltip content={pinned ? "Unpin" : "Pin to top"} side="top">
+    <Tooltip content={pinned ? t("sidebar.unpin_title") : t("sidebar.pin_title")} side="top">
       <RosterActionButton
         active={pinned}
         onClick={onToggle}
-        aria-label={pinned ? "Unpin agent" : "Pin agent to top"}
+        aria-label={pinned ? t("sidebar.unpin_aria") : t("sidebar.pin_aria")}
         className={!pinned ? "opacity-0 group-hover:opacity-100" : undefined}
       >
         <Icon name="pin" size={11} />
@@ -105,7 +104,7 @@ export function RosterGroup({
   const inst = instances[0];
   const singleStatus = instanceStatuses[0] ?? "idle";
   const aggregated = isMulti ? aggregateStatus(instanceStatuses) : singleStatus;
-  const hasLive = instanceStatuses.some((s) => LIVE.includes(s));
+  const hasLive = instanceStatuses.some((s) => LIVE_STATUSES.includes(s));
 
   const dragRef: DragRef = isMulti || !inst
     ? { agentId: agent.id }
@@ -253,7 +252,7 @@ export function RosterGroup({
             className="text-txt-3 font-[var(--font-mono)] text-[11px] hover:bg-transparent hover:text-acc"
           >
             <Icon name="plus" size={11} />
-            New session
+            {t("sidebar.new_session")}
           </RosterSessionRow>
         </div>
       )}

@@ -11,6 +11,6 @@
 .hcell.l1 { background: color-mix(in oklab, var(--acc) 18%, var(--card-3)); }
 .hcell.l2 { background: color-mix(in oklab, var(--acc) 38%, var(--card-2)); }
 .hcell.l3 { background: color-mix(in oklab, var(--acc) 62%, var(--card-2)); }
-.act-row.open { background: var(--card-2); border-color: color-mix(in srgb, var(--acc) 40%, var(--edge)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+.act-row.open { border-color: color-mix(in srgb, var(--acc) 40%, var(--edge)); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
 .act-row-cost-fill { height: 100%; background: linear-gradient(90deg, var(--acc), var(--acc-2)); border-radius: 2px; }
 .act-detail { border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--edge)); border-top: none; }

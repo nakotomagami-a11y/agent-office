@@ -14,6 +14,7 @@
     "settings": "Settings",
     "agents": "Agents",
     "memory": "Memory",
+    "schedules": "Schedules",
     "limits": "Limits",
     "processes": "Servers",
     "project": "Project",
@@ -26,7 +27,7 @@
     "working_count": "{count} working",
     "needs_attention_label": "need attention",
     "budget_daily": "Budget",
-    "new_agent": "New agent",
+    "new_agent": "Forge agent",
     "add_agent": "Add agent",
     "error_filter_banner": "Showing agents needing attention",
     "error_filter_clear": "Clear filter"
@@ -164,7 +165,15 @@
     "spawn_instance_title": "Add instance",
     "group_toggle_aria": "Toggle {name} group ({count} instances)",
     "instance_cap_soft": "You already have several instances of this agent. Add another anyway?",
-    "instance_cap_hard": "Maximum 10 instances reached. Remove one before adding another."
+    "instance_cap_hard": "Maximum 10 instances reached. Remove one before adding another.",
+    "pin_title": "Pin to top",
+    "unpin_title": "Unpin",
+    "pin_aria": "Pin agent to top",
+    "unpin_aria": "Unpin agent",
+    "new_session": "New session",
+    "session_default_label": "Session {number}",
+    "rename_button_title": "Rename",
+    "rename_button_aria": "Rename session {number}"
   },
   "titlebar": {
     "switch_to_light": "Switch to light theme",
@@ -175,7 +184,43 @@
     "win_min": "Minimise window",
     "win_max": "Maximise window",
     "refresh_label": "Refresh view",
-    "refresh_tooltip": "Refresh (Ctrl+R) — refetch all data without reloading the app"
+    "refresh_tooltip": "Refresh (Ctrl+R) — refetch all data without reloading the app",
+    "documentation_title": "Documentation — ⌘/",
+    "toggle_theme_title": "Toggle theme"
+  },
+  "mobile_nav": {
+    "aria_label": "Mobile navigation",
+    "more": "More",
+    "create_agent_aria": "Create new agent"
+  },
+  "skill_updates": {
+    "title": "Skill updates",
+    "count_available": "{count, plural, one {# skill update} other {# skill updates}} available",
+    "update_button": "Update",
+    "update_all_button": "Update all",
+    "manage_link": "Manage skills →"
+  },
+  "update_bell": {
+    "title_available": "Update available — v{version}",
+    "aria_available": "Update available, version {version}",
+    "modal_title_uptodate": "You're up to date",
+    "modal_title_available": "Update available",
+    "close": "Close",
+    "later": "Later",
+    "open_releases": "Open GitHub releases",
+    "download_install": "Download & install",
+    "restart_now": "Restart now",
+    "uptodate_body": "You're running the latest version.",
+    "available_prefix": "Version",
+    "available_suffix": "is available",
+    "available_you_have": "— you have",
+    "manual_note": "Automatic updates aren't available on macOS yet — download the latest build from GitHub and reinstall.",
+    "downloading": "Downloading…",
+    "downloading_pct": "Downloading… {pct}%",
+    "installed_body": "Installed. Restarting…",
+    "install_failed_prefix": "In-app install isn't supported for this install type (e.g. a Linux",
+    "install_failed_suffix": "). Download the latest build from GitHub and reinstall — after that, updates apply automatically.",
+    "install_failed_error": "Couldn't install the update automatically."
   },
   "project_switcher": {
     "all_projects": "All projects",
@@ -622,13 +667,40 @@
     "caveat_tail": "outside the dashboard isn't included."
   },
   "processes": {
-    "title": "Running Servers",
+    "title": "Running servers",
+    "subtitle": "listening on localhost · ports 1024–65535 · rescans every 5s",
     "empty": "No listening servers found",
+    "no_matches": "No matching servers.",
     "scanning": "Scanning ports…",
     "kill_aria": "Stop process {pid}",
+    "kill_title": "Kill process",
     "started_ago": "{duration} ago",
-    "port_label": ":{port}",
-    "close": "Done"
+    "close": "Done",
+    "close_label": "Close running servers",
+    "close_aria": "Close",
+    "healthy_pill": "{count} healthy",
+    "stat_processes": "Processes",
+    "stat_processes_unit": "listening",
+    "stat_project": "From this project",
+    "stat_project_unit": "servers",
+    "stat_memory": "Memory",
+    "stat_memory_unit": "GB resident",
+    "stat_ports": "Ports in use",
+    "stat_ports_unit": "of 64k scanned",
+    "scope_project": "This project",
+    "scope_all": "All",
+    "search_placeholder": "Search by name, command, port…",
+    "group_other": "Other system processes",
+    "detail_pid": "PID",
+    "up_label": "up",
+    "mem_label": "mem",
+    "open_browser_title": "Open in browser",
+    "view_logs_title": "View logs",
+    "restart_unsupported_title": "Restart not yet supported",
+    "kill_failed": "Kill failed",
+    "footer_last_scan": "last scan {time}",
+    "scan_settings_button": "Scan settings",
+    "scan_settings_title": "Scan settings (coming soon)"
   },
   "search_page": {
     "title": "Search Runs",
@@ -747,7 +819,8 @@
     "empty_select": "Select a scope to edit its memory.",
     "no_content": "Empty — start typing to add memory.",
     "no_projects": "No projects defined yet.",
-    "no_agents": "No agents defined yet."
+    "no_agents": "No agents defined yet.",
+    "filter_placeholder": "Filter…"
   },
   "schedules": {
     "attention_stale": "More than 12h overdue — confirm before running.",

@@ -35,7 +35,7 @@ import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
  * draggable nav/roster split, no footer account dropdown.
  *
  * Traffic-light window controls render at the top of the sidebar instead of
- * a separate chrome row, moved here from the old `<Titlebar/>`.
+ * a separate chrome row.
  */
 export function Sidebar() {
   const t = useTranslations();

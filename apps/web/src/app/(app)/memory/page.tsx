@@ -38,27 +38,29 @@ export default function MemoryPage() {
         }
         actions={<TabSwitcher tab={tab} onChange={setTab} />}
       />
-      {tab === "memory" ? (
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <MemoryNav selected={scope} onSelect={setScope} contentMap={contentMap} />
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <ScopeEditor
-              key={scopeKey(scope)}
-              scope={scope}
-              onContentLoaded={handleContentLoaded}
-            />
+      <div className="flex-1 min-h-0 flex flex-col pt-[20px] px-[20px] pb-[20px] overflow-hidden">
+        {tab === "memory" ? (
+          <div className="flex gap-[14px] flex-1 min-h-0 overflow-hidden">
+            <MemoryNav selected={scope} onSelect={setScope} contentMap={contentMap} />
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ScopeEditor
+                key={scopeKey(scope)}
+                scope={scope}
+                onContentLoaded={handleContentLoaded}
+              />
+            </div>
           </div>
-        </div>
-      ) : (
-        <DocsTab />
-      )}
+        ) : (
+          <DocsTab />
+        )}
+      </div>
     </>
   );
 }
 
 function TabSwitcher({ tab, onChange }: { tab: TopTab; onChange: (t: TopTab) => void }) {
   return (
-    <div className="flex items-center gap-[2px] p-[2px] bg-bg-2 border border-line rounded-[7px]">
+    <div className="flex items-center gap-[2px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]">
       <TabButton active={tab === "memory"} onClick={() => onChange("memory")}>
         Memory
       </TabButton>
@@ -83,10 +85,10 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "px-[10px] h-[24px] rounded-[5px] text-[12px] font-medium cursor-pointer border-none [font:inherit] transition-[background,color] duration-[80ms]",
+        "px-[15px] py-[7px] rounded-[12px] text-[12.5px] font-semibold cursor-pointer border-none [font:inherit] whitespace-nowrap transition-[background,color] duration-[140ms]",
         active
-          ? "bg-bg-1 text-txt shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-          : "bg-transparent text-txt-2 hover:text-txt",
+          ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
+          : "bg-transparent text-txt-3 hover:brightness-110",
       )}
     >
       {children}

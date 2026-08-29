@@ -9,12 +9,10 @@ import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
 import { AgentEditorForm } from "@/modules/agents/components/agent-editor-form";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useRegisterModal } from "@/lib/modal-manager";
-import { CHROME_TOP } from "@/lib/chrome";
 import { useProject, useAddInstance, useRemoveInstance } from "@/modules/projects/hooks/use-projects";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
@@ -471,15 +469,14 @@ export function AgentDetailsModal() {
   return (
     <Portal>
       <div
-        className="app-modal-backdrop fixed inset-0 flex items-center justify-center z-[200] p-2 bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none"
-        style={{ top: CHROME_TOP }}
+        className="app-modal-backdrop fixed inset-0 flex items-center justify-center z-[200] p-[26px] bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none"
         role="presentation"
         onClick={closeInspector}
       >
         <div
           ref={ref}
-          className="ao-modal relative w-full max-w-[1080px] bg-[var(--ao-bg-1)] border border-[var(--ao-line-1)] rounded-[8px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
-          style={{ height: "calc(100vh - 90px)", maxHeight: "calc(100vh - 90px)" }}
+          className="ao-modal relative w-full max-w-[1240px] bg-[var(--ao-bg-1)] border border-[var(--ao-line-1)] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
+          style={{ height: "calc(100vh - 52px)", maxHeight: "940px" }}
           role="dialog"
           aria-modal="true"
           aria-label={`Agent: ${agent.name}`}
@@ -579,11 +576,11 @@ export function AgentDetailsModal() {
                   {statusDot}
                 </div>
               )}
-              <div className="flex items-center gap-[10px] text-ao-fg-2 font-mono text-[12px]">
+              <div className="flex items-center gap-[7px] text-ao-fg-2 font-mono text-[12px]">
                 <DropdownMenu
                   align="start"
                   ariaLabel="Model"
-                  triggerClassName="!h-[22px] !px-[6px] !-mx-[2px] !text-[12px] !font-mono !text-ao-fg-2 hover:!text-ao-fg-0 hover:!bg-ao-bg-3"
+                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
                   trigger={
                     <span className="flex items-center gap-[5px]">
                       <span>{agent.defaultModel ?? "default"}</span>
@@ -600,7 +597,7 @@ export function AgentDetailsModal() {
                 <DropdownMenu
                   align="start"
                   ariaLabel="Effort"
-                  triggerClassName="!h-[22px] !px-[6px] !-mx-[2px] !text-[12px] !font-mono !text-ao-fg-2 hover:!text-ao-fg-0 hover:!bg-ao-bg-3"
+                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
                   trigger={
                     <span className="flex items-center gap-[5px]">
                       <span>effort {agent.defaultEffort ?? "default"}</span>
@@ -626,7 +623,7 @@ export function AgentDetailsModal() {
               {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
               {/* Alt+← / Alt+→ navigator when multi-instance */}
               {isMultiAgentSelected && (
-                <div className="flex items-center gap-[2px] mr-1">
+                <div className="flex items-center gap-[1px] p-[3px] mr-1 rounded-[12px] bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-1)]">
                   <Tooltip content="Previous (Alt+←)" side="bottom">
                     <button
                       type="button"
@@ -637,12 +634,12 @@ export function AgentDetailsModal() {
                         const next = agentInstances[ni];
                         if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
                       }}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-ao-fg-2 hover:text-ao-fg-0 hover:bg-ao-bg-3 border border-transparent hover:border-ao-line-1 transition-all duration-[120ms]"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
                     >
-                      <span className="rotate-180 inline-flex"><Icon name="chevron" size={14} /></span>
+                      <span className="rotate-180 inline-flex"><Icon name="chevron" size={12} /></span>
                     </button>
                   </Tooltip>
-                  <span className="font-mono text-[11px] text-ao-fg-2 min-w-[32px] text-center">
+                  <span className="font-mono text-[11px] font-semibold text-ao-fg-2 min-w-[30px] text-center">
                     {selectedInstIdx + 1}/{agentInstances.length}
                   </span>
                   <Tooltip content="Next (Alt+→)" side="bottom">
@@ -655,9 +652,9 @@ export function AgentDetailsModal() {
                         const next = agentInstances[ni];
                         if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
                       }}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-ao-fg-2 hover:text-ao-fg-0 hover:bg-ao-bg-3 border border-transparent hover:border-ao-line-1 transition-all duration-[120ms]"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
                     >
-                      <Icon name="chevron" size={14} />
+                      <Icon name="chevron" size={12} />
                     </button>
                   </Tooltip>
                 </div>
@@ -665,7 +662,8 @@ export function AgentDetailsModal() {
               {tab === "conversation" && (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-[6px] h-7 px-[10px] rounded-lg bg-ao-bg-3 border border-ao-line-1 text-ao-fg-1 text-[13px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 hover:border-ao-line-2 disabled:opacity-40 disabled:cursor-default"
+                  className="inline-flex items-center gap-[6px] h-7 px-[12px] rounded-lg text-white text-[13px] font-semibold transition-transform duration-[120ms] hover:-translate-y-px disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0"
+                  style={{ background: "linear-gradient(120deg,var(--acc),var(--acc-2))", boxShadow: "0 10px 22px -12px color-mix(in srgb, var(--acc) 80%, transparent)" }}
                   onClick={() => void handleNewConversation()}
                   disabled={addMut.isPending}
                 >
@@ -744,9 +742,7 @@ export function AgentDetailsModal() {
                   onSaved={() => {}}
                   onDeleted={closeInspector}
                 />
-              ) : (
-                <div className="p-6"><Skeleton width="100%" height={240} /></div>
-              )
+              ) : null
             )}
           </div>
             </>

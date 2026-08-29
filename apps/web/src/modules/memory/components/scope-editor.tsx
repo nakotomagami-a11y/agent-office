@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useMemory, isReadOnly, type MemoryScope } from "../hooks/use-memory";
 import { MemoryEditor } from "./memory-editor";
 import { scopeKey } from "../scope/scope";
@@ -15,6 +15,17 @@ type ScopeEditorProps = {
   onContentLoaded: (key: string, hasContent: boolean) => void;
 };
 
+/** Display-only path label — mirrors the real on-disk layout documented in
+ *  `packages/domain/src/services/infra/paths.ts`, not a live filesystem read. */
+function pathLabelFor(scope: MemoryScope): string {
+  return match(scope)
+    .with({ kind: "global" }, () => "~/.claude/agents/_global.memory.md")
+    .with({ kind: "project" }, (s) => `~/.claude/projects/${s.id}/project.md`)
+    .with({ kind: "agent" }, (s) => `~/.claude/agents/${s.id}.memory.md`)
+    .with({ kind: "agent-skill" }, (s) => `~/.claude/agents/_skills/${s.skillSlug}/SKILL.md`)
+    .exhaustive();
+}
+
 export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
   const t = useTranslations("memory_page");
   const memory = useMemory(scope);
@@ -25,15 +36,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
     }
   }, [memory.isLoading, memory.content, scope, onContentLoaded]);
 
-  if (memory.isLoading) {
-    return (
-      <div className="flex flex-col gap-[6px] p-[20px]">
-        <Skeleton width="80%" height={14} />
-        <Skeleton width="60%" height={14} />
-        <Skeleton width="70%" height={14} />
-      </div>
-    );
-  }
+  if (memory.isLoading) return null;
 
   if (memory.loadError) {
     return (
@@ -58,6 +61,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
               value={memory.content}
               onChange={() => {}}
               readOnly
+              scopeLabel={pathLabelFor(scope)}
               renderPreview={(md) => <DocsRender markdown={md} />}
             />
           ) : (
@@ -74,6 +78,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
         value={memory.content}
         onSave={memory.save}
         placeholder={t("no_content")}
+        scopeLabel={pathLabelFor(scope)}
       />
     </div>
   );

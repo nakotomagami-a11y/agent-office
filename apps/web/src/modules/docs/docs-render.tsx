@@ -215,18 +215,18 @@ const MD_COMPONENTS: Components = {
   ),
   hr: () => <hr className={`my-8 border-t ${BH}`} />,
   table: ({ children, ...rest }) => (
-    <div className={`my-4 overflow-x-auto rounded-[8px] border ${B}`}>
+    <div className="my-4 overflow-x-auto rounded-[10px] border border-[var(--edge-2)] bg-[var(--card-2)]">
       <table className="w-full border-collapse text-[12.5px]" {...rest}>{children}</table>
     </div>
   ),
-  thead: ({ children, ...rest }) => <thead className="bg-[var(--bg-2)]" {...rest}>{children}</thead>,
+  thead: ({ children, ...rest }) => <thead className="bg-[var(--card-3)]" {...rest}>{children}</thead>,
   th:    ({ children, ...rest }) => (
-    <th className={`text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-[var(--txt-4)] border-b ${BH}`} {...rest}>
+    <th className="text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-[var(--txt-4)] border-b border-[var(--edge-2)]" {...rest}>
       {children}
     </th>
   ),
   tr: ({ children, ...rest }) => (
-    <tr className={`border-b ${BH} last:border-b-0 hover:bg-[var(--bg-2)] transition-colors duration-75`} {...rest}>
+    <tr className="border-b border-[var(--edge)] last:border-b-0 hover:bg-[var(--card-3)] transition-colors duration-75" {...rest}>
       {children}
     </tr>
   ),

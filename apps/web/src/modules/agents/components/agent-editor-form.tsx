@@ -68,8 +68,15 @@ const MODELS = [
   { id: "fable",  name: "fable",  full: MODEL_FULL["fable"]!,  badge: "test",  price: "—",         desc: "Fable-5 — A/B test variant. Compare against Opus/Sonnet on the same task." },
 ] as const;
 
-const EFFORT_BARS: Record<string, number> = { low: 1, medium: 2, high: 3, xhigh: 4, max: 5 };
-const EFFORTS = EFFORT_OPTS.map((id) => ({ id, bars: EFFORT_BARS[id] ?? 1 }));
+/** One color per model "tier" badge — drives both the badge pill and the
+ *  card's top stripe, so a model's rank reads at a glance even before you
+ *  read the badge text (each tier gets its own hue, not a generic accent). */
+const MODEL_TIER: Record<string, { fg: string; bg: string; border: string }> = {
+  fast:  { fg: "var(--working)", bg: "rgba(34,197,94,0.10)",   border: "rgba(34,197,94,0.30)" },
+  smart: { fg: "#c792ea",        bg: "rgba(199,146,234,0.10)", border: "rgba(199,146,234,0.30)" },
+  deep:  { fg: "#ffcb6b",        bg: "rgba(255,203,107,0.10)", border: "rgba(255,203,107,0.30)" },
+  test:  { fg: "#7dd3fc",        bg: "rgba(125,211,252,0.10)", border: "rgba(125,211,252,0.30)" },
+};
 
 const CLASS_OPTIONS = ["Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
 
@@ -143,7 +150,16 @@ function ChipPicker({ chips, suggestions, onAdd, onRemove, placeholder }: {
     if (e.key === "Backspace" && !input && chips.length > 0) onRemove(chips[chips.length - 1]!);
   };
 
-  const available = suggestions.filter((s) => !chips.includes(s.id));
+  // Unfiltered, this list can run into the hundreds (e.g. every installed
+  // skill) — dumping all of it as "suggested" chips is a wall, not a
+  // suggestion. Filter by the in-progress query, and when there's no query
+  // cap the idle list to a browsable handful with a "+N more" hint instead.
+  const SUGGEST_CAP = 12;
+  const query = input.trim().toLowerCase();
+  const availableAll = suggestions.filter((s) => !chips.includes(s.id));
+  const matched = query ? availableAll.filter((s) => s.id.toLowerCase().includes(query)) : availableAll;
+  const available = query ? matched : matched.slice(0, SUGGEST_CAP);
+  const hiddenCount = query ? 0 : Math.max(0, matched.length - SUGGEST_CAP);
 
   return (
     <>
@@ -175,6 +191,9 @@ function ChipPicker({ chips, suggestions, onAdd, onRemove, placeholder }: {
               <span className="text-txt-4 inline-flex"><Icon name="plus" size={10} /></span>
             </button>
           ))}
+          {hiddenCount > 0 && (
+            <span className="text-txt-4 font-[var(--font-mono)] text-[10.5px]">+{hiddenCount} more — type to search</span>
+          )}
         </div>
       )}
     </>
@@ -250,14 +269,22 @@ function ClassPicker({ value, onChange }: { value: string; onChange: (next: stri
   );
 }
 
-/* ── Effort bars ──────────────────────────────────────────────── */
+/* ── Permission mode shield badge ─────────────────────────────── */
 
-function Bars({ count }: { count: number }) {
+function PermissionShield({ pm, active }: { pm: (typeof PERMISSION_MODE_OPTS)[number]; active: boolean }) {
   return (
-    <span className="flex items-end gap-[2px] mb-[4px]">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className="w-[3px] bg-current rounded-[1px]" style={{ height: i * 3 + 2, opacity: i <= count ? 1 : 0.22 }} />
-      ))}
+    <span className="relative w-[26px] h-[29px] shrink-0 flex items-center justify-center" style={{ color: active ? "var(--acc)" : "var(--txt-4)" }}>
+      <svg width="26" height="29" viewBox="0 0 24 26" className="absolute inset-0">
+        <path
+          d="M12 1 22 4.5V13c0 6.5-5.5 10-10 12C7.5 23 2 19.5 2 13V4.5z"
+          fill={active ? "var(--acc-faint)" : "var(--bg-2)"}
+          stroke="currentColor"
+          strokeWidth="1.3"
+        />
+      </svg>
+      <span className="relative">
+        <Icon name={PM_ICONS[pm]} size={11} />
+      </span>
     </span>
   );
 }
@@ -377,10 +404,10 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
             <div className="flex items-center text-txt-3 gap-[6px] font-[var(--font-mono)] text-[11.5px] mb-[4px]">
               <a className="text-txt-3 no-underline cursor-pointer hover:text-txt" onClick={() => router.push(PAGE_ROUTES.agents)}>Agents</a>
               <span className="text-txt-4">›</span>
-              <span>{mode === "new" ? "New" : values.name || values.id}</span>
+              <span>{mode === "new" ? "Forge" : values.name || values.id}</span>
             </div>
             <h1 className="flex items-baseline text-txt font-bold m-0 text-[22px] tracking-[-0.01em] gap-[10px]">
-              {mode === "new" ? "New agent" : "Edit agent"}
+              {mode === "new" ? "Forge agent" : "Edit agent"}
               <span className="text-txt-3 font-normal font-[var(--font-mono)] text-[12.5px] tracking-normal">
                 {mode === "new" ? "· write a fresh markdown definition" : `· ~/.claude/agents/${values.id}.md`}
               </span>
@@ -584,60 +611,94 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
             <div className="flex flex-col gap-[5px]">
               <label className="uppercase flex items-center text-txt-3 font-semibold text-[11px] tracking-[0.06em] gap-[5px] mb-[1px]">Model</label>
               <div className="model-cards flex flex-wrap gap-[8px]">
-                {MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`model-card text-left bg-bg-1 border border-line cursor-pointer flex flex-col flex-1 basis-[160px] min-w-[160px] px-[14px] py-[12px] rounded-[10px] transition-[background,border-color] duration-[120ms] gap-[4px] font-[inherit] hover:bg-bg-3 hover:border-line-2${values.model === m.id ? " active border-[var(--acc-tint)] [box-shadow:inset_0_0_0_1px_var(--acc-tint)]" : ""}`}
-                    onClick={() => set("model", m.id)}
-                  >
-                    <div className={`row1 flex items-center gap-[8px] font-bold text-[14px]${values.model === m.id ? " text-acc" : " text-txt"}`}>
-                      {m.name}
-                      <span className={`ml-auto rounded-full border font-[var(--font-mono)] text-[10px] px-[6px] py-[1px] tracking-[0.04em]${m.badge === "fast" ? " bg-[rgba(34,197,94,0.10)] border-[rgba(34,197,94,0.30)] text-[var(--working)]" : m.badge === "smart" ? " bg-[rgba(199,146,234,0.10)] border-[rgba(199,146,234,0.30)] text-[#c792ea]" : " bg-[rgba(255,203,107,0.10)] border-[rgba(255,203,107,0.30)] text-[#ffcb6b]"}`}>{m.badge}</span>
-                    </div>
-                    <div className="text-txt-3 font-[var(--font-mono)] text-[11px]">{m.full} · {m.price}</div>
-                    <div className={`text-[11.5px] leading-[1.5]${values.model === m.id ? " desc" : " text-txt-3"}`}>{m.desc}</div>
-                  </button>
-                ))}
+                {MODELS.map((m) => {
+                  const tier = MODEL_TIER[m.badge]!;
+                  const active = values.model === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`model-card text-left bg-bg-1 border border-line cursor-pointer flex flex-col flex-1 basis-[160px] min-w-[160px] rounded-[10px] overflow-hidden transition-[background,border-color] duration-[120ms] font-[inherit] hover:bg-bg-3 hover:border-line-2${active ? " active border-[var(--acc-tint)] [box-shadow:inset_0_0_0_1px_var(--acc-tint)]" : ""}`}
+                      onClick={() => set("model", m.id)}
+                    >
+                      <span className="block h-[4px] w-full shrink-0" style={{ background: tier.fg }} aria-hidden />
+                      <span className="flex flex-col gap-[4px] px-[14px] py-[10px]">
+                        <span className={`row1 flex items-center gap-[8px] font-bold text-[14px]${active ? " text-acc" : " text-txt"}`}>
+                          {m.name}
+                          <span className="ml-auto rounded-full border font-[var(--font-mono)] text-[10px] px-[6px] py-[1px] tracking-[0.04em]" style={{ background: tier.bg, borderColor: tier.border, color: tier.fg }}>{m.badge}</span>
+                        </span>
+                        <span className="text-txt-3 font-[var(--font-mono)] text-[11px]">{m.full} · {m.price}</span>
+                        <span className={`text-[11.5px] leading-[1.5]${active ? " desc" : " text-txt-3"}`}>{m.desc}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Effort */}
             <div className="flex flex-col gap-[5px]">
-              <label className="uppercase flex items-center text-txt-3 font-semibold text-[11px] tracking-[0.06em] gap-[5px] mb-[1px]">Effort</label>
-              <div className="effort-slider flex bg-bg-1 border border-line gap-[4px] p-[4px] rounded-[8px]">
-                {EFFORTS.map((e) => (
-                  <button
-                    key={e.id}
-                    type="button"
-                    className={`flex flex-col items-center flex-1 cursor-pointer bg-transparent border-none px-[10px] py-[8px] rounded-[6px] font-[var(--font-mono)] text-[12px] gap-[2px] transition-[background,color] duration-[120ms] hover:not(.active):bg-bg-3 hover:not(.active):text-txt${values.effort === e.id ? " active bg-acc-faint text-acc" : " text-txt-3"}`}
-                    onClick={() => set("effort", e.id)}
-                  >
-                    <Bars count={e.bars} />
-                    {e.id}
-                  </button>
-                ))}
+              <div className="flex items-center mb-[1px]">
+                <label className="uppercase flex items-center text-txt-3 font-semibold text-[11px] tracking-[0.06em] gap-[5px]">Effort</label>
+                <span className="flex-1" />
+                <span className="text-txt-4 text-[10.5px]">higher effort → more thinking tokens before responding</span>
               </div>
-              <div className="text-txt-3 text-[11px] mt-[1px]">higher effort → more thinking tokens before responding</div>
+              <div className="effort-slider relative px-[22px] pt-[19px] pb-[13px] rounded-[15px] bg-bg-1 border border-line">
+                <div className="absolute left-[22px] right-[22px] top-[27px] h-[3px] rounded-full bg-bg-3">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-200"
+                    style={{
+                      width: `${(EFFORT_OPTS.findIndex((id) => id === values.effort) / (EFFORT_OPTS.length - 1)) * 100}%`,
+                      background: "linear-gradient(90deg,var(--acc-2),var(--acc))",
+                      boxShadow: "0 0 10px 1px rgba(139,123,255,0.6)",
+                    }}
+                  />
+                </div>
+                <div className="relative flex items-start justify-between">
+                  {EFFORT_OPTS.map((id) => {
+                    const active = values.effort === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => set("effort", id)}
+                        className="flex flex-col items-center gap-[9px] cursor-pointer bg-transparent border-none p-0 font-[inherit]"
+                      >
+                        <span
+                          className="w-[18px] h-[18px] rounded-full flex items-center justify-center transition-[background,box-shadow] duration-150"
+                          style={{
+                            background: active ? "var(--acc)" : "var(--bg-3)",
+                            boxShadow: active ? "0 0 0 4px var(--acc-tint)" : "inset 0 0 0 1px var(--line-2)",
+                          }}
+                        >
+                          {active && <span className="w-[6px] h-[6px] rounded-full bg-white" />}
+                        </span>
+                        <span className={`font-[var(--font-mono)] text-[11px]${active ? " font-bold text-acc" : " text-txt-3"}`}>{id}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Permission */}
             <div className="flex flex-col gap-[5px]">
               <label className="uppercase flex items-center text-txt-3 font-semibold text-[11px] tracking-[0.06em] gap-[5px] mb-[1px]">Permission mode</label>
-              <div className="permission-seg flex bg-bg-1 border border-line gap-[4px] p-[4px] rounded-[10px]">
+              <div className="permission-seg flex flex-wrap gap-[9px]">
                 {PERMISSION_MODE_OPTS.map((pm) => {
                   const active = values.pm === pm;
                   return (
                     <button
                       key={pm}
                       type="button"
-                      className={`flex flex-col items-start flex-1 text-left cursor-pointer bg-transparent border-none px-[12px] py-[10px] rounded-[7px] gap-[2px] transition-[background] duration-[120ms] font-[inherit] hover:bg-bg-3${active ? " active bg-acc-faint [box-shadow:inset_0_0_0_1px_var(--acc-tint)]" : " text-txt-2"}`}
+                      className={`flex items-center flex-1 basis-[160px] min-w-[160px] text-left cursor-pointer bg-bg-1 border border-line gap-[11px] px-[13px] py-[11px] rounded-[14px] transition-transform duration-150 font-[inherit] hover:-translate-y-px${active ? " border-[var(--acc-tint)] [box-shadow:inset_0_0_0_1px_var(--acc-tint)]" : ""}`}
                       onClick={() => set("pm", pm)}
                     >
-                      <span className={`flex items-center font-semibold text-[13px] gap-[6px]${active ? " text-acc" : ""}`}>
-                        <Icon name={PM_ICONS[pm]} size={12} /> {pmLabel(pm)}
+                      <PermissionShield pm={pm} active={active} />
+                      <span className="flex flex-col min-w-0">
+                        <span className={`font-semibold text-[12.5px] whitespace-nowrap${active ? " text-acc" : " text-txt"}`}>{pmLabel(pm)}</span>
+                        <span className="font-[var(--font-mono)] text-[10px] text-txt-4 mt-[2px] whitespace-nowrap overflow-hidden text-ellipsis">{pmSubtitle(pm)}</span>
                       </span>
-                      <span className={`font-[var(--font-mono)] text-[10.5px] tracking-[0.01em]${active ? " pm-desc" : " text-txt-3"}`}>{pmSubtitle(pm)}</span>
                     </button>
                   );
                 })}
@@ -721,6 +782,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
             <Button variant="primary" onClick={handleSubmit} disabled={isPending}>
               <Icon name="check" size={13} />
               {isPending ? "Saving…" : "Save changes"}
+              <span className="inline-block bg-bg-1 text-txt-2 px-[5px] py-[1px] border border-b-2 border-line-2 rounded font-mono text-[10.5px]">⌘ S</span>
             </Button>
           </div>
         </div>

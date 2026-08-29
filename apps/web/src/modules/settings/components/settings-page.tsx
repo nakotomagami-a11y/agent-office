@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { TextInput } from "@/components/ui/text-input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
@@ -131,9 +130,7 @@ function ProjectsPane() {
     setAddingPattern(false);
   };
 
-  if (settingsQ.isLoading) {
-    return <Skeleton width="100%" height={120} />;
-  }
+  if (settingsQ.isLoading) return null;
 
   return (
     <>
@@ -246,9 +243,7 @@ function ProjectsPane() {
           </div>
         </div>
 
-        {scanQ.isLoading ? (
-          <div className="p-[20px]"><Skeleton width="100%" height={80} /></div>
-        ) : scanned.length === 0 ? (
+        {scanQ.isLoading ? null : scanned.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-[10px] py-[38px] text-center">
             <span className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-card-2 border border-edge text-txt-4">
               <Icon name="folder" size={18} />

@@ -8,7 +8,6 @@ import { CardHeader } from "@/components/ui/card-header";
 import { Tag } from "@/components/ui/tag";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
 import { CodeBlock } from "@/components/ui/code-block";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
@@ -34,15 +33,7 @@ export function AgentDetail({ id }: AgentDetailProps) {
   const openChat = useSummonStore((s) => s.openChat);
   const activeProjectId = useActiveProjectStore((s) => s.id);
 
-  if (agentQ.isLoading) {
-    return (
-      <div className="overflow-auto py-[18px] px-6">
-        <Skeleton width={240} height={28} />
-        <div className="h-3" />
-        <Skeleton width="100%" height={200} />
-      </div>
-    );
-  }
+  if (agentQ.isLoading) return null;
   if (!agentQ.data) {
     return <div className="overflow-auto py-[18px] px-6">{t("errors.not_found")}</div>;
   }
@@ -98,11 +89,7 @@ export function AgentDetail({ id }: AgentDetailProps) {
           <Card>
             <CardHeader title={t("agent_details.prompt_card_title")} sub={`~/.claude/agents/${id}.md`} />
             <div className="p-4">
-              {bodyQ.isLoading ? (
-                <Skeleton width="100%" height={200} />
-              ) : (
-                <CodeBlock body={bodyQ.data ?? ""} lang="markdown" />
-              )}
+              {!bodyQ.isLoading && <CodeBlock body={bodyQ.data ?? ""} lang="markdown" />}
             </div>
           </Card>
         ))
@@ -118,7 +105,7 @@ function AgentMemoryCard({ id }: { id: string }) {
   const memoryQ = useAgentMemory(id);
   const writeMut = useWriteAgentMemory();
 
-  if (memoryQ.isLoading) return <Skeleton width="100%" height={200} />;
+  if (memoryQ.isLoading) return null;
 
   return (
     <Card>

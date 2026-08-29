@@ -16,15 +16,21 @@ export interface SkillWeight {
   /** Tailwind token classes for the tier colour. */
   dotClass: string;
   textClass: string;
+  /** Soft tinted pill background, paired with `textClass` — matches the
+   *  design's badge treatment while keeping the weight-tier signal (unlike
+   *  the mockup's single static amber, this actually varies by tier). */
+  softClass: string;
   /** Full human sentence for the tooltip. */
   title: string;
 }
 
-const TIER_META: Record<WeightTier, { word: string; range: string; dotClass: string; textClass: string }> = {
-  low: { word: "Light", range: "< 500 tokens", dotClass: "bg-ao-ok", textClass: "text-ao-ok" },
-  medium: { word: "Medium", range: "500–2,000 tokens", dotClass: "bg-ao-warn", textClass: "text-ao-warn" },
-  high: { word: "Heavy", range: "2,000–5,000 tokens", dotClass: "bg-status-thinking", textClass: "text-status-thinking" },
-  extreme: { word: "Extreme", range: "> 5,000 tokens", dotClass: "bg-ao-bad", textClass: "text-ao-bad" },
+const TIER_META: Record<WeightTier, { word: string; range: string; dotClass: string; textClass: string; softClass: string }> = {
+  low: { word: "Light", range: "< 500 tokens", dotClass: "bg-ao-ok", textClass: "text-ao-ok", softClass: "bg-ao-ok-soft" },
+  medium: { word: "Medium", range: "500–2,000 tokens", dotClass: "bg-ao-warn", textClass: "text-ao-warn", softClass: "bg-ao-warn-soft" },
+  // status-thinking has no dedicated `-soft` token; it resolves to --amber
+  // under the hood (see palette.css), so amber-soft is the correct match.
+  high: { word: "Heavy", range: "2,000–5,000 tokens", dotClass: "bg-status-thinking", textClass: "text-status-thinking", softClass: "bg-amber-soft" },
+  extreme: { word: "Extreme", range: "> 5,000 tokens", dotClass: "bg-ao-bad", textClass: "text-ao-bad", softClass: "bg-ao-bad-soft" },
 };
 
 function tierFor(tokens: number): WeightTier {
@@ -51,6 +57,7 @@ export function skillWeight(skill: Pick<RegistrySkill, "size">): SkillWeight | n
     label: formatTokens(tokens),
     dotClass: meta.dotClass,
     textClass: meta.textClass,
+    softClass: meta.softClass,
     title: `${meta.word} skill · ≈${tokens.toLocaleString()} tokens (${meta.range} per load)`,
   };
 }

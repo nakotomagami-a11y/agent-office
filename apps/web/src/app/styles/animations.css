@@ -28,10 +28,6 @@
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-3px); opacity: 1; }
 }
-@keyframes ao-skel-pulse {
-  0%, 100% { background-position: 0% 0; }
-  50%      { background-position: 100% 0; }
-}
 @keyframes page-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

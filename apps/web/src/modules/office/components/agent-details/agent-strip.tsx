@@ -37,7 +37,7 @@ export function AgentStrip({
   onSelect: SelectFn;
 }) {
   return (
-    <div className="ao-agent-strip flex flex-col items-center gap-1 py-[10px] w-[52px] shrink-0 border-r border-[var(--ao-line-0)] overflow-y-auto [scrollbar-width:none]">
+    <div className="ao-agent-strip flex flex-col items-center gap-[7px] py-[14px] w-[74px] shrink-0 border-r border-[var(--ao-line-0)] bg-[var(--ao-bg-2)] overflow-y-auto [scrollbar-width:none]">
       {agents.map((a) => (
         <StripBubble
           key={a.id}
@@ -110,10 +110,10 @@ function StripBubble({
     <button
       ref={btnRef}
       type="button"
-      className={`relative w-[38px] h-[38px] rounded-[10px] border-2 cursor-pointer flex items-center justify-center transition-[background,border-color] duration-[120ms] shrink-0 ${stateClass}`}
+      className={`relative w-[44px] h-[44px] rounded-[14px] border-2 cursor-pointer flex items-center justify-center transition-[background,border-color] duration-[120ms] shrink-0 ${stateClass}`}
       onClick={() => onSelect(agent.id, primary?.instanceId ?? null)}
     >
-      <AgentAvatar unit={agent.unitChoice} size={30} label={agent.name} />
+      <AgentAvatar unit={agent.unitChoice} size={32} label={agent.name} />
       {multi && (
         <span className="absolute top-0 right-0 min-w-[14px] h-[14px] px-[3px] rounded-full bg-[var(--ao-bg-3)] border border-[var(--ao-line-1)] text-[var(--ao-fg-1)] text-[9px] font-bold leading-none flex items-center justify-center">
           {instances.length}

@@ -12,7 +12,6 @@ import {
 } from "../hooks/use-skills";
 import type { RegistrySkill } from "@agent-office/domain/types";
 import { WeaponIconModal } from "./weapon-icon-modal";
-import { SURFACE_CARD, SURFACE_CARD_HOVER, SURFACE_WELL } from "./surface";
 import { skillOrigin } from "../registry/filter-registry";
 import { skillWeight } from "../registry/skill-weight";
 
@@ -42,8 +41,8 @@ export function SkillCard({ skill, icons, busy, onInstall, onUninstall, onEdit }
 
   return (
     <div
-      className={`group relative flex flex-col gap-3 h-full p-4 rounded-[var(--r-lg)] ${SURFACE_CARD} ${SURFACE_CARD_HOVER}
-                 transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-0.5`}
+      className="group relative flex flex-col gap-3 h-full p-4 rounded-[22px] surface-sheen shadow-[var(--lift)]
+                 transition-transform duration-150 hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
         <button
@@ -51,8 +50,8 @@ export function SkillCard({ skill, icons, busy, onInstall, onUninstall, onEdit }
           onClick={() => setEditingIcon(true)}
           title="Change icon"
           aria-label={`Change icon for ${skill.name}`}
-          className={`shrink-0 flex items-center justify-center w-[60px] h-[60px] rounded-[var(--r-md)] ${SURFACE_WELL}
-                     transition-colors hover:border-ao-accent-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc`}
+          className="relative shrink-0 flex items-center justify-center w-[52px] h-[52px] rounded-[15px] bg-card-2 border border-edge shadow-[var(--inset-hi)] overflow-hidden
+                     transition-colors hover:border-ao-accent-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
         >
           <WeaponIcon config={config} size={46} particles="themed" />
         </button>
@@ -94,11 +93,9 @@ export function SkillCard({ skill, icons, busy, onInstall, onUninstall, onEdit }
               <span
                 title={weight.title}
                 aria-label={weight.title}
-                className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full border border-line bg-bg-2 px-1.5 py-0.5 text-[10px]"
+                className={`ml-auto shrink-0 inline-flex items-center rounded-full px-[7px] py-[2px] text-[10px] ${weight.softClass} ${weight.textClass}`}
               >
-                <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${weight.dotClass}`} />
-                <span className={weight.textClass}>{weight.label}</span>
-                <span className="text-txt-4">tok</span>
+                {weight.label} tok
               </span>
             ) : null}
           </div>

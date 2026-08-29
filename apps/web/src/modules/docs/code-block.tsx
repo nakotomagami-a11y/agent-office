@@ -34,18 +34,18 @@ export function CodeBlock({
   const lineCount = body.split("\n").length;
 
   return (
-    <pre className="code-block bg-[#1c1714] font-mono text-[12.5px] leading-[1.65] rounded-[10px] overflow-x-auto">
+    <pre className="code-block font-mono text-[12.5px] leading-[1.65] rounded-[10px] overflow-x-auto">
       <div className="head">
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#C7BFB7]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em]">
           {lang ?? "code"}
         </span>
         {title && (
           <>
-            <span className="text-[rgba(255,255,255,0.25)] select-none">/</span>
-            <span className="text-[rgba(255,255,255,0.45)] text-[10px]">{title}</span>
+            <span className="opacity-40 select-none">/</span>
+            <span className="text-[10px] opacity-70">{title}</span>
           </>
         )}
-        <span className="ml-auto text-[10px] text-[rgba(255,255,255,0.25)] font-mono mr-2 select-none">
+        <span className="ml-auto text-[10px] font-mono mr-2 select-none opacity-50">
           {lineCount} {lineCount === 1 ? "line" : "lines"}
         </span>
         <button type="button" className="cp" onClick={onCopy}>
@@ -63,7 +63,7 @@ export function CodeBlock({
         </button>
       </div>
       <code
-        className="block text-[#e8ddd5] p-[14px_16px]"
+        className="block p-[14px_16px]"
         dangerouslySetInnerHTML={{ __html: highlighted }}
       />
     </pre>

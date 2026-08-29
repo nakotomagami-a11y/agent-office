@@ -252,8 +252,10 @@ export function SkillsPage() {
               ]}
             />
 
-            {/* origin segmented — provenance */}
-            <div className="inline-flex items-center p-0.5 rounded-[var(--r-md)] bg-bg-2 border border-line">
+            {/* origin + installed segmented — one pill, matches the design's
+                merged 4-segment control instead of splitting "Installed" out
+                as its own standalone toggle. */}
+            <div className="inline-flex items-center gap-[2px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]">
               <SegBtn active={filter.origin === "all"} onClick={() => setFilter((f) => ({ ...f, origin: "all" }))}>
                 All
               </SegBtn>
@@ -273,21 +275,13 @@ export function SkillsPage() {
               >
                 GitHub
               </SegBtn>
+              <SegBtn
+                active={filter.showInstalledOnly}
+                onClick={() => setFilter((f) => ({ ...f, showInstalledOnly: !f.showInstalledOnly }))}
+              >
+                Installed
+              </SegBtn>
             </div>
-
-            {/* installed quick toggle */}
-            <button
-              type="button"
-              onClick={() => setFilter((f) => ({ ...f, showInstalledOnly: !f.showInstalledOnly }))}
-              aria-pressed={filter.showInstalledOnly}
-              className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--r-md)] text-[12.5px] border transition-colors ${
-                filter.showInstalledOnly
-                  ? "bg-ao-ok-soft border-[color-mix(in_oklab,var(--color-ao-ok)_40%,transparent)] text-ao-ok"
-                  : "bg-bg-1 border-line-2 text-txt-2 shadow-1 hover:bg-bg-2"
-              }`}
-            >
-              <Icon name="check" size={13} /> Installed
-            </button>
 
             <button
               type="button"
@@ -323,13 +317,7 @@ export function SkillsPage() {
         ) : null}
 
         {/* ── Grid / states ─────────────────────────────────────────── */}
-        {registryLoading ? (
-          <div className="flex flex-wrap gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <SkillSkeleton key={i} />
-            ))}
-          </div>
-        ) : isError ? (
+        {registryLoading ? null : isError ? (
           <EmptyState
             icon="slash"
             title="Couldn't load the registry"
@@ -558,43 +546,18 @@ function SegBtn({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[7px] text-[12px] font-medium transition-colors ${
-        active ? "bg-bg-1 text-txt shadow-1" : "text-txt-3 hover:text-txt"
+      className={`inline-flex items-center gap-[7px] py-[7px] px-[13px] rounded-[12px] text-[12.5px] font-semibold whitespace-nowrap transition-[background,color,box-shadow] duration-150 ${
+        active
+          ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
+          : "bg-transparent text-txt-3 hover:brightness-110"
       }`}
     >
-      {icon ? <Icon name={icon} size={12} className={active ? "text-acc" : ""} /> : null}
+      {icon ? <Icon name={icon} size={12} /> : null}
       {children}
       {count !== undefined ? (
-        <span
-          className={`font-mono text-[10px] px-1.5 py-px rounded-full ${
-            active ? "bg-acc-faint text-acc" : "bg-bg-3 text-txt-4"
-          }`}
-        >
-          {count}
-        </span>
+        <span className="font-mono text-[10px] opacity-70">{count}</span>
       ) : null}
     </button>
   );
 }
 
-function SkillSkeleton() {
-  return (
-    <div className="flex-1 basis-[320px] max-w-[380px] min-w-[280px]">
-      <div className="flex flex-col gap-3 p-4 rounded-[var(--r-lg)] border border-line bg-bg-1">
-        <div className="flex items-start gap-3">
-          <div className="w-[60px] h-[60px] rounded-[var(--r-md)] bg-bg-2 animate-pulse" />
-          <div className="flex-1 flex flex-col gap-2 pt-1">
-            <div className="h-3.5 w-2/3 rounded bg-bg-2 animate-pulse" />
-            <div className="h-2.5 w-1/2 rounded bg-bg-2 animate-pulse" />
-          </div>
-        </div>
-        <div className="h-2.5 w-full rounded bg-bg-2 animate-pulse" />
-        <div className="h-2.5 w-4/5 rounded bg-bg-2 animate-pulse" />
-        <div className="flex gap-1.5 pt-1">
-          <div className="h-4 w-12 rounded-full bg-bg-2 animate-pulse" />
-          <div className="h-4 w-14 rounded-full bg-bg-2 animate-pulse" />
-        </div>
-      </div>
-    </div>
-  );
-}

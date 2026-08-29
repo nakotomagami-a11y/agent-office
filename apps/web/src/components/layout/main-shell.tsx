@@ -21,13 +21,12 @@ export type MainShellProps = {
  * mounted here — once — so every page gets it for free instead of each
  * route re-rendering its own copy.
  *
- * No fixed-chrome height reservation anymore — the old Titlebar (38px) +
- * TabStrip (36px) fixed overlay is gone, so `<main>` fills the full window
+ * No fixed-chrome height reservation — `<main>` fills the full window
  * height and owns its own top bar in normal flow.
  *
- * Also owns the three app-level hydration hooks that used to live on the
- * now-removed `<Titlebar/>` (theme, performance mode, office store) — this
- * is the new single mount point at the same architectural tier.
+ * Also owns the three app-level hydration hooks (theme, performance mode,
+ * office store) — kept at this single mount point so every page gets them
+ * for free instead of each route wiring its own hydration.
  */
 export function MainShell({ children, className }: MainShellProps) {
   useThemeHydration();

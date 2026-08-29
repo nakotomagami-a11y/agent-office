@@ -30,10 +30,15 @@ export type QueryStateProps<T> = {
  *
  * Usage:
  * ```tsx
- * <QueryState result={agentsQ} loading={<AgentListGhost />} empty={<EmptyState … />}>
+ * <QueryState result={agentsQ} empty={<EmptyState … />}>
  *   {(agents) => <AgentGrid items={agents} />}
  * </QueryState>
  * ```
+ *
+ * Local queries resolve in ~15-25ms — well under the ~100ms threshold where a
+ * loading state is perceptible at all, let alone worth a hand-built skeleton.
+ * The default `loading` (plain "Loading…" text) is intentionally minimal;
+ * only override it for a query that's genuinely slow.
  *
  * The generic keeps the success child fully typed.
  */

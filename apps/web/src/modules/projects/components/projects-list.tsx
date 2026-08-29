@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
@@ -66,7 +65,6 @@ export function ProjectsList() {
     return (
       <PageFrame count={undefined} onCreate={() => setCreateOpen(true)}>
         {modal}
-        <div className="p-[16px]"><Skeleton width="100%" height={120} /></div>
       </PageFrame>
     );
   }

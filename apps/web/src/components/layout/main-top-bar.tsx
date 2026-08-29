@@ -29,9 +29,7 @@ import { DevMenu } from "@/components/dev/dev-menu";
 /**
  * The top row every page renders at the top of `<main>` — project tabs,
  * Docs, theme toggle, and the account chip whose dropdown carries all
- * primary page navigation. Replaces the old fixed `<Titlebar/>` (38px, app
- * title + bells + theme) and `<TabStrip/>` (36px, project tabs) with a
- * single non-fixed row.
+ * primary page navigation.
  *
  * Docs is always shown, reachable from every page, since the app already
  * treats Docs as globally accessible — hiding it on some pages would be a
@@ -314,9 +312,8 @@ export function MainTopBar() {
 
       <span className="flex-1" data-tauri-drag-region />
 
-      {/* Dev/update affordances carried over from the old Titlebar. Kept
-          small and muted; SkillUpdatesBell/UpdateBell render nothing when
-          there's nothing to report. */}
+      {/* Dev/update affordances — kept small and muted; SkillUpdatesBell/
+          UpdateBell render nothing when there's nothing to report. */}
       <div className="flex items-center gap-1 shrink-0" data-tauri-drag-region="false">
         <SkillUpdatesBell />
         <UpdateBell />
@@ -327,7 +324,7 @@ export function MainTopBar() {
       {/* Docs — always shown, see file doc-comment above */}
       <Link
         href={PAGE_ROUTES.docs}
-        title="Documentation — ⌘/"
+        title={t("titlebar.documentation_title")}
         className="group surface-sheen h-[38px] shrink-0 flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 no-underline hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
         data-tauri-drag-region="false"
       >
@@ -340,7 +337,7 @@ export function MainTopBar() {
       <button
         type="button"
         onClick={toggleTheme}
-        title="Toggle theme"
+        title={t("titlebar.toggle_theme_title")}
         aria-label={theme === "dark" ? t("titlebar.switch_to_light") : t("titlebar.switch_to_dark")}
         className="group surface-sheen w-[38px] h-[38px] shrink-0 flex items-center justify-center rounded-full text-txt-2 hover:text-txt shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
         data-tauri-drag-region="false"
