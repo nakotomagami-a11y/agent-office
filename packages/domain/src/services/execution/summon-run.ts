@@ -3,6 +3,7 @@ import type { ContextProfile, SummonRequest } from "../../types/index";
 import * as agents from "../agents/agents";
 import * as health from "../infra/health";
 import * as history from "../projects/history";
+import { log } from "../infra/log";
 import * as paths from "../infra/paths";
 import * as projects from "../projects/projects";
 import * as runs from "./runs";
@@ -90,6 +91,27 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     }
   }
 
+  const resolvedInstanceId = req.instanceId ?? instance?.instanceId;
+
+  // Spawn guard: never let the same (agentId, instanceId) target run two
+  // `claude` processes at once. Under normal use this never trips — the
+  // client serializes sends per target and only fires the next one once the
+  // last reaches "idle". It exists for the case where a project-tab switch
+  // unmounts the ChatPanel mid-request: TanStack Query drops the per-call
+  // `.mutate(vars, { onSuccess })` callback for an unmounted caller, so the
+  // client can lose track of a run that *did* spawn and start it again on
+  // retry. Instead of spawning a duplicate, hand back the run that's already
+  // live — the client just attaches to it.
+  const existing = runs.findActiveRunForTarget(req.agentId, resolvedInstanceId);
+  if (existing) {
+    log.warn("summon.duplicate_suppressed", {
+      agentId: req.agentId,
+      instanceId: resolvedInstanceId,
+      existingRunId: existing.runId,
+    });
+    return { runId: existing.runId };
+  }
+
   store.pushRecentPrompt(req.agentId, req.prompt);
 
   const instanceLabel = instance?.label ?? (instance ? agent.info.name : undefined);
@@ -101,7 +123,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     effort: built.effort,
     cwd: cwdResolution.cwd,
     projectId: req.projectId,
-    instanceId: req.instanceId ?? instance?.instanceId,
+    instanceId: resolvedInstanceId,
     instanceLabel,
     args: built.args,
   });
