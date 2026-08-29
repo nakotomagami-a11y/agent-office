@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 import type { RegistrySkill } from "@agent-office/domain/types";
 import { skillOrigin } from "../registry/filter-registry";
-import { useCreateSkill, useSetSkillIcon, skillIconKey } from "../hooks/use-skills";
+import { useCreateSkill, useInstalledSkills, useSetSkillIcon, skillIconKey } from "../hooks/use-skills";
 
 const WEAPON_TYPES: { value: IconClassSelector; label: string }[] = [
   { value: "any", label: "Any" },
@@ -23,6 +23,7 @@ const WEAPON_TYPES: { value: IconClassSelector; label: string }[] = [
   { value: "axes", label: "Axe" },
   { value: "staffs", label: "Staff" },
   { value: "tridents", label: "Trident" },
+  { value: "shields", label: "Shield" },
 ];
 
 const STARTER_BODY = `---
@@ -48,15 +49,18 @@ interface SkillEditorModalProps {
   mode: Mode;
   /** Prefill source for edit mode. */
   skill?: RegistrySkill | null;
+  /** Duplicate `skill` under a new `-fork` name instead of editing it in place. */
+  forceFork?: boolean;
   onClose: () => void;
 }
 
 /**
- * Authoring surface for a skill. Forge a new local skill, edit a local one, or
- * fork a read-only GitHub skill into an editable local copy. Fields map onto
- * the on-disk SKILL.md frontmatter.
+ * Authoring surface for a skill. Forge a new local skill, edit a local one in
+ * place, or fork any skill (read-only GitHub, or a local one you want to
+ * duplicate) into a new editable local copy. Fields map onto the on-disk
+ * SKILL.md frontmatter.
  */
-export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModalProps) {
+export function SkillEditorModal({ open, mode, skill, forceFork, onClose }: SkillEditorModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -66,16 +70,23 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
 
   const createMut = useCreateSkill();
   const setIconMut = useSetSkillIcon();
+  const installedQ = useInstalledSkills();
+
+  const isEdit = mode === "edit";
+  const isFork = isEdit && !!skill && (forceFork || skillOrigin(skill) === "github");
 
   useEffect(() => {
     if (!open) return;
     createMut.reset();
     setTagDraft("");
     if (mode === "edit" && skill) {
-      setName(skill.name);
-      setDescription(skill.description);
+      // Real content, when this skill is actually on disk — never the
+      // starter placeholder for something the user is about to overwrite.
+      const real = installedQ.data?.find((s) => s.name === skill.name);
+      setName(isFork ? `${skill.name}-fork` : skill.name);
+      setDescription(real?.description ?? skill.description);
       setTags(skill.tags);
-      setBody(STARTER_BODY.replace("my-skill", skill.name));
+      setBody(real?.body ?? STARTER_BODY.replace("my-skill", skill.name));
       setIcon({ seed: `${skill.source}/${skill.name}`, iconClass: "any" });
     } else {
       setName("");
@@ -85,10 +96,7 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
       setIcon({ seed: createRandomSeed(), iconClass: "any" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, skill]);
-
-  const isEdit = mode === "edit";
-  const isFork = isEdit && !!skill && skillOrigin(skill) === "github";
+  }, [open, mode, skill, forceFork, installedQ.data]);
 
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && body.trim().length > 0 && !createMut.isPending;
@@ -109,7 +117,9 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
         description: description.trim(),
         tags: finalTags,
         body,
-        overwrite: isEdit,
+        // Fork always lands on a new name (never collides with the source),
+        // so it never needs — or gets — permission to overwrite.
+        overwrite: isEdit && !isFork,
       });
       // Persist the chosen weapon icon against the now-local skill.
       setIconMut.mutate({ key: skillIconKey({ source: "local", name: res.skill.name }), config: icon });
@@ -165,11 +175,19 @@ export function SkillEditorModal({ open, mode, skill, onClose }: SkillEditorModa
         <div className="mb-4 flex items-start gap-2.5 rounded-[var(--r-md)] border border-ao-accent-line bg-ao-accent-soft px-3.5 py-2.5">
           <Icon name="branch" size={15} className="text-acc mt-0.5 shrink-0" />
           <p className="text-[12px] leading-[1.5] text-txt-2">
-            <span className="font-semibold text-txt">This is a read-only GitHub skill.</span> Saving
-            creates an editable <span className="text-acc font-medium">local copy you own</span> — the
-            original from{" "}
-            <span className="font-mono text-txt-3">{skill?.source}</span> stays untouched and can still
-            receive updates.
+            {skill && skillOrigin(skill) === "github" ? (
+              <>
+                <span className="font-semibold text-txt">This is a read-only GitHub skill.</span>{" "}
+                Saving creates an editable <span className="text-acc font-medium">local copy you own</span> —
+                the original from <span className="font-mono text-txt-3">{skill?.source}</span> stays
+                untouched and can still receive updates.
+              </>
+            ) : (
+              <>
+                Saving creates a <span className="text-acc font-medium">new local copy</span> — the
+                original <span className="font-mono text-txt-3">{skill?.name}</span> is left untouched.
+              </>
+            )}
           </p>
         </div>
       ) : null}

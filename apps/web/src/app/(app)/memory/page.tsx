@@ -3,12 +3,12 @@
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "@/components/ui/page-header";
+import { cn } from "@/lib/cn";
 import { type MemoryScope } from "@/modules/memory/hooks/use-memory";
 import { ScopeEditor } from "@/modules/memory/components/scope-editor";
 import { MemoryNav } from "@/modules/memory/components/memory-nav";
 import { DocsTab } from "@/modules/memory/components/docs-tab";
 import { scopeKey } from "@/modules/memory/scope/scope";
-import { cn } from "@/lib/cn";
 
 type TopTab = "memory" | "docs";
 
@@ -33,8 +33,8 @@ export default function MemoryPage() {
         title={t("title")}
         sub={
           tab === "memory"
-            ? "· global, project & agent memory"
-            : "· agent-authored context, plans & postmortems"
+            ? "global, project & agent memory"
+            : "agent-authored context, plans & postmortems"
         }
         actions={<TabSwitcher tab={tab} onChange={setTab} />}
       />
@@ -85,7 +85,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "px-[15px] py-[7px] rounded-[12px] text-[12.5px] font-semibold cursor-pointer border-none [font:inherit] whitespace-nowrap transition-[background,color] duration-[140ms]",
+        "py-[7px] px-[15px] rounded-[12px] text-[12.5px] font-semibold whitespace-nowrap cursor-pointer transition-[filter] duration-150",
         active
           ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
           : "bg-transparent text-txt-3 hover:brightness-110",

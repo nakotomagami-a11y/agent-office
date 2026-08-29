@@ -168,7 +168,7 @@ You can drop the same agent onto a project multiple times — each drop creates 
 
 Non-git projects display a warning banner and prevent adding more than one instance of any agent to avoid conflict.
 
-### Lifecycle
+### Instance lifecycle
 
 - **Add** — `POST /api/projects/:id/roster` creates the instance + worktree.
 - **List** — `GET /api/projects/:id/roster` returns all instances.
@@ -206,7 +206,7 @@ Toolbar → Processes icon (or `Cmd+Shift+P`).
 
 `GET /api/processes/:pid/logs?since=<offset>` returns captured stdout/stderr from `since` onwards. The panel polls this to render live logs.
 
-### Lifecycle
+### Process lifecycle
 
 - Foreground processes started by an agent (`nohup dev &`) are NOT captured unless started via `POST /api/projects/:id/dev`.
 - Processes started outside Agent Office (e.g. in a separate terminal) are listed for visibility only. Their stdio is not captured, so log tailing returns `found: false`.

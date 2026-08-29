@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -9,49 +9,6 @@ import { useProjects } from "@/modules/projects/hooks/use-projects";
 import { cn } from "@/lib/cn";
 import { type MemoryScope } from "../hooks/use-memory";
 import { scopeKey } from "../scope/scope";
-
-type NavItemProps = {
-  scope: MemoryScope;
-  label: string;
-  icon: IconName;
-  selected: boolean;
-  hasContent: boolean;
-  onSelect: (s: MemoryScope) => void;
-  depth?: number;
-};
-
-function NavItem({ scope, label, icon, selected, hasContent, onSelect, depth = 0 }: NavItemProps) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(scope)}
-      className={cn(
-        "flex items-center gap-[9px] w-full py-[7px] pr-[9px] rounded-[10px] text-[12.5px] border-none cursor-pointer text-left font-[inherit] select-none transition-colors duration-[130ms]",
-        depth === 0 ? "pl-[9px]" : "pl-[28px]",
-        selected ? "bg-acc-faint text-acc font-semibold" : "bg-transparent text-txt-2 font-medium hover:bg-card-2",
-      )}
-    >
-      <Icon name={icon} size={13} className={cn("shrink-0", selected ? "text-acc" : "text-txt-4")} />
-      <span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">{label}</span>
-      {hasContent && (
-        <span className={cn("shrink-0 w-[5px] h-[5px] rounded-full", selected ? "bg-acc" : "bg-txt-4")} />
-      )}
-    </button>
-  );
-}
-
-function NavSection({ label, count }: { label: string; count?: number }) {
-  return (
-    <div className="flex items-center gap-[8px] mt-[6px] px-[4px] pt-[8px] pb-[6px] select-none">
-      <span className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-txt-4 whitespace-nowrap">{label}</span>
-      <span className="flex-1 h-px bg-edge" />
-      {/* `count` is derived from client-fetched query data — omit it until
-          loaded so the SSR pass and the client's pre-hydration pass render
-          the same (nothing), instead of a 0-vs-N hydration mismatch. */}
-      {count !== undefined && <span className="font-[var(--font-mono)] text-[10px] text-txt-4">{count}</span>}
-    </div>
-  );
-}
 
 type MemoryNavProps = {
   selected: MemoryScope;
@@ -64,15 +21,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
   const agentsQ = useAgents();
   const projectsQ = useProjects();
   const [filter, setFilter] = useState("");
-
-  // The section counts render from react-query cache state, which can already
-  // be warm on mount (another component fetched the same data first) even
-  // though the server-rendered pass always starts cold — a `mounted` gate
-  // guarantees the client's first paint matches the server's regardless of
-  // cache timing, instead of chasing `isLoading` (which isn't reliably in
-  // sync between the SSR pass and hydration).
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   function isSel(scope: MemoryScope): boolean {
     return match(scope)
@@ -83,124 +32,190 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
       .exhaustive();
   }
 
-  // When any child of an agent is selected (agent scope or one of its
-  // skills), that agent row is considered "expanded" and its skills are
-  // rendered as nested items.
-  const expandedAgentId = selected.kind === "agent"
-    ? selected.id
-    : selected.kind === "agent-skill"
-      ? selected.agentId
-      : null;
-
-  const needle = filter.trim().toLowerCase();
+  const q = filter.trim().toLowerCase();
   const projects = useMemo(
-    () => (needle ? (projectsQ.data ?? []).filter((p) => p.name.toLowerCase().includes(needle)) : projectsQ.data ?? []),
-    [projectsQ.data, needle],
+    () => (projectsQ.data ?? []).filter((p) => !q || p.name.toLowerCase().includes(q)),
+    [projectsQ.data, q],
   );
   const agents = useMemo(
-    () => (needle ? (agentsQ.data ?? []).filter((a) => a.name.toLowerCase().includes(needle)) : agentsQ.data ?? []),
-    [agentsQ.data, needle],
+    () => (agentsQ.data ?? []).filter((a) => !q || a.name.toLowerCase().includes(q)),
+    [agentsQ.data, q],
   );
+
+  // Auto-expand whichever agent owns the current selection.
+  const activeAgentId = selected.kind === "agent" ? selected.id : selected.kind === "agent-skill" ? selected.agentId : null;
+  const openAgentId = expandedAgent ?? activeAgentId;
 
   return (
     <nav
       aria-label="Memory scopes"
-      className="w-[268px] shrink-0 rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden flex flex-col min-h-0"
+      className="w-[268px] shrink-0 flex flex-col min-h-0 rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden"
     >
       <div className="shrink-0 p-[12px]">
         <button
           type="button"
           onClick={() => onSelect({ kind: "global" })}
           className={cn(
-            "flex items-center gap-[10px] w-full py-[11px] px-[13px] rounded-[15px] text-[13px] font-bold border-none cursor-pointer text-left transition-[transform,box-shadow] duration-150",
-            isSel({ kind: "global" })
-              ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_12px_24px_-14px_rgba(139,123,255,0.9)]"
-              : "bg-card-2 border border-edge text-txt-2 hover:text-txt",
+            "w-full flex items-center gap-[10px] py-[11px] px-[13px] rounded-[15px] text-[13px] font-bold whitespace-nowrap cursor-pointer transition-all duration-150",
+            selected.kind === "global"
+              ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white"
+              : "bg-card-2 text-txt-2 hover:text-txt",
           )}
         >
           <Icon name="memory" size={15} className="shrink-0" />
-          <span className="flex-1">{t("global_label")}</span>
-          {(contentMap.get("global") ?? false) && <span className="w-[6px] h-[6px] rounded-full bg-current shrink-0" />}
+          <span className="flex-1 text-left">{t("global_label")}</span>
+          {contentMap.get("global") ? <span className="w-[6px] h-[6px] rounded-full bg-current shrink-0" /> : null}
         </button>
-
-        <div className="flex items-center gap-[9px] mt-[10px] py-[9px] px-[12px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)]">
-          <Icon name="search" size={14} className="shrink-0 text-txt-4" />
+        <div className="flex items-center gap-[9px] mt-[10px] py-[9px] px-[12px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-text">
+          <Icon name="search" size={14} className="text-txt-4 shrink-0" />
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder={t("filter_placeholder")}
-            className="flex-1 min-w-0 bg-transparent border-none outline-none text-[12px] text-txt placeholder:text-txt-4"
+            placeholder="Filter…"
+            className="flex-1 min-w-0 border-none bg-transparent outline-none text-[12px] text-txt placeholder:text-txt-4"
           />
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-[12px] pb-[12px] flex flex-col gap-[1px]">
-        <NavSection label={t("projects_heading")} count={mounted ? projects.length : undefined} />
-        {!mounted || projectsQ.isLoading ? null : !projects.length ? (
-          <div className="px-[9px] py-[6px] text-[11px] text-txt-4 font-[var(--font-mono)]">{t("no_projects")}</div>
-        ) : (
-          projects.map((p) => {
-            const scope: MemoryScope = { kind: "project", id: p.id, name: p.name };
-            return (
-              <NavItem
-                key={p.id}
-                scope={scope}
-                label={p.name}
-                icon="folder"
-                selected={isSel(scope)}
-                hasContent={contentMap.get(scopeKey(scope)) ?? false}
-                onSelect={onSelect}
-              />
-            );
-          })
-        )}
-
-        <NavSection label={t("agents_heading")} count={mounted ? agents.length : undefined} />
-        {!mounted || agentsQ.isLoading ? null : !agents.length ? (
-          <div className="px-[9px] py-[6px] text-[11px] text-txt-4 font-[var(--font-mono)]">{t("no_agents")}</div>
-        ) : (
-          agents.map((a) => {
-            const scope: MemoryScope = { kind: "agent", id: a.name, name: a.name };
-            const skills = a.skills ?? [];
-            const isExpanded = expandedAgentId === a.name && skills.length > 0;
-            return (
-              <div key={a.name} className="flex flex-col gap-[1px]">
-                <NavItem
-                  scope={scope}
-                  label={a.name}
-                  icon="cpu"
+      <div className="flex-1 min-h-0 overflow-y-auto px-[12px] pb-[12px]">
+        <NavGroup label={t("projects_heading")} count={projects.length}>
+          {projectsQ.isLoading ? null : projects.length === 0 ? (
+            <div className="px-[9px] py-[6px] font-mono text-[11px] text-txt-4">{t("no_projects")}</div>
+          ) : (
+            projects.map((p) => {
+              const scope: MemoryScope = { kind: "project", id: p.id, name: p.name };
+              return (
+                <NavRow
+                  key={p.id}
+                  icon="folder"
+                  name={p.name}
                   selected={isSel(scope)}
-                  hasContent={contentMap.get(scopeKey(scope)) ?? false}
-                  onSelect={onSelect}
+                  hasNote={contentMap.get(scopeKey(scope)) ?? false}
+                  onClick={() => onSelect(scope)}
                 />
-                {isExpanded ? skills.map((slug) => {
-                  const sk: MemoryScope = { kind: "agent-skill", agentId: a.name, skillSlug: slug };
-                  return (
-                    <button
-                      key={slug}
-                      type="button"
-                      onClick={() => onSelect(sk)}
-                      className={cn(
-                        "flex items-center gap-[9px] w-full py-[6px] pr-[9px] pl-[28px] rounded-[10px] text-[11.5px] border-none cursor-pointer text-left font-[inherit] select-none transition-colors duration-[130ms]",
-                        isSel(sk) ? "bg-acc-faint text-acc font-semibold" : "bg-transparent text-txt-3 font-medium hover:bg-card-2",
-                      )}
-                      title={`Skill: ${slug}`}
-                    >
-                      <Icon name="sparkle" size={11} className={cn("shrink-0", isSel(sk) ? "text-acc" : "text-txt-4")} />
-                      <span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1 font-[var(--font-mono)]">{slug}</span>
-                    </button>
-                  );
-                }) : null}
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </NavGroup>
 
-      {/* Keyboard hint */}
-      <div className="px-[16px] py-[10px] border-t border-edge shrink-0">
-        <span className="font-[var(--font-mono)] text-[10px] text-txt-4">⌘S to save</span>
+        <NavGroup label={t("agents_heading")} count={agents.length}>
+          {agentsQ.isLoading ? null : agents.length === 0 ? (
+            <div className="px-[9px] py-[6px] font-mono text-[11px] text-txt-4">{t("no_agents")}</div>
+          ) : (
+            agents.map((a) => {
+              const scope: MemoryScope = { kind: "agent", id: a.name, name: a.name };
+              const skills = a.skills ?? [];
+              const isOpen = openAgentId === a.name && skills.length > 0;
+              return (
+                <div key={a.name}>
+                  <NavRow
+                    icon="cpu"
+                    name={a.name}
+                    selected={isSel(scope)}
+                    hasNote={contentMap.get(scopeKey(scope)) ?? false}
+                    onClick={() => onSelect(scope)}
+                    hasChildren={skills.length > 0}
+                    expanded={isOpen}
+                    onToggle={() => setExpandedAgent((cur) => (cur === a.name ? null : a.name))}
+                  />
+                  {isOpen ? (
+                    <div className="mt-[2px] mb-[4px] ml-[20px] pl-[11px] border-l border-edge flex flex-col gap-[1px]">
+                      {skills.map((slug) => {
+                        const sk: MemoryScope = { kind: "agent-skill", agentId: a.name, skillSlug: slug };
+                        const active = isSel(sk);
+                        return (
+                          <button
+                            key={slug}
+                            type="button"
+                            onClick={() => onSelect(sk)}
+                            title={`Skill: ${slug}`}
+                            className={cn(
+                              "flex items-center gap-[8px] py-[6px] px-[9px] rounded-[9px] font-mono text-[11px] whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer transition-colors duration-150",
+                              active ? "bg-acc-soft text-acc" : "text-txt-3 hover:bg-card-2",
+                            )}
+                          >
+                            <Icon name="sparkle" size={11} className={cn("shrink-0", active ? "text-acc" : "text-txt-4")} />
+                            <span className="truncate">{slug}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </NavGroup>
       </div>
     </nav>
+  );
+}
+
+function NavGroup({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+  return (
+    <div className="mt-[6px]">
+      <div className="flex items-center gap-[8px] py-[6px] px-[4px]">
+        <span className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-txt-4 whitespace-nowrap">{label}</span>
+        <span className="flex-1 h-px bg-edge" aria-hidden />
+        <span className="font-mono text-[10px] text-txt-4">{count}</span>
+      </div>
+      <div className="flex flex-col gap-[1px]">{children}</div>
+    </div>
+  );
+}
+
+function NavRow({
+  icon,
+  name,
+  selected,
+  hasNote,
+  onClick,
+  hasChildren,
+  expanded,
+  onToggle,
+}: {
+  icon: IconName;
+  name: string;
+  selected: boolean;
+  hasNote: boolean;
+  onClick: () => void;
+  hasChildren?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      className={cn(
+        "flex items-center gap-[9px] py-[7px] px-[9px] rounded-[10px] cursor-pointer transition-colors duration-150",
+        selected ? "bg-acc-soft" : "hover:bg-card-2",
+      )}
+    >
+      <span
+        onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+        className="w-[12px] shrink-0 flex items-center justify-center text-txt-4"
+      >
+        {hasChildren ? (
+          <Icon
+            name="chevron"
+            size={10}
+            className={cn("transition-transform duration-150", expanded ? "rotate-90" : "")}
+          />
+        ) : null}
+      </span>
+      <Icon name={icon} size={13} className={cn("shrink-0", selected || hasChildren ? "text-acc" : "text-txt-4")} />
+      <span
+        className={cn(
+          "flex-1 min-w-0 text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis",
+          selected ? "text-acc font-semibold" : hasChildren ? "text-txt font-semibold" : "text-txt-2 font-medium",
+        )}
+      >
+        {name}
+      </span>
+      {hasNote ? <span className="w-[5px] h-[5px] rounded-full bg-acc shrink-0" /> : null}
+    </div>
   );
 }

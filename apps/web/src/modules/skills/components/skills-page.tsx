@@ -2,13 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { TextInput } from "@/components/ui/text-input";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { SURFACE_HERO } from "./surface";
 import {
   useInstallSkill,
   useUninstallSkill,
@@ -51,6 +48,7 @@ export function SkillsPage() {
   const [forgeOpen, setForgeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<RegistrySkill | null>(null);
+  const [forking, setForking] = useState<RegistrySkill | null>(null);
   const [page, setPage] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -91,230 +89,181 @@ export function SkillsPage() {
 
   return (
     <div ref={scrollRef} className="overflow-auto">
-      <div className="mx-auto max-w-[1180px] px-6 py-5 flex flex-col gap-4">
+      <div className="p-[20px] flex flex-col gap-[14px]">
         {/* ── Overview band ─────────────────────────────────────────── */}
-        <section className={`relative overflow-hidden rounded-[var(--r-xl)] ${SURFACE_HERO}`}>
-          {/* accent glow */}
+        <div className="relative overflow-hidden rounded-[24px] surface-sheen shadow-[var(--lift)] px-[24px] py-[22px] flex flex-wrap items-center gap-[28px]">
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-28 right-[26%] w-[520px] h-[360px] rounded-full blur-[80px]
-                       bg-[radial-gradient(circle,color-mix(in_srgb,var(--acc)_32%,transparent),transparent_70%)]"
+            className="pointer-events-none absolute -left-[30px] -bottom-[130px] w-[320px] h-[290px]"
+            style={{ background: "radial-gradient(circle at 50% 50%, rgba(139,123,255,.18), transparent 64%)" }}
           />
-          {/* cool ambient glow, lower-left, for balance */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-24 -left-16 w-[360px] h-[240px] rounded-full blur-[80px]
-                       bg-[radial-gradient(circle,color-mix(in_srgb,var(--acc)_12%,transparent),transparent_70%)]"
-          />
-          {/* fine noise texture — reads as crafted material on dark */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-soft-light bg-repeat"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-            }}
-          />
-          {/* top edge accent hairline */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-px
-                       bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--acc)_45%,transparent),transparent)]"
-          />
-          <div className="relative flex flex-col lg:flex-row lg:items-center gap-6 p-6">
-            <div className="flex-1 min-w-0 flex items-end gap-6 flex-wrap">
-              {/* primary — installed w/ capacity bar */}
-              <div className="flex items-center gap-3.5">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[32px] leading-none font-bold tabular-nums tracking-[-0.02em] text-txt">
-                      {registryLoading ? "—" : installedCount}
-                    </span>
-                    <span className="text-[11px] font-mono uppercase tracking-[0.1em] text-txt-4">
-                      Installed
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="relative block w-[150px] h-[6px] rounded-full overflow-hidden bg-bg-3 border border-line">
-                      <span
-                        className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,var(--acc-hover),var(--acc))]"
-                        style={{
-                          width: `${mounted && totalCount ? Math.max(3, (installedCount / totalCount) * 100) : 0}%`,
-                        }}
-                      />
-                    </span>
-                    <span className="text-[11px] font-mono text-txt-4">
-                      of {registryLoading ? "—" : totalCount} known
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* secondary stats — inset well */}
-              <div className="flex items-center gap-1 rounded-[var(--r-md)] border border-line bg-bg-0/60 px-1 py-1">
-                <MiniStat icon="layers" value={catalogCount} label="catalog" loading={registryLoading} />
-                <MiniStat icon="server" value={sourcesCount} label="sources" loading={!mounted || sourcesQ.isLoading} />
-                <MiniStat
-                  icon="refresh"
-                  value={updatesCount}
-                  label="updates"
-                  tone={updatesCount > 0 ? "warn" : undefined}
-                  loading={!mounted || updatesQ.isLoading}
-                />
-              </div>
+          <div className="relative shrink-0">
+            <div className="flex items-baseline gap-[9px]">
+              <span className="text-[46px] font-extrabold tracking-[-0.04em] leading-none">
+                {registryLoading ? "—" : installedCount}
+              </span>
+              <span className="text-[11px] font-bold tracking-[0.08em] uppercase text-txt-4">installed</span>
             </div>
-
-            <div className="flex items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="inline-flex items-center gap-2 h-10 px-4 rounded-[var(--r-md)] text-[13px] font-medium text-txt
-                           border border-line-2
-                           bg-[linear-gradient(180deg,color-mix(in_oklab,var(--bg-2)_92%,#fff),var(--bg-2))]
-                           shadow-[inset_0_1px_0_color-mix(in_oklab,#fff_10%,transparent),0_2px_8px_-3px_rgba(0,0,0,0.5)]
-                           hover:brightness-110 transition-[filter] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
-              >
-                <Icon name="upload" size={15} /> Import
-              </button>
-              <button
-                type="button"
-                onClick={() => setForgeOpen(true)}
-                className={`inline-flex items-center gap-2 h-10 px-5 rounded-[var(--r-md)] text-[13.5px] font-semibold ${ACCENT_BTN}`}
-              >
-                <Icon name="hammer" size={15} /> Forge skill
-              </button>
+            <div className="flex items-center gap-[10px] mt-[12px]">
+              <span className="relative block w-[168px] h-[6px] rounded-full bg-card-3 shadow-[var(--inset-hi)]">
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,var(--acc-cta),var(--acc-2))]"
+                  style={{
+                    width: `${mounted && totalCount ? Math.max(3, (installedCount / totalCount) * 100) : 0}%`,
+                  }}
+                />
+              </span>
+              <span className="font-mono text-[11px] text-txt-4 whitespace-nowrap">
+                of {registryLoading ? "—" : totalCount} known
+              </span>
             </div>
           </div>
-        </section>
 
-        {/* ── Toolbar ───────────────────────────────────────────────── */}
-        <div className="-mx-1 px-1 py-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[220px]">
-              <Icon
-                name="search"
-                size={14}
-                className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-txt-4"
-              />
-              <TextInput
-                value={filter.q}
-                onChange={(e) => setFilter((f) => ({ ...f, q: e.target.value }))}
-                placeholder="Search skills by name, tag, or source…"
-                className="pl-8"
-                aria-label="Search skills"
-              />
-            </div>
-
-            <SelectMenu
-              ariaLabel="Filter by category"
-              width="w-[190px]"
-              icon="filter"
-              value={filter.category === "all" ? "All categories" : filter.category ?? "All categories"}
-              items={[
-                {
-                  key: "all",
-                  label: "All categories",
-                  selected: filter.category === "all",
-                  onSelect: () => setFilter((f) => ({ ...f, category: "all" })),
-                },
-                ...categories.map<DropdownItem>((c) => ({
-                  key: c.tag,
-                  selected: filter.category === c.tag,
-                  onSelect: () => setFilter((f) => ({ ...f, category: c.tag })),
-                  label: (
-                    <span className="flex items-center justify-between gap-4 w-full">
-                      <span className="truncate">{c.tag}</span>
-                      <span className="font-mono text-[11px] text-txt-4">{c.count}</span>
-                    </span>
-                  ),
-                })),
-              ]}
+          <div className="relative flex items-center gap-[8px] flex-wrap">
+            <MiniStat icon="layers" value={catalogCount} label="catalog" loading={registryLoading} tone="acc" />
+            <MiniStat icon="server" value={sourcesCount} label="sources" loading={!mounted || sourcesQ.isLoading} tone="cyan" />
+            <MiniStat
+              icon="refresh"
+              value={updatesCount}
+              label="updates"
+              tone={updatesCount > 0 ? "warn" : "neutral"}
+              loading={!mounted || updatesQ.isLoading}
             />
+          </div>
 
-            <SelectMenu
-              ariaLabel="Sort skills"
-              width="w-[160px]"
-              icon="list"
-              value={filter.sort === "installed" ? "Installed first" : "Name A–Z"}
-              items={[
-                {
-                  key: "name",
-                  label: "Name A–Z",
-                  selected: filter.sort === "name",
-                  onSelect: () => setFilter((f) => ({ ...f, sort: "name" })),
-                },
-                {
-                  key: "installed",
-                  label: "Installed first",
-                  selected: filter.sort === "installed",
-                  onSelect: () => setFilter((f) => ({ ...f, sort: "installed" })),
-                },
-              ]}
-            />
+          <span className="flex-1 min-w-[10px]" />
 
-            {/* origin + installed segmented — one pill, matches the design's
-                merged 4-segment control instead of splitting "Installed" out
-                as its own standalone toggle. */}
-            <div className="inline-flex items-center gap-[2px] p-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)]">
-              <SegBtn active={filter.origin === "all"} onClick={() => setFilter((f) => ({ ...f, origin: "all" }))}>
-                All
-              </SegBtn>
-              <SegBtn
-                active={filter.origin === "local"}
-                onClick={() => setFilter((f) => ({ ...f, origin: "local" }))}
-                icon="pen"
-                count={mounted ? originCounts.local : 0}
-              >
-                Mine
-              </SegBtn>
-              <SegBtn
-                active={filter.origin === "github"}
-                onClick={() => setFilter((f) => ({ ...f, origin: "github" }))}
-                icon="branch"
-                count={mounted ? originCounts.github : 0}
-              >
-                GitHub
-              </SegBtn>
-              <SegBtn
-                active={filter.showInstalledOnly}
-                onClick={() => setFilter((f) => ({ ...f, showInstalledOnly: !f.showInstalledOnly }))}
-              >
-                Installed
-              </SegBtn>
-            </div>
-
+          <div className="relative flex items-center gap-[10px] shrink-0">
             <button
               type="button"
-              onClick={() => setSourcesOpen((v) => !v)}
-              aria-expanded={sourcesOpen}
-              className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-[var(--r-md)] text-[12.5px] border transition-colors ${
-                sourcesOpen
-                  ? "bg-ao-accent-soft border-ao-accent-line text-acc"
-                  : "bg-bg-1 border-line-2 text-txt-2 shadow-1 hover:bg-bg-2"
-              }`}
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-[8px] py-[11px] px-[16px] rounded-[13px] border border-edge-2 bg-card-2 text-txt-2 text-[13.5px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 hover:text-txt hover:border-txt-4"
             >
-              <Icon name="server" size={13} /> Sources
-              <span className="font-mono text-[11px] text-txt-4">{sourcesCount}</span>
-              <Icon name="chevron-down" size={12} className={sourcesOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+              <Icon name="upload" size={15} /> Import
+            </button>
+            <button
+              type="button"
+              onClick={() => setForgeOpen(true)}
+              className="flex items-center gap-[8px] py-[11px] px-[18px] rounded-[13px] bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13.5px] font-bold whitespace-nowrap cursor-pointer shadow-[0_14px_30px_-14px_rgba(139,123,255,0.9)] transition-transform duration-150 hover:-translate-y-[2px]"
+            >
+              <Icon name="hammer" size={15} /> Forge skill
             </button>
           </div>
+        </div>
 
-          {sourcesOpen ? (
-            <div className="mt-2">
-              <SkillSourcesCard />
-            </div>
-          ) : null}
+        {/* ── Toolbar ───────────────────────────────────────────────── */}
+        <div className="flex items-center gap-[10px] flex-wrap">
+          <div className="relative flex-1 min-w-[220px] h-[40px] flex items-center gap-[9px] px-[14px] rounded-[16px] surface-sheen shadow-[var(--lift)] cursor-text">
+            <Icon name="search" size={15} className="text-txt-4 shrink-0" />
+            <input
+              value={filter.q}
+              onChange={(e) => setFilter((f) => ({ ...f, q: e.target.value }))}
+              placeholder="Search skills by name, tag, or source…"
+              aria-label="Search skills"
+              className="flex-1 min-w-0 border-none bg-transparent outline-none text-[13px] text-txt placeholder:text-txt-4"
+            />
+          </div>
+
+          <SelectMenu
+            ariaLabel="Filter by category"
+            width="w-[190px]"
+            value={filter.category === "all" ? "All categories" : filter.category ?? "All categories"}
+            items={[
+              {
+                key: "all",
+                label: "All categories",
+                selected: filter.category === "all",
+                onSelect: () => setFilter((f) => ({ ...f, category: "all" })),
+              },
+              ...categories.map<DropdownItem>((c) => ({
+                key: c.tag,
+                selected: filter.category === c.tag,
+                onSelect: () => setFilter((f) => ({ ...f, category: c.tag })),
+                label: (
+                  <span className="flex items-center justify-between gap-4 w-full">
+                    <span className="truncate">{c.tag}</span>
+                    <span className="font-mono text-[11px] text-txt-4">{c.count}</span>
+                  </span>
+                ),
+              })),
+            ]}
+          />
+
+          <SelectMenu
+            ariaLabel="Sort skills"
+            width="w-[160px]"
+            icon="list"
+            value={filter.sort === "installed" ? "Installed first" : "Name A–Z"}
+            items={[
+              {
+                key: "name",
+                label: "Name A–Z",
+                selected: filter.sort === "name",
+                onSelect: () => setFilter((f) => ({ ...f, sort: "name" })),
+              },
+              {
+                key: "installed",
+                label: "Installed first",
+                selected: filter.sort === "installed",
+                onSelect: () => setFilter((f) => ({ ...f, sort: "installed" })),
+              },
+            ]}
+          />
+
+          {/* origin (radio) + installed-only (independent toggle) share one pill,
+              matching the mock's unified filter cluster look. */}
+          <div className="flex items-center gap-[2px] h-[40px] px-[5px] rounded-[16px] surface-sheen shadow-[var(--lift)] shrink-0">
+            <SegBtn active={filter.origin === "all"} onClick={() => setFilter((f) => ({ ...f, origin: "all" }))}>
+              All
+            </SegBtn>
+            <SegBtn
+              active={filter.origin === "local"}
+              onClick={() => setFilter((f) => ({ ...f, origin: "local" }))}
+              count={mounted ? originCounts.local : 0}
+            >
+              Mine
+            </SegBtn>
+            <SegBtn
+              active={filter.origin === "github"}
+              onClick={() => setFilter((f) => ({ ...f, origin: "github" }))}
+              count={mounted ? originCounts.github : 0}
+            >
+              GitHub
+            </SegBtn>
+            <SegBtn
+              active={filter.showInstalledOnly}
+              onClick={() => setFilter((f) => ({ ...f, showInstalledOnly: !f.showInstalledOnly }))}
+            >
+              Installed
+            </SegBtn>
+          </div>
         </div>
 
         {/* ── Result count ──────────────────────────────────────────── */}
         {mounted && !isLoading && !isError ? (
-          <div className="text-[11.5px] font-mono text-txt-4 -mb-1 px-0.5">
-            {filtered.length > PAGE_SIZE
-              ? `Showing ${rangeStart}–${rangeEnd} of ${filtered.length}`
-              : `${filtered.length} of ${totalCount} skills`}
-            {filter.category !== "all" ? ` · ${filter.category}` : ""}
+          <div className="flex items-center gap-[10px] px-[4px]">
+            <span className="font-mono text-[11px] text-txt-4 whitespace-nowrap">
+              {filtered.length > PAGE_SIZE
+                ? `Showing ${rangeStart}–${rangeEnd} of ${filtered.length}`
+                : `${filtered.length} of ${totalCount} skills`}
+              {filter.category !== "all" ? ` · ${filter.category}` : ""}
+            </span>
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setSourcesOpen((v) => !v)}
+              aria-expanded={sourcesOpen}
+              className={cn(
+                "font-mono text-[11px] whitespace-nowrap cursor-pointer transition-colors duration-150",
+                sourcesOpen ? "text-acc" : "text-txt-4 hover:text-txt",
+              )}
+            >
+              {sourcesCount} sources
+            </button>
           </div>
         ) : null}
+
+        {sourcesOpen ? <SkillSourcesCard /> : null}
 
         {/* ── Grid / states ─────────────────────────────────────────── */}
         {registryLoading ? null : isError ? (
@@ -338,14 +287,14 @@ export function SkillsPage() {
               <button
                 type="button"
                 onClick={() => setForgeOpen(true)}
-                className={`inline-flex items-center gap-1.5 h-8 px-4 rounded-[var(--r-md)] text-[13px] font-medium ${ACCENT_BTN}`}
+                className="flex items-center gap-[7px] py-[9px] px-[16px] rounded-[12px] bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13px] font-bold whitespace-nowrap cursor-pointer"
               >
                 <Icon name="hammer" size={13} /> Forge a skill
               </button>
             }
           />
         ) : (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-[14px]">
             {paged.map((s) => (
               <div key={`${s.source}-${s.name}`} className="flex-1 basis-[320px] max-w-[380px] min-w-[280px]">
                 <SkillCard
@@ -357,6 +306,7 @@ export function SkillsPage() {
                   }
                   onUninstall={() => uninstallMut.mutate(s.name)}
                   onEdit={() => setEditing(s)}
+                  onFork={() => setForking(s)}
                 />
               </div>
             ))}
@@ -390,11 +340,10 @@ export function SkillsPage() {
                     type="button"
                     onClick={() => goToPage(p)}
                     aria-current={p === clampedPage}
-                    className={`h-8 min-w-8 px-2 rounded-[var(--r-md)] text-[12.5px] font-mono tabular-nums border transition-colors ${
-                      p === clampedPage
-                        ? "bg-ao-accent-soft border-ao-accent-line text-acc"
-                        : "bg-bg-1 border-line-2 text-txt-2 shadow-1 hover:bg-bg-2"
-                    }`}
+                    className={cn(
+                      "h-[30px] min-w-[30px] px-[8px] rounded-[10px] text-[12.5px] font-mono tabular-nums cursor-pointer transition-colors duration-150",
+                      p === clampedPage ? "bg-acc-soft text-acc" : "bg-card-2 border border-edge text-txt-3 hover:text-txt",
+                    )}
                   >
                     {p + 1}
                   </button>
@@ -418,10 +367,24 @@ export function SkillsPage() {
         skill={editing}
         onClose={() => setEditing(null)}
       />
+      <SkillEditorModal
+        open={forking !== null}
+        mode="edit"
+        skill={forking}
+        forceFork
+        onClose={() => setForking(null)}
+      />
       <ImportSkillModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
+
+const STAT_TONE = {
+  acc: { bg: "bg-acc-soft", fg: "text-acc" },
+  cyan: { bg: "bg-[rgba(34,211,238,.12)]", fg: "text-cyan" },
+  warn: { bg: "bg-card-3", fg: "text-amber" },
+  neutral: { bg: "bg-card-3", fg: "text-txt-3" },
+} as const;
 
 function MiniStat({
   icon,
@@ -433,24 +396,19 @@ function MiniStat({
   icon: IconName;
   value: number;
   label: string;
-  tone?: "warn";
+  tone: keyof typeof STAT_TONE;
   loading?: boolean;
 }) {
+  const t = STAT_TONE[tone];
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-[8px]">
-      <Icon
-        name={icon}
-        size={14}
-        className={tone === "warn" ? "text-ao-warn" : "text-txt-4"}
-      />
-      <span
-        className={`text-[16px] font-bold tabular-nums leading-none ${
-          tone === "warn" ? "text-ao-warn" : "text-txt"
-        }`}
-      >
-        {loading ? "—" : value}
+    <div className="flex items-center gap-[10px] py-[11px] px-[15px] rounded-[15px] bg-card-2 border border-edge shadow-[var(--inset-hi)]">
+      <span className={cn("w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0", t.bg, t.fg)}>
+        <Icon name={icon} size={14} />
       </span>
-      <span className="text-[10.5px] font-mono uppercase tracking-[0.08em] text-txt-4">{label}</span>
+      <div className="leading-[1.25]">
+        <div className="text-[18px] font-extrabold tracking-[-0.02em]">{loading ? "—" : value}</div>
+        <div className="text-[10px] font-bold tracking-[0.07em] uppercase text-txt-4 whitespace-nowrap">{label}</div>
+      </div>
     </div>
   );
 }
@@ -474,16 +432,14 @@ function SelectMenu({
       ariaLabel={ariaLabel}
       align="start"
       className={cn("block", width ?? "w-[180px]")}
-      triggerClassName="w-full h-8 px-[10px] justify-between rounded-[var(--r-md)] border border-line-2 text-txt text-[13px] shadow-1
-                        bg-[linear-gradient(180deg,color-mix(in_oklab,var(--bg-1)_94%,#fff),var(--bg-1))]
-                        hover:border-ao-accent-line"
+      triggerClassName="w-full h-[40px] px-[14px] justify-between rounded-[16px] surface-sheen shadow-[var(--lift)] text-txt text-[13px] font-semibold"
       trigger={
         <>
           <span className="flex items-center gap-2 min-w-0 truncate">
-            {icon ? <Icon name={icon} size={13} className="text-txt-4 shrink-0" /> : null}
+            {icon ? <Icon name={icon} size={14} className="text-txt-4 shrink-0" /> : null}
             <span className="truncate">{value}</span>
           </span>
-          <Icon name="chevron-down" size={14} className="text-txt-3 shrink-0" />
+          <Icon name="chevron-down" size={13} className="text-txt-4 shrink-0" />
         </>
       }
       items={items}
@@ -519,9 +475,7 @@ function PagerBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-[var(--r-md)] text-[12.5px] text-txt-2 bg-bg-1 border border-line-2 shadow-1
-                 hover:bg-bg-2 disabled:opacity-40 disabled:cursor-not-allowed
-                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
+      className="flex items-center gap-[5px] h-[30px] px-[10px] rounded-[10px] text-[12.5px] font-semibold text-txt-3 bg-card-2 border border-edge cursor-pointer transition-colors duration-150 hover:text-txt disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {children}
     </button>
@@ -531,13 +485,11 @@ function PagerBtn({
 function SegBtn({
   active,
   onClick,
-  icon,
   count,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  icon?: IconName;
   count?: number;
   children: React.ReactNode;
 }) {
@@ -546,18 +498,15 @@ function SegBtn({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-[7px] py-[7px] px-[13px] rounded-[12px] text-[12.5px] font-semibold whitespace-nowrap transition-[background,color,box-shadow] duration-150 ${
+      className={cn(
+        "flex items-center gap-[7px] py-[7px] px-[13px] rounded-[12px] text-[12.5px] font-semibold whitespace-nowrap cursor-pointer transition-[filter] duration-150",
         active
           ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
-          : "bg-transparent text-txt-3 hover:brightness-110"
-      }`}
+          : "bg-transparent text-txt-3 hover:brightness-110",
+      )}
     >
-      {icon ? <Icon name={icon} size={12} /> : null}
       {children}
-      {count !== undefined ? (
-        <span className="font-mono text-[10px] opacity-70">{count}</span>
-      ) : null}
+      {count !== undefined ? <span className="font-mono text-[10px] opacity-70">{count}</span> : null}
     </button>
   );
 }
-
