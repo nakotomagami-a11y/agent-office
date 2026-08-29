@@ -18,9 +18,6 @@ export function Tag({
     <span
       className={cn(
         "inline-flex items-center gap-1 bg-bg-2 border border-line rounded-full text-txt-2 px-2 py-0.5 text-[11px] font-mono",
-        // Orange border here used to be a hardcoded literal
-        // (rgba(233,84,32,…)) orphaned from an old accent color — tokenized
-        // to the current accent line.
         variant === "skill" && "bg-acc-faint text-acc border-acc-line",
         className,
       )}

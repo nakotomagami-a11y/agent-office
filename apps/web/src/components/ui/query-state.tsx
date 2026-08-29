@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 export type QueryStateProps<T> = {
   /** react-query result (from `useQuery`). */
@@ -29,10 +30,15 @@ export type QueryStateProps<T> = {
  *
  * Usage:
  * ```tsx
- * <QueryState result={agentsQ} loading={<AgentListGhost />} empty={<EmptyState … />}>
+ * <QueryState result={agentsQ} empty={<EmptyState … />}>
  *   {(agents) => <AgentGrid items={agents} />}
  * </QueryState>
  * ```
+ *
+ * Local queries resolve in ~15-25ms — well under the ~100ms threshold where a
+ * loading state is perceptible at all, let alone worth a hand-built skeleton.
+ * The default `loading` (plain "Loading…" text) is intentionally minimal;
+ * only override it for a query that's genuinely slow.
  *
  * The generic keeps the success child fully typed.
  */
@@ -59,8 +65,9 @@ function defaultIsEmpty<T>(data: T): boolean {
 }
 
 function DefaultLoading() {
+  const t = useTranslations("common");
   return (
-    <div className="text-txt-3 text-[13px] font-mono px-4 py-6">Loading…</div>
+    <div className="text-txt-3 text-[13px] font-mono px-4 py-6">{t("loading")}</div>
   );
 }
 
@@ -69,7 +76,7 @@ function DefaultError({ err }: { err: unknown }) {
   return (
     <div
       role="alert"
-      className="mx-4 my-2 px-3 py-2 rounded-md text-[12.5px] border border-[color-mix(in_oklch,var(--error)_35%,transparent)] bg-[color-mix(in_oklch,var(--error)_8%,transparent)] text-[var(--error)]"
+      className="mx-4 my-2 px-3 py-2 rounded-md text-[12.5px] border border-[color-mix(in_oklch,var(--error)_35%,transparent)] bg-[color-mix(in_oklch,var(--error)_8%,transparent)] text-status-error"
     >
       {msg}
     </div>

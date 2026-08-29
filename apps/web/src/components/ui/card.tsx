@@ -13,7 +13,7 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
  */
 export function Card({ className, children, ...rest }: CardProps) {
   return (
-    <div className={cn("surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)]", className)} {...rest}>
+    <div className={cn("surface-sheen rounded-lg shadow-[var(--lift)]", className)} {...rest}>
       {children}
     </div>
   );

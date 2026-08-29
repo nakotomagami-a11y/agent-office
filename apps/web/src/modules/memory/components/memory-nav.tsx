@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
 import { cn } from "@/lib/cn";
@@ -80,9 +79,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
 
       <div className="flex-1 min-h-0 overflow-y-auto px-[12px] pb-[12px]">
         <NavGroup label={t("projects_heading")} count={projects.length}>
-          {projectsQ.isLoading ? (
-            <div className="px-[9px] py-[6px]"><Skeleton width="70%" height={12} /></div>
-          ) : projects.length === 0 ? (
+          {projectsQ.isLoading ? null : projects.length === 0 ? (
             <div className="px-[9px] py-[6px] font-mono text-[11px] text-txt-4">{t("no_projects")}</div>
           ) : (
             projects.map((p) => {
@@ -102,9 +99,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
         </NavGroup>
 
         <NavGroup label={t("agents_heading")} count={agents.length}>
-          {agentsQ.isLoading ? (
-            <div className="px-[9px] py-[6px]"><Skeleton width="70%" height={12} /></div>
-          ) : agents.length === 0 ? (
+          {agentsQ.isLoading ? null : agents.length === 0 ? (
             <div className="px-[9px] py-[6px] font-mono text-[11px] text-txt-4">{t("no_agents")}</div>
           ) : (
             agents.map((a) => {

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AgentListGhost } from "./agent-list-ghost";
 import { Icon } from "@/components/ui/icon";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
@@ -94,9 +93,7 @@ export function AgentList() {
     });
   };
 
-  if (isLoading) {
-    return <AgentListGhost />;
-  }
+  if (isLoading) return null;
 
   if (agents.length === 0) {
     return (

@@ -18,7 +18,6 @@ import { CardHeader } from "@/components/ui/card-header";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Tag } from "@/components/ui/tag";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { AgentMigrationModal } from "@/modules/agents/components/agent-migration-modal";
@@ -32,7 +31,7 @@ export function BundledAgentsTab() {
   const diffQ = useAgentDiff(true);
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (diffQ.isLoading) return <Skeleton width="100%" height={220} />;
+  if (diffQ.isLoading) return null;
 
   if (diffQ.isError || !diffQ.data) {
     return (

@@ -266,13 +266,7 @@ export function SkillsPage() {
         {sourcesOpen ? <SkillSourcesCard /> : null}
 
         {/* ── Grid / states ─────────────────────────────────────────── */}
-        {registryLoading ? (
-          <div className="flex flex-wrap gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <SkillSkeleton key={i} />
-            ))}
-          </div>
-        ) : isError ? (
+        {registryLoading ? null : isError ? (
           <EmptyState
             icon="slash"
             title="Couldn't load the registry"
@@ -514,27 +508,5 @@ function SegBtn({
       {children}
       {count !== undefined ? <span className="font-mono text-[10px] opacity-70">{count}</span> : null}
     </button>
-  );
-}
-
-function SkillSkeleton() {
-  return (
-    <div className="flex-1 basis-[320px] max-w-[380px] min-w-[280px]">
-      <div className="flex flex-col gap-[13px] p-[16px] rounded-[22px] surface-sheen shadow-[var(--lift)]">
-        <div className="flex items-start gap-[13px]">
-          <div className="w-[52px] h-[52px] rounded-[15px] bg-card-2 animate-pulse" />
-          <div className="flex-1 flex flex-col gap-[8px] pt-[2px]">
-            <div className="h-[14px] w-2/3 rounded bg-card-2 animate-pulse" />
-            <div className="h-[10px] w-1/2 rounded bg-card-2 animate-pulse" />
-          </div>
-        </div>
-        <div className="h-[10px] w-full rounded bg-card-2 animate-pulse" />
-        <div className="h-[10px] w-4/5 rounded bg-card-2 animate-pulse" />
-        <div className="flex gap-[6px] pt-[4px]">
-          <div className="h-[16px] w-[48px] rounded-full bg-card-2 animate-pulse" />
-          <div className="h-[16px] w-[56px] rounded-full bg-card-2 animate-pulse" />
-        </div>
-      </div>
-    </div>
   );
 }

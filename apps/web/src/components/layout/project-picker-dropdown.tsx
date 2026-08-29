@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PlanetConfig } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
+import { getStatusMeta } from "@/components/ui/status-dot-colors";
 import { cn } from "@/lib/cn";
 import { useProjects, useUpdateProject } from "@/modules/projects/hooks/use-projects";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
@@ -14,9 +15,9 @@ import { BootstrapProjectModal } from "@/modules/projects/components/bootstrap-p
 /**
  * Reusable project-picker dropdown menu.
  *
- * Extracted from the original `ProjectSwitcher` so multiple triggers (the
- * titlebar chip, the tab-strip `+` button, and anything future like a command
- * palette) can share the same list UI + keyboard nav + "New project" flow.
+ * Designed to be shared by multiple triggers (the titlebar chip, the
+ * tab-strip `+` button, and anything future like a command palette), so they
+ * all get the same list UI + keyboard nav + "New project" flow.
  *
  * The caller owns the trigger button and anchor. This component renders the
  * menu absolutely-positioned inside a wrapper the caller places. On pick it
@@ -385,6 +386,7 @@ function PickerRow({
 }: RowProps) {
   const isAllRow = projectId === null;
   const openBg = Boolean(tagLabel) || (isAllRow && selected);
+  const statusMeta = healthDot ? getStatusMeta(healthDot) : null;
   return (
     <div className="relative group/row" onMouseEnter={onHover}>
       <button
@@ -438,16 +440,14 @@ function PickerRow({
           >
             {tagLabel}
           </span>
-        ) : healthDot ? (
+        ) : statusMeta ? (
           <span
             className={cn(
               "w-[6px] h-[6px] rounded-full shrink-0",
+              statusMeta.bgClass,
               onToggleShelve && "group-hover/row:opacity-0 transition-opacity duration-[100ms]",
             )}
-            style={{
-              background: healthDot === "working" ? "var(--working)" : "var(--error)",
-              boxShadow: healthDot === "working" ? "0 0 5px var(--working)" : "none",
-            }}
+            style={statusMeta.pulse ? { boxShadow: `0 0 5px var(${statusMeta.cssVar})` } : undefined}
           />
         ) : null}
       </button>

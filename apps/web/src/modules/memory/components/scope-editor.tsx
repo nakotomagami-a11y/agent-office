@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useMemory, isReadOnly, type MemoryScope } from "../hooks/use-memory";
 import { MemoryEditor } from "./memory-editor";
 import { scopeKey, scopeLabelParts } from "../scope/scope";
@@ -27,15 +26,7 @@ export function ScopeEditor({ scope, onContentLoaded }: ScopeEditorProps) {
     }
   }, [memory.isLoading, memory.content, scope, onContentLoaded]);
 
-  if (memory.isLoading) {
-    return (
-      <div className="flex flex-col gap-[6px] p-[20px]">
-        <Skeleton width="80%" height={14} />
-        <Skeleton width="60%" height={14} />
-        <Skeleton width="70%" height={14} />
-      </div>
-    );
-  }
+  if (memory.isLoading) return null;
 
   if (memory.loadError) {
     return (

@@ -214,18 +214,18 @@ const MD_COMPONENTS: Components = {
   ),
   hr: () => <hr className="my-8 border-t border-edge" />,
   table: ({ children, ...rest }) => (
-    <div className="my-4 overflow-x-auto rounded-[12px] border border-edge">
+    <div className="my-4 overflow-x-auto rounded-[12px] border border-edge-2 bg-card-2">
       <table className="w-full border-collapse text-[12.5px]" {...rest}>{children}</table>
     </div>
   ),
-  thead: ({ children, ...rest }) => <thead className="bg-card-2" {...rest}>{children}</thead>,
+  thead: ({ children, ...rest }) => <thead className="bg-card-3" {...rest}>{children}</thead>,
   th:    ({ children, ...rest }) => (
-    <th className="text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-txt-4 border-b border-edge" {...rest}>
+    <th className="text-left px-4 py-3 font-[var(--font-mono)] text-[8.5px] font-bold tracking-[0.14em] uppercase text-txt-4 border-b border-edge-2" {...rest}>
       {children}
     </th>
   ),
   tr: ({ children, ...rest }) => (
-    <tr className="border-b border-edge last:border-b-0 hover:bg-card-2 transition-colors duration-75" {...rest}>
+    <tr className="border-b border-edge last:border-b-0 hover:bg-card-3 transition-colors duration-75" {...rest}>
       {children}
     </tr>
   ),

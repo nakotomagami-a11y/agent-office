@@ -1,6 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from "react";
+import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
 import { cn } from "@/lib/cn";
 
 /**
@@ -10,6 +11,9 @@ import { cn } from "@/lib/cn";
  * stay together and each piece is independently reusable/composable instead
  * of being a string that has to be remembered to pair with the right JSX shape.
  */
+
+/** Statuses that render as "live" (pulsing working LED) across the roster tree. */
+export const LIVE_STATUSES: AgentStatusInfo["status"][] = ["working", "thinking"];
 
 // ── Action button (pin / spawn / remove / rename) ──────────────────────────
 
@@ -33,7 +37,7 @@ export function RosterActionButton({ tone = "accent", active, className, type = 
         active
           ? "text-acc bg-acc-faint opacity-100 hover:bg-acc-tint"
           : tone === "danger"
-            ? "text-txt-3 hover:bg-[color-mix(in_oklab,var(--error)_16%,transparent)] hover:text-[var(--error)]"
+            ? "text-txt-3 hover:bg-[color-mix(in_oklab,var(--error)_16%,transparent)] hover:text-status-error"
             : "text-txt-3 hover:bg-acc-faint hover:text-acc",
         className,
       )}

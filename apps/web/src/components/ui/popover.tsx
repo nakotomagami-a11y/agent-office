@@ -140,7 +140,7 @@ export function Popover({
               }
             }}
             className={cn(
-              "surface-sheen rounded-[var(--r-md)] shadow-[var(--lift)] z-[9999] outline-none",
+              "surface-sheen rounded-md shadow-[var(--lift)] z-[9999] outline-none",
               panelClassName,
             )}
             style={style}

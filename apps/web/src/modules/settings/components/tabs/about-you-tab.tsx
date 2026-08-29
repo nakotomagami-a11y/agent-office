@@ -19,7 +19,6 @@ import { Card } from "@/components/ui/card";
 import { CardHeader } from "@/components/ui/card-header";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AboutYouRenderer } from "./about-you-renderer";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { formatRelative } from "@/modules/runs/format/format-run-meta";
@@ -71,15 +70,7 @@ export function AboutYouTab() {
   const isRegenerating = activeRunId !== null || regenMut.isPending;
   const runFailed = runStatus === "error";
 
-  if (analysisQ.isLoading) {
-    return (
-      <Card>
-        <div className="p-4">
-          <Skeleton width="100%" height={220} />
-        </div>
-      </Card>
-    );
-  }
+  if (analysisQ.isLoading) return null;
 
   const analysis = analysisQ.data;
   const hasAnalysis = analysis?.markdown && analysis.markdown.trim().length > 0;

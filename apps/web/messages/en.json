@@ -14,6 +14,7 @@
     "settings": "Settings",
     "agents": "Agents",
     "memory": "Memory",
+    "schedules": "Schedules",
     "limits": "Limits",
     "processes": "Servers",
     "project": "Project",
@@ -26,7 +27,7 @@
     "working_count": "{count} working",
     "needs_attention_label": "need attention",
     "budget_daily": "Budget",
-    "new_agent": "New agent",
+    "new_agent": "Forge agent",
     "add_agent": "Add agent",
     "error_filter_banner": "Showing agents needing attention",
     "error_filter_clear": "Clear filter"
@@ -53,6 +54,10 @@
     "search_placeholder": "Filter…",
     "abort": "Abort",
     "close": "Close",
+    "dismiss": "Dismiss",
+    "copy": "Copy",
+    "copied": "Copied",
+    "line_count": "{count, plural, one {# line} other {# lines}}",
     "save": "Save",
     "saving": "Saving…",
     "saved": "Saved.",
@@ -67,7 +72,28 @@
     "no_matches": "No matches for \"{query}\".",
     "spend_today_aria": "Spend today ${amount}",
     "back": "Back",
-    "next": "Next"
+    "next": "Next",
+    "more_actions": "More actions",
+    "code_label": "code",
+    "date_time_picker": {
+      "placeholder": "Pick date & time",
+      "time_label": "Time",
+      "previous_month": "Previous month",
+      "next_month": "Next month",
+      "hour_label": "Hour",
+      "minute_label": "Minute",
+      "preset_in_1_hour": "In 1 hour",
+      "preset_in_3_hours": "In 3 hours",
+      "preset_tonight_8pm": "Tonight 8 PM",
+      "preset_tomorrow_9am": "Tomorrow 9 AM"
+    },
+    "code_editor": {
+      "write_tab": "Write",
+      "preview_tab": "Preview",
+      "empty": "empty",
+      "char_count": "{count} chars · ~{tokens} tokens",
+      "nothing_to_preview": "Nothing to preview."
+    }
   },
   "first_run": {
     "title": "Welcome to Agent Office",
@@ -139,7 +165,15 @@
     "spawn_instance_title": "Add instance",
     "group_toggle_aria": "Toggle {name} group ({count} instances)",
     "instance_cap_soft": "You already have several instances of this agent. Add another anyway?",
-    "instance_cap_hard": "Maximum 10 instances reached. Remove one before adding another."
+    "instance_cap_hard": "Maximum 10 instances reached. Remove one before adding another.",
+    "pin_title": "Pin to top",
+    "unpin_title": "Unpin",
+    "pin_aria": "Pin agent to top",
+    "unpin_aria": "Unpin agent",
+    "new_session": "New session",
+    "session_default_label": "Session {number}",
+    "rename_button_title": "Rename",
+    "rename_button_aria": "Rename session {number}"
   },
   "titlebar": {
     "switch_to_light": "Switch to light theme",
@@ -150,7 +184,43 @@
     "win_min": "Minimise window",
     "win_max": "Maximise window",
     "refresh_label": "Refresh view",
-    "refresh_tooltip": "Refresh (Ctrl+R) — refetch all data without reloading the app"
+    "refresh_tooltip": "Refresh (Ctrl+R) — refetch all data without reloading the app",
+    "documentation_title": "Documentation — ⌘/",
+    "toggle_theme_title": "Toggle theme"
+  },
+  "mobile_nav": {
+    "aria_label": "Mobile navigation",
+    "more": "More",
+    "create_agent_aria": "Create new agent"
+  },
+  "skill_updates": {
+    "title": "Skill updates",
+    "count_available": "{count, plural, one {# skill update} other {# skill updates}} available",
+    "update_button": "Update",
+    "update_all_button": "Update all",
+    "manage_link": "Manage skills →"
+  },
+  "update_bell": {
+    "title_available": "Update available — v{version}",
+    "aria_available": "Update available, version {version}",
+    "modal_title_uptodate": "You're up to date",
+    "modal_title_available": "Update available",
+    "close": "Close",
+    "later": "Later",
+    "open_releases": "Open GitHub releases",
+    "download_install": "Download & install",
+    "restart_now": "Restart now",
+    "uptodate_body": "You're running the latest version.",
+    "available_prefix": "Version",
+    "available_suffix": "is available",
+    "available_you_have": "— you have",
+    "manual_note": "Automatic updates aren't available on macOS yet — download the latest build from GitHub and reinstall.",
+    "downloading": "Downloading…",
+    "downloading_pct": "Downloading… {pct}%",
+    "installed_body": "Installed. Restarting…",
+    "install_failed_prefix": "In-app install isn't supported for this install type (e.g. a Linux",
+    "install_failed_suffix": "). Download the latest build from GitHub and reinstall — after that, updates apply automatically.",
+    "install_failed_error": "Couldn't install the update automatically."
   },
   "project_switcher": {
     "all_projects": "All projects",

@@ -665,11 +665,11 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
           <OpenFolderButton projectId={projectId} menu />
           <OpenInVSCodeButton projectId={projectId} menu />
           <ClearCacheButton projectId={projectId} menu />
-          <div className="h-px bg-[var(--line-1)] my-1 mx-1" />
+          <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
           {hasBuild && (
             <>
               <BuildButton projectId={projectId} menu />
-              <div className="h-px bg-[var(--line-1)] my-1 mx-1" />
+              <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
             </>
           )}
           <DevServerButton projectId={projectId} menu />

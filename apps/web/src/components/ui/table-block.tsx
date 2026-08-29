@@ -20,14 +20,14 @@ const ALIGN_CLASS: Record<NonNullable<TableAlign> | "none", string> = {
  *  just a clean, scrollable, theme-token-driven table. */
 export function TableBlock({ header, align, rows, inlineMd }: TableBlockProps) {
   return (
-    <div className="my-[10px] overflow-x-auto rounded-[10px] border border-[var(--line)]">
+    <div className="my-[10px] overflow-x-auto rounded-[10px] border border-line">
       <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
             {header.map((cell, i) => (
               <th
                 key={i}
-                className={`${ALIGN_CLASS[align[i] ?? "none"]} whitespace-nowrap border-b border-[var(--line)] bg-[var(--bg-2)] px-[12px] py-[8px] font-semibold text-[var(--txt-2)]`}
+                className={`${ALIGN_CLASS[align[i] ?? "none"]} whitespace-nowrap border-b border-line bg-bg-2 px-[12px] py-[8px] font-semibold text-txt-2`}
                 dangerouslySetInnerHTML={{ __html: inlineMd(cell) }}
               />
             ))}
@@ -39,7 +39,7 @@ export function TableBlock({ header, align, rows, inlineMd }: TableBlockProps) {
               {header.map((_, ci) => (
                 <td
                   key={ci}
-                  className={`${ALIGN_CLASS[align[ci] ?? "none"]} border-b border-[var(--line)] px-[12px] py-[8px] leading-[1.55] text-[var(--txt)]`}
+                  className={`${ALIGN_CLASS[align[ci] ?? "none"]} border-b border-line px-[12px] py-[8px] leading-[1.55] text-txt`}
                   dangerouslySetInnerHTML={{ __html: inlineMd(row[ci] ?? "") }}
                 />
               ))}

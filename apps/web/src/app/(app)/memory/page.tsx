@@ -38,20 +38,22 @@ export default function MemoryPage() {
         }
         actions={<TabSwitcher tab={tab} onChange={setTab} />}
       />
-      {tab === "memory" ? (
-        <div className="flex-1 min-h-0 flex gap-[14px] p-[20px]">
-          <MemoryNav selected={scope} onSelect={setScope} contentMap={contentMap} />
-          <div className="flex-1 flex flex-col min-h-0">
-            <ScopeEditor
-              key={scopeKey(scope)}
-              scope={scope}
-              onContentLoaded={handleContentLoaded}
-            />
+      <div className="flex-1 min-h-0 flex flex-col pt-[20px] px-[20px] pb-[20px] overflow-hidden">
+        {tab === "memory" ? (
+          <div className="flex gap-[14px] flex-1 min-h-0 overflow-hidden">
+            <MemoryNav selected={scope} onSelect={setScope} contentMap={contentMap} />
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ScopeEditor
+                key={scopeKey(scope)}
+                scope={scope}
+                onContentLoaded={handleContentLoaded}
+              />
+            </div>
           </div>
-        </div>
-      ) : (
-        <DocsTab />
-      )}
+        ) : (
+          <DocsTab />
+        )}
+      </div>
     </>
   );
 }

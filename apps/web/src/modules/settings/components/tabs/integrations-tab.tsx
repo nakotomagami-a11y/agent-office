@@ -6,7 +6,6 @@ import { INTEGRATIONS, getIntegration } from "@agent-office/domain/config/integr
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { TextInput } from "@/components/ui/text-input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { useSettings, usePatchSettings } from "../../hooks/use-settings";
 import {
@@ -120,7 +119,7 @@ export function IntegrationsTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stored, claudeAccounts, githubAccounts]);
 
-  if (settingsQ.isLoading) return <Skeleton width="100%" height={220} />;
+  if (settingsQ.isLoading) return null;
 
   return (
     <div className="flex flex-col gap-[14px]">

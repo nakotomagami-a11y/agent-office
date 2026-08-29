@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
 import { RunRow } from "@/modules/runs/components/run-row";
 import { useSearchRuns } from "../hooks/use-search-runs";
 
@@ -55,13 +54,7 @@ export function SearchView() {
         />
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col gap-1">
-          <Skeleton width="100%" height={48} />
-          <Skeleton width="100%" height={48} />
-          <Skeleton width="100%" height={48} />
-        </div>
-      ) : results.length === 0 ? (
+      {isLoading ? null : results.length === 0 ? (
         <EmptyState
           icon="search"
           title={t("search_page.no_results_title")}

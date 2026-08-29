@@ -7,6 +7,7 @@ import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, rand
 import { ModalShell } from "./modal-shell";
 import { PlanetCanvas } from "./planet-canvas";
 import { Icon } from "./icon";
+import { Switch } from "./switch";
 import { cn } from "@/lib/cn";
 
 function rgbToHex(rgb: [number, number, number]): string {
@@ -30,7 +31,8 @@ interface PlanetEditorModalProps {
   onClose: () => void;
 }
 
-const PLANET_TYPES: PlanetType[] = ["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"];
+// PLANET_TYPE_DEFS is a Record<PlanetType, …> — its keys are the full type set.
+const PLANET_TYPES = Object.keys(PLANET_TYPE_DEFS) as PlanetType[];
 
 const DEFAULT_PIXELS = 1000;
 
@@ -127,7 +129,7 @@ export function PlanetEditorModal({
           type="button"
           onClick={onClose}
           aria-label={t("close_aria")}
-          className="w-[32px] h-[32px] flex items-center justify-center rounded-[10px] border-none bg-transparent text-txt-3 cursor-pointer transition-colors duration-150 hover:bg-card-2 hover:text-txt"
+          className="w-[32px] h-[32px] flex items-center justify-center rounded-md border-none bg-transparent text-txt-3 cursor-pointer transition-colors duration-150 hover:bg-card-2 hover:text-txt"
         >
           <Icon name="x" size={15} />
         </button>
@@ -139,8 +141,7 @@ export function PlanetEditorModal({
           <div className="relative w-[172px] h-[172px] flex items-center justify-center">
             <span
               aria-hidden
-              className="absolute -inset-[22%] rounded-full pointer-events-none animate-pulse"
-              style={{ background: "radial-gradient(circle at 48% 44%, rgba(178,158,71,.3), transparent 66%)" }}
+              className="absolute -inset-[22%] rounded-full pointer-events-none animate-pulse bg-[radial-gradient(circle_at_48%_44%,rgba(178,158,71,.3),transparent_66%)]"
             />
             <PlanetCanvas
               projectId={`${projectId}-editor`}
@@ -228,18 +229,14 @@ export function PlanetEditorModal({
             })}
           </div>
 
-          <label className="flex items-center justify-between cursor-pointer">
+          <div className="flex items-center justify-between">
             <span className="text-[12.5px] font-semibold text-txt-2">{t("dither_label")}</span>
-            <span
-              onClick={() => setDraft((d) => ({ ...d, dither: !(d.dither ?? true) }))}
-              className={cn("relative w-[38px] h-[22px] rounded-full shrink-0 cursor-pointer transition-colors duration-150", dither ? "bg-acc" : "bg-card-3")}
-            >
-              <span
-                className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-[left] duration-150"
-                style={{ left: dither ? 18 : 2 }}
-              />
-            </span>
-          </label>
+            <Switch
+              checked={dither}
+              onChange={(next) => setDraft((d) => ({ ...d, dither: next }))}
+              label={t("dither_label")}
+            />
+          </div>
 
           <div>
             <div className="flex items-center mb-[10px]">
@@ -289,8 +286,8 @@ export function PlanetEditorModal({
                     return (
                       <label key={`${li}-${ci}`} className="flex flex-col items-center gap-[6px] cursor-pointer">
                         <span
-                          className="relative w-[28px] h-[28px] rounded-full overflow-hidden"
-                          style={{ background: hex, boxShadow: "0 0 0 3px var(--card-2), 0 0 0 4px var(--edge-2)" }}
+                          className="relative w-[28px] h-[28px] rounded-full overflow-hidden shadow-[0_0_0_3px_var(--card-2),0_0_0_4px_var(--edge-2)]"
+                          style={{ background: hex }}
                         >
                           <input
                             type="color"

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
@@ -9,6 +10,7 @@ import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { isActiveRoute } from "./sidebar-routing";
 
 export function MobileBottomNav() {
+  const t = useTranslations();
   const pathname = usePathname();
   // Office is iso-only; hide its entry unless the Isometric view integration is on.
   const isoEnabled = useIntegrationEnabled("iso-view");
@@ -16,7 +18,7 @@ export function MobileBottomNav() {
   return (
     <nav
       className="hidden max-[600px]:flex [&>*]:flex-1 [&>*]:basis-0 fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-bg-0 pb-[env(safe-area-inset-bottom)]"
-      aria-label="Mobile navigation"
+      aria-label={t("mobile_nav.aria_label")}
     >
       {isoEnabled && (
         <Link
@@ -28,7 +30,7 @@ export function MobileBottomNav() {
           )}
         >
           <Icon name="home" size={20} />
-          <span>Office</span>
+          <span>{t("nav.office")}</span>
         </Link>
       )}
 
@@ -41,13 +43,13 @@ export function MobileBottomNav() {
         )}
       >
         <Icon name="activity" size={20} />
-        <span>Activity</span>
+        <span>{t("nav.activity")}</span>
       </Link>
 
       <div className="flex items-center justify-center h-16">
         <Link
           href={PAGE_ROUTES.agentNew}
-          aria-label="Create new agent"
+          aria-label={t("mobile_nav.create_agent_aria")}
           className="w-12 h-12 rounded-full bg-acc text-acc-ink flex items-center justify-center shadow-2 -mt-5 mx-auto"
         >
           <Icon name="plus" size={22} />
@@ -63,7 +65,7 @@ export function MobileBottomNav() {
         )}
       >
         <Icon name="users" size={20} />
-        <span>Agents</span>
+        <span>{t("nav.agents")}</span>
       </Link>
 
       <Link
@@ -75,7 +77,7 @@ export function MobileBottomNav() {
         )}
       >
         <Icon name="settings" size={20} />
-        <span>More</span>
+        <span>{t("mobile_nav.more")}</span>
       </Link>
     </nav>
   );

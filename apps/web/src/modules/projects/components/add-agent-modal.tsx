@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { agentDisplayName } from "@/lib/agent-display-name";
@@ -139,9 +138,7 @@ function ProjectPickerStep({ onPick, onClose }: { onPick: (id: string) => void; 
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-[22px] py-4">
-        {projectsQ.isLoading ? (
-          <Skeleton width="100%" height={120} />
-        ) : projects.length === 0 ? (
+        {projectsQ.isLoading ? null : projects.length === 0 ? (
           <div className="p-6 text-center text-txt-3 text-[13px]">
             <p className="mb-3">No projects configured yet.</p>
             <Button href={PAGE_ROUTES.settings} variant="primary" onClick={onClose}>
@@ -327,9 +324,7 @@ function AgentPickerStep({
             {error}
           </div>
         )}
-        {agentsQ.isLoading ? (
-          <Skeleton width="100%" height={200} />
-        ) : filtered.length === 0 ? (
+        {agentsQ.isLoading ? null : filtered.length === 0 ? (
           <div className="text-center text-txt-3 flex flex-col items-center px-[20px] py-[50px]">
             <div className="flex items-center justify-center bg-bg-3 border border-line text-txt-4 w-[50px] h-[50px] rounded-[12px] mx-auto mb-[14px]"><Icon name="search" size={20} /></div>
             <div className="text-sm text-txt-2">

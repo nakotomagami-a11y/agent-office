@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
 import { formatDateTimeYear } from "@/lib/format-date";
@@ -61,11 +62,11 @@ function defaultDateTime(): Date {
   return d;
 }
 
-const PRESETS: { label: string; make: () => Date }[] = [
-  { label: "In 1 hour", make: () => new Date(Date.now() + 60 * 60 * 1000) },
-  { label: "In 3 hours", make: () => new Date(Date.now() + 3 * 60 * 60 * 1000) },
+const PRESETS: { key: string; make: () => Date }[] = [
+  { key: "preset_in_1_hour", make: () => new Date(Date.now() + 60 * 60 * 1000) },
+  { key: "preset_in_3_hours", make: () => new Date(Date.now() + 3 * 60 * 60 * 1000) },
   {
-    label: "Tonight 8 PM",
+    key: "preset_tonight_8pm",
     make: () => {
       const d = new Date();
       d.setHours(20, 0, 0, 0);
@@ -74,7 +75,7 @@ const PRESETS: { label: string; make: () => Date }[] = [
     },
   },
   {
-    label: "Tomorrow 9 AM",
+    key: "preset_tomorrow_9am",
     make: () => {
       const d = new Date();
       d.setDate(d.getDate() + 1);
@@ -109,6 +110,7 @@ export type DateTimePickerProps = {
 };
 
 export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTimePickerProps) {
+  const t = useTranslations("common.date_time_picker");
   const selected = fromValue(value);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<Date>(() => selected ?? new Date());
@@ -195,34 +197,33 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="w-full h-8 px-[10px] inline-flex items-center justify-between gap-[7px] bg-bg-1 border border-line-2 rounded-[var(--r-md)] shadow-1 text-[13px] cursor-pointer hover:border-acc focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc transition-colors"
+        className="w-full h-8 px-[10px] inline-flex items-center justify-between gap-[7px] bg-bg-1 border border-line-2 rounded-md shadow-1 text-[13px] cursor-pointer hover:border-acc focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc transition-colors"
       >
-        <span className={cn("truncate", label ? "text-txt" : "text-txt-3")}>{label ?? "Pick date & time"}</span>
+        <span className={cn("truncate", label ? "text-txt" : "text-txt-3")}>{label ?? t("placeholder")}</span>
         <CalendarGlyph className="text-txt-3 shrink-0" />
       </button>
 
       {open && (
         <Portal>
-          {/* Shade — separates the popover from the page (it blended on dark).
-              Inline background so it never depends on arbitrary-class generation. */}
-          <div className="fixed inset-0 z-[9998]" style={{ background: "rgba(0,0,0,0.5)" }} aria-hidden onMouseDown={() => setOpen(false)} />
+          {/* Shade — separates the popover from the page (it blended on dark). */}
+          <div className="fixed inset-0 z-[9998] bg-[var(--ao-backdrop)]" aria-hidden onMouseDown={() => setOpen(false)} />
           <div
             ref={popRef}
             role="dialog"
             aria-label={ariaLabel}
             style={{ ...style, width: 300 }}
-            className="surface-sheen rounded-[var(--r-lg)] shadow-[var(--lift)] p-3 z-[9999] flex flex-col gap-[10px]"
+            className="surface-sheen rounded-lg shadow-[var(--lift)] p-3 z-[9999] flex flex-col gap-[10px]"
           >
             {/* Quick presets — the common case for scheduling. */}
             <div className="flex flex-wrap gap-[6px]">
               {PRESETS.map((p) => (
                 <button
-                  key={p.label}
+                  key={p.key}
                   type="button"
                   onClick={() => commitPreset(p.make())}
                   className="text-[11.5px] px-[9px] py-[4px] rounded-full border border-line bg-bg-2 text-txt-2 hover:border-acc hover:text-acc transition-colors cursor-pointer"
                 >
-                  {p.label}
+                  {t(p.key)}
                 </button>
               ))}
             </div>
@@ -231,10 +232,10 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-txt">{MONTHS[view.getMonth()]} {view.getFullYear()}</span>
               <div className="flex items-center gap-[2px]">
-                <button type="button" aria-label="Previous month" onClick={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} className="w-[26px] h-[26px] inline-flex items-center justify-center rounded-[6px] text-txt-3 hover:bg-bg-2 hover:text-txt cursor-pointer">
+                <button type="button" aria-label={t("previous_month")} onClick={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} className="w-[26px] h-[26px] inline-flex items-center justify-center rounded-[6px] text-txt-3 hover:bg-bg-2 hover:text-txt cursor-pointer">
                   <Chevron dir="left" />
                 </button>
-                <button type="button" aria-label="Next month" onClick={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} className="w-[26px] h-[26px] inline-flex items-center justify-center rounded-[6px] text-txt-3 hover:bg-bg-2 hover:text-txt cursor-pointer">
+                <button type="button" aria-label={t("next_month")} onClick={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} className="w-[26px] h-[26px] inline-flex items-center justify-center rounded-[6px] text-txt-3 hover:bg-bg-2 hover:text-txt cursor-pointer">
                   <Chevron dir="right" />
                 </button>
               </div>
@@ -268,8 +269,8 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
                         : cn(
                             "cursor-pointer",
                             isSel
-                              ? "bg-acc text-[var(--acc-ink)] font-semibold"
-                              : cn(inMonth ? "text-txt" : "text-txt-4", "hover:bg-bg-2", isToday && "ring-1 ring-inset ring-[var(--acc)]"),
+                              ? "bg-acc text-acc-ink font-semibold"
+                              : cn(inMonth ? "text-txt" : "text-txt-4", "hover:bg-bg-2", isToday && "ring-1 ring-inset ring-acc"),
                           ),
                     )}
                   >
@@ -282,11 +283,11 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
             {/* Custom time control — no native time input (its OS popup overflowed
                 and its indicator icon didn't follow the theme). */}
             <div className="flex items-center gap-[8px] border-t border-line pt-[10px]">
-              <span className="text-[10.5px] font-mono uppercase tracking-[0.06em] text-txt-3">Time</span>
+              <span className="text-[10.5px] font-mono uppercase tracking-[0.06em] text-txt-3">{t("time_label")}</span>
               <div className="ml-auto flex items-center gap-[6px]">
                 <input
                   inputMode="numeric"
-                  aria-label="Hour"
+                  aria-label={t("hour_label")}
                   placeholder="HH"
                   value={hStr}
                   onChange={(e) => {
@@ -299,7 +300,7 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
                 <span className="text-txt-3 text-[13px]">:</span>
                 <input
                   inputMode="numeric"
-                  aria-label="Minute"
+                  aria-label={t("minute_label")}
                   placeholder="MM"
                   value={mStr}
                   onChange={(e) => {
@@ -317,7 +318,7 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
                       onClick={() => { setMer(x); commitTime(hStr, mStr, x); }}
                       className={cn(
                         "px-[9px] text-[12px] font-medium cursor-pointer transition-colors",
-                        mer === x ? "bg-acc text-[var(--acc-ink)]" : "bg-bg-1 text-txt-2 hover:bg-bg-2",
+                        mer === x ? "bg-acc text-acc-ink" : "bg-bg-1 text-txt-2 hover:bg-bg-2",
                       )}
                     >
                       {x}

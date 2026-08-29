@@ -14,7 +14,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/ui/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Icon } from "@/components/ui/icon";
 import { useAnalyticsPage } from "../hooks/use-analytics-page";
 import { HeroBand } from "./hero-band";
@@ -86,21 +85,7 @@ export function AnalyticsPage({
     ? "flex flex-col gap-[16px]"
     : "flex-1 min-h-0 overflow-y-auto px-[28px] pt-[20px] pb-[48px] flex flex-col gap-[16px]";
 
-  if (q.isLoading || !d) {
-    return (
-      <>
-        {header}
-        <div className={bodyClass}>
-          <Skeleton width="100%" height={112} />
-          <Skeleton width="100%" height={250} />
-          <div className="flex gap-[16px] flex-wrap">
-            <Skeleton width="49%" height={260} />
-            <Skeleton width="49%" height={260} />
-          </div>
-        </div>
-      </>
-    );
-  }
+  if (q.isLoading || !d) return <>{header}</>;
 
   const projectItems = d.byProject.map((p) => ({
     key: p.projectId,

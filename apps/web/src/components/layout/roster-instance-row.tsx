@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
-import { RosterSessionActionButton, RosterSessionActions, RosterSessionRow } from "./roster-row-controls";
+import { LIVE_STATUSES, RosterSessionActionButton, RosterSessionActions, RosterSessionRow } from "./roster-row-controls";
 
 export interface RosterInstanceRowProps {
   instanceId: string;
@@ -22,8 +22,6 @@ export interface RosterInstanceRowProps {
   onRenameCancel: () => void;
   spend?: number;
 }
-
-const LIVE: AgentStatusInfo["status"][] = ["working", "thinking"];
 
 export function RosterInstanceRow({
   instanceId,
@@ -41,8 +39,8 @@ export function RosterInstanceRow({
 }: RosterInstanceRowProps) {
   const t = useTranslations();
   const inputRef = useRef<HTMLInputElement>(null);
-  const displayLabel = label || `Session ${instanceNumber}`;
-  const isLive = LIVE.includes(status);
+  const displayLabel = label || t("sidebar.session_default_label", { number: instanceNumber });
+  const isLive = LIVE_STATUSES.includes(status);
 
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -65,7 +63,7 @@ export function RosterInstanceRow({
           defaultValue={label ?? ""}
           onKeyDown={handleKeyDown}
           onBlur={() => onRenameCommit(inputRef.current?.value.trim() ?? "")}
-          placeholder={`Session ${instanceNumber}`}
+          placeholder={t("sidebar.session_default_label", { number: instanceNumber })}
           aria-label={t("sidebar.rename_instance_aria", { number: instanceNumber })}
           onClick={(e) => e.stopPropagation()}
           className="flex-1 min-w-0 bg-bg-1 border border-line-2 rounded-[4px] px-[6px] py-[2px] text-[12px] text-txt outline-none focus:border-acc"
@@ -95,14 +93,14 @@ export function RosterInstanceRow({
       {/* LED dot */}
       <span className={cn(
         "w-[6px] h-[6px] rounded-full shrink-0",
-        isLive ? "bg-[var(--working)] shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
+        isLive ? "bg-status-working shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
       )} />
 
       <RosterSessionActions>
-        <Tooltip content="Rename" side="top" delayMs={300}>
+        <Tooltip content={t("sidebar.rename_button_title")} side="top" delayMs={300}>
           <RosterSessionActionButton
             onClick={(e) => { e.stopPropagation(); onRename(); }}
-            aria-label={`Rename session ${instanceNumber}`}
+            aria-label={t("sidebar.rename_button_aria", { number: instanceNumber })}
             data-instance-id={instanceId}
           >
             <Icon name="edit" size={11} />

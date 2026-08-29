@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@/components/ui/skeleton";
 import { PlanetEditorModal } from "@/components/ui/planet-editor-modal";
 import { useGitStatus, useProject, useUpdateProject } from "../hooks/use-projects";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
@@ -40,14 +39,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
 
   const project = projectQ.data;
 
-  if (projectQ.isLoading) {
-    return (
-      <div className="p-[20px] flex flex-col gap-[16px]">
-        <Skeleton width="100%" height={220} />
-        <Skeleton width="100%" height={120} />
-      </div>
-    );
-  }
+  if (projectQ.isLoading) return null;
   if (!project) {
     return <div className="p-[20px] text-txt-3">{t("errors.not_found")}</div>;
   }

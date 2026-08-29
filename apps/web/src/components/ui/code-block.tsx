@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Icon } from "./icon";
 import { highlight } from "./highlight";
 
@@ -17,10 +18,11 @@ export function CodeBlock({
   body,
   lang,
   title,
-  copyLabel = "Copy",
-  copiedLabel = "Copied",
+  copyLabel,
+  copiedLabel,
   wrap = false,
 }: CodeBlockProps) {
+  const t = useTranslations("common");
   const [copied, setCopied] = useState(false);
 
   const onCopy = async () => {
@@ -40,7 +42,7 @@ export function CodeBlock({
     <pre className={`code-block font-mono text-[12.5px] leading-[1.65] rounded-[10px] ${wrap ? "overflow-x-hidden" : "overflow-x-auto"}`}>
       <div className="head">
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--code-head-fg)]">
-          {lang ?? "code"}
+          {lang ?? t("code_label")}
         </span>
         {title && (
           <>
@@ -49,11 +51,11 @@ export function CodeBlock({
           </>
         )}
         <span className="ml-auto text-[10px] text-[var(--code-head-faint)] font-mono mr-2 select-none">
-          {lineCount} {lineCount === 1 ? "line" : "lines"}
+          {t("line_count", { count: lineCount })}
         </span>
         <button type="button" className="cp" onClick={onCopy}>
           <Icon name={copied ? "check" : "copy"} size={11} />
-          {copied ? copiedLabel : copyLabel}
+          {copied ? (copiedLabel ?? t("copied")) : (copyLabel ?? t("copy"))}
         </button>
       </div>
       <code

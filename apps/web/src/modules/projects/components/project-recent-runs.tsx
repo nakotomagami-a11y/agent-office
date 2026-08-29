@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
-import { Skeleton } from "@/components/ui/skeleton";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -55,13 +54,7 @@ export function ProjectRecentRuns({ projectId }: ProjectRecentRunsProps) {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="px-[16px] flex flex-col gap-[8px]">
-          <Skeleton width="100%" height={44} />
-          <Skeleton width="100%" height={44} />
-          <Skeleton width="100%" height={44} />
-        </div>
-      ) : runs.length === 0 ? (
+      {isLoading ? null : runs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-[8px] py-[32px] px-[18px]">
           <p className="m-0 text-[13px] text-txt-3 text-center">{t("project_activity.empty")}</p>
         </div>
