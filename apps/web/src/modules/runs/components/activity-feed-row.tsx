@@ -36,7 +36,7 @@ export function ActivityFeedRow({
     <>
       <div
         className={cn(
-          "act-row group flex flex-col gap-[6px] bg-card-2 cursor-pointer relative px-[14px] py-[11px] rounded-[12px] mb-[5px] transition-colors duration-100 hover:bg-card-3",
+          "act-row group flex items-center gap-[13px] surface-sheen shadow-[var(--lift)] cursor-pointer relative px-[16px] py-[13px] rounded-[18px] mb-[5px] transition-transform duration-150 hover:-translate-y-[2px]",
           isOpen && "open",
         )}
         onClick={onToggle}
@@ -44,35 +44,41 @@ export function ActivityFeedRow({
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onToggle()}
       >
-        <div className="flex items-center gap-[10px]">
-          <ActivityFeedRowAvatar run={run} unitByAgent={unitByAgent} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center font-semibold text-txt gap-[7px] text-[13px]">
-              <span>{formatAgentDisplayName(run.agentName)}</span>
-              <span className="text-txt-3 bg-card-3 font-normal font-mono text-[10px] rounded-[4px] px-[5px] py-[1px]">
-                {run.model || "default"}
-              </span>
-              <span className={cn("font-mono text-[9.5px] font-extrabold tracking-[0.06em] rounded-[4px] px-[6px] py-[1.5px]", badge.cls)}>
-                {badge.label}
-              </span>
-            </div>
-            <div className="text-txt-3 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11.5px] mt-[2px]">
-              {run.prompt}
-            </div>
+        <ActivityFeedRowAvatar run={run} unitByAgent={unitByAgent} />
+        <div className="min-w-0 flex-1 flex flex-col gap-[8px]">
+          <div className="flex items-center gap-[8px]">
+            <span className="font-semibold text-txt text-[13px] whitespace-nowrap">{formatAgentDisplayName(run.agentName)}</span>
+            <span className="text-txt-4 bg-card-2 border border-edge font-normal font-mono text-[9.5px] rounded-[6px] px-[7px] py-[2px] whitespace-nowrap">
+              {run.model || "default"}
+            </span>
+            <span className={cn("font-mono text-[9px] font-extrabold tracking-[0.06em] rounded-full px-[8px] py-[2px] whitespace-nowrap", badge.cls)}>
+              {badge.label}
+            </span>
+            <span className="flex-1" />
+            <ActivityFeedRowActions run={run} />
+            <span className="text-txt-4 whitespace-nowrap font-mono text-[10px] shrink-0">{formatRelative(run.ts)}</span>
+            <span className={cn("text-txt-4 transition-transform duration-150 shrink-0", isOpen && "text-acc rotate-180")}>
+              <Icon name="chevron" size={12} />
+            </span>
           </div>
-          <ActivityFeedRowActions run={run} />
-          <span className="text-txt-4 whitespace-nowrap font-mono text-[11px] shrink-0">{formatRelative(run.ts)}</span>
-          <span className={cn("text-txt-4 transition-transform duration-150 shrink-0", isOpen && "text-acc rotate-180")}>
-            <Icon name="chevron" size={12} />
-          </span>
-        </div>
 
-        <div className="flex items-center gap-[10px] pl-[42px] font-mono text-[11px] text-txt-3">
-          <span>{formatCost(run.cost)}</span>
-          <span>{fmtTok(tokens)} tok</span>
-          <span>{formatDuration(run.durMs)}</span>
-          <ActivityFeedRowCost cost={run.cost} maxCost={maxCost} />
-          <span className="font-bold text-amber shrink-0">+{xpForRun(run)} xp</span>
+          <div className="text-txt-3 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[12px]">
+            {run.prompt}
+          </div>
+
+          <div className="flex items-center gap-[14px] font-mono text-[10px]">
+            <span className="flex items-center gap-[5px] text-amber whitespace-nowrap shrink-0">
+              <Icon name="coin" size={10} /> {formatCost(run.cost)}
+            </span>
+            <span className="flex items-center gap-[5px] text-cyan whitespace-nowrap shrink-0">
+              <Icon name="diamond" size={10} /> {fmtTok(tokens)} tok
+            </span>
+            <span className="flex items-center gap-[5px] text-txt-4 whitespace-nowrap shrink-0">
+              <Icon name="clock" size={10} /> {formatDuration(run.durMs)}
+            </span>
+            <ActivityFeedRowCost cost={run.cost} maxCost={maxCost} />
+            <span className="font-bold text-acc shrink-0">+{xpForRun(run)} xp</span>
+          </div>
         </div>
       </div>
 

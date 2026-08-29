@@ -26,6 +26,7 @@ import { ToolGroupRow } from "./tool-group-row";
 import { SubAgentCard } from "./sub-agent-card";
 import { RateLimitCard } from "./rate-limit-card";
 import { ScheduleResumeMenu } from "./schedule-resume-menu";
+import { FlagCard, type FlagAction } from "./flag-card";
 import { MsgActions } from "./msg-actions";
 import { useSignInModalStore } from "@/lib/sign-in-modal-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
@@ -332,42 +333,29 @@ function ErrorCard({
   if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} />;
 
   return (
-    <div className="border border-[rgba(217,83,79,0.30)] border-l-[3px] border-l-[var(--ao-bad)] rounded-[8px] px-[14px] py-3 bg-[rgba(217,83,79,0.05)] flex items-start gap-[10px]">
-      <div className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-[var(--ao-bad-soft)] text-[var(--ao-bad)] shrink-0"><Icon name="x" size={13} /></div>
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-ao-fg-0 text-[13.5px]">{t(`${code}.title`)}</div>
-        <div className="text-ao-fg-1 text-[12.5px] mt-0.5 leading-[1.5]">{t(`${code}.body`)}</div>
-        {detail && (
-          <div className="text-ao-fg-3 text-[11px] mt-1 font-mono break-words line-clamp-3">{detail}</div>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          {showRepair && (
-            <button
-              onClick={handleRepair}
-              disabled={repairing}
-              className="text-[var(--ao-bad)] text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
-            >
-              <Icon name="wrench" size={11} /> {repairing ? "Repairing…" : "Repair worktree"}
-            </button>
-          )}
-          <button
-            onClick={onRetry}
-            disabled={!onRetry || repairing}
-            className="text-[var(--ao-bad)] text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
-          >
-            <Icon name="refresh" size={11} /> Retry
-          </button>
-          {onScheduleResumeAt && (
-            <ScheduleResumeMenu
-              resetsAtMs={resumeResetsAtMs}
-              onSchedule={onScheduleResumeAt}
-              scheduled={scheduled}
-              onScheduled={() => setScheduled(true)}
-            />
-          )}
-        </div>
-      </div>
-    </div>
+    <FlagCard
+      tone="err"
+      icon="circle-x"
+      title={t(`${code}.title`)}
+      body={t(`${code}.body`)}
+      detail={detail}
+      actions={[
+        ...(showRepair
+          ? [{ key: "repair", label: repairing ? "Repairing…" : "Repair worktree", tone: "primary", onClick: handleRepair, disabled: repairing } satisfies FlagAction]
+          : []),
+        { key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry || repairing },
+      ]}
+      extraActions={
+        onScheduleResumeAt && (
+          <ScheduleResumeMenu
+            resetsAtMs={resumeResetsAtMs}
+            onSchedule={onScheduleResumeAt}
+            scheduled={scheduled}
+            onScheduled={() => setScheduled(true)}
+          />
+        )
+      }
+    />
   );
 }
 
@@ -391,30 +379,23 @@ function InterruptedCard({
 }) {
   const t = useTranslations("errors.run");
   return (
-    <div className="border border-ao-line-1 border-l-[3px] border-l-ao-fg-3 rounded-[8px] px-[14px] py-3 bg-ao-bg-2 flex items-start gap-[10px]">
-      <div className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-ao-bg-3 text-ao-fg-2 shrink-0"><Icon name="stop" size={12} /></div>
-      <div className="flex-1">
-        <div className="font-semibold text-ao-fg-0 text-[13.5px]">{t("interrupted.title")}</div>
-        <div className="text-ao-fg-2 text-[12.5px] mt-0.5 leading-[1.5]">{t("interrupted.body")}</div>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <button
-            onClick={onRetry}
-            disabled={!onRetry}
-            className="text-ao-accent text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
-          >
-            <Icon name="refresh" size={11} /> Retry
-          </button>
-          {onScheduleResumeAt && (
-            <ScheduleResumeMenu
-              resetsAtMs={resumeResetsAtMs}
-              onSchedule={onScheduleResumeAt}
-              scheduled={scheduled}
-              onScheduled={onScheduled}
-            />
-          )}
-        </div>
-      </div>
-    </div>
+    <FlagCard
+      tone="neutral"
+      icon="stop"
+      title={t("interrupted.title")}
+      body={t("interrupted.body")}
+      actions={[{ key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry }]}
+      extraActions={
+        onScheduleResumeAt && (
+          <ScheduleResumeMenu
+            resetsAtMs={resumeResetsAtMs}
+            onSchedule={onScheduleResumeAt}
+            scheduled={scheduled}
+            onScheduled={onScheduled}
+          />
+        )
+      }
+    />
   );
 }
 
@@ -445,31 +426,17 @@ function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => v
   };
 
   return (
-    <div className="border border-[rgba(234,179,8,0.30)] border-l-[3px] border-l-[#ca8a04] rounded-[8px] px-[14px] py-3 bg-[rgba(234,179,8,0.05)] flex items-start gap-[10px]">
-      <div className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-[rgba(234,179,8,0.12)] text-[#ca8a04] shrink-0">
-        <Icon name="lock" size={13} />
-      </div>
-      <div className="flex-1">
-        <div className="font-semibold text-ao-fg-0 text-[13.5px]">{t("auth_expired.title")}</div>
-        <div className="text-ao-fg-1 text-[12.5px] mt-0.5 leading-[1.5]">{t("auth_expired.body")}</div>
-        {detail && <div className="text-ao-fg-3 text-[11px] mt-1 font-mono break-words line-clamp-3">{detail}</div>}
-        <div className="mt-2 flex items-center gap-3">
-          <button
-            onClick={handleSignIn}
-            className="text-[#ca8a04] text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0"
-          >
-            <Icon name="external-link" size={11} /> Sign in
-          </button>
-          <button
-            onClick={onRetry}
-            disabled={!onRetry}
-            className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
-          >
-            <Icon name="refresh" size={11} /> Retry
-          </button>
-        </div>
-      </div>
-    </div>
+    <FlagCard
+      tone="warn"
+      icon="lock"
+      title={t("auth_expired.title")}
+      body={t("auth_expired.body")}
+      detail={detail}
+      actions={[
+        { key: "sign-in", label: "Sign in", tone: "primary", onClick: handleSignIn },
+        { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
+      ]}
+    />
   );
 }
 
@@ -499,39 +466,18 @@ function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetr
   };
 
   return (
-    <div className="border border-[rgba(217,83,79,0.30)] border-l-[3px] border-l-[var(--ao-bad)] rounded-[8px] px-[14px] py-3 bg-[rgba(217,83,79,0.05)] flex items-start gap-[10px]">
-      <div className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-[var(--ao-bad-soft)] text-[var(--ao-bad)] shrink-0">
-        <Icon name="lock" size={13} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-ao-fg-0 text-[13.5px]">{t("subscription_disabled.title")}</div>
-        <div className="text-ao-fg-1 text-[12.5px] mt-0.5 leading-[1.5]">{t("subscription_disabled.body")}</div>
-        {detail && <div className="text-ao-fg-3 text-[11px] mt-1 font-mono break-words line-clamp-3">{detail}</div>}
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <a
-            href={EXTERNAL_LINKS.claudeUsage}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--ao-bad)] text-[12px] cursor-pointer inline-flex items-center gap-1 no-underline"
-          >
-            <Icon name="external-link" size={11} /> {t("subscription_disabled.check_account")}
-          </a>
-          <button
-            onClick={handleSwitch}
-            className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0"
-          >
-            <Icon name="lock" size={11} /> {t("subscription_disabled.switch_account")}
-          </button>
-          <button
-            onClick={onRetry}
-            disabled={!onRetry}
-            className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 disabled:opacity-40 disabled:cursor-default"
-          >
-            <Icon name="refresh" size={11} /> Retry
-          </button>
-        </div>
-      </div>
-    </div>
+    <FlagCard
+      tone="err"
+      icon="lock"
+      title={t("subscription_disabled.title")}
+      body={t("subscription_disabled.body")}
+      detail={detail}
+      actions={[
+        { key: "check-account", label: t("subscription_disabled.check_account"), tone: "primary", href: EXTERNAL_LINKS.claudeUsage },
+        { key: "switch-account", label: t("subscription_disabled.switch_account"), tone: "neutral", onClick: handleSwitch },
+        { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
+      ]}
+    />
   );
 }
 

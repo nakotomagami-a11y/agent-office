@@ -183,6 +183,27 @@ const ICON_PATHS = {
     strokeLinejoin: undefined,
     body: <path d="M6 6l12 12M18 6 6 18" />,
   },
+  "alert-circle": {
+    ...STROKE_BASE,
+    strokeWidth: 2.3,
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v5" />
+        <path d="M12 16.6h.01" />
+      </>
+    ),
+  },
+  "circle-x": {
+    ...STROKE_BASE,
+    strokeWidth: 2.3,
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9 9l6 6M15 9l-6 6" />
+      </>
+    ),
+  },
   minus: {
     ...STROKE_BASE,
     strokeWidth: 2,
@@ -203,6 +224,15 @@ const ICON_PATHS = {
   stop: {
     ...FILL_BASE,
     body: <rect x="6" y="6" width="12" height="12" rx="1" />,
+  },
+  power: {
+    ...STROKE_BASE,
+    body: (
+      <>
+        <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64" />
+        <path d="M12 2v10" />
+      </>
+    ),
   },
   map: {
     ...STROKE_BASE,
