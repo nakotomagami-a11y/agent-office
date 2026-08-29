@@ -187,6 +187,35 @@ export function getRunningRuns(): PersistedRun[] {
 }
 
 /**
+ * Is there already a live, running `claude` process for this exact target
+ * (same agentId + instanceId — the same slot `transcriptKey()` on the client
+ * uses to key a conversation)? Used by `startSummonRun` as a spawn guard.
+ *
+ * Why this exists: the client is supposed to serialize sends per target (see
+ * `useQueueDrain` in `use-chat-actions.ts`) and never issue a second
+ * `/api/summon` for a target that already has an active run. But a project-tab
+ * switch can unmount the `ChatPanel` mid-request, and TanStack Query's
+ * `MutationObserver` drops the *per-call* `.mutate(vars, { onSuccess })`
+ * callback once its last subscriber (the unmounted component) is gone — the
+ * POST still completes and this module still spawns the process, but the
+ * client never learns the new `runId` and is left with `activeRunId: null`.
+ * If the user then retries (e.g. "New Thread" + resend), nothing on the
+ * client stops a second `/api/summon` for the same target — the first
+ * process is still running, orphaned but alive. This function is the
+ * backend-side backstop: it makes "one live run per target" true regardless
+ * of what the client does or fails to track.
+ */
+export function findActiveRunForTarget(agentId: string, instanceId: string | undefined): { runId: string } | undefined {
+  for (const run of liveRuns.values()) {
+    if (run.status !== "running") continue;
+    if (run.agentId !== agentId) continue;
+    if (run.instanceId !== instanceId) continue;
+    return { runId: run.id };
+  }
+  return undefined;
+}
+
+/**
  * Force a spawned git process to authenticate github.com as the account whose
  * dir is in `env.GH_CONFIG_DIR`, using git's `GIT_CONFIG_*` env mechanism so
  * nothing on disk (the user's global ~/.gitconfig) is mutated. We append two
