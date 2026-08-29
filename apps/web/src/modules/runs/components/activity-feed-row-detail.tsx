@@ -9,7 +9,7 @@ export function ActivityFeedRowDetail({ run }: { run: PersistedRun }) {
   const fields = buildRunMetaFields(run);
 
   return (
-    <div className="act-detail flex flex-col bg-card-3 m-0 mb-[5px] border-t-0 rounded-b-[10px] px-[16px] py-[14px] gap-[12px]">
+    <div className="act-detail flex flex-col bg-card-3 m-0 mb-[5px] border-t-0 rounded-b-[18px] px-[16px] py-[14px] gap-[12px]">
       <div className="flex flex-wrap gap-[12px] [&>*]:basis-[calc(50%-6px)] [&>*]:min-w-[240px] [&>*]:flex-1">
         <div className="bg-card-2 border border-edge overflow-hidden rounded-[8px]">
           <div className="flex items-center text-txt-4 uppercase border-b border-edge px-[12px] py-[7px] font-mono text-[10px] tracking-[0.08em] gap-[8px]">

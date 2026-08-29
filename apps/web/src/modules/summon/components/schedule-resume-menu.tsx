@@ -42,9 +42,7 @@ export function ScheduleResumeMenu({
 
   if (scheduled) {
     return (
-      <span className="text-ao-fg-2 text-[12px] inline-flex items-center gap-1 opacity-80">
-        <Icon name="check" size={11} /> Resume scheduled
-      </span>
+      <span className="text-ao-fg-2 text-[11.5px] font-semibold opacity-80">Resume scheduled</span>
     );
   }
 
@@ -53,9 +51,9 @@ export function ScheduleResumeMenu({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-ao-fg-2 text-[12px] cursor-pointer inline-flex items-center gap-1 bg-transparent border-0 p-0 hover:text-ao-fg-0"
+        className="text-ao-fg-2 text-[11.5px] font-semibold cursor-pointer bg-transparent border-0 p-0 hover:underline"
       >
-        <Icon name="activity" size={11} /> Schedule resume
+        Schedule resume
       </button>
     );
   }
