@@ -1,5 +1,4 @@
 import { startTransition, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { match } from "ts-pattern";
 import { isToolValidAt, type AgentPositions } from "../components/office-map";
 import {
   DECORATIONS,
@@ -234,13 +233,23 @@ export function createCellClickHandler(deps: CellClickDeps) {
       return;
     }
 
-    match(tool)
+    switch (tool) {
       // Free-hand select never paints — overlay hit-targets handle selection; a
       // click on empty ground just clears it.
-      .with("select", () => setSelectedDeco(null))
-      .with("grass", () => paintGrass(ctx))
-      .with("fill", () => floodFillWater(ctx))
-      .with("erase", () => eraseTopmost(ctx))
-      .otherwise((decoTool) => placeDecoration(ctx, decoTool));
+      case "select":
+        setSelectedDeco(null);
+        break;
+      case "grass":
+        paintGrass(ctx);
+        break;
+      case "fill":
+        floodFillWater(ctx);
+        break;
+      case "erase":
+        eraseTopmost(ctx);
+        break;
+      default:
+        placeDecoration(ctx, tool);
+    }
   };
 }

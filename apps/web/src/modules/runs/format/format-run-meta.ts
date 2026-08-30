@@ -1,4 +1,22 @@
+import { assertNever } from "@/lib/assert-never";
 import type { PersistedRun } from "@agent-office/domain/types";
+
+/**
+ * A DB run status only ever needs three dot colors for display — this is
+ * that narrower mapping, not the richer `AgentStatusInfo` derivation in
+ * `modules/office/derive/derive-status.ts` (which also carries a task label).
+ * Was duplicated verbatim (as a ts-pattern block) in `RunRow` and
+ * `ProjectRecentRuns` — extracted here since removing ts-pattern meant
+ * touching both anyway.
+ */
+export function runStatusToDotStatus(status: PersistedRun["status"]): "working" | "done" | "error" {
+  switch (status) {
+    case "running": return "working";
+    case "done": return "done";
+    case "error": return "error";
+    default: return assertNever(status);
+  }
+}
 
 export function formatRelative(ts: number): string {
   const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));

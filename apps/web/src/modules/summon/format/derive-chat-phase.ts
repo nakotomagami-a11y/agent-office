@@ -1,4 +1,3 @@
-import { match } from "ts-pattern";
 import type { ChatPhase } from "../components/live-status";
 import type { ThreadItem } from "./thread-types";
 
@@ -14,14 +13,14 @@ export function deriveChatPhase(input: {
   hasSliceText: boolean;
 }): ChatPhase {
   if (input.override) return input.override;
-  return match({ pending: input.summonPending, streamPhase: input.streamPhase, hasText: input.hasSliceText })
-    .when(({ pending }) => pending, () => "sending" as ChatPhase)
-    .when(({ streamPhase }) => streamPhase === "starting", () => "connecting" as ChatPhase)
-    .when(({ streamPhase, hasText }) => streamPhase === "streaming" && hasText, () => "streaming" as ChatPhase)
-    .when(({ streamPhase }) => streamPhase === "streaming", () => "working" as ChatPhase)
-    .when(({ streamPhase }) => streamPhase === "done", () => "done" as ChatPhase)
-    .when(({ streamPhase }) => streamPhase === "error", () => "error" as ChatPhase)
-    .otherwise(() => "idle" as ChatPhase);
+  const { summonPending, streamPhase, hasSliceText } = input;
+
+  if (summonPending) return "sending";
+  if (streamPhase === "starting") return "connecting";
+  if (streamPhase === "streaming") return hasSliceText ? "streaming" : "working";
+  if (streamPhase === "done") return "done";
+  if (streamPhase === "error") return "error";
+  return "idle";
 }
 
 export function isPhaseStreaming(phase: ChatPhase): boolean {

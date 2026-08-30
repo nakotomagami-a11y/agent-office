@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import { useProcessesStore } from "@/lib/processes-store";
 import { useCompareStore } from "@/lib/compare-store";
 import { useOfficeStore, type AgentTab } from "@/modules/office/hooks/use-office-store";
@@ -30,34 +30,34 @@ type ModalState =
 // equivalent, so the reconciler below can tell whether the URL and the store
 // already agree (→ do nothing) or diverged (→ figure out which side moved).
 function modalKey(s: ModalState): string {
-  return match(s)
-    .with({ kind: "processes" }, () => "processes")
-    .with({ kind: "compare" }, ({ runId }) => `compare:${runId}`)
-    .with({ kind: "agent" }, ({ agentId, instanceId, tab }) =>
-      `agent:${agentId}:${instanceId ?? ""}:${tab ?? "conversation"}`)
-    .with({ kind: "none" }, () => "none")
-    .exhaustive();
+  switch (s.kind) {
+    case "processes": return "processes";
+    case "compare": return `compare:${s.runId}`;
+    case "agent": return `agent:${s.agentId}:${s.instanceId ?? ""}:${s.tab ?? "conversation"}`;
+    case "none": return "none";
+    default: return assertNever(s);
+  }
 }
 
 function modalStateFromUrl(sp: URLSearchParams): ModalState {
-  return match(sp.get("modal"))
-    .with("processes", () => ({ kind: "processes" }) as const)
-    .with("compare", () => {
-      const runId = sp.get("run");
-      return runId ? ({ kind: "compare", runId }) as const : ({ kind: "none" }) as const;
-    })
-    .with("agent", () => {
-      const agentId = sp.get("agent");
-      if (!agentId) return { kind: "none" } as const;
-      const tab = sp.get("tab");
-      return {
-        kind: "agent",
-        agentId,
-        instanceId: sp.get("instance"),
-        tab: isAgentTab(tab) ? tab : null,
-      } as const;
-    })
-    .otherwise(() => ({ kind: "none" }) as const);
+  const modal = sp.get("modal");
+  if (modal === "processes") return { kind: "processes" };
+  if (modal === "compare") {
+    const runId = sp.get("run");
+    return runId ? { kind: "compare", runId } : { kind: "none" };
+  }
+  if (modal === "agent") {
+    const agentId = sp.get("agent");
+    if (!agentId) return { kind: "none" };
+    const tab = sp.get("tab");
+    return {
+      kind: "agent",
+      agentId,
+      instanceId: sp.get("instance"),
+      tab: isAgentTab(tab) ? tab : null,
+    };
+  }
+  return { kind: "none" };
 }
 
 // Reconciles the ?modal= search param ↔ modal store state, in BOTH directions:
@@ -160,31 +160,33 @@ function applyUrlToStore(next: ModalState, ctx: UrlToStoreCtx) {
     processesOpen, compareOpen, inspectorOpen,
     setProcessesOpen, openCompare, closeCompare, select, closeInspector, setActiveTab,
   } = ctx;
-  match(next)
-    .with({ kind: "processes" }, () => {
+  switch (next.kind) {
+    case "processes":
       if (compareOpen) closeCompare();
       if (inspectorOpen) closeInspector();
       setProcessesOpen(true);
-    })
-    .with({ kind: "compare" }, ({ runId }) => {
+      return;
+    case "compare":
       if (processesOpen) setProcessesOpen(false);
       if (inspectorOpen) closeInspector();
-      openCompare(runId);
-    })
-    .with({ kind: "agent" }, ({ agentId, instanceId, tab }) => {
+      openCompare(next.runId);
+      return;
+    case "agent":
       if (processesOpen) setProcessesOpen(false);
       if (compareOpen) closeCompare();
-      select(agentId, { tab: tab ?? undefined, instanceId });
+      select(next.agentId, { tab: next.tab ?? undefined, instanceId: next.instanceId });
       // Set activeTab directly (not just pendingTab) so the store key matches
       // the URL immediately and the effect settles in a single pass.
-      setActiveTab(tab ?? "conversation");
-    })
-    .with({ kind: "none" }, () => {
+      setActiveTab(next.tab ?? "conversation");
+      return;
+    case "none":
       if (processesOpen) setProcessesOpen(false);
       if (compareOpen) closeCompare();
       if (inspectorOpen) closeInspector();
-    })
-    .exhaustive();
+      return;
+    default:
+      assertNever(next);
+  }
 }
 
 // ── store → URL ─────────────────────────────────────────────────────────────
@@ -197,30 +199,32 @@ function applyStoreToUrl(
   const sp = url.searchParams;
   const prev = params.get("modal");
 
-  match(state)
-    .with({ kind: "processes" }, () => {
+  switch (state.kind) {
+    case "processes":
       sp.set("modal", "processes");
       clearPayload(sp);
-    })
-    .with({ kind: "compare" }, ({ runId }) => {
+      break;
+    case "compare":
       sp.set("modal", "compare");
-      sp.set("run", runId);
+      sp.set("run", state.runId);
       clearPayload(sp, ["run"]);
-    })
-    .with({ kind: "agent" }, ({ agentId, instanceId, tab }) => {
+      break;
+    case "agent":
       sp.set("modal", "agent");
-      sp.set("agent", agentId);
-      if (instanceId) sp.set("instance", instanceId);
+      sp.set("agent", state.agentId);
+      if (state.instanceId) sp.set("instance", state.instanceId);
       else sp.delete("instance");
-      if (tab) sp.set("tab", tab);
+      if (state.tab) sp.set("tab", state.tab);
       else sp.delete("tab");
       clearPayload(sp, ["agent", "instance", "tab"]);
-    })
-    .with({ kind: "none" }, () => {
+      break;
+    case "none":
       sp.delete("modal");
       clearPayload(sp);
-    })
-    .exhaustive();
+      break;
+    default:
+      assertNever(state);
+  }
 
   const next = url.pathname + url.search;
   const current = window.location.pathname + window.location.search;

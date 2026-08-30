@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 
@@ -16,21 +16,23 @@ export type MemoryScope =
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function endpointFor(scope: MemoryScope): string {
-  return match(scope)
-    .with({ kind: "global" }, () => API_ROUTES.memoryGlobal)
-    .with({ kind: "project" }, (s) => API_ROUTES.projectMemory(s.id))
-    .with({ kind: "agent" }, (s) => API_ROUTES.agentMemory(s.id))
-    .with({ kind: "agent-skill" }, (s) => API_ROUTES.skill(s.skillSlug))
-    .exhaustive();
+  switch (scope.kind) {
+    case "global": return API_ROUTES.memoryGlobal;
+    case "project": return API_ROUTES.projectMemory(scope.id);
+    case "agent": return API_ROUTES.agentMemory(scope.id);
+    case "agent-skill": return API_ROUTES.skill(scope.skillSlug);
+    default: return assertNever(scope);
+  }
 }
 
 function queryKeyFor(scope: MemoryScope): readonly unknown[] {
-  return match(scope)
-    .with({ kind: "global" }, () => ["memory", "global"] as const)
-    .with({ kind: "project" }, (s) => ["memory", "project", s.id] as const)
-    .with({ kind: "agent" }, (s) => ["memory", "agent", s.id] as const)
-    .with({ kind: "agent-skill" }, (s) => ["memory", "skill", s.skillSlug] as const)
-    .exhaustive();
+  switch (scope.kind) {
+    case "global": return ["memory", "global"];
+    case "project": return ["memory", "project", scope.id];
+    case "agent": return ["memory", "agent", scope.id];
+    case "agent-skill": return ["memory", "skill", scope.skillSlug];
+    default: return assertNever(scope);
+  }
 }
 
 export function isReadOnly(scope: MemoryScope): boolean {

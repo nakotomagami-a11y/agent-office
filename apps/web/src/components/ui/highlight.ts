@@ -12,7 +12,6 @@
  * user-derived. Any new code path that emits source text MUST route it through
  * `esc`/`span`, or it becomes an XSS hole.
  */
-import { match } from "ts-pattern";
 
 // HTML-escape the three markup-significant chars. The escape boundary for the
 // whole module — all dynamic text must pass through here.
@@ -212,11 +211,21 @@ function highlightMarkdown(src: string): string {
  * `dangerouslySetInnerHTML`.
  */
 export function highlight(src: string, lang: string): string {
-  return match(lang)
-    .with("bash", "sh", () => tokenize(src, BASH_RULES))
-    .with("yaml", "yml", () => tokenize(src, YAML_RULES))
-    .with("json", () => tokenize(src, JSON_RULES))
-    .with("sql", () => tokenize(src, SQL_RULES))
-    .with("markdown", "md", () => highlightMarkdown(src))
-    .otherwise(() => esc(src));
+  switch (lang) {
+    case "bash":
+    case "sh":
+      return tokenize(src, BASH_RULES);
+    case "yaml":
+    case "yml":
+      return tokenize(src, YAML_RULES);
+    case "json":
+      return tokenize(src, JSON_RULES);
+    case "sql":
+      return tokenize(src, SQL_RULES);
+    case "markdown":
+    case "md":
+      return highlightMarkdown(src);
+    default:
+      return esc(src);
+  }
 }

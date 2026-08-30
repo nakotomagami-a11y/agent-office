@@ -4,7 +4,6 @@
 // pnpm off PATH in the spawned shell, since terminals start bash with a minimal PATH.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { basename } from "node:path";
-import { match } from "ts-pattern";
 
 const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 
@@ -62,14 +61,16 @@ export function spawnInTerminal(title: string, cwd: string, argv: string[], port
   }
 
   const termName = basename(termBin);
-  const termArgs = match(termName)
-    .with("gnome-terminal", () => ["--wait", "--title", title, "--", "bash", "-c", shell])
-    .with("ptyxis", () => ["--", "bash", "-c", shell])
-    .with("xterm", () => ["-title", title, "-e", "bash", "-c", shell])
-    .with("konsole", () => ["--hold", "--title", title, "-e", "bash", "-c", shell])
-    .with("alacritty", () => ["-T", title, "-e", "bash", "-c", shell])
-    .with("kitty", () => ["--title", title, "bash", "-c", shell])
-    .otherwise(() => ["-e", "bash", "-c", shell]);
+  let termArgs: string[];
+  switch (termName) {
+    case "gnome-terminal": termArgs = ["--wait", "--title", title, "--", "bash", "-c", shell]; break;
+    case "ptyxis": termArgs = ["--", "bash", "-c", shell]; break;
+    case "xterm": termArgs = ["-title", title, "-e", "bash", "-c", shell]; break;
+    case "konsole": termArgs = ["--hold", "--title", title, "-e", "bash", "-c", shell]; break;
+    case "alacritty": termArgs = ["-T", title, "-e", "bash", "-c", shell]; break;
+    case "kitty": termArgs = ["--title", title, "bash", "-c", shell]; break;
+    default: termArgs = ["-e", "bash", "-c", shell];
+  }
 
   const child = spawn(termBin, termArgs, { env, detached: true, stdio: "ignore" });
   child.unref();
