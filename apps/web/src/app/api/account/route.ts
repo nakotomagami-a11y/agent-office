@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { match } from "ts-pattern";
 import { z } from "zod";
 import type { ClaudePlan } from "@/lib/claude-limits-store";
 
@@ -20,6 +19,14 @@ const credentialsSchema = z.object({
 const PLAN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 let planCache: { plan: ClaudePlan; expiresAt: number } | null = null;
 
+/** Maps a raw `subscriptionType` string from the credentials file to our plan tier. */
+function detectPlan(sub: string): ClaudePlan {
+  if (sub.startsWith("max")) return "max";
+  if (sub === "pro") return "pro";
+  if (sub === "api" || sub === "api_key") return "api";
+  return "free";
+}
+
 function readPlan(): ClaudePlan {
   const now = Date.now();
   if (planCache && now < planCache.expiresAt) return planCache.plan;
@@ -33,11 +40,7 @@ function readPlan(): ClaudePlan {
     // file missing or unreadable — leave sub empty so we fall through to "free"
   }
 
-  const plan = match(sub)
-    .when((s) => s.startsWith("max"), (): ClaudePlan => "max")
-    .with("pro", (): ClaudePlan => "pro")
-    .with("api", "api_key", (): ClaudePlan => "api")
-    .otherwise((): ClaudePlan => "free");
+  const plan = detectPlan(sub);
 
   planCache = { plan, expiresAt: now + PLAN_CACHE_TTL_MS };
   return plan;

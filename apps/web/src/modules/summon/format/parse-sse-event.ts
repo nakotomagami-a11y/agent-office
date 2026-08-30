@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
 import type { SubAgentStatus, ThreadItem, UsageMeter } from "./thread-types";
@@ -99,8 +99,9 @@ export function applySseEvent(
   prev: { thread: ThreadItem[]; usage: UsageMeter; startTs?: number | null },
   event: RunStreamEvent,
 ): ApplyResult {
-  return match(event)
-    .with({ name: "attached" }, ({ data }) => {
+  switch (event.name) {
+    case "attached": {
+      const { data } = event;
       const next: ThreadItem[] = [...prev.thread];
       if (data.output && data.output.length > 0 && next.length === 0) {
         next.push({ kind: "agent-text", id: newId(), text: data.output, streaming: data.status === "running" });
@@ -112,14 +113,16 @@ export function applySseEvent(
         error: null,
         startTs: data.startTs,
       };
-    })
-    .with({ name: "chunk" }, ({ data }) => ({
-      thread: appendTextChunk(prev.thread, data.text),
-      usage: prev.usage,
-      done: false,
-      error: null,
-    }))
-    .with({ name: "tool" }, ({ data }) => {
+    }
+    case "chunk":
+      return {
+        thread: appendTextChunk(prev.thread, event.data.text),
+        usage: prev.usage,
+        done: false,
+        error: null,
+      };
+    case "tool": {
+      const { data } = event;
       // Sub-agent spawns get their own card via the dedicated `subagent` event,
       // so suppress the raw tool card here to avoid a duplicate. Covers native
       // Task/Agent tools and Bash `claude -p --agent` spawns, and both the empty
@@ -136,8 +139,9 @@ export function applySseEvent(
         done: false,
         error: null,
       };
-    })
-    .with({ name: "subagent" }, ({ data }) => {
+    }
+    case "subagent": {
+      const { data } = event;
       // Find the most recent agent-subagent item without a subRunId (created by the tool event)
       // and attach the subRunId to it, or create a new one if not found.
       const thread = [...prev.thread];
@@ -166,8 +170,9 @@ export function applySseEvent(
         });
       }
       return { thread, usage: prev.usage, done: false, error: null };
-    })
-    .with({ name: "subagent-update" }, ({ data }) => {
+    }
+    case "subagent-update": {
+      const { data } = event;
       const thread = prev.thread.map((it) => {
         if (it.kind !== "agent-subagent" || it.subRunId !== data.subRunId) return it;
         const now = Date.now();
@@ -187,14 +192,16 @@ export function applySseEvent(
         };
       });
       return { thread, usage: prev.usage, done: false, error: null };
-    })
-    .with({ name: "usage" }, ({ data }) => ({
-      thread: prev.thread,
-      usage: { tokensIn: data.tokensIn, tokensOut: data.tokensOut, cost: data.cost },
-      done: false,
-      error: null,
-    }))
-    .with({ name: "done" }, ({ data }) => {
+    }
+    case "usage":
+      return {
+        thread: prev.thread,
+        usage: { tokensIn: event.data.tokensIn, tokensOut: event.data.tokensOut, cost: event.data.cost },
+        done: false,
+        error: null,
+      };
+    case "done": {
+      const { data } = event;
       const now = Date.now();
       const finalized = prev.thread.map((it) =>
         it.kind === "agent-subagent" && (it.status === "running" || it.status === "queued" || it.status === "cancelling")
@@ -227,8 +234,9 @@ export function applySseEvent(
         error: null,
         sessionId: data.sessionId,
       };
-    })
-    .with({ name: "error" }, ({ data }) => {
+    }
+    case "error": {
+      const { data } = event;
       const now = Date.now();
       const finalized = prev.thread.map((it) =>
         it.kind === "agent-subagent" && (it.status === "running" || it.status === "queued" || it.status === "cancelling")
@@ -241,14 +249,19 @@ export function applySseEvent(
         done: false,
         error: data.detail ?? data.code,
       };
-    })
-    .with({ name: "rate-limit" }, ({ data }) => ({
-      thread: closeStreaming([...dropTrailingTextEcho(prev.thread, data.message), { kind: "system-rate-limit" as const, id: newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity }]),
-      usage: prev.usage,
-      done: false,
-      error: null,
-    }))
-    .exhaustive();
+    }
+    case "rate-limit": {
+      const { data } = event;
+      return {
+        thread: closeStreaming([...dropTrailingTextEcho(prev.thread, data.message), { kind: "system-rate-limit" as const, id: newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity }]),
+        usage: prev.usage,
+        done: false,
+        error: null,
+      };
+    }
+    default:
+      return assertNever(event);
+  }
 }
 
 const newId = (): string => `i_${Math.random().toString(36).slice(2, 10)}`;

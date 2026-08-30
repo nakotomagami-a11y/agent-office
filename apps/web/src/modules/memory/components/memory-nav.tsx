@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
@@ -23,13 +22,11 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
   const [filter, setFilter] = useState("");
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
+  // Two scopes are "the same" iff their canonical keys match — same
+  // equivalence `scopeKey` already encodes (kind + id/slug), so reuse it
+  // instead of re-deriving the per-kind comparison here.
   function isSel(scope: MemoryScope): boolean {
-    return match(scope)
-      .with({ kind: "global" }, () => selected.kind === "global")
-      .with({ kind: "project" }, (s) => selected.kind === "project" && selected.id === s.id)
-      .with({ kind: "agent" }, (s) => selected.kind === "agent" && selected.id === s.id)
-      .with({ kind: "agent-skill" }, (s) => selected.kind === "agent-skill" && selected.agentId === s.agentId && selected.skillSlug === s.skillSlug)
-      .exhaustive();
+    return scopeKey(scope) === scopeKey(selected);
   }
 
   const q = filter.trim().toLowerCase();

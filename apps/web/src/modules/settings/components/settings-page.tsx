@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
@@ -40,29 +39,13 @@ export function SettingsPage() {
   return (
     <div className="flex-1 min-h-0 flex flex-nowrap gap-[16px] px-[20px] pt-[16px] pb-[20px] max-[640px]:flex-col max-[640px]:gap-[10px] max-[640px]:px-[10px] max-[640px]:pb-[10px]">
       <SettingsNav value={tab} onChange={setTab} ariaLabel={t("settings.tabs_aria")} />
-      {match(tab)
-        .with("projects", () => (
-          <SettingsSection><ProjectsPane /></SettingsSection>
-        ))
-        .with("bundled-agents", () => (
-          <SettingsSection><BundledAgentsTab /></SettingsSection>
-        ))
-        .with("integrations", () => (
-          <SettingsSection><IntegrationsTab /></SettingsSection>
-        ))
-        .with("secrets", () => (
-          <SettingsSection><SecretsTab /></SettingsSection>
-        ))
-        .with("about-you", () => (
-          <SettingsSection><AboutYouTab /></SettingsSection>
-        ))
-        .with("performance", () => (
-          <SettingsSection><PerformanceTab /></SettingsSection>
-        ))
-        .with("cleanup", () => (
-          <SettingsSection><CleanupPanel /></SettingsSection>
-        ))
-        .exhaustive()}
+      {tab === "projects" && <SettingsSection><ProjectsPane /></SettingsSection>}
+      {tab === "bundled-agents" && <SettingsSection><BundledAgentsTab /></SettingsSection>}
+      {tab === "integrations" && <SettingsSection><IntegrationsTab /></SettingsSection>}
+      {tab === "secrets" && <SettingsSection><SecretsTab /></SettingsSection>}
+      {tab === "about-you" && <SettingsSection><AboutYouTab /></SettingsSection>}
+      {tab === "performance" && <SettingsSection><PerformanceTab /></SettingsSection>}
+      {tab === "cleanup" && <SettingsSection><CleanupPanel /></SettingsSection>}
     </div>
   );
 }

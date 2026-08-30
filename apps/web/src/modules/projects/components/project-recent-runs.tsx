@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { StatusDot } from "@/components/ui/status-dot";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
-import { formatCost, formatDuration, formatRelative } from "@/modules/runs/format/format-run-meta";
+import { formatCost, formatDuration, formatRelative, runStatusToDotStatus } from "@/modules/runs/format/format-run-meta";
 import type { PersistedRun } from "@agent-office/domain/types";
 
 export type ProjectRecentRunsProps = { projectId: string };
@@ -87,11 +86,7 @@ function ColumnHeader() {
 }
 
 function RunRow({ run, onOpen }: { run: PersistedRun; onOpen: () => void }) {
-  const status = match(run.status)
-    .with("running", () => "working" as const)
-    .with("done", () => "done" as const)
-    .with("error", () => "error" as const)
-    .exhaustive();
+  const status = runStatusToDotStatus(run.status);
   const unit = unitForAgent(run.agentId);
   const costTone = run.status === "error" ? "bg-red-soft text-red" : "bg-card-3 text-txt-2";
 

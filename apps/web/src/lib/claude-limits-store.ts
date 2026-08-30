@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { create } from "zustand";
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import { type LimitsPeriod, type HardCap, parseLimits as parseLimitsCore, periodStart, periodEnd } from "@/lib/claude-limits";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { getAccount } from "@/lib/api/account";
@@ -87,12 +87,13 @@ export function useClaudeLimitsHydration() {
 }
 
 export function planLabel(plan: ClaudePlan): string {
-  return match(plan)
-    .with("free", () => "Free")
-    .with("pro", () => "Pro")
-    .with("max", () => "Max")
-    .with("api", () => "API")
-    .with("custom", () => "Custom")
-    .exhaustive();
+  switch (plan) {
+    case "free": return "Free";
+    case "pro": return "Pro";
+    case "max": return "Max";
+    case "api": return "API";
+    case "custom": return "Custom";
+    default: return assertNever(plan);
+  }
 }
 

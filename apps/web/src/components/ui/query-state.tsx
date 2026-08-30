@@ -24,8 +24,8 @@ export type QueryStateProps<T> = {
 
 /**
  * Ships one canonical way to render every fetching page: match the query
- * lifecycle with `ts-pattern` and branch into loading / error / empty /
- * success. Enforces the house-standard state ordering + prevents partial
+ * lifecycle and branch into loading / error / empty / success. Enforces the
+ * house-standard state ordering + prevents partial
  * renders (e.g. showing an empty state while still loading).
  *
  * Usage:

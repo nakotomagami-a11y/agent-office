@@ -9,7 +9,7 @@
 // only exposes "running" | "done" | "error". Real-time thinking state comes
 // from SSE events in the chat panel, not from stored run records.
 
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import type { AgentStatus, PersistedRun } from "@agent-office/domain/types";
 
 const STICKY_MS = 90_000;
@@ -20,6 +20,22 @@ export interface AgentStatusInfo {
   taskKind?: string;
 }
 
+/**
+ * Maps a run's terminal DB status to the richer, agent-facing status shape.
+ * Was duplicated verbatim between `statusFromRunsForInstance` and
+ * `statusFromRuns` as a ts-pattern block each — extracted once here since
+ * removing ts-pattern meant touching both anyway.
+ */
+function statusInfoFromRunStatus(status: PersistedRun["status"], prompt: string): AgentStatusInfo {
+  const task = truncate(prompt, 32);
+  switch (status) {
+    case "running": return { status: "working", task, taskKind: "Running" };
+    case "done": return { status: "done", task, taskKind: "Done" };
+    case "error": return { status: "error", task, taskKind: "Error" };
+    default: return assertNever(status);
+  }
+}
+
 export function statusFromRunsForInstance(instanceId: string, runs: PersistedRun[]): AgentStatusInfo {
   const now = Date.now();
   const recent = runs.filter(
@@ -28,23 +44,7 @@ export function statusFromRunsForInstance(instanceId: string, runs: PersistedRun
   if (recent.length === 0) return { status: "idle" };
   recent.sort((a, b) => b.ts - a.ts);
   const latest = recent[0]!;
-  return match(latest.status)
-    .with("running", () => ({
-      status: "working" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Running",
-    }))
-    .with("done", () => ({
-      status: "done" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Done",
-    }))
-    .with("error", () => ({
-      status: "error" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Error",
-    }))
-    .exhaustive();
+  return statusInfoFromRunStatus(latest.status, latest.prompt);
 }
 
 export function statusFromRuns(agentId: string, runs: PersistedRun[]): AgentStatusInfo {
@@ -58,23 +58,7 @@ export function statusFromRuns(agentId: string, runs: PersistedRun[]): AgentStat
   if (recent.length === 0) return { status: "idle" };
   recent.sort((a, b) => b.ts - a.ts);
   const latest = recent[0]!;
-  return match(latest.status)
-    .with("running", () => ({
-      status: "working" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Running",
-    }))
-    .with("done", () => ({
-      status: "done" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Done",
-    }))
-    .with("error", () => ({
-      status: "error" as AgentStatus,
-      task: truncate(latest.prompt, 32),
-      taskKind: "Error",
-    }))
-    .exhaustive();
+  return statusInfoFromRunStatus(latest.status, latest.prompt);
 }
 
 function truncate(s: string, n: number): string {

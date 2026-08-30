@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { CardHeader } from "@/components/ui/card-header";
@@ -84,18 +83,16 @@ export function AgentDetail({ id }: AgentDetailProps) {
         ariaLabel={t("agent_details.tabs_aria")}
       />
 
-      {match(tab)
-        .with("prompt", () => (
-          <Card>
-            <CardHeader title={t("agent_details.prompt_card_title")} sub={`~/.claude/agents/${id}.md`} />
-            <div className="p-4">
-              {!bodyQ.isLoading && <CodeBlock body={bodyQ.data ?? ""} lang="markdown" />}
-            </div>
-          </Card>
-        ))
-        .with("memory", () => <AgentMemoryCard id={id} />)
-        .with("runs", () => <ActivityFeed agentId={id} />)
-        .exhaustive()}
+      {tab === "prompt" && (
+        <Card>
+          <CardHeader title={t("agent_details.prompt_card_title")} sub={`~/.claude/agents/${id}.md`} />
+          <div className="p-4">
+            {!bodyQ.isLoading && <CodeBlock body={bodyQ.data ?? ""} lang="markdown" />}
+          </div>
+        </Card>
+      )}
+      {tab === "memory" && <AgentMemoryCard id={id} />}
+      {tab === "runs" && <ActivityFeed agentId={id} />}
     </div>
   );
 }

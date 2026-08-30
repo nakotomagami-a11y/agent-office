@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, type ReactNode, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 
 type Side = "top" | "bottom" | "left" | "right";
 
@@ -19,12 +19,13 @@ const GAP = 8;
 function calcStyle(rect: DOMRect, side: Side): CSSProperties {
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
-  return match(side)
-    .with("top", () => ({ position: "fixed", left: cx, top: rect.top - GAP, transform: "translateX(-50%) translateY(-100%)" }) as const)
-    .with("bottom", () => ({ position: "fixed", left: cx, top: rect.bottom + GAP, transform: "translateX(-50%)" }) as const)
-    .with("left", () => ({ position: "fixed", left: rect.left - GAP, top: cy, transform: "translateX(-100%) translateY(-50%)" }) as const)
-    .with("right", () => ({ position: "fixed", left: rect.right + GAP, top: cy, transform: "translateY(-50%)" }) as const)
-    .exhaustive();
+  switch (side) {
+    case "top": return { position: "fixed", left: cx, top: rect.top - GAP, transform: "translateX(-50%) translateY(-100%)" };
+    case "bottom": return { position: "fixed", left: cx, top: rect.bottom + GAP, transform: "translateX(-50%)" };
+    case "left": return { position: "fixed", left: rect.left - GAP, top: cy, transform: "translateX(-100%) translateY(-50%)" };
+    case "right": return { position: "fixed", left: rect.right + GAP, top: cy, transform: "translateY(-50%)" };
+    default: return assertNever(side);
+  }
 }
 
 export function Tooltip({ content, children, side = "top", delayMs = 450 }: TooltipProps) {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
+import { assertNever } from "@/lib/assert-never";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
 import { EXTERNAL_LINKS } from "@agent-office/domain/config/routes";
 import type { RunErrorCode } from "@agent-office/domain/types";
@@ -482,8 +482,8 @@ function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetr
 }
 
 export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDelete, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
-  return match(item)
-    .with({ kind: "you" }, (item) => {
+  switch (item.kind) {
+    case "you": {
       const youImgs = extractImages(item.text);
       const youText = stripAttachmentFooter(item.text);
       return (
@@ -498,8 +498,8 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDel
           </div>
         </div>
       );
-    })
-    .with({ kind: "agent-text" }, (item) => {
+    }
+    case "agent-text": {
       const proseItems = splitProse(item.text);
       const agentImgs = extractImages(item.text);
       const showClarify = isQuestion && !item.streaming && !!onReply;
@@ -536,25 +536,28 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDel
           </div>
         </div>
       );
-    })
-    .with({ kind: "agent-tool" }, (item) => (
-      <ToolGroupRow
-        id={item.id}
-        tools={[{ id: item.id, name: item.name, arg: item.arg }]}
-        agent={agent}
-      />
-    ))
-    .with({ kind: "agent-subagent" }, (item) => <SubAgentCard item={item} />)
-    .with({ kind: "agent-thinking" }, (item) => (
-      <ThinkingRow id={item.id} text={item.text} agent={agent} hideAvatar={hideAvatar} />
-    ))
-    .with({ kind: "system-rate-limit" }, (item) => (
-      <RateLimitCard message={item.message} resetsAt={item.resetsAt} severity={item.severity} onStop={onStopRun} onDismiss={onDismissRateLimit} onSchedule={onScheduleRateLimit} />
-    ))
-    .with({ kind: "system-error" }, (item) => (
-      <ErrorCard code={item.code} detail={item.detail} interrupted={item.interrupted} onRetry={onRetry} onRepair={onRepair} onScheduleResumeAt={onScheduleResumeAt} resumeResetsAtMs={resumeResetsAtMs} />
-    ))
-    .with({ kind: "system-done" }, (item) => {
+    }
+    case "agent-tool":
+      return (
+        <ToolGroupRow
+          id={item.id}
+          tools={[{ id: item.id, name: item.name, arg: item.arg }]}
+          agent={agent}
+        />
+      );
+    case "agent-subagent":
+      return <SubAgentCard item={item} />;
+    case "agent-thinking":
+      return <ThinkingRow id={item.id} text={item.text} agent={agent} hideAvatar={hideAvatar} />;
+    case "system-rate-limit":
+      return (
+        <RateLimitCard message={item.message} resetsAt={item.resetsAt} severity={item.severity} onStop={onStopRun} onDismiss={onDismissRateLimit} onSchedule={onScheduleRateLimit} />
+      );
+    case "system-error":
+      return (
+        <ErrorCard code={item.code} detail={item.detail} interrupted={item.interrupted} onRetry={onRetry} onRepair={onRepair} onScheduleResumeAt={onScheduleResumeAt} resumeResetsAtMs={resumeResetsAtMs} />
+      );
+    case "system-done": {
       const totalTok =
         item.tokensIn !== undefined || item.tokensOut !== undefined
           ? (item.tokensIn ?? 0) + (item.tokensOut ?? 0)
@@ -589,6 +592,8 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDel
           <span className="flex-1 h-[1px] bg-[var(--ao-line-0)]" />
         </div>
       );
-    })
-    .exhaustive();
+    }
+    default:
+      return assertNever(item);
+  }
 }

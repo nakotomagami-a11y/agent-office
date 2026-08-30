@@ -1,13 +1,16 @@
-import { match } from "ts-pattern";
+import { assertNever } from "@/lib/assert-never";
 import type { MemoryScope } from "../hooks/use-memory";
 
 // Stable string key for a scope — used for React keys and the content map.
 export function scopeKey(scope: MemoryScope): string {
-  return match(scope)
-    .with({ kind: "global" }, () => "global")
-    .with({ kind: "project" }, { kind: "agent" }, (s) => `${s.kind}:${s.id}`)
-    .with({ kind: "agent-skill" }, (s) => `agent-skill:${s.agentId}:${s.skillSlug}`)
-    .exhaustive();
+  switch (scope.kind) {
+    case "global": return "global";
+    case "project":
+    case "agent":
+      return `${scope.kind}:${scope.id}`;
+    case "agent-skill": return `agent-skill:${scope.agentId}:${scope.skillSlug}`;
+    default: return assertNever(scope);
+  }
 }
 
 /**
@@ -21,10 +24,11 @@ export function scopeKey(scope: MemoryScope): string {
 export type ScopeLabelParts = { kind: "path"; path: string } | { kind: "project"; name: string };
 
 export function scopeLabelParts(scope: MemoryScope): ScopeLabelParts {
-  return match(scope)
-    .with({ kind: "global" }, () => ({ kind: "path" as const, path: "~/.claude/agents/_global.memory.md" }))
-    .with({ kind: "project" }, (s) => ({ kind: "project" as const, name: s.name }))
-    .with({ kind: "agent" }, (s) => ({ kind: "path" as const, path: `~/.claude/agents/${s.id}.memory.md` }))
-    .with({ kind: "agent-skill" }, (s) => ({ kind: "path" as const, path: `~/.claude/agents/_skills/${s.skillSlug}/SKILL.md` }))
-    .exhaustive();
+  switch (scope.kind) {
+    case "global": return { kind: "path", path: "~/.claude/agents/_global.memory.md" };
+    case "project": return { kind: "project", name: scope.name };
+    case "agent": return { kind: "path", path: `~/.claude/agents/${scope.id}.memory.md` };
+    case "agent-skill": return { kind: "path", path: `~/.claude/agents/_skills/${scope.skillSlug}/SKILL.md` };
+    default: return assertNever(scope);
+  }
 }

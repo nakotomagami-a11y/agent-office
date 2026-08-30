@@ -3,7 +3,6 @@
 // Prod builds return 404 (never ships).
 import { NextResponse } from "next/server";
 import { statSync, readdirSync } from "node:fs";
-import { match } from "ts-pattern";
 import { db, paths } from "@agent-office/domain/services";
 import { forbidInProd } from "@/lib/api-helpers";
 import { seedShowcase, clearShowcase } from "./showcase";
@@ -13,28 +12,30 @@ export async function POST(request: Request) {
   if (gate) return gate;
   const body = await request.json() as { action?: string };
 
-  return match(body.action)
-    .with("showcase", () => {
+  switch (body.action) {
+    case "showcase": {
       seedShowcase();
       return NextResponse.json({ ok: true, message: "Showcase world seeded (3 projects, chats, activity, accounts, secrets, schedules)." });
-    })
-    .with("clear-showcase", () => {
+    }
+    case "clear-showcase": {
       clearShowcase();
       return NextResponse.json({ ok: true, message: "Showcase data cleared." });
-    })
-    .with("clear-all-runs", () => {
+    }
+    case "clear-all-runs": {
       const rawDb = db.getDb();
       rawDb.prepare("DELETE FROM tool_calls").run();
       rawDb.prepare("DELETE FROM messages").run();
       rawDb.prepare("DELETE FROM runs").run();
       return NextResponse.json({ ok: true, message: "All runs, messages, and tool calls deleted." });
-    })
-    .with("fix-orphans", () => {
+    }
+    case "fix-orphans": {
       const rawDb = db.getDb();
       const result = rawDb.prepare("UPDATE runs SET status='error', exit_code=-1 WHERE status='running'").run();
       return NextResponse.json({ ok: true, message: `${result.changes} orphaned run(s) marked as error.` });
-    })
-    .otherwise(() => NextResponse.json({ error: "unknown action" }, { status: 400 }));
+    }
+    default:
+      return NextResponse.json({ error: "unknown action" }, { status: 400 });
+  }
 }
 
 export function GET() {

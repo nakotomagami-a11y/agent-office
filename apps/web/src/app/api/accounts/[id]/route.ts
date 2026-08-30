@@ -1,7 +1,6 @@
 // PATCH/DELETE /api/accounts/<id> — rename or remove a single Claude account.
 // DELETE refuses the `default` account and any account still referenced by a project.
 import { NextResponse } from "next/server";
-import { match } from "ts-pattern";
 import { accounts } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";
 import { accountPatchSchema } from "@/lib/validation-schemas";
@@ -26,11 +25,14 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (error) return error;
   const result = accounts.remove(id);
   if (result.ok) return new NextResponse(null, { status: 204 });
-  return match(result.reason)
-    .with("not_found", () => notFound())
-    .with("default", () => NextResponse.json({ error: "cannot_remove_default" }, { status: 400 }))
-    .with("referenced", () =>
-      NextResponse.json({ error: "account_referenced", blockedBy: result.blocked ?? [] }, { status: 409 }),
-    )
-    .otherwise(() => NextResponse.json({ error: "unknown" }, { status: 500 }));
+  switch (result.reason) {
+    case "not_found":
+      return notFound();
+    case "default":
+      return NextResponse.json({ error: "cannot_remove_default" }, { status: 400 });
+    case "referenced":
+      return NextResponse.json({ error: "account_referenced", blockedBy: result.blocked ?? [] }, { status: 409 });
+    default:
+      return NextResponse.json({ error: "unknown" }, { status: 500 });
+  }
 }

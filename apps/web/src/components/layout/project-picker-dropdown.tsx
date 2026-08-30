@@ -1,6 +1,5 @@
 "use client";
 
-import { match } from "ts-pattern";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PlanetConfig } from "@agent-office/domain/types";
@@ -162,24 +161,25 @@ export function ProjectPickerDropdown({
   };
 
   const onKey = (e: React.KeyboardEvent) => {
-    match(e.key)
-      .with("Escape", () => {
+    switch (e.key) {
+      case "Escape":
         onClose();
-      })
-      .with("ArrowDown", () => {
+        break;
+      case "ArrowDown":
         e.preventDefault();
         setActiveIndex((i) => (i + 1) % rows.length);
-      })
-      .with("ArrowUp", () => {
+        break;
+      case "ArrowUp":
         e.preventDefault();
         setActiveIndex((i) => (i - 1 + rows.length) % rows.length);
-      })
-      .with("Enter", () => {
+        break;
+      case "Enter": {
         e.preventDefault();
         const row = rows[activeIndex];
         if (row) pickRow(row);
-      })
-      .otherwise(() => {});
+        break;
+      }
+    }
   };
 
   return (

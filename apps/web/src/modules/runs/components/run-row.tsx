@@ -1,12 +1,11 @@
 "use client";
 
-import { match } from "ts-pattern";
 import { StatusDot } from "@/components/ui/status-dot";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { useCompareStore } from "@/lib/compare-store";
 import type { PersistedRun } from "@agent-office/domain/types";
-import { formatCost, formatDuration, formatRelative } from "../format/format-run-meta";
+import { formatCost, formatDuration, formatRelative, runStatusToDotStatus } from "../format/format-run-meta";
 
 export type RunRowProps = {
   run: PersistedRun;
@@ -15,11 +14,7 @@ export type RunRowProps = {
 export function RunRow({ run }: RunRowProps) {
   const openCompare = useCompareStore((s) => s.openWith);
 
-  const status = match(run.status)
-    .with("running", () => "working" as const)
-    .with("done", () => "done" as const)
-    .with("error", () => "error" as const)
-    .exhaustive();
+  const status = runStatusToDotStatus(run.status);
 
   return (
     <div
