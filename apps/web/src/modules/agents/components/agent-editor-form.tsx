@@ -21,6 +21,7 @@ import { useCreateAgent, useWriteAgent, useDeleteAgent } from "../hooks/use-agen
 import { useInstalledSkills } from "@/modules/skills/hooks/use-skills";
 import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
+import { DocsRender } from "@/modules/docs/docs-render";
 import { MODEL_FULL, EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import {
   UNIT_FACTIONS,
@@ -747,6 +748,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
               onChange={(v) => set("body", v)}
               placeholder="Write your system prompt here…"
               minHeight={220}
+              renderPreview={(md) => <DocsRender markdown={md} />}
             />
             {errFor("body") && <span className="text-[11px] text-status-error">{errFor("body")}</span>}
             {serverError && (

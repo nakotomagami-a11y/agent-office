@@ -5,22 +5,29 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { escapeHtml as esc } from "@/lib/markdown";
 
-// ── Syntax highlight helpers (exported so other editors can reuse) ─────────────
+// ── Syntax highlight helpers ─────────────────────────────────────────────────
+//
+// These build an HTML string for the "Write" tab's highlight layer (see the
+// two-layer overlay in the component below). Colour/weight/style come from
+// Tailwind token classes — `text-acc`, `text-[var(--md-code)]`, etc. — the
+// same convention `code-block.tsx`/`highlight.ts` use for their `.hl-*`
+// tokens, so theme changes apply here for free. All source text is
+// HTML-escaped via `esc` before interpolation.
 
 /** Highlight inline markdown on an already-HTML-escaped string. */
 function hlInline(s: string): string {
-  s = s.replace(/`([^`]+)`/g, '<span style="color:var(--md-code)">`$1`</span>');
+  s = s.replace(/`([^`]+)`/g, '<span class="text-[var(--md-code)]">`$1`</span>');
   s = s.replace(
     /\*\*([^*]+)\*\*/g,
-    '<span style="opacity:.25">**</span><span style="font-weight:700">$1</span><span style="opacity:.25">**</span>',
+    '<span class="opacity-25">**</span><span class="font-bold">$1</span><span class="opacity-25">**</span>',
   );
   s = s.replace(
     /(?<!\*)\*([^*\n]+)\*(?!\*)/g,
-    '<span style="opacity:.25">*</span><em>$1</em><span style="opacity:.25">*</span>',
+    '<span class="opacity-25">*</span><em>$1</em><span class="opacity-25">*</span>',
   );
   s = s.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '[<span style="color:var(--md-link)">$1</span>](<span class="text-txt-3">$2</span>)',
+    '[<span class="text-[var(--md-link)]">$1</span>](<span class="text-txt-3">$2</span>)',
   );
   return s;
 }
@@ -29,7 +36,7 @@ function hlInline(s: string): string {
  * Convert raw markdown text into a syntax-coloured HTML string.
  * Safe to use with dangerouslySetInnerHTML — all user content is HTML-escaped.
  */
-export function highlightMd(text: string, accColor = "var(--acc)"): string {
+export function highlightMd(text: string): string {
   const lines = text.split("\n");
   let inFence = false;
   const out: string[] = [];
@@ -37,10 +44,10 @@ export function highlightMd(text: string, accColor = "var(--acc)"): string {
   for (const raw of lines) {
     if (/^```/.test(raw)) {
       inFence = !inFence;
-      out.push(`<span style="color:${inFence ? "var(--md-fence)" : "var(--txt-3)"}">${esc(raw)}</span>`);
+      out.push(`<span class="${inFence ? "text-[var(--md-fence)]" : "text-txt-3"}">${esc(raw)}</span>`);
       continue;
     }
-    if (inFence) { out.push(`<span style="color:var(--md-code)">${esc(raw)}</span>`); continue; }
+    if (inFence) { out.push(`<span class="text-[var(--md-code)]">${esc(raw)}</span>`); continue; }
 
     const e = esc(raw);
     let m: RegExpMatchArray | null;
@@ -48,20 +55,20 @@ export function highlightMd(text: string, accColor = "var(--acc)"): string {
     if ((m = e.match(/^(#{1,3} )(.*)/))) {
       const lvl = m[1]!.match(/#/g)!.length;
       out.push(
-        `<span style="color:${accColor}">${m[1]}</span>` +
-        `<span style="font-weight:700${lvl === 1 ? ";font-size:1.08em" : ""}">${hlInline(m[2]!)}</span>`,
+        `<span class="text-acc">${m[1]}</span>` +
+        `<span class="font-bold${lvl === 1 ? " text-[length:1.08em]" : ""}">${hlInline(m[2]!)}</span>`,
       );
       continue;
     }
     if ((m = e.match(/^(> ?)(.*)/))) {
       out.push(
-        `<span style="color:${accColor}">${m[1]}</span>` +
+        `<span class="text-acc">${m[1]}</span>` +
         `<span class="text-txt-2 italic">${hlInline(m[2]!)}</span>`,
       );
       continue;
     }
     if ((m = e.match(/^(\s*[-*] )(.*)/) ?? e.match(/^(\s*\d+\. )(.*)/))) {
-      out.push(`<span style="color:${accColor}">${m[1]}</span>${hlInline(m[2]!)}`);
+      out.push(`<span class="text-acc">${m[1]}</span>${hlInline(m[2]!)}`);
       continue;
     }
     if (/^-{3,}$/.test(raw.trim())) {
@@ -75,72 +82,6 @@ export function highlightMd(text: string, accColor = "var(--acc)"): string {
   return out.join("\n") + "\n"; // trailing \n keeps caret visible after last line
 }
 
-// ── Preview renderer (GitHub-style) ──────────────────────────────────────────
-
-function inlinePrev(s: string): string {
-  let r = esc(s);
-  r = r.replace(
-    /`([^`]+)`/g,
-    (_, m: string) =>
-      `<code style="font-family:var(--font-mono);font-size:.875em;background:var(--md-inline-bg);padding:2px 5px;border-radius:4px;color:var(--acc)">${m}</code>`,
-  );
-  r = r.replace(/\*\*([^*]+)\*\*/g, (_, m: string) => `<strong>${m}</strong>`);
-  r = r.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, (_, m: string) => `<em>${m}</em>`);
-  r = r.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    (_, text: string, href: string) =>
-      `<a href="${esc(href)}" style="color:var(--md-link);text-decoration:underline">${text}</a>`,
-  );
-  return r;
-}
-
-function renderMd(md: string, emptyLabel: string): string {
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
-  const out: string[] = [];
-  let para: string[] = [], listItems: string[] = [], listOrdered = false, listStart = 1;
-  let inFence = false, fenceLines: string[] = [];
-
-  const flushPara = () => {
-    if (!para.length) return;
-    out.push(`<p style="margin:0 0 14px;line-height:1.65;color:var(--txt-2)">${inlinePrev(para.join(" "))}</p>`);
-    para = [];
-  };
-  const flushList = () => {
-    if (!listItems.length) return;
-    const tag = listOrdered ? "ol" : "ul";
-    const attr = listOrdered
-      ? `style="margin:0 0 14px;padding-left:24px;color:var(--txt-2)" start="${listStart}"`
-      : `style="margin:0 0 14px;padding-left:20px;color:var(--txt-2)"`;
-    out.push(`<${tag} ${attr}>${listItems.map(it => `<li style="margin-bottom:4px;line-height:1.6">${inlinePrev(it)}</li>`).join("")}</${tag}>`);
-    listItems = [];
-  };
-  const flushFence = () => {
-    const code = fenceLines.map(esc).join("\n");
-    out.push(`<pre style="margin:0 0 16px;padding:14px 16px;background:var(--md-pre-bg);border:1px solid var(--line);border-radius:8px;overflow-x:auto"><code style="font-family:var(--font-mono);font-size:12px;color:var(--md-code);line-height:1.6;display:block">${code}</code></pre>`);
-    fenceLines = [];
-  };
-
-  for (const raw of lines) {
-    if (/^```/.test(raw)) { if (!inFence) { flushPara(); flushList(); inFence = true; } else { inFence = false; flushFence(); } continue; }
-    if (inFence) { fenceLines.push(raw); continue; }
-    const ln = raw.trimEnd();
-    if (/^(-{3,}|\*{3,})$/.test(ln)) { flushPara(); flushList(); out.push(`<hr style="margin:20px 0;border:0;border-top:1px solid var(--line-2)" />`); continue; }
-    let m: RegExpMatchArray | null;
-    if ((m = ln.match(/^#### (.*)/))) { flushPara(); flushList(); out.push(`<h4 style="font-size:14px;font-weight:700;margin:16px 0 6px;color:var(--txt)">${inlinePrev(m[1]!)}</h4>`); continue; }
-    if ((m = ln.match(/^### (.*)/)))  { flushPara(); flushList(); out.push(`<h3 style="font-size:17px;font-weight:700;margin:22px 0 8px;color:var(--txt)">${inlinePrev(m[1]!)}</h3>`); continue; }
-    if ((m = ln.match(/^## (.*)/)))   { flushPara(); flushList(); out.push(`<h2 style="font-size:21px;font-weight:700;margin:28px 0 12px;color:var(--txt);padding-bottom:8px;border-bottom:1px solid var(--line-2)">${inlinePrev(m[1]!)}</h2>`); continue; }
-    if ((m = ln.match(/^# (.*)/)))    { flushPara(); flushList(); out.push(`<h1 style="font-size:28px;font-weight:800;margin:0 0 16px;color:var(--txt);padding-bottom:10px;border-bottom:1px solid var(--line-2)">${inlinePrev(m[1]!)}</h1>`); continue; }
-    if ((m = ln.match(/^> ?(.*)/))) { flushPara(); flushList(); out.push(`<blockquote style="margin:0 0 14px;padding:8px 14px;border-left:3px solid var(--acc);color:var(--txt-2);font-style:italic">${inlinePrev(m[1]!)}</blockquote>`); continue; }
-    if ((m = ln.match(/^[-*] (.*)/))) { flushPara(); if (listOrdered) flushList(); listOrdered = false; listItems.push(m[1]!); continue; }
-    if ((m = ln.match(/^(\d+)\. (.*)/))) { flushPara(); if (!listOrdered) { flushList(); listStart = parseInt(m[1]!, 10); } listOrdered = true; listItems.push(m[2]!); continue; }
-    if (!ln) { flushPara(); flushList(); continue; }
-    flushList(); para.push(ln);
-  }
-  flushPara(); flushList();
-  if (inFence) flushFence();
-  return out.join("") || `<p class="m-0 text-txt-4 italic">${esc(emptyLabel)}</p>`;
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export type CodeEditorProps = {
@@ -152,12 +93,12 @@ export type CodeEditorProps = {
   showPreview?: boolean;
   className?: string;
   /**
-   * Optional preview renderer. When provided, the Preview tab renders this
-   * instead of the built-in inline-styled `renderMd`. Lets callers inject a
-   * richer markdown renderer (e.g. full GFM with tables) without CodeEditor
-   * depending on app modules.
+   * Renders the Preview tab's content. CodeEditor is a `components/ui`
+   * primitive and doesn't know about app-level markdown rendering, so
+   * callers supply their own renderer — typically `DocsRender` (react-markdown
+   * + remark-gfm) from `@/modules/docs/docs-render`.
    */
-  renderPreview?: (value: string) => React.ReactNode;
+  renderPreview: (value: string) => React.ReactNode;
   /**
    * Read-only view: the textarea can't be edited, and the editor opens on the
    * Preview tab (formatted) by default. Keeps the same framed chrome so a
@@ -180,24 +121,19 @@ const PAD_PX  = 24; // 12px top + 12px bottom
 const GUTTER_PX = 44; // width of the visual gutter band (background + border)
 const TEXT_PAD_PX = GUTTER_PX + 8; // where text starts — a small gap past the gutter's border, not flush against it
 
-// These styles are applied identically to both the <pre> and <textarea>
-// so their character grid aligns pixel-perfectly. Left padding reserves the
-// gutter column (plus the small text gap); the numbers live in that same
-// padding, positioned back toward the gutter's left edge (see preHtml).
-const LAYER: React.CSSProperties = {
-  position: "absolute",
-  top: 0, right: 0, bottom: 0, left: 0,
-  margin: 0,
-  padding: `12px 14px 12px ${TEXT_PAD_PX}px`,
-  fontFamily: "var(--font-mono)",
-  fontSize: "12.5px",
-  lineHeight: "1.6",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-  overflowWrap: "break-word",
-  tabSize: 2,
-  overflow: "hidden",
-};
+// Applied identically to both the <pre> and <textarea> so their character
+// grid aligns pixel-perfectly — every property here is a fixed literal, so
+// it lives in Tailwind classes rather than a style object. Only the left
+// padding depends on a runtime constant (TEXT_PAD_PX); that's the one value
+// that stays inline (see LAYER_STYLE below).
+const LAYER_CLASS =
+  "absolute inset-0 m-0 pt-[12px] pr-[14px] pb-[12px] font-mono text-[12.5px] leading-[1.6] " +
+  "whitespace-pre-wrap break-words [word-break:break-word] [tab-size:2] overflow-hidden";
+
+// Left padding reserves the gutter column (plus the small text gap); the
+// line numbers live in that same padding, positioned back toward the
+// gutter's left edge (see preHtml).
+const LAYER_STYLE: React.CSSProperties = { paddingLeft: TEXT_PAD_PX };
 
 export function CodeEditor({
   value,
@@ -251,8 +187,8 @@ export function CodeEditor({
   const preHtml = htmlLines
     .map(
       (h, i) =>
-        `<div style="position:relative">` +
-        `<span style="position:absolute;left:-${TEXT_PAD_PX - 8}px;width:${GUTTER_PX - 18}px;text-align:right;font-size:11px;line-height:${LINE_PX}px;color:var(--txt-3)">${i + 1}</span>` +
+        `<div class="relative">` +
+        `<span class="absolute text-right text-[11px] text-txt-3" style="left:-${TEXT_PAD_PX - 8}px;width:${GUTTER_PX - 18}px;line-height:${LINE_PX}px">${i + 1}</span>` +
         (h || "&nbsp;") +
         `</div>`,
     )
@@ -317,8 +253,8 @@ export function CodeEditor({
           <pre
             aria-hidden
             dangerouslySetInnerHTML={{ __html: preHtml }}
-            className="text-txt pointer-events-none"
-            style={{ ...LAYER, zIndex: 0 }}
+            className={cn(LAYER_CLASS, "z-0 text-txt pointer-events-none")}
+            style={LAYER_STYLE}
           />
           <textarea
             ref={taRef}
@@ -326,29 +262,18 @@ export function CodeEditor({
             onChange={(e) => onChange(e.target.value)}
             readOnly={readOnly}
             spellCheck={false}
-            style={{
-              ...LAYER,
-              zIndex: 1,
-              color: "transparent",
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              WebkitTextFillColor: "transparent" as any,
-              caretColor: "var(--txt)",
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              resize: "none",
-            }}
+            className={cn(LAYER_CLASS, "z-[1] text-transparent caret-[var(--txt)] bg-transparent border-none outline-none resize-none")}
+            // WebkitTextFillColor isn't in React's CSSProperties type and has no
+            // Tailwind utility. Some browsers honour it over `color` for textarea
+            // text, so `text-transparent` alone isn't enough to hide the
+            // (redundant, since the <pre> shows the highlighted text) native glyphs.
+            style={{ ...LAYER_STYLE, WebkitTextFillColor: "transparent" } as React.CSSProperties}
           />
         </div>
-      ) : renderPreview ? (
-        <div style={{ minHeight, padding: "18px 22px", overflow: "auto" }}>
+      ) : (
+        <div className="px-[22px] py-[18px] overflow-auto" style={{ minHeight }}>
           {renderPreview(value)}
         </div>
-      ) : (
-        <div
-          style={{ minHeight, padding: "18px 22px", overflow: "auto" }}
-          dangerouslySetInnerHTML={{ __html: renderMd(value, t("nothing_to_preview")) }}
-        />
       )}
     </div>
   );
