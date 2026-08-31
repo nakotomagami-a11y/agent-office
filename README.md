@@ -164,50 +164,24 @@ pnpm --filter @agent-office/web tauri:build
 
 ## Installing a release build (unsigned)
 
-**The release builds are not code-signed on any platform.** There is no Apple
-Developer certificate and no Windows code-signing certificate behind them — this
-is a personal project and those cost money per year. Every OS will therefore
-treat a downloaded build as untrusted, and on macOS it will refuse to open at
-all until you clear it manually.
+**Pre-built release binaries are Linux-only** — `.deb` and AppImage. There are
+no Windows or macOS builds; a code-signing certificate for each of those costs
+money per year, and this is a personal project, so those platforms are
+source-build-only (see below).
+
+**The Linux build is not code-signed.** There is no OS-level gate on Linux
+(unlike macOS Gatekeeper or Windows SmartScreen), so the `.deb` and AppImage
+install and run as-is.
 
 Only the *updater* artifacts are signed (a minisign key, so the in-app updater
 can verify what it downloads). That is unrelated to OS-level trust.
 
-If you would rather not run unsigned binaries, **build from source instead** —
+On any platform, **build from source** instead of using a downloaded binary —
 `tauri:build` output is never quarantined, because it was never downloaded:
 
 ```sh
 pnpm --filter @agent-office/web tauri:build
 ```
-
-### macOS
-
-The app is ad-hoc signed with no sealed resources, and downloading it adds a
-quarantine flag. Gatekeeper reports **"Agent Office is damaged and can't be
-opened"** — misleading, but that is the real message. Because the signature is
-structurally invalid rather than merely untrusted, right-click → Open does *not*
-get past it.
-
-Drag the app to `/Applications`, then remove the quarantine flag:
-
-```sh
-xattr -d -r com.apple.quarantine "/Applications/Agent Office.app"
-```
-
-That is the whole fix — the app then launches and runs normally. `codesign
---verify` still reports the bundle as invalid, and `com.apple.provenance`
-stays behind (it is system-protected); neither prevents the app from running.
-
-An auto-update replaces the bundle, so the command has to be re-run afterwards.
-
-### Windows
-
-SmartScreen shows "Windows protected your PC" for the unsigned installer.
-**More info → Run anyway.**
-
-### Linux
-
-No OS-level gate; the `.deb` and AppImage install and run as-is.
 
 ## Architecture notes
 
@@ -223,7 +197,7 @@ No OS-level gate; the `.deb` and AppImage install and run as-is.
 
 Personal project, still heavily under development. Not production-grade for shared use - assumes a single local user with `claude` on `$PATH` and a populated `~/.claude/agents/` directory.
 
-Release builds are unsigned on every platform — see [Installing a release build](#installing-a-release-build-unsigned) for what each OS does about that.
+Release builds are Linux-only and unsigned — see [Installing a release build](#installing-a-release-build-unsigned). Windows and macOS require building from source.
 
 ## License
 
@@ -235,4 +209,4 @@ Release builds are unsigned on every platform — see [Installing a release buil
 ## Credits
 
 - **Pixel Planet icons** — WebGL2 port of the [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by [Deep-Fold](https://deep-fold.itch.io/) (MIT).
-- **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0).
+- **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0), also distributed on the [Unity Asset Store](https://assetstore.unity.com/packages/2d/environments/tiny-swords-352566).
