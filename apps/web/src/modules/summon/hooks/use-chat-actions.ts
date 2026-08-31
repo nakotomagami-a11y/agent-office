@@ -58,13 +58,15 @@ type SummonInput = {
   setActiveRunId: Dispatch<SetStateAction<string | null>>;
   setPhaseOverride: Dispatch<SetStateAction<ChatPhase | null>>;
   setQuotaWarning: Dispatch<SetStateAction<string | null>>;
+  setQueuedMessages: Dispatch<SetStateAction<Array<{ id: string; text: string }>>>;
   setRunStartIndex: (v: number | null) => void;
 };
 
 /** Bare send closure. Wraps the summon mutation with thread-updating side effects. */
 function makeDoSubmit(cfg: SummonInput): (text: string) => void {
   return (text: string) => {
-    const userItem: ThreadItem = { kind: "you", id: `y_${Date.now()}`, text };
+    const userItemId = `y_${Date.now()}`;
+    const userItem: ThreadItem = { kind: "you", id: userItemId, text };
     cfg.setThread((prev) => {
       cfg.setRunStartIndex(prev.length + 1);
       return [...prev, userItem];
@@ -91,6 +93,25 @@ function makeDoSubmit(cfg: SummonInput): (text: string) => void {
           // the code in `.message` and the human text in `.data.detail`.
           const rawCode = err instanceof ApiError ? err.message : undefined;
           const code = isRunErrorCode(rawCode) ? rawCode : "start_failed";
+
+          if (code === "already_running") {
+            // This send slipped past the `isStreaming` gate in `onSubmit` —
+            // a real race, not user error: `useRunStream` seeds its local
+            // state to idle on every remount and only picks up the actual
+            // cached (possibly still-streaming) state once its effect runs
+            // a tick later, so a message typed in that window reads phase
+            // as idle and skips the queue. The backend's `already_running`
+            // guard (summon-run.ts) is what actually catches it. Undo the
+            // optimistic "you" bubble and put the text back at the FRONT of
+            // the queue so `useQueueDrain` fires it the instant the in-flight
+            // run reaches idle — no lost message, no scary error card for
+            // something that isn't a failure.
+            cfg.setThread((prev) => prev.filter((it) => it.id !== userItemId));
+            cfg.setQueuedMessages((prev) => [{ id: `q_${Date.now()}_retry`, text }, ...prev]);
+            cfg.setPhaseOverride(null);
+            return;
+          }
+
           const detail =
             (err instanceof ApiError && typeof err.data?.detail === "string" ? err.data.detail : undefined) ??
             (code === "start_failed" && err instanceof Error ? err.message : undefined);
@@ -122,6 +143,7 @@ export function useChatActions(input: UseChatActionsInput): UseChatActionsResult
     setActiveRunId: input.setActiveRunId,
     setPhaseOverride: input.setPhaseOverride,
     setQuotaWarning: input.setQuotaWarning,
+    setQueuedMessages: input.setQueuedMessages,
     setRunStartIndex: input.setRunStartIndex,
   });
 

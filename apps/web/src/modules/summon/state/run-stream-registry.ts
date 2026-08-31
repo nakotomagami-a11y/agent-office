@@ -54,6 +54,9 @@ export const INITIAL_STREAM_STATE: RunStreamState = {
   startTs: null,
 };
 
+// "rate-limit" is listened for here (not just parsed in parse-sse-event.ts)
+// so the rate-limit card actually renders — the CLI's rate-limit signal is
+// a distinct SSE event name, not folded into "chunk"/"tool".
 const EVENT_NAMES: readonly SseEventName[] = [
   "attached",
   "chunk",
@@ -61,6 +64,7 @@ const EVENT_NAMES: readonly SseEventName[] = [
   "usage",
   "done",
   "error",
+  "rate-limit",
   "subagent",
   "subagent-update",
 ] as const;
@@ -120,6 +124,7 @@ function attachSource(entry: Entry) {
       const event = parseSseEvent(name, raw);
       if (!event) return;
       const now = Date.now();
+
       const next = applySseEvent(
         { thread: entry.state.thread, usage: entry.state.usage, startTs: entry.state.startTs },
         event,
@@ -204,6 +209,30 @@ export function subscribeToRunStream(
     // NB: we deliberately do NOT close the source when refCount hits zero.
     // See file-header comment.
   };
+}
+
+/**
+ * Synchronous read of the current cached state for `runId`, or
+ * `INITIAL_STREAM_STATE` if nothing is registered yet.
+ *
+ * Exists so `useRunStream` can seed its `useState` from this directly (a
+ * lazy initializer, which runs during render) instead of hardcoding
+ * `INITIAL_STREAM_STATE` and waiting for a `useEffect` to correct it a tick
+ * later. That tick-late correction was a real bug, not just a cosmetic
+ * flash: on every remount of a `ChatPanel` for a run that's genuinely still
+ * streaming (e.g. returning to a project tab), the first render — and
+ * everything derived from it, including the `isStreaming` gate in
+ * `onSubmit` (use-chat-actions.ts) — saw `phase: "idle"` even though the
+ * registry already knew the run was live. A message sent in that exact
+ * window skipped the send queue entirely, hit `/api/summon` for a target
+ * that was already running, and (before `startSummonRun`'s guard was
+ * corrected to reject non-duplicate concurrent prompts instead of silently
+ * substituting the existing run) vanished with no trace. Confirmed in
+ * production logs: `summon.duplicate_suppressed` fired for a queued message
+ * that never got its own run.
+ */
+export function peekRunStreamState(runId: string): RunStreamState {
+  return registry.get(runId)?.state ?? INITIAL_STREAM_STATE;
 }
 
 /**

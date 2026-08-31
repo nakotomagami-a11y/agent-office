@@ -100,16 +100,42 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
   // unmounts the ChatPanel mid-request: TanStack Query drops the per-call
   // `.mutate(vars, { onSuccess })` callback for an unmounted caller, so the
   // client can lose track of a run that *did* spawn and start it again on
-  // retry. Instead of spawning a duplicate, hand back the run that's already
-  // live — the client just attaches to it.
+  // retry.
+  //
+  // Two cases, handled differently — confirmed by an incident in production
+  // logs (summon.duplicate_suppressed) where the *first* version of this
+  // guard silently swallowed a genuinely different, queued message just
+  // because it landed while another run was still active:
+  //   - Same prompt as the live run → this really is a lost-track-of retry
+  //     (e.g. "New Thread" + resend). Hand back the live run's id; the
+  //     client just attaches to it. Silent and correct — nothing was lost.
+  //   - Different prompt → this is a distinct message that raced past the
+  //     client's own `isStreaming` queue gate (see the `already_running`
+  //     handling in `use-chat-actions.ts` for why that race exists). It must
+  //     never be discarded: reject with a recoverable error so the client
+  //     re-queues it instead of the request just vanishing.
   const existing = runs.findActiveRunForTarget(req.agentId, resolvedInstanceId);
   if (existing) {
-    log.warn("summon.duplicate_suppressed", {
+    if (existing.prompt.trim() === req.prompt.trim()) {
+      log.warn("summon.duplicate_suppressed", {
+        agentId: req.agentId,
+        instanceId: resolvedInstanceId,
+        existingRunId: existing.runId,
+      });
+      return { runId: existing.runId };
+    }
+    log.warn("summon.rejected_already_running", {
       agentId: req.agentId,
       instanceId: resolvedInstanceId,
       existingRunId: existing.runId,
     });
-    return { runId: existing.runId };
+    return {
+      error: {
+        status: 409,
+        code: "already_running",
+        message: "This agent is still working on a previous message.",
+      },
+    };
   }
 
   store.pushRecentPrompt(req.agentId, req.prompt);

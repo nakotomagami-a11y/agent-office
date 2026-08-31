@@ -205,12 +205,15 @@ export function getRunningRuns(): PersistedRun[] {
  * backend-side backstop: it makes "one live run per target" true regardless
  * of what the client does or fails to track.
  */
-export function findActiveRunForTarget(agentId: string, instanceId: string | undefined): { runId: string } | undefined {
+export function findActiveRunForTarget(
+  agentId: string,
+  instanceId: string | undefined,
+): { runId: string; prompt: string } | undefined {
   for (const run of liveRuns.values()) {
     if (run.status !== "running") continue;
     if (run.agentId !== agentId) continue;
     if (run.instanceId !== instanceId) continue;
-    return { runId: run.id };
+    return { runId: run.id, prompt: run.prompt };
   }
   return undefined;
 }

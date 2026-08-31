@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   INITIAL_STREAM_STATE,
+  peekRunStreamState,
   reconnectRunStream,
   subscribeToRunStream,
   type RunStreamState,
@@ -26,7 +27,14 @@ export interface UseRunStreamResult extends RunStreamState {
  * discipline is unchanged.
  */
 export function useRunStream(runId: string | null): UseRunStreamResult {
-  const [state, setState] = useState<RunStreamState>(INITIAL_STREAM_STATE);
+  // Lazy initializer — runs synchronously during the first render, so a run
+  // that's already cached as "streaming" (e.g. remounting this ChatPanel
+  // while it's genuinely still going) reads correctly from paint one,
+  // instead of flashing "idle" until the effect below corrects it a tick
+  // later. See `peekRunStreamState`'s doc comment for why that tick mattered.
+  const [state, setState] = useState<RunStreamState>(() =>
+    runId ? peekRunStreamState(runId) : INITIAL_STREAM_STATE,
+  );
 
   useEffect(() => {
     if (!runId) {

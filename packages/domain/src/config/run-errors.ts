@@ -18,6 +18,7 @@ export const RUN_ERROR_CODES = [
   "unknown_agent",      // agent/instance deleted after scheduling
   "max_runtime",        // exceeded the wall-clock cap
   "spawn_failed",       // OS failed to spawn the claude process
+  "already_running",    // target already has a live run — client requeues, doesn't error out
   "no_output",          // run ended with error and no usable output
   "server_restart",     // run lost because the server restarted mid-flight
   "start_failed",       // summon request itself failed before a run started
