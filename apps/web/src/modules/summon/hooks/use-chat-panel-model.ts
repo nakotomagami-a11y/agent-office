@@ -75,7 +75,7 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
   const tKey = transcriptKey(input.agent.id, input.instanceId);
 
   const state = useChatState(tKey);
-  const stream = useRunStream(state.activeRunId, input.agent.name);
+  const stream = useRunStream(state.activeRunId);
 
   const recovery = useRunRecovery({
     activeRunId: state.activeRunId,

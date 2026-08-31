@@ -25,13 +25,8 @@ export interface UseRunStreamResult extends RunStreamState {
  * remounted component just re-subscribes and picks up wherever the tokens
  * currently are. Local `state` mirrors the registry entry so React's render
  * discipline is unchanged.
- *
- * `agentName` is optional and purely cosmetic: it's forwarded to the
- * registry so a desktop notification for this run can use it in its title.
- * The registry — not this hook — decides whether and when to notify; see
- * the "Notification ownership" section at the top of the registry file.
  */
-export function useRunStream(runId: string | null, agentName?: string): UseRunStreamResult {
+export function useRunStream(runId: string | null): UseRunStreamResult {
   // Lazy initializer — runs synchronously during the first render, so a run
   // that's already cached as "streaming" (e.g. remounting this ChatPanel
   // while it's genuinely still going) reads correctly from paint one,
@@ -46,9 +41,8 @@ export function useRunStream(runId: string | null, agentName?: string): UseRunSt
       setState(INITIAL_STREAM_STATE);
       return;
     }
-    const unsubscribe = subscribeToRunStream(runId, setState, agentName);
+    const unsubscribe = subscribeToRunStream(runId, setState);
     return unsubscribe;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- agentName is stable per agent; re-subscribing on it changing would tear down a live stream for no reason
   }, [runId]);
 
   return {
