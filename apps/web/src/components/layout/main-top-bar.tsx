@@ -10,6 +10,7 @@ import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { Portal } from "@/components/ui/portal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
@@ -264,18 +265,19 @@ export function MainTopBar() {
 
         {tabs.length > 0 ? <span className="w-px h-5 bg-edge mx-[3px] shrink-0" aria-hidden /> : null}
 
-        <button
-          ref={plusRef}
-          type="button"
-          onClick={() => setPickerOpen((v) => !v)}
-          aria-label={t("tabs.open_project_title")}
-          aria-haspopup="menu"
-          aria-expanded={pickerOpen}
-          title={t("tabs.open_project_title")}
-          className="w-[30px] h-[30px] flex items-center justify-center rounded-xl text-txt-4 hover:bg-card-3 hover:text-txt transition-colors duration-150 shrink-0"
-        >
-          <Icon name="plus" size={14} className={cn("transition-transform duration-150", pickerOpen && "rotate-45")} />
-        </button>
+        <Tooltip content={t("tabs.open_project_title")} side="bottom" className="shrink-0">
+          <button
+            ref={plusRef}
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            aria-label={t("tabs.open_project_title")}
+            aria-haspopup="menu"
+            aria-expanded={pickerOpen}
+            className="w-[30px] h-[30px] flex items-center justify-center rounded-xl text-txt-4 hover:bg-card-3 hover:text-txt transition-colors duration-150"
+          >
+            <Icon name="plus" size={14} className={cn("transition-transform duration-150", pickerOpen && "rotate-45")} />
+          </button>
+        </Tooltip>
 
         {pickerOpen ? (
           <Portal>
@@ -322,32 +324,34 @@ export function MainTopBar() {
       </div>
 
       {/* Docs — always shown, see file doc-comment above */}
-      <Link
-        href={PAGE_ROUTES.docs}
-        title={t("titlebar.documentation_title")}
-        className="group surface-sheen h-[38px] shrink-0 flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 no-underline hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
-        data-tauri-drag-region="false"
-      >
-        <Icon name="book" size={15} className="text-acc transition-transform duration-200 group-hover:scale-110" />
-        Docs
-        <span className="font-[var(--font-mono)] text-[10px] font-medium px-[6px] py-[2px] rounded-[7px] bg-card-3 text-txt-4 transition-colors duration-200 group-hover:text-txt-2">⌘/</span>
-      </Link>
+      <Tooltip content={t("titlebar.documentation_title")} side="bottom" className="shrink-0">
+        <Link
+          href={PAGE_ROUTES.docs}
+          className="group surface-sheen h-[38px] flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 no-underline hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
+          data-tauri-drag-region="false"
+        >
+          <Icon name="book" size={15} className="text-acc transition-transform duration-200 group-hover:scale-110" />
+          Docs
+          <span className="font-[var(--font-mono)] text-[10px] font-medium px-[6px] py-[2px] rounded-[7px] bg-card-3 text-txt-4 transition-colors duration-200 group-hover:text-txt-2">⌘/</span>
+        </Link>
+      </Tooltip>
 
       {/* Theme toggle */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        title={t("titlebar.toggle_theme_title")}
-        aria-label={theme === "dark" ? t("titlebar.switch_to_light") : t("titlebar.switch_to_dark")}
-        className="group surface-sheen w-[38px] h-[38px] shrink-0 flex items-center justify-center rounded-full text-txt-2 hover:text-txt shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
-        data-tauri-drag-region="false"
-      >
-        <Icon
-          name={theme === "dark" ? "moon" : "sun"}
-          size={16}
-          className="transition-transform duration-300 ease-out group-hover:-rotate-[18deg] group-hover:scale-110"
-        />
-      </button>
+      <Tooltip content={t("titlebar.toggle_theme_title")} side="bottom" className="shrink-0">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? t("titlebar.switch_to_light") : t("titlebar.switch_to_dark")}
+          className="group surface-sheen w-[38px] h-[38px] flex items-center justify-center rounded-full text-txt-2 hover:text-txt shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
+          data-tauri-drag-region="false"
+        >
+          <Icon
+            name={theme === "dark" ? "moon" : "sun"}
+            size={16}
+            className="transition-transform duration-300 ease-out group-hover:-rotate-[18deg] group-hover:scale-110"
+          />
+        </button>
+      </Tooltip>
 
       {/* Account chip — dropdown carries all primary page navigation */}
       <div className="relative shrink-0" ref={navMenuRef} data-tauri-drag-region="false">
@@ -453,19 +457,20 @@ function TabPill({ tab, isActive, projectName, projectPlanet, onActivate, onClos
     >
       <PlanetCanvas projectId={tab.projectId} config={projectPlanet} size={18} className="rounded-full shrink-0 pointer-events-none" />
       <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap pointer-events-none">{projectName}</span>
-      <button
-        type="button"
-        aria-label={closeLabel}
-        title={closeLabel}
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        onPointerDown={(e) => e.stopPropagation()}
-        className={cn(
-          "shrink-0 inline-flex items-center justify-center w-[16px] h-[16px] rounded-[5px] text-txt-4 hover:bg-card-3 hover:text-txt transition-[background,color,opacity] duration-100",
-          isActive || hovered ? "opacity-100" : "opacity-0",
-        )}
-      >
-        <Icon name="x" size={10} />
-      </button>
+      <Tooltip content={closeLabel} side="bottom" className="shrink-0">
+        <button
+          type="button"
+          aria-label={closeLabel}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={cn(
+            "inline-flex items-center justify-center w-[16px] h-[16px] rounded-[5px] text-txt-4 hover:bg-card-3 hover:text-txt transition-[background,color,opacity] duration-100",
+            isActive || hovered ? "opacity-100" : "opacity-0",
+          )}
+        >
+          <Icon name="x" size={10} />
+        </button>
+      </Tooltip>
     </div>
   );
 }
