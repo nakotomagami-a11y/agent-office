@@ -1,7 +1,30 @@
-/* Global scrollbars. */
-
-/* ─── Scrollbars ─── */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: var(--line-strong); background-clip: padding-box; border: 2px solid transparent; }
+/* Global scrollbars.
+ *
+ * Uses the standard CSS Scrollbars spec (`scrollbar-width` / `scrollbar-color`)
+ * instead of `::-webkit-scrollbar-*` pseudo-elements.
+ *
+ * Why: Blink hand-paints a `::-webkit-scrollbar-thumb` on the main thread
+ * instead of letting the compositor draw its own native thumb, and because
+ * the thumb had a `:hover` rule, every scrollable element in the app became
+ * a "non-fast scrollable region" — Blink has to consult the main thread on
+ * every pointer move near the scrollbar to decide whether the hover style
+ * applies, instead of scrolling purely on the compositor thread. That reads
+ * as laggy/stuttery scrolling, most visible when the main thread already has
+ * work queued (React re-renders, the office scene ticking) and on weaker
+ * GPU/driver stacks (reported on Linux + Intel Arc iGPU).
+ *
+ * `scrollbar-width` / `scrollbar-color` are natively Chromium 121+ (Jan
+ * 2024) and Firefox (always) — the browser paints and hit-tests its own
+ * thumb on the compositor thread, no main-thread involvement, same visual
+ * result. NB: on Blink, `::-webkit-scrollbar-*` rules take precedence over
+ * `scrollbar-width`/`scrollbar-color` on the same element when both are
+ * present — several components already set the standard properties
+ * (`[scrollbar-width:thin]` etc. via Tailwind arbitrary values) and were
+ * silently overridden by the webkit rules that used to live here. Don't
+ * reintroduce `::-webkit-scrollbar-*` globally; per-component color
+ * overrides should use `scrollbar-color`/`scrollbar-width` only.
+ */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
