@@ -9,7 +9,8 @@
     "build": "pnpm --filter @agent-office/web build",
     "start": "pnpm --filter @agent-office/web start",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "install:local": "bash scripts/install-local.sh"
   },
   "engines": {
     "node": ">=22.0.0"
