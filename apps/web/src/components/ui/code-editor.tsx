@@ -177,16 +177,18 @@ export type CodeEditorProps = {
 // px per logical line: 12.5px font-size × 1.6 line-height = 20px
 const LINE_PX = 20;
 const PAD_PX  = 24; // 12px top + 12px bottom
-const GUTTER_PX = 44; // left padding reserved for the line-number column
+const GUTTER_PX = 44; // width of the visual gutter band (background + border)
+const TEXT_PAD_PX = GUTTER_PX + 8; // where text starts — a small gap past the gutter's border, not flush against it
 
 // These styles are applied identically to both the <pre> and <textarea>
 // so their character grid aligns pixel-perfectly. Left padding reserves the
-// gutter column; the numbers live in the <pre>'s left padding (see preHtml).
+// gutter column (plus the small text gap); the numbers live in that same
+// padding, positioned back toward the gutter's left edge (see preHtml).
 const LAYER: React.CSSProperties = {
   position: "absolute",
   top: 0, right: 0, bottom: 0, left: 0,
   margin: 0,
-  padding: `12px 14px 12px ${GUTTER_PX}px`,
+  padding: `12px 14px 12px ${TEXT_PAD_PX}px`,
   fontFamily: "var(--font-mono)",
   fontSize: "12.5px",
   lineHeight: "1.6",
@@ -250,7 +252,7 @@ export function CodeEditor({
     .map(
       (h, i) =>
         `<div style="position:relative">` +
-        `<span style="position:absolute;left:-${GUTTER_PX - 8}px;width:${GUTTER_PX - 18}px;text-align:right;font-size:11px;line-height:${LINE_PX}px;color:var(--txt-3)">${i + 1}</span>` +
+        `<span style="position:absolute;left:-${TEXT_PAD_PX - 8}px;width:${GUTTER_PX - 18}px;text-align:right;font-size:11px;line-height:${LINE_PX}px;color:var(--txt-3)">${i + 1}</span>` +
         (h || "&nbsp;") +
         `</div>`,
     )
@@ -305,7 +307,7 @@ export function CodeEditor({
          * used alongside color:transparent because some browsers honour
          * fill-color for textarea text even when `color` is transparent.
          */
-        <div className="relative" style={{ height: editorH }}>
+        <div className="relative flex-1" style={{ minHeight: editorH }}>
           {/* Gutter fill is a token (--ao-gutter), not flat black, so it stays
               legible per-theme. */}
           <div

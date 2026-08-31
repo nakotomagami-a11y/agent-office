@@ -62,18 +62,18 @@ function preprocessCallouts(md: string): string {
 // Uses the app's theme-aware status tokens (cyan/green/acc/amber/red)
 // instead of hardcoded Tailwind palette colors, so callouts stay correct
 // in both dark and light mode like every other status chip in the app.
-const CALLOUT_STYLES: Record<string, { border: string; bg: string; label: string; tint: string; icon: string }> = {
-  note:      { border: "border-l-[3px] border-l-cyan/70",   bg: "bg-cyan/[0.07]",   label: "Note",      tint: "text-cyan",   icon: "ℹ" },
-  tip:       { border: "border-l-[3px] border-l-green/70",  bg: "bg-green/[0.08]",  label: "Tip",       tint: "text-green",  icon: "✓" },
-  important: { border: "border-l-[3px] border-l-acc",       bg: "bg-acc-soft",      label: "Important", tint: "text-acc",    icon: "!" },
-  warning:   { border: "border-l-[3px] border-l-amber/70",  bg: "bg-amber/[0.08]",  label: "Warning",   tint: "text-amber",  icon: "⚠" },
-  caution:   { border: "border-l-[3px] border-l-red/70",    bg: "bg-red/[0.08]",    label: "Caution",   tint: "text-red",    icon: "⚠" },
+const CALLOUT_STYLES: Record<string, { bg: string; label: string; tint: string; icon: string }> = {
+  note:      { bg: "bg-cyan/[0.07]",   label: "Note",      tint: "text-cyan",   icon: "ℹ" },
+  tip:       { bg: "bg-green/[0.08]",  label: "Tip",       tint: "text-green",  icon: "✓" },
+  important: { bg: "bg-acc-soft",      label: "Important", tint: "text-acc",    icon: "!" },
+  warning:   { bg: "bg-amber/[0.08]",  label: "Warning",   tint: "text-amber",  icon: "⚠" },
+  caution:   { bg: "bg-red/[0.08]",    label: "Caution",   tint: "text-red",    icon: "⚠" },
 };
 
 function Callout({ kind, body }: { kind: string; body: string }) {
   const style = CALLOUT_STYLES[kind] ?? CALLOUT_STYLES.note!;
   return (
-    <div className={`my-4 px-[16px] py-[13px] rounded-[10px] ${style.border} ${style.bg}`}>
+    <div className={`my-4 px-[16px] py-[13px] rounded-[10px] ${style.bg}`}>
       <div className={`flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] font-semibold ${style.tint} mb-2`}>
         <span aria-hidden>{style.icon}</span>
         <span>{style.label}</span>

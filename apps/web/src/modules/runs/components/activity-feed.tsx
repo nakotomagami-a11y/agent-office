@@ -39,10 +39,12 @@ export function ActivityFeed({ agentId, projectId, initialView = "log" }: Activi
             <ActivityViewTabs view={view} setView={setView} />
             <ActivityScopePill projectId={projectId} />
             {view === "log" && <ActivityScopeTabs scope={feed.scope} setScope={feed.setScope} />}
-            <Button size="sm" variant="ghost" onClick={feed.handleExport} disabled={feed.filtered.length === 0}>
-              <Icon name="copy" size={12} />
-              Export
-            </Button>
+            {view === "log" && (
+              <Button size="sm" variant="ghost" onClick={feed.handleExport} disabled={feed.filtered.length === 0}>
+                <Icon name="copy" size={12} />
+                Export
+              </Button>
+            )}
           </>
         }
       />
