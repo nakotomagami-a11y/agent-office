@@ -11,19 +11,24 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
  * through this context; the parent owns the underlying map.
  */
 export const ExpandedStateContext = createContext<{
-  get: (id: string) => boolean;
+  /** `undefined` means "never toggled" — lets the caller's own default win. */
+  get: (id: string) => boolean | undefined;
   set: (id: string, val: boolean) => void;
 } | null>(null);
 
 /**
  * Local hook for a single collapsible section. Reads the initial value
  * from context (parent's map) and writes back on every toggle.
+ *
+ * `defaultOpen` is only consulted the first time this `id` is seen — once
+ * the user (or a caller) has toggled it, the map in context is the source
+ * of truth from then on.
  */
-export function useExpandedState(id: string): [boolean, () => void] {
+export function useExpandedState(id: string, defaultOpen = false): [boolean, () => void] {
   const ctx = useContext(ExpandedStateContext);
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
-  const [open, setOpen] = useState(() => ctx?.get(id) ?? false);
+  const [open, setOpen] = useState(() => ctx?.get(id) ?? defaultOpen);
   const toggle = useCallback(() => {
     setOpen((prev) => {
       const next = !prev;

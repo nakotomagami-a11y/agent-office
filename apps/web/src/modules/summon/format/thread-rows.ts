@@ -51,6 +51,8 @@ export type Turn = {
   ledger: { tokens: number; cost: number; durationMs: number | undefined } | null;
   /** Running total cost through and including this turn. */
   cumulativeCost: number;
+  /** Running total tokens (in + out) through and including this turn. */
+  cumulativeTokens: number;
 };
 
 export function groupTurns(rows: RenderRow[]): Turn[] {
@@ -61,10 +63,10 @@ export function groupTurns(rows: RenderRow[]): Turn[] {
     const item = row.kind === "single" ? row.item : null;
     if (item?.kind === "you") {
       if (current) turns.push(current);
-      current = { id: `turn-${item.id}`, ask: item, rows: [], ledger: null, cumulativeCost: 0 };
+      current = { id: `turn-${item.id}`, ask: item, rows: [], ledger: null, cumulativeCost: 0, cumulativeTokens: 0 };
       continue;
     }
-    if (!current) current = { id: "turn-lead", ask: null, rows: [], ledger: null, cumulativeCost: 0 };
+    if (!current) current = { id: "turn-lead", ask: null, rows: [], ledger: null, cumulativeCost: 0, cumulativeTokens: 0 };
     current.rows.push(row);
     if (item?.kind === "system-done") {
       current.ledger = { tokens: (item.tokensIn ?? 0) + (item.tokensOut ?? 0), cost: item.cost ?? 0, durationMs: item.durationMs };
@@ -72,10 +74,15 @@ export function groupTurns(rows: RenderRow[]): Turn[] {
   }
   if (current) turns.push(current);
 
-  let running = 0;
+  let runningCost = 0;
+  let runningTokens = 0;
   for (const t of turns) {
-    if (t.ledger) running += t.ledger.cost;
-    t.cumulativeCost = running;
+    if (t.ledger) {
+      runningCost += t.ledger.cost;
+      runningTokens += t.ledger.tokens;
+    }
+    t.cumulativeCost = runningCost;
+    t.cumulativeTokens = runningTokens;
   }
   return turns;
 }

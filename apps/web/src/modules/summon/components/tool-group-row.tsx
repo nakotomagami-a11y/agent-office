@@ -7,9 +7,12 @@ import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { useExpandedState } from "./expanded-state";
 
 /**
- * Grouped tool-call row for a message bubble. Renders one collapsible
- * block per contiguous run of tool calls the assistant made — expanded,
- * each row shows the arg preview; collapsed, only the summary line.
+ * Grouped tool-call row for a message bubble. Renders one contiguous run
+ * of tool calls the assistant made as a flat activity list — bold tool
+ * name, plain gray arg preview, no per-row card/border. Expanded by
+ * default (this is the "what did the agent actually do" trail; hiding it
+ * behind a click defeats the point), each row's own arg can still be
+ * expanded further to see the full, untruncated input.
  *
  * Exported so `chat-thread` can render tool chains directly (grouped
  * across item boundaries), not just as embedded rows in `MessageBubble`.
@@ -32,37 +35,59 @@ function ToolIcon({ name, size = 13 }: { name: string; size?: number }) {
   return <Icon name={iconName} size={size} />;
 }
 
-/** One row per tool call inside an expanded `ToolGroupRow`. */
-function ToolCallRow({ name, arg }: { name: string; arg?: string }) {
+/**
+ * One flat row per tool call. No card, no per-row border — just a bullet,
+ * the bold tool name, and a plain gray arg preview, matching the reference
+ * design's activity-log treatment. Clicking a row with an arg reveals the
+ * full untruncated input beneath it. We don't have per-tool duration data
+ * from the backend yet for *completed* calls (that's a schema gap, flagged
+ * separately) — but "is this the one executing right now" we do know, so
+ * that row gets a "running" label in the same slot a duration would use.
+ *
+ * `running` also pulses the bullet — used on the last row of the last turn
+ * while the run is still streaming, so "still working" stays visible even
+ * though short tool chains (the common case) render with no group header
+ * to put that indicator on otherwise.
+ */
+function ToolCallRow({ name, arg, running = false }: { name: string; arg?: string; running?: boolean }) {
   const [showIn, setShowIn] = useState(false);
   return (
-    <div className="px-[14px] py-[10px] border-t border-[var(--ao-line-0)] first:border-t-0">
-      <div className="flex items-center gap-2 text-[12.5px]">
-        <span className="w-[18px] h-[18px] flex items-center justify-center text-ao-fg-2 shrink-0"><ToolIcon name={name} /></span>
-        <span className="text-ao-fg-0 font-medium">{name}</span>
-        {arg && <span className="font-mono text-[11.5px] text-ao-fg-2 px-[6px] py-[1px] bg-ao-bg-3 border border-ao-line-1 rounded-[4px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[360px]">{arg}</span>}
-        <span className="ml-auto flex items-center gap-2 text-ao-fg-3 font-mono text-[11px]">
-          <span className="inline-flex items-center gap-[5px] py-[1px] px-[6px] rounded-full text-[9px] font-semibold tracking-[0.06em] uppercase font-mono border bg-[var(--ao-ok-soft)] text-[var(--ao-ok)] border-[rgba(78,185,111,0.25)]"><span className="text-[7px]">●</span>ok</span>
-        </span>
+    <div className="px-[14px] py-[7px]">
+      <div
+        className={`flex items-center gap-[10px] text-[12.5px] ${arg ? "cursor-pointer" : ""}`}
+        onClick={arg ? () => setShowIn(!showIn) : undefined}
+      >
+        <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite]" : "bg-ao-fg-3"}`} aria-hidden />
+        <span className="text-ao-fg-0 font-semibold shrink-0">{name}</span>
+        {arg && (
+          <span className="font-mono text-ao-fg-3 truncate min-w-0">{arg}</span>
+        )}
+        <span className="flex-1 min-w-[12px] h-px bg-[var(--line)] opacity-55" aria-hidden />
+        {running && (
+          <span className="shrink-0 font-mono text-[11px] text-[var(--ao-accent)]">running</span>
+        )}
+        {!running && arg && (
+          <Icon
+            name="chevron"
+            size={11}
+            className={`shrink-0 transition-transform duration-[180ms] text-ao-fg-3 ${showIn ? "rotate-90 text-[var(--ao-accent)]" : ""}`}
+          />
+        )}
       </div>
-      {arg && (
-        <div className="mt-2 flex flex-col gap-[6px]">
-          <div className={`border border-[var(--ao-line-0)] rounded-[6px] overflow-hidden bg-[var(--ao-bg-1)]${showIn ? " ao-open" : ""}`}>
-            <div
-              className="flex items-center gap-2 px-[10px] py-[5px] font-mono text-[10.5px] text-ao-fg-2 uppercase tracking-[0.08em] cursor-pointer hover:text-ao-fg-0"
-              onClick={() => setShowIn(!showIn)}
-            >
-              <Icon name="chevron" size={11} className="transition-transform duration-[180ms] [.ao-open_&]:rotate-90 [.ao-open_&]:text-[var(--ao-accent)]" />
-              input
-              <span className="ml-auto text-ao-fg-3 normal-case tracking-normal">{arg.length} chars</span>
-            </div>
-            {showIn && <div className="border-t border-[var(--ao-line-0)] p-[8px_10px] font-mono text-[11.5px] leading-[1.55] text-ao-fg-0 max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words">{arg}</div>}
-          </div>
+      {showIn && arg && (
+        <div className="mt-[6px] ml-[15px] border border-[var(--ao-line-0)] rounded-[6px] p-[8px_10px] font-mono text-[11.5px] leading-[1.55] text-ao-fg-1 max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words bg-[var(--ao-bg-1)]">
+          {arg}
         </div>
       )}
     </div>
   );
 }
+
+/** Above this many tool calls in one turn, the reference's "just list them
+ *  flat" approach stops scaling — collapse behind a summary line instead.
+ *  Below it, render the flat activity list directly with no header at all,
+ *  matching the reference exactly (it never shows a group toggle). */
+const COLLAPSE_THRESHOLD = 8;
 
 export function ToolGroupRow({
   id,
@@ -77,9 +102,10 @@ export function ToolGroupRow({
   running?: boolean;
   hideAvatar?: boolean;
 }) {
-  const [open, toggle] = useExpandedState(id);
-  const single = tools.length === 1;
-  const first = tools[0]!;
+  const longChain = tools.length > COLLAPSE_THRESHOLD;
+  // Long chains default collapsed (a scalability valve the reference never
+  // has to demo); short ones — the common case — skip the toggle entirely.
+  const [open, toggle] = useExpandedState(id, !longChain);
   return (
     <div className="flex items-start gap-[12px] relative group/msg">
       {hideAvatar ? (
@@ -88,36 +114,20 @@ export function ToolGroupRow({
         <AgentAvatar unit={agent.unitChoice} size={60} label={agent.name} className="shrink-0" />
       )}
       <div className="flex-1 min-w-0 w-full">
-        <div className={`border border-ao-line-1 rounded-[10px] bg-ao-bg-2 overflow-hidden${open ? " ao-open" : ""}`}>
-          <div className="flex items-center gap-[10px] px-[14px] py-[10px] cursor-pointer select-none transition-[background] duration-[120ms] hover:bg-ao-bg-3" onClick={toggle}>
-            <span className={`w-[6px] h-[6px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite]" : "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)]"}`} />
-            <span className="w-[22px] h-[22px] flex items-center justify-center rounded-[6px] bg-ao-bg-3 text-ao-fg-1 shrink-0 border border-ao-line-1"><Icon name="wrench" size={13} /></span>
-            <span className="text-[13px] text-ao-fg-0 font-medium flex items-center gap-2 flex-1 min-w-0">
-              {single ? (
-                <>
-                  <ToolIcon name={first.name} />
-                  {first.name}
-                  {first.arg && <span className="font-mono text-[11.5px] text-ao-fg-2 px-[6px] py-[1px] bg-ao-bg-3 border border-ao-line-1 rounded-[4px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[320px]">{first.arg}</span>}
-                </>
-              ) : (
-                <>
-                  <span className="shrink-0 whitespace-nowrap">{tools.length} tool calls</span>
-                  <span className="text-ao-fg-2 font-mono text-[11.5px] ml-1 min-w-0 flex-1 truncate">
-                    {[...new Set(tools.map((t) => t.name))].join(" · ")}
-                  </span>
-                </>
-              )}
-            </span>
-            <span className="text-ao-fg-3 transition-transform duration-[180ms] [.ao-open_&]:rotate-90 [.ao-open_&]:text-[var(--ao-accent)]"><Icon name="chevron" size={14} /></span>
+        {longChain && (
+          <div className="flex items-center gap-[8px] px-[2px] py-[3px] cursor-pointer select-none text-ao-fg-3 hover:text-ao-fg-1 transition-colors duration-[120ms]" onClick={toggle}>
+            <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite]" : "bg-ao-fg-3"}`} />
+            <span className="text-[11px] font-mono uppercase tracking-[0.06em]">{tools.length} tool calls</span>
+            <Icon name="chevron" size={11} className={`transition-transform duration-[180ms] ${open ? "rotate-90 text-[var(--ao-accent)]" : ""}`} />
           </div>
-          {open && (
-            <div className="border-t border-[var(--ao-line-0)] p-0">
-              {tools.map((t) => (
-                <ToolCallRow key={t.id} name={t.name} arg={t.arg} />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
+        {open && (
+          <div className="flex flex-col">
+            {tools.map((t, i) => (
+              <ToolCallRow key={t.id} name={t.name} arg={t.arg} running={running && i === tools.length - 1} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

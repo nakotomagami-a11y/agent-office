@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useCreateWorkflow } from "@/modules/workflows/hooks/use-workflows";
 
 export type MsgActionsProps = {
@@ -89,16 +90,17 @@ function IconButton({ ariaLabel, title, onClick, disabled, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      className="w-[26px] h-[26px] flex items-center justify-center rounded-[6px] text-ao-fg-2 hover:bg-ao-bg-3 hover:text-ao-fg-0"
-      aria-label={ariaLabel}
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {children}
-    </button>
+    <Tooltip content={title} side="top">
+      <button
+        type="button"
+        className="w-[26px] h-[26px] flex items-center justify-center rounded-[6px] text-ao-fg-2 hover:bg-ao-bg-3 hover:text-ao-fg-0"
+        aria-label={ariaLabel}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 

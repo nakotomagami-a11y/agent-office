@@ -7,6 +7,7 @@ import { Composer } from "./composer";
 import { ChatBanners } from "./chat-banners";
 import { phaseHint } from "../format/phase-format";
 import { repairWorktree } from "@/lib/api/roster";
+import type { LiveStats } from "../format/derive-live-stats";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "./live-status";
 import type { ContextProfile } from "@agent-office/domain/types";
@@ -37,7 +38,7 @@ export type ChatPanelBodyProps = {
   setContextProfile: (v: ContextProfile) => void;
   phase: ChatPhase;
   isStreaming: boolean;
-  liveStats: string | undefined;
+  liveStats: LiveStats | undefined;
   isStale: boolean;
   sinceLastEventMs: number | null;
   stream: StreamState;
@@ -95,6 +96,7 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
       <ChatThread
         items={props.thread}
         agent={props.agent}
+        projectId={props.projectId}
         onPickSuggestion={(text) => props.setPendingSeed(text)}
         onSubmit={props.isStreaming ? undefined : props.onSubmit}
         onRepairWorktree={

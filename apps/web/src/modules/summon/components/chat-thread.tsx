@@ -10,11 +10,13 @@ import { ExpandedStateContext, MessageBubble, ToolGroupRow } from "./message-bub
 import { MsgActions } from "./msg-actions";
 import { LiveStatus, type ChatPhase } from "./live-status";
 import { agentDisplayName } from "@/lib/agent-display-name";
-import { fmtClockTime, fmtDuration } from "../format/message-format";
+import { fmtClockTime, fmtDuration, fmtTok } from "../format/message-format";
+import { fmtElapsedColon } from "../format/phase-format";
 import type { ThreadItem } from "../format/thread-types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { groupRows, groupTurns, looksLikeQuestion, type Turn } from "../format/thread-rows";
 import { dedupeThread } from "../format/dedupe-thread";
+import type { LiveStats } from "../format/derive-live-stats";
 
 const LIVE_PHASES = new Set<ChatPhase>(["sending", "connecting", "working", "streaming"]);
 
@@ -33,6 +35,8 @@ const STICK_THRESHOLD_PX = 80;
 export type ChatThreadProps = {
   items: ThreadItem[];
   agent: OfficeAgent;
+  /** Scopes attachment uploads from the inline clarify-reply field to this project. */
+  projectId?: string;
   onPickSuggestion?: (text: string) => void;
   /** Direct submit - used by inline clarify reply. */
   onSubmit?: (text: string) => void;
@@ -54,7 +58,7 @@ export type ChatThreadProps = {
   canScheduleResume?: boolean;
   phase: ChatPhase;
   phaseHint?: string;
-  phaseStats?: string;
+  phaseStats?: LiveStats;
   /** Messages queued while agent is running - rendered as pending bubbles at the bottom. */
   queuedMessages?: Array<{ id: string; text: string }>;
   onCancelQueuedMessage?: (id: string) => void;
@@ -71,48 +75,47 @@ function fmtLedgerCost(cost: number): string {
   return cost > 0 ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : "$0";
 }
 
-/** Left rail for one turn row: connecting line + numbered dot. `variant`
- *  controls the dot's color/pulse — "live" for the still-streaming tail. */
-function TurnRail({ n, variant }: { n: number | null; variant: "done" | "live" }) {
+/** Left rail for one turn row: just the user's king portrait, standing alone
+ *  as the turn's visual anchor (no connecting line, dot, or number). Turns
+ *  without an ask (tool-only continuation, live tail) render an empty
+ *  spacer so the row layout stays aligned. */
+function TurnRail({ n }: { n: number | null }) {
+  if (n === null) return <div className="w-[80px] shrink-0" aria-hidden />;
   return (
-    <div className="relative pt-[2px] w-[36px] shrink-0 flex flex-col items-center">
-      <span className="absolute top-0 bottom-[-20px] w-px bg-[var(--line)]" aria-hidden />
-      <span
-        className={`relative z-[1] w-[13px] h-[13px] rounded-full bg-[var(--bg-1)] flex items-center justify-center ${
-          variant === "live" ? "shadow-[0_0_0_1px_var(--acc),0_0_0_3px_var(--bg-1)]" : "shadow-[0_0_0_1px_var(--line-2),0_0_0_3px_var(--bg-1)]"
-        }`}
-      >
-        <span
-          className={`w-[5px] h-[5px] rounded-full ${variant === "live" ? "bg-[var(--acc)] animate-[ao-pulse_1.4s_ease-in-out_infinite]" : "bg-[var(--txt-4)]"}`}
-        />
-      </span>
-      {n !== null && (
-        <span className="mt-[8px] font-[var(--font-mono)] text-[9px] text-[var(--txt-4)]">{n}</span>
-      )}
+    <div className="w-[80px] shrink-0 flex justify-center pt-[2px]">
+      <UserAvatar size={70} className="rounded-[14px]" />
     </div>
   );
 }
 
-/** Right rail: this turn's own cost/token ledger plus the running total. */
+/** One stat in the turn ledger: a bold number over a small caps label. */
+function LedgerStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className={`text-[16px] font-bold leading-[1.15] whitespace-nowrap ${accent ? "text-[var(--amber)]" : "text-[var(--txt)]"}`}>
+        {value}
+      </div>
+      <div className="text-[9px] font-bold tracking-[0.08em] uppercase text-[var(--txt-4)] whitespace-nowrap">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/** Right rail: this turn's own cost/token/duration ledger plus the running total. */
 function TurnLedger({ turn }: { turn: Turn }) {
   if (!turn.ledger) return <div className="w-[84px] shrink-0" aria-hidden />;
   return (
-    <div className="w-[84px] shrink-0 text-right pl-[12px] border-l border-[var(--line)]">
-      <div className="font-[var(--font-mono)] text-[11px] font-bold text-[var(--txt-2)] whitespace-nowrap">
-        {fmtLedgerCost(turn.ledger.cost)}
-      </div>
-      <div className="text-[8.5px] font-bold tracking-[0.08em] uppercase text-[var(--txt-4)] whitespace-nowrap">
-        {turn.ledger.tokens > 0 ? `${turn.ledger.tokens.toLocaleString()} tok` : "0 tok"}
-      </div>
+    <div className="w-[84px] shrink-0 text-right pl-[12px] border-l border-[var(--line)] flex flex-col gap-[10px]">
       {turn.ledger.durationMs !== undefined && (
-        <div className="mt-[3px] font-[var(--font-mono)] text-[10px] text-[var(--txt-4)] whitespace-nowrap">
-          {fmtDuration(turn.ledger.durationMs)}
-        </div>
+        <LedgerStat value={fmtDuration(turn.ledger.durationMs)} label="elapsed" />
       )}
+      <LedgerStat value={fmtTok(turn.ledger.tokens)} label="tokens" />
+      <LedgerStat value={fmtLedgerCost(turn.ledger.cost)} label="cost" accent />
       {turn.cumulativeCost > 0 && (
-        <div className="mt-[8px] pt-[7px] border-t border-[var(--line)]">
+        <div className="pt-[8px] border-t border-[var(--line)]">
           <div className="font-[var(--font-mono)] text-[10px] text-[var(--txt-4)] whitespace-nowrap">
-            {fmtLedgerCost(turn.cumulativeCost)}
+            {fmtLedgerCost(turn.cumulativeCost)} · {fmtTok(turn.cumulativeTokens)}
           </div>
           <div className="text-[8px] font-bold tracking-[0.08em] uppercase text-[var(--txt-4)] whitespace-nowrap">running</div>
         </div>
@@ -121,7 +124,7 @@ function TurnLedger({ turn }: { turn: Turn }) {
   );
 }
 
-export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
+export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
   // server restarts on any server-side edit and the panel replays the active
@@ -134,7 +137,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
   // Stable map for collapsible section state — survives re-renders and remounts during streaming.
   const expandedMapRef = useRef<Map<string, boolean>>(new Map());
   const expandedCtx = useMemo(() => ({
-    get: (id: string) => expandedMapRef.current.get(id) ?? false,
+    get: (id: string) => expandedMapRef.current.get(id),
     set: (id: string, val: boolean) => { expandedMapRef.current.set(id, val); },
   }), []);
 
@@ -353,7 +356,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
       ) : (
         <>
           {hiddenTurnCount > 0 ? (
-            <div className="max-w-[880px] mx-auto mb-3 px-2 flex justify-center">
+            <div className="mb-3 px-2 flex justify-center">
               <Button
                 variant="ghost"
                 size="sm"
@@ -367,13 +370,13 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
               </Button>
             </div>
           ) : null}
-          <div className="max-w-[880px] mx-auto px-2 flex flex-col">
+          <div className="px-2 flex flex-col">
             {visibleTurns.map((turn, turnIdx) => {
               const isLastTurn = turnIdx === visibleTurns.length - 1;
               const clockTime = turn.ask ? fmtClockTime(turn.ask.id) : undefined;
               return (
                 <div key={turn.id} className="flex gap-[14px] pb-[22px]">
-                  <TurnRail n={turn.ask ? turnIdx + 1 : null} variant={isLastTurn && isLiveTail ? "live" : "done"} />
+                  <TurnRail n={turn.ask ? turnIdx + 1 : null} />
                   <div className="min-w-0 flex-1 pt-[2px]">
                     {turn.ask && (
                       <div className="relative group/msg mb-[14px]">
@@ -412,6 +415,7 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
                               key={item.id + "mbbl_" + rowIdx}
                               item={item}
                               agent={agent}
+                              projectId={projectId}
                               isQuestion={isQuestion}
                               hideAvatar
                               onReply={isQuestion && onSubmit ? onSubmit : undefined}
@@ -454,19 +458,45 @@ export function ChatThread({ items: rawItems, agent, onPickSuggestion, onSubmit,
             })}
             {isLiveTail && (
               <div className="flex gap-[14px] pb-[22px]">
-                <TurnRail n={null} variant="live" />
-                <div className="min-w-0 flex-1 pt-[2px] flex items-center gap-3">
-                  <LiveStatus phase={phase} hint={phaseHint} />
-                  {phaseStats && (
-                    <span className="font-[var(--font-mono)] text-[11.5px] text-[var(--txt-4)] whitespace-nowrap shrink-0">{phaseStats}</span>
+                <TurnRail n={null} />
+                <div className="min-w-0 flex-1 pt-[2px] flex flex-col gap-[11px]">
+                  <div className="flex items-center gap-[10px]">
+                    <LiveStatus phase={phase} hint={phaseHint} />
+                    {phaseStats && (
+                      <span className="font-[var(--font-mono)] text-[11.5px] text-[var(--txt-4)] whitespace-nowrap shrink-0">
+                        {fmtElapsedColon(phaseStats.elapsedSec)}
+                      </span>
+                    )}
+                    <span className="flex-1 h-px bg-[var(--line)]" aria-hidden />
+                    {onAbortRun && (
+                      <button
+                        type="button"
+                        onClick={onAbortRun}
+                        className="shrink-0 inline-flex items-center gap-[6px] h-[24px] px-[10px] rounded-full text-[11.5px] text-[var(--txt-3)] bg-[var(--bg-2)] border border-[var(--line)] hover:text-[var(--red)] hover:border-[var(--red)] transition-colors duration-[120ms]"
+                      >
+                        <Icon name="stop" size={9} />
+                        {t("stop_run")}
+                        <span className="font-[var(--font-mono)] text-[9.5px] text-[var(--txt-4)]">esc</span>
+                      </button>
+                    )}
+                  </div>
+                  {phase === "working" && (
+                    <div className="flex flex-col gap-[7px]" aria-hidden>
+                      <span className="block h-[9px] w-[78%] rounded-[5px] bg-[var(--bg-3)] animate-[ao-pulse_1.8s_ease-in-out_infinite]" />
+                      <span className="block h-[9px] w-[54%] rounded-[5px] bg-[var(--bg-3)] animate-[ao-pulse_1.8s_ease-in-out_infinite] [animation-delay:0.3s]" />
+                    </div>
                   )}
                 </div>
-                <div className="w-[84px] shrink-0" aria-hidden />
+                <div className="w-[84px] shrink-0 text-right pl-[12px] border-l border-[var(--line)]">
+                  {phaseStats && phaseStats.tokens > 0 && (
+                    <LedgerStat value={fmtTok(phaseStats.tokens)} label="streaming" />
+                  )}
+                </div>
               </div>
             )}
           </div>
           {queuedMessages && queuedMessages.length > 0 ? (
-            <div className="max-w-[880px] mx-auto px-2 mt-1 flex flex-col gap-3">
+            <div className="px-2 mt-1 flex flex-col gap-3">
               {queuedMessages.map((q, i) => (
                 <div key={q.id + "qm_"+i} className="flex flex-row-reverse ml-auto w-fit max-w-[80%] gap-[12px] relative opacity-[0.55]">
                   <UserAvatar size={60} className="shrink-0" />
