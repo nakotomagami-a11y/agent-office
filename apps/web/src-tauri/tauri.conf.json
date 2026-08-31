@@ -5,7 +5,7 @@
   "identifier": "com.agentoffice.app",
   "build": {
     "beforeDevCommand": "pnpm exec next dev --port 5173 --turbopack",
-    "beforeBuildCommand": "unset __NEXT_PRIVATE_STANDALONE_CONFIG && pnpm exec next build --webpack && node scripts/prepare-bundle.mjs",
+    "beforeBuildCommand": "unset __NEXT_PRIVATE_STANDALONE_CONFIG && NODE_OPTIONS=--max-old-space-size=8192 pnpm exec next build --webpack && node scripts/prepare-bundle.mjs",
     "frontendDist": "http://localhost:5173",
     "devUrl": "http://localhost:5173"
   },
