@@ -86,12 +86,12 @@ function InstanceCard({
         "group flex flex-col gap-[14px] p-4 rounded-[12px] border text-left transition-[background,border-color,transform,box-shadow] duration-[120ms] cursor-pointer",
         isSelected
           ? "border-[var(--ao-accent)] bg-ao-bg-2 [box-shadow:0_0_0_1px_var(--ao-accent)]"
-          : "border-ao-line-1 bg-ao-bg-2 hover:bg-ao-bg-3 hover:border-ao-line-2 hover:-translate-y-px hover:[box-shadow:var(--ao-shadow-modal)]",
+          : "border-ao-line-0 bg-ao-bg-2 hover:bg-ao-bg-3 hover:border-ao-line-2 hover:-translate-y-px hover:[box-shadow:var(--ao-shadow-modal)]",
       )}
     >
       {/* ── Header: avatar + #N + status chip ── */}
       <div className="flex items-center gap-3">
-        <div className="relative w-11 h-11 rounded-[10px] bg-ao-bg-3 border border-ao-line-1 flex items-center justify-center shrink-0">
+        <div className="relative w-11 h-11 rounded-[10px] bg-ao-bg-3 border border-ao-line-0 flex items-center justify-center shrink-0">
           <AgentAvatar unit={agent.unitChoice} size={34} label={agent.name} />
           <span
             className={cn(
@@ -119,7 +119,7 @@ function InstanceCard({
             "inline-flex items-center gap-[5px] shrink-0 px-[8px] h-[20px] rounded-full font-mono text-[10.5px] lowercase tracking-[0.03em]",
             isLive ? "bg-[color-mix(in_oklab,var(--ao-ok)_14%,transparent)] text-[var(--ao-ok)]" :
             isError ? "bg-[var(--ao-bad-soft)] text-[var(--ao-bad)]" :
-            "bg-ao-bg-3 text-ao-fg-2 border border-ao-line-1",
+            "bg-ao-bg-3 text-ao-fg-2 border border-ao-line-0",
           )}
         >
           <span className={cn("w-[5px] h-[5px] rounded-full bg-current", isLive && "shadow-[0_0_5px_currentColor]")} />
@@ -142,10 +142,10 @@ function InstanceCard({
 
       {/* ── Footer: model / effort / time ── */}
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-[5px] bg-ao-bg-3 border border-ao-line-1 text-ao-fg-2 px-[7px] h-[22px] rounded-[6px] font-mono text-[10.5px]">
+        <span className="inline-flex items-center gap-[5px] bg-ao-bg-3 border border-ao-line-0 text-ao-fg-2 px-[7px] h-[22px] rounded-[6px] font-mono text-[10.5px]">
           {agent.defaultModel ?? "default"}
         </span>
-        <span className="inline-flex items-center gap-[5px] bg-ao-bg-3 border border-ao-line-1 text-ao-fg-2 px-[7px] h-[22px] rounded-[6px] font-mono text-[10.5px]">
+        <span className="inline-flex items-center gap-[5px] bg-ao-bg-3 border border-ao-line-0 text-ao-fg-2 px-[7px] h-[22px] rounded-[6px] font-mono text-[10.5px]">
           effort {agent.defaultEffort ?? "default"}
         </span>
         {instance.worktreeMissing && (
@@ -201,11 +201,11 @@ function InstanceOverview({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Back button in header area */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-ao-line-1 shrink-0">
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-ao-line-0 shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-[6px] h-7 px-[10px] rounded-lg bg-ao-bg-3 border border-ao-line-1 text-ao-fg-1 text-[13px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 hover:border-ao-line-2"
+          className="inline-flex items-center gap-[6px] h-7 px-[10px] rounded-lg bg-ao-bg-3 border border-ao-line-0 text-ao-fg-1 text-[13px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 hover:border-ao-line-2"
         >
           <span className="rotate-180 inline-flex"><Icon name="chevron" size={13} /></span> Back
         </button>
@@ -213,7 +213,7 @@ function InstanceOverview({
           All instances of{" "}
           <span className="text-ao-fg-0 font-semibold">{agentDisplayName(agent)}</span>
         </span>
-        <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-[8px] rounded-full bg-ao-bg-3 border border-ao-line-1 text-ao-fg-2 font-mono text-[11.5px]">
+        <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-[8px] rounded-full bg-ao-bg-3 border border-ao-line-0 text-ao-fg-2 font-mono text-[11.5px]">
           {instances.length}
         </span>
       </div>
@@ -433,16 +433,19 @@ export function AgentDetailsModal() {
 
   const isWorking = effectiveStatus === "working" || effectiveStatus === "thinking";
 
-  // Status bubble shown inline with the agent name in the header.
-  const statusDot = (
+  // Status shown inline with the agent name in the header: a plain dot at
+  // rest, a full "live" pill (background + label) when actually working —
+  // matching the reference design, which only calls out the active state
+  // rather than badging idle as if it were equally noteworthy.
+  const statusDot = isWorking ? (
+    <span className="inline-flex items-center gap-[6px] shrink-0 h-[22px] pl-[8px] pr-[10px] rounded-full bg-[color-mix(in_srgb,var(--ao-ok)_16%,transparent)] text-[var(--ao-ok)] text-[12px] font-semibold">
+      <span className="w-[6px] h-[6px] rounded-full bg-[var(--ao-ok)] shadow-[0_0_6px_var(--ao-ok)] animate-[ao-pulse_1.5s_infinite]" aria-hidden />
+      live
+    </span>
+  ) : (
     <span
-      className={cn(
-        "inline-block w-[9px] h-[9px] rounded-full shrink-0",
-        isWorking
-          ? "bg-[var(--ao-ok)] shadow-[0_0_6px_var(--ao-ok)] animate-[ao-pulse_1.5s_infinite]"
-          : "bg-[var(--ao-fg-3)]",
-      )}
-      title={isWorking ? "working" : "idle"}
+      className="inline-block w-[9px] h-[9px] rounded-full shrink-0 bg-[var(--ao-fg-3)]"
+      title="idle"
       aria-hidden
     />
   );
@@ -475,7 +478,7 @@ export function AgentDetailsModal() {
       >
         <div
           ref={ref}
-          className="ao-modal relative w-full max-w-[1240px] bg-[var(--ao-bg-1)] border border-[var(--ao-line-1)] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
+          className="ao-modal surface-sheen relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
           style={{ height: "calc(100vh - 52px)", maxHeight: "940px" }}
           role="dialog"
           aria-modal="true"
@@ -483,7 +486,7 @@ export function AgentDetailsModal() {
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Tab bar ── */}
-          <div className="flex items-stretch px-2 border-b border-ao-line-1 bg-gradient-to-b from-white/[0.02] to-transparent h-[var(--ao-tab-h)] shrink-0 relative" role="tablist">
+          <div className="flex items-stretch px-2 border-b border-ao-line-0 bg-gradient-to-b from-white/[0.02] to-transparent h-[var(--ao-tab-h)] shrink-0 relative" role="tablist">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -542,47 +545,44 @@ export function AgentDetailsModal() {
           ) : (
             <>
           {/* ── Agent header ── */}
-          <div className="flex items-center gap-[14px] px-6 h-[84px] border-b border-ao-line-1 bg-gradient-to-b from-white/[0.015] to-transparent shrink-0">
+          <div className="flex items-center gap-[14px] px-6 h-[84px] border-b border-ao-line-0 bg-gradient-to-b from-white/[0.015] to-transparent shrink-0">
             <div className="relative shrink-0 w-[40px] h-[70px] flex items-center justify-center">
               <UnitSprite unit={agent.unitChoice} size={70} label={agent.name} animate action={isWorking ? "attack" : "idle"} />
             </div>
             <div className="flex flex-col gap-0.5 min-w-0">
-              {/* Breadcrumb: agent name › #N label — only when multi-instance */}
-              {isMultiAgentSelected && selectedInst ? (
-                <div className="flex items-center gap-[6px] text-[13px] font-semibold min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowOverview(true)}
-                    className="text-ao-fg-2 hover:text-ao-fg-0 transition-colors duration-[120ms] underline-offset-2 hover:underline truncate max-w-[160px]"
-                    title={`View all instances of ${agent.name}`}
-                  >
-                    {agentDisplayName(agent)}
-                  </button>
-                  <span className="text-ao-fg-3 shrink-0" aria-hidden>›</span>
-                  <span className="text-ao-fg-0 shrink-0">
-                    Session {selectedInstIdx + 1}
-                  </span>
-                  {selectedInst.label && (
-                    <>
-                      <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
-                      <span className="text-ao-fg-1 truncate">{selectedInst.label}</span>
-                    </>
-                  )}
-                  {statusDot}
-                </div>
-              ) : (
-                <div className="flex items-center gap-[7px] min-w-0">
-                  <span className="font-bold text-base text-ao-fg-0 truncate">{agentDisplayName(agent)}</span>
-                  {statusDot}
-                </div>
-              )}
+              {/* Agent name is always the primary heading — session/label is
+                  secondary metadata after it, never the other way round. */}
+              <div className="flex items-center gap-[7px] min-w-0">
+                <span className="font-bold text-base text-ao-fg-0 truncate shrink-0">{agentDisplayName(agent)}</span>
+                {isMultiAgentSelected && selectedInst && (
+                  <>
+                    <span className="text-ao-fg-3 shrink-0" aria-hidden>/</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowOverview(true)}
+                      className="text-ao-fg-2 hover:text-ao-fg-0 text-[13px] transition-colors duration-[120ms] underline-offset-2 hover:underline truncate max-w-[160px]"
+                      title={`View all instances of ${agent.name}`}
+                    >
+                      Session {selectedInstIdx + 1}
+                    </button>
+                    {selectedInst.label && (
+                      <>
+                        <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
+                        <span className="text-ao-fg-2 text-[13px] truncate">{selectedInst.label}</span>
+                      </>
+                    )}
+                  </>
+                )}
+                {statusDot}
+              </div>
               <div className="flex items-center gap-[7px] text-ao-fg-2 font-mono text-[12px]">
                 <DropdownMenu
                   align="start"
                   ariaLabel="Model"
-                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
+                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:!shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
                   trigger={
-                    <span className="flex items-center gap-[5px]">
+                    <span className="flex items-center gap-[6px]">
+                      <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--ao-accent)]" aria-hidden />
                       <span>{agent.defaultModel ?? "default"}</span>
                       <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
                     </span>
@@ -597,9 +597,10 @@ export function AgentDetailsModal() {
                 <DropdownMenu
                   align="start"
                   ariaLabel="Effort"
-                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
+                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:!shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
                   trigger={
-                    <span className="flex items-center gap-[5px]">
+                    <span className="flex items-center gap-[6px]">
+                      <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--cyan)]" aria-hidden />
                       <span>effort {agent.defaultEffort ?? "default"}</span>
                       <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
                     </span>
@@ -619,11 +620,9 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
-              {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
               {/* Alt+← / Alt+→ navigator when multi-instance */}
               {isMultiAgentSelected && (
-                <div className="flex items-center gap-[1px] p-[3px] mr-1 rounded-[12px] bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-1)]">
+                <div className="flex items-center gap-[1px] p-[3px] mr-1 rounded-[12px] bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-0)]">
                   <Tooltip content="Previous (Alt+←)" side="bottom">
                     <button
                       type="button"
@@ -634,7 +633,7 @@ export function AgentDetailsModal() {
                         const next = agentInstances[ni];
                         if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
                       }}
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
+                      className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
                     >
                       <span className="rotate-180 inline-flex"><Icon name="chevron" size={12} /></span>
                     </button>
@@ -652,7 +651,7 @@ export function AgentDetailsModal() {
                         const next = agentInstances[ni];
                         if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
                       }}
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
+                      className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
                     >
                       <Icon name="chevron" size={12} />
                     </button>
@@ -670,6 +669,8 @@ export function AgentDetailsModal() {
                   <Icon name="plus" size={13} /> New
                 </button>
               )}
+              {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
+              {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
               {activeProjectId && selectedInstanceId && (
                 confirmDeleteInstance ? (
                   <span className="inline-flex items-center gap-[6px] h-7 pl-[10px] pr-1 rounded-lg bg-[var(--ao-bad-soft)] border border-[rgba(217,83,79,0.30)] text-[var(--ao-bad)] text-[12.5px]">
@@ -705,11 +706,11 @@ export function AgentDetailsModal() {
                     <button
                       type="button"
                       aria-label="Delete this agent instance"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
+                      className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
                       disabled={removeMut.isPending}
                       onClick={() => setConfirmDeleteInstance(true)}
                     >
-                      <Icon name="trash" size={14} />
+                      <Icon name="trash" size={15} />
                     </button>
                   </Tooltip>
                 )

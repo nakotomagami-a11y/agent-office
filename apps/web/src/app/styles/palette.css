@@ -18,9 +18,9 @@
   --card:   #14161f;
   --card-2: #1a1d28;
   --card-3: #212533;
-  --edge:   rgba(255, 255, 255, 0.07);
-  --edge-2: rgba(255, 255, 255, 0.13);
-  --line-strong: rgba(255, 255, 255, 0.20);
+  --edge:   rgba(255, 255, 255, 0.05);
+  --edge-2: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
 
   /* Card gradient fill / gradient-border sheen / elevation shadow used by
      every card, pill, and floating control. See `.surface-sheen` in
@@ -93,12 +93,18 @@
   --error:    var(--red);
   --thinking: var(--amber);
 
-  /* Code block — dark surface + One Dark-family syntax palette. */
-  --code-bg:          #1c1714;
-  --code-fg:          #e8ddd5;
+  /* Code block — dark surface + One Dark-family syntax palette.
+     bg/fg/head-fg alias onto the retheme'd surface + text ramp (were
+     leftover warm "One Dark" hexes — #1c1714/#e8ddd5/#c7bfb7 — that never
+     got migrated when the rest of the app moved to the cool violet/blue-
+     gray palette above, so the code block visibly didn't match). The rest
+     of this block (alpha overlays + the --hl-* syntax colors) was already
+     theme-neutral or cool-toned and is untouched. */
+  --code-bg:          var(--card-2);
+  --code-fg:          var(--txt-2);
   --code-head-bg:     rgba(255, 255, 255, 0.04);
   --code-head-border: rgba(255, 255, 255, 0.07);
-  --code-head-fg:     #c7bfb7;
+  --code-head-fg:     var(--txt-3);
   --code-head-muted:  rgba(255, 255, 255, 0.45);
   --code-head-faint:  rgba(255, 255, 255, 0.25);
   --code-cp-border:   rgba(255, 255, 255, 0.12);
@@ -172,9 +178,9 @@
   --card:   #ffffff;
   --card-2: #f6f7fb;
   --card-3: #eceef5;
-  --edge:   rgba(12, 14, 24, 0.08);
-  --edge-2: rgba(12, 14, 24, 0.15);
-  --line-strong: rgba(12, 14, 24, 0.24);
+  --edge:   rgba(12, 14, 24, 0.06);
+  --edge-2: rgba(12, 14, 24, 0.10);
+  --line-strong: rgba(12, 14, 24, 0.17);
 
   --card-bg: linear-gradient(180deg, #ffffff 0%, #fbfbfe 100%);
   --inset-hi: inset 0 1px 0 rgba(255, 255, 255, 0.9);
