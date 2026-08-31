@@ -57,8 +57,9 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
   --ao-header-h: 72px;
 }
 
-/* ao-agent-strip scrollbar */
-.ao-agent-strip::-webkit-scrollbar { display: none; }
+/* ao-agent-strip scrollbar: hidden via `[scrollbar-width:none]` on the
+   element itself (see agent-strip.tsx) — the standard property, not a
+   `::-webkit-scrollbar` override; see styles/scrollbars.css for why. */
 
 /* ao-* keyframes */
 @keyframes ao-pulse {
@@ -182,8 +183,6 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
   padding-right: 30px;
 }
 
-/* ao-modal scrollbar */
-.ao-modal .ao-modal-body::-webkit-scrollbar { width: 10px; }
-.ao-modal .ao-modal-body::-webkit-scrollbar-thumb {
-  background: var(--ao-bg-4); border-radius: 5px; border: 2px solid var(--ao-bg-1);
-}
+/* ao-modal scrollbar: themed via `[scrollbar-color:...]`/`[scrollbar-width:thin]`
+   on `.ao-modal-body` itself (see agent-details/index.tsx) — see
+   styles/scrollbars.css for why this isn't a `::-webkit-scrollbar` rule. */
