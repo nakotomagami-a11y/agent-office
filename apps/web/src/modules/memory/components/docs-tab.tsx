@@ -13,12 +13,18 @@
  * note; docs are the architecture write-ups, plans, and postmortems agents
  * accumulate so the workspace builds up institutional memory. Agents write
  * these via `PUT /api/agent-docs/[owner]/[slug]`; users can edit and delete
- * them here.
+ * them here. Creation happens through a `ModalShell` (matching every other
+ * "new X" flow in the app) instead of an inline floating form, and the nav
+ * gets the same icon+input filter row as `MemoryNav`.
  */
 
-import { useMemo, useState } from "react";
-import { Icon } from "@/components/ui/icon";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { ACCENT_BTN, Button } from "@/components/ui/button";
+import { ModalShell } from "@/components/ui/modal-shell";
+import { TextInput } from "@/components/ui/text-input";
+import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/format-date";
 import {
@@ -41,9 +47,18 @@ interface DocSelection {
   slug: string;
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
 // ── Nav ──────────────────────────────────────────────────────────────────────
 
-const CATEGORY_ICON: Record<DocCategory, "sparkle" | "code" | "pen" | "hammer" | "book" | "search"> = {
+const CATEGORY_ICON: Record<DocCategory, IconName> = {
   architecture: "code",
   plan: "sparkle",
   notes: "pen",
@@ -123,6 +138,18 @@ function DocsNav({
   onSelect: (sel: DocSelection) => void;
   onNewDoc: () => void;
 }) {
+  const [filter, setFilter] = useState("");
+  const q = filter.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return docs;
+    return docs.filter(
+      (d) =>
+        d.title.toLowerCase().includes(q) ||
+        d.slug.toLowerCase().includes(q) ||
+        d.owner.toLowerCase().includes(q),
+    );
+  }, [docs, q]);
+
   const grouped = useMemo(() => {
     const out: Record<DocCategory, DocMeta[]> = {
       architecture: [],
@@ -132,9 +159,9 @@ function DocsNav({
       context: [],
       reference: [],
     };
-    for (const d of docs) out[d.category].push(d);
+    for (const d of filtered) out[d.category].push(d);
     return out;
-  }, [docs]);
+  }, [filtered]);
 
   return (
     <div className="w-[268px] shrink-0 rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden flex flex-col min-h-0">
@@ -149,16 +176,35 @@ function DocsNav({
         >
           <Icon name="sparkle" size={14} /> New doc
         </button>
+        {docs.length > 0 && (
+          <div className="flex items-center gap-[9px] mt-[10px] py-[9px] px-[12px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-text">
+            <Icon name="search" size={14} className="text-txt-4 shrink-0" />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter docs…"
+              className="flex-1 min-w-0 border-none bg-transparent outline-none text-[12px] text-txt placeholder:text-txt-4"
+            />
+          </div>
+        )}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-[12px] pb-[12px] flex flex-col gap-[1px]">
         {docs.length === 0 ? (
-          <div className="px-[9px] py-[10px] text-[11.5px] text-txt-3 leading-relaxed">
-            No docs yet. Agents write here via{" "}
-            <code className="font-[var(--font-mono)] text-[10.5px] bg-card-2 px-[4px] py-[1px] rounded-[4px]">
-              PUT /api/agent-docs/&lt;owner&gt;/&lt;slug&gt;
-            </code>
-            , or use the New doc button.
-          </div>
+          <NavEmptyState
+            icon="book"
+            title="No docs yet"
+            description={
+              <>
+                Agents write here via{" "}
+                <code className="font-[var(--font-mono)] text-[10.5px] bg-card-2 px-[4px] py-[1px] rounded-[4px]">
+                  PUT /api/agent-docs/&lt;owner&gt;/&lt;slug&gt;
+                </code>
+                , or use the New doc button above.
+              </>
+            }
+          />
+        ) : filtered.length === 0 ? (
+          <NavEmptyState icon="search" title="No matches" description={`Nothing matches “${filter}”.`} />
         ) : (
           DOC_CATEGORIES.map((cat) => (
             <CategorySection
@@ -175,14 +221,29 @@ function DocsNav({
   );
 }
 
-// ── Editor pane ──────────────────────────────────────────────────────────────
-
-interface DraftMeta {
-  owner: string;
-  slug: string;
+function NavEmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: IconName;
   title: string;
-  category: DocCategory;
+  description: React.ReactNode;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-[12px] text-center px-[10px] py-[36px]">
+      <span className="w-[42px] h-[42px] rounded-[14px] flex items-center justify-center bg-card-2 border border-edge shadow-[var(--inset-hi)] text-txt-4">
+        <Icon name={icon} size={18} />
+      </span>
+      <div className="leading-[1.5]">
+        <div className="text-[12.5px] font-bold text-txt">{title}</div>
+        <div className="text-[11px] text-txt-4 mt-[4px]">{description}</div>
+      </div>
+    </div>
+  );
 }
+
+// ── Editor pane ──────────────────────────────────────────────────────────────
 
 function DocEditor({
   selected,
@@ -207,12 +268,14 @@ function DocEditor({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div className="shrink-0 flex items-center gap-[12px] px-[20px] py-[14px] border-b border-edge">
+      <div className="shrink-0 flex items-center gap-[10px] px-[20px] py-[14px] border-b border-edge">
         <span className="text-[15.5px] font-bold overflow-hidden text-ellipsis whitespace-nowrap">{doc.title}</span>
         <span className="flex-1" />
-        <span className="font-[var(--font-mono)] text-[10.5px] text-txt-4 whitespace-nowrap">
-          {doc.category} · {doc.owner === "_global" ? "global" : doc.owner}
-        </span>
+        <Tag variant="skill" className="gap-[5px]">
+          <Icon name={CATEGORY_ICON[doc.category]} size={10} />
+          {doc.category}
+        </Tag>
+        <Tag>{doc.owner === "_global" ? "global" : doc.owner}</Tag>
         <button
           type="button"
           title="Delete doc"
@@ -272,112 +335,162 @@ function DocEditorEmpty({ onNewDoc }: { onNewDoc: () => void }) {
   );
 }
 
-// ── New-doc form ─────────────────────────────────────────────────────────────
+// ── New-doc modal ────────────────────────────────────────────────────────────
 
-function NewDocForm({
-  onCancel,
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-[5px]">
+      <span className="text-[12px] font-medium text-txt">{label}</span>
+      {children}
+      {hint ? <span className="text-[11px] text-txt-3 leading-[1.4]">{hint}</span> : null}
+    </label>
+  );
+}
+
+/** Category field — our real `DropdownMenu` popup, styled to match `TextInput`, instead of a browser-native `<select>`. */
+function CategoryPicker({ value, onChange }: { value: DocCategory; onChange: (c: DocCategory) => void }) {
+  const items: DropdownItem[] = DOC_CATEGORIES.map((c) => ({
+    key: c,
+    selected: c === value,
+    indicatorStyle: "check",
+    label: (
+      <span className="flex items-center gap-[8px]">
+        <Icon name={CATEGORY_ICON[c]} size={13} className="text-txt-4 shrink-0" />
+        <span className="capitalize">{c}</span>
+      </span>
+    ),
+    onSelect: () => onChange(c),
+  }));
+
+  return (
+    <DropdownMenu
+      ariaLabel="Category"
+      align="start"
+      matchTriggerWidth
+      className="w-full"
+      triggerClassName="w-full h-8 px-[10px] justify-between bg-bg-1 border border-line-2 rounded-md text-txt text-[13px] [font:inherit] shadow-1 hover:bg-bg-1 hover:border-line-2 focus-visible:border-acc"
+      trigger={
+        <>
+          <span className="flex items-center gap-[8px] min-w-0">
+            <Icon name={CATEGORY_ICON[value]} size={13} className="text-txt-4 shrink-0" />
+            <span className="capitalize truncate">{value}</span>
+          </span>
+          <Icon name="chevron-down" size={13} className="text-txt-4 shrink-0" />
+        </>
+      }
+      items={items}
+    />
+  );
+}
+
+function NewDocModal({
+  open,
+  onClose,
   onCreated,
 }: {
-  onCancel: () => void;
+  open: boolean;
+  onClose: () => void;
   onCreated: (sel: DocSelection) => void;
 }) {
   const upsert = useUpsertAgentDoc();
-  const [draft, setDraft] = useState<DraftMeta>({
-    owner: "_global",
-    slug: "",
-    title: "",
-    category: "notes",
-  });
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [owner, setOwner] = useState("_global");
+  const [category, setCategory] = useState<DocCategory>("notes");
+  const titleRef = useRef<HTMLInputElement>(null);
 
-  const canSave =
-    draft.slug.trim().length > 0 &&
-    draft.title.trim().length > 0 &&
-    /^[A-Za-z0-9._-]+$/.test(draft.slug);
+  useEffect(() => {
+    if (!open) return;
+    setTitle("");
+    setSlug("");
+    setSlugEdited(false);
+    setOwner("_global");
+    setCategory("notes");
+    upsert.reset();
+    setTimeout(() => titleRef.current?.focus(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open transitions
+  }, [open]);
+
+  const effectiveSlug = slugEdited ? slug : slugify(title);
+  const canSave = title.trim().length > 0 && /^[a-z0-9-]+$/.test(effectiveSlug);
 
   const handleSave = () => {
     if (!canSave || upsert.isPending) return;
-    const owner = draft.owner.trim() || "_global";
+    const finalOwner = owner.trim() || "_global";
     upsert.mutate(
       {
-        owner,
-        slug: draft.slug.trim(),
-        title: draft.title.trim(),
-        category: draft.category,
+        owner: finalOwner,
+        slug: effectiveSlug,
+        title: title.trim(),
+        category,
         body: "",
       },
       {
-        onSuccess: () => onCreated({ owner, slug: draft.slug.trim() }),
+        onSuccess: () => {
+          onCreated({ owner: finalOwner, slug: effectiveSlug });
+          onClose();
+        },
       },
     );
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className="w-full max-w-[420px] flex flex-col gap-[12px] rounded-[18px] bg-card-2 border border-edge shadow-[var(--inset-hi)] p-[18px]">
-        <div className="text-[14px] font-bold text-txt">New doc</div>
-        <label className="flex flex-col gap-[5px] text-[11.5px] text-txt-2">
-          Title
-          <input
-            type="text"
-            value={draft.title}
-            placeholder="Plan for X…"
-            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-            className="h-[34px] px-[12px] bg-card border border-edge rounded-[10px] text-txt text-[12.5px] outline-none [font:inherit] focus:border-[var(--acc)]"
-          />
-        </label>
-        <label className="flex flex-col gap-[5px] text-[11.5px] text-txt-2">
-          Slug (filename, no spaces)
-          <input
-            type="text"
-            value={draft.slug}
-            placeholder="plan-for-x"
-            onChange={(e) => setDraft((d) => ({ ...d, slug: e.target.value }))}
-            className="h-[34px] px-[12px] bg-card border border-edge rounded-[10px] text-txt text-[12.5px] font-[var(--font-mono)] outline-none focus:border-[var(--acc)]"
-          />
-        </label>
-        <label className="flex flex-col gap-[5px] text-[11.5px] text-txt-2">
-          Owner (agent-id, or leave `_global` for shared docs)
-          <input
-            type="text"
-            value={draft.owner}
-            onChange={(e) => setDraft((d) => ({ ...d, owner: e.target.value }))}
-            className="h-[34px] px-[12px] bg-card border border-edge rounded-[10px] text-txt text-[12.5px] font-[var(--font-mono)] outline-none focus:border-[var(--acc)]"
-          />
-        </label>
-        <label className="flex flex-col gap-[5px] text-[11.5px] text-txt-2">
-          Category
-          <select
-            value={draft.category}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                category: e.target.value as DocCategory,
-              }))
-            }
-            className="h-[34px] px-[10px] bg-card border border-edge rounded-[10px] text-txt text-[12.5px] [font:inherit] cursor-pointer"
-          >
-            {DOC_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-center gap-[8px] justify-end mt-[4px]">
-          <Button size="sm" variant="ghost" onClick={onCancel}>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      onEnter={handleSave}
+      title="New doc"
+      footer={
+        <div className="flex items-center justify-end gap-[8px]">
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <button
-            type="button"
-            disabled={!canSave || upsert.isPending}
-            onClick={handleSave}
-            className={cn(ACCENT_BTN, "py-[9px] px-[16px] rounded-[11px] text-[12.5px] font-bold")}
-          >
+          <Button variant="primary" disabled={!canSave || upsert.isPending} onClick={handleSave}>
             {upsert.isPending ? "Creating…" : "Create"}
-          </button>
+          </Button>
         </div>
+      }
+    >
+      <div className="flex flex-col gap-[14px]">
+        <Field label="Title">
+          <TextInput
+            ref={titleRef}
+            value={title}
+            placeholder="Plan for X…"
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Slug" hint="Filename — derived from the title, or set it yourself">
+          <TextInput
+            value={effectiveSlug}
+            placeholder="plan-for-x"
+            onChange={(e) => {
+              setSlugEdited(true);
+              setSlug(slugify(e.target.value));
+            }}
+            className="font-mono"
+          />
+        </Field>
+
+        <Field label="Owner" hint="An agent id, or leave as `_global` for shared docs">
+          <TextInput
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            className="font-mono"
+          />
+        </Field>
+
+        <Field label="Category">
+          <CategoryPicker value={category} onChange={setCategory} />
+        </Field>
+
+        {upsert.error ? (
+          <p className="text-[12px] text-[var(--error)]">{(upsert.error as Error).message}</p>
+        ) : null}
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -386,41 +499,32 @@ function NewDocForm({
 export function DocsTab() {
   const docsQ = useAgentDocs();
   const [selected, setSelected] = useState<DocSelection | null>(null);
-  const [showNew, setShowNew] = useState(false);
+  const [newDocOpen, setNewDocOpen] = useState(false);
 
   return (
     <div className="flex gap-[14px] flex-1 min-h-0 overflow-hidden">
       <DocsNav
         docs={docsQ.data ?? []}
         selected={selected}
-        onSelect={(sel) => {
-          setShowNew(false);
-          setSelected(sel);
-        }}
-        onNewDoc={() => {
-          setSelected(null);
-          setShowNew(true);
-        }}
+        onSelect={setSelected}
+        onNewDoc={() => setNewDocOpen(true)}
       />
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-[22px] surface-sheen shadow-[var(--lift)]">
-        {showNew ? (
-          <NewDocForm
-            onCancel={() => setShowNew(false)}
-            onCreated={(sel) => {
-              setShowNew(false);
-              setSelected(sel);
-            }}
-          />
-        ) : selected ? (
+        {selected ? (
           <DocEditor
             key={`${selected.owner}/${selected.slug}`}
             selected={selected}
             onDeleted={() => setSelected(null)}
           />
         ) : (
-          <DocEditorEmpty onNewDoc={() => setShowNew(true)} />
+          <DocEditorEmpty onNewDoc={() => setNewDocOpen(true)} />
         )}
       </div>
+      <NewDocModal
+        open={newDocOpen}
+        onClose={() => setNewDocOpen(false)}
+        onCreated={setSelected}
+      />
     </div>
   );
 }
