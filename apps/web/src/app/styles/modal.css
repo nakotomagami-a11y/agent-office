@@ -85,6 +85,13 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Gradient sweep across text (bg-clip-text), used by the "Thinking…" label
+   while a run has no visible output yet — a light passing left-to-right
+   through the label, not an opacity pulse (that's `ao-shimmer` above). */
+@keyframes ao-label-shimmer {
+  from { background-position: -180px 0; }
+  to   { background-position: 220px 0; }
+}
 
 /* ao-prose — generated markdown HTML, cannot use inline classes on inner nodes */
 .ao-modal .ao-prose {

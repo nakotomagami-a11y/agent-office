@@ -11,7 +11,15 @@ export function fmtClockTime(itemId: string): string | undefined {
   if (!m) return undefined;
   const ts = Number(m[1]);
   if (!Number.isFinite(ts)) return undefined;
-  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // hour12 forced off — 24h everywhere, matching the reference design,
+  // instead of following the browser locale's default (which reads as
+  // AM/PM on most US-locale setups).
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+/** Compact token count: 5312 → "5.3k", 420 → "420". */
+export function fmtTok(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
 export function fmtDuration(ms: number): string {

@@ -52,7 +52,7 @@ export function ComposerToolbar(props: ComposerToolbarProps): React.ReactElement
 
 function SendShortcutHint({ t }: { t: ReturnType<typeof useTranslations> }): React.ReactElement {
   const kbd = (label: string) => (
-    <span className="inline-block bg-bg-1 text-txt-2 px-[5px] py-[1px] border border-b-2 border-line-2 rounded font-mono text-[10.5px]">
+    <span className="inline-block bg-bg-3 text-txt-2 px-[5px] py-[1px] rounded-[5px] font-mono text-[10.5px]">
       {label}
     </span>
   );

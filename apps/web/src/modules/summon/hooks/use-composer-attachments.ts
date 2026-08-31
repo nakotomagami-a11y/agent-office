@@ -19,7 +19,7 @@ export type UseComposerAttachmentsResult = {
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
   onDrop: (e: DragEvent<HTMLDivElement>) => void;
-  onPaste: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
+  onPaste: (e: ClipboardEvent<HTMLElement>) => void;
   removeAttachment: (localId: string) => void;
   clearAll: () => void;
   hasPending: boolean;
@@ -90,7 +90,7 @@ function makeDragHandlers(setDragOver: (v: boolean) => void, uploadOne: (file: F
 }
 
 /** Tauri paste path: WebKit2GTK strips clipboardData, so poll wl-paste. */
-function handlePasteInTauri(e: ClipboardEvent<HTMLTextAreaElement>, uploadOne: (file: File) => Promise<void>): void {
+function handlePasteInTauri(e: ClipboardEvent<HTMLElement>, uploadOne: (file: File) => Promise<void>): void {
   const items = Array.from(e.clipboardData.items);
   const hasText = items.some((item) => item.kind === "string");
   if (hasText) return; // let default textarea behaviour handle the text
@@ -105,7 +105,7 @@ function handlePasteInTauri(e: ClipboardEvent<HTMLTextAreaElement>, uploadOne: (
 }
 
 /** Browser paste path: clipboardData.items is populated normally. */
-function handlePasteInBrowser(e: ClipboardEvent<HTMLTextAreaElement>, uploadOne: (file: File) => Promise<void>): void {
+function handlePasteInBrowser(e: ClipboardEvent<HTMLElement>, uploadOne: (file: File) => Promise<void>): void {
   const files: File[] = [];
   for (const item of Array.from(e.clipboardData.items)) {
     if (item.kind !== "file") continue;

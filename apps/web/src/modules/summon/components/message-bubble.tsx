@@ -28,6 +28,9 @@ import { RateLimitCard } from "./rate-limit-card";
 import { ScheduleResumeMenu } from "./schedule-resume-menu";
 import { FlagCard, type FlagAction } from "./flag-card";
 import { MsgActions } from "./msg-actions";
+import { ComposerAttachmentChips } from "./composer-attachment-chips";
+import { useComposerAttachments } from "../hooks/use-composer-attachments";
+import { buildComposedText } from "../format/build-composed-text";
 import { useSignInModalStore } from "@/lib/sign-in-modal-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
@@ -196,40 +199,65 @@ function ThinkingRow({ id, text, agent, hideAvatar = false }: { id: string; text
         <AgentAvatar unit={agent.unitChoice} size={60} label={agent.name} className="shrink-0" />
       )}
       <div className="flex-1 min-w-0 w-full">
-        <div className={`border border-dashed border-ao-line-1 rounded-[10px] bg-white/[0.015]${open ? " ao-open" : ""}`}>
-          <div className="flex items-center gap-[10px] px-[14px] py-[9px] cursor-pointer text-ao-fg-2 text-[12.5px] italic" onClick={toggle}>
-            <span className="text-ao-fg-3"><Icon name="sparkle" size={13} /></span>
-            <span>Thinking…</span>
-            <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ao-fg-3 not-italic">
-              <span>~{tokenEst} tokens</span>
-              <Icon name="chevron" size={12} className="transition-transform duration-[180ms] text-ao-fg-3 [.ao-open_&]:rotate-90 [.ao-open_&]:text-[var(--ao-accent)]" />
-            </span>
-          </div>
-          {open && <div className="border-t border-dashed border-ao-line-1 px-[14px] py-[10px] font-mono text-[12px] leading-[1.6] text-ao-fg-1 whitespace-pre-wrap">{text}</div>}
+        <div className="flex items-center gap-[10px] px-[2px] py-[3px] cursor-pointer text-ao-fg-3 hover:text-ao-fg-1 text-[12.5px] transition-colors duration-[120ms]" onClick={toggle}>
+          <span className="w-[5px] h-[5px] rounded-full shrink-0 bg-ao-fg-3" aria-hidden />
+          <span className="font-semibold text-ao-fg-0">thinking</span>
+          <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ao-fg-3">
+            <span>~{tokenEst} tokens</span>
+            <Icon name="chevron" size={11} className={`transition-transform duration-[180ms] ${open ? "rotate-90 text-[var(--ao-accent)]" : ""}`} />
+          </span>
         </div>
+        {open && <div className="mt-[6px] ml-[15px] border border-[var(--ao-line-0)] rounded-[6px] p-[8px_10px] font-mono text-[12px] leading-[1.6] text-ao-fg-1 whitespace-pre-wrap bg-[var(--ao-bg-1)]">{text}</div>}
       </div>
     </div>
   );
 }
 
 // ── Clarify input strip ───────────────────────────────────────────────────────
-function ClarifyInput({ onReply }: { onReply: (text: string) => void }) {
+/**
+ * Was a bare `<input>` with no paste handling at all — Ctrl+V for an image
+ * silently did nothing here while the main `Composer` (composer.tsx) fully
+ * supports it via `useComposerAttachments` (including the Wayland/WebKit2GTK
+ * fallback that polls `wl-paste`, since clipboardData is stripped there in
+ * the Tauri build). Reuses that same hook + `ComposerAttachmentChips` +
+ * `buildComposedText` instead of re-implementing paste/drag-drop here.
+ */
+function ClarifyInput({
+  agentId,
+  projectId,
+  onReply,
+}: {
+  agentId: string;
+  projectId: string | undefined;
+  onReply: (text: string) => void;
+}) {
+  const t = useTranslations();
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const att = useComposerAttachments({ agentId, projectId });
 
   const send = () => {
-    const v = val.trim();
-    if (!v) return;
-    onReply(v);
+    if (att.hasPending) return;
+    const composed = buildComposedText(val, att.attachments, t("composer.attachments_intro"));
+    if (composed === null) return;
+    onReply(composed);
+    setVal("");
+    att.clearAll();
   };
 
   return (
-    <div className="border border-[rgba(230,179,90,0.30)] bg-[linear-gradient(90deg,rgba(230,179,90,0.10),rgba(230,179,90,0.02)_70%)] rounded-[10px] p-[14px_16px] flex flex-col gap-[12px] mt-3">
+    <div
+      className="border border-[rgba(230,179,90,0.30)] bg-[linear-gradient(90deg,rgba(230,179,90,0.10),rgba(230,179,90,0.02)_70%)] rounded-[10px] p-[14px_16px] flex flex-col gap-[12px] mt-3"
+      onDragOver={att.onDragOver}
+      onDragLeave={att.onDragLeave}
+      onDrop={att.onDrop}
+    >
       <div className="flex items-center gap-2 text-[11px] text-[var(--ao-warn)] uppercase tracking-[0.1em] font-mono font-bold">
         <span className="w-[6px] h-[6px] rounded-full bg-[var(--ao-warn)] shadow-[0_0_6px_var(--ao-warn)] animate-[ao-pulse_1.5s_infinite]" aria-hidden />
         Needs your reply
         <span className="font-mono ml-auto normal-case tracking-normal">↵ send</span>
       </div>
+      <ComposerAttachmentChips attachments={att.attachments} onRemove={att.removeAttachment} />
       <div className="flex items-center gap-2 pl-[14px] py-2 pr-[10px] bg-[var(--ao-bg-1)] border border-ao-line-1 rounded-[8px] focus-within:border-[rgba(230,179,90,0.5)] focus-within:[box-shadow:0_0_0_3px_rgba(230,179,90,0.10)]">
         <Icon name="corner-down" size={13} className="text-[var(--ao-fg-3)] shrink-0" />
         <input
@@ -240,13 +268,15 @@ function ClarifyInput({ onReply }: { onReply: (text: string) => void }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
           }}
+          onPaste={att.onPaste}
           placeholder="Type your reply…"
           autoFocus
         />
         <button
           type="button"
-          className="inline-flex items-center gap-[6px] px-3 py-[6px] bg-[var(--ao-warn)] text-[#2a1d05] rounded-[6px] font-semibold text-[12.5px]"
+          className="inline-flex items-center gap-[6px] px-3 py-[6px] bg-[var(--ao-warn)] text-[#2a1d05] rounded-[6px] font-semibold text-[12.5px] disabled:opacity-60"
           onClick={send}
+          disabled={att.hasPending}
         >
           <Icon name="send" size={11} /> Reply
         </button>
@@ -259,6 +289,8 @@ function ClarifyInput({ onReply }: { onReply: (text: string) => void }) {
 export type MessageBubbleProps = {
   item: ThreadItem;
   agent: OfficeAgent;
+  /** Scopes attachment uploads from the inline clarify input to this project. */
+  projectId?: string;
   /** When true, appends an inline reply strip (agent asked a question). */
   isQuestion?: boolean;
   /** Called when the user submits a reply from the inline clarify input. */
@@ -481,7 +513,7 @@ function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetr
   );
 }
 
-export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDelete, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   switch (item.kind) {
     case "you": {
       const youImgs = extractImages(item.text);
@@ -529,7 +561,7 @@ export function MessageBubble({ item, agent, isQuestion, onReply, onRerun, onDel
             </div>
             <ImageStrip urls={agentImgs} />
             {showClarify ? (
-              <ClarifyInput onReply={onReply} />
+              <ClarifyInput agentId={agent.id} projectId={projectId} onReply={onReply} />
             ) : !item.streaming ? (
               <MsgActions text={item.text} />
             ) : null}

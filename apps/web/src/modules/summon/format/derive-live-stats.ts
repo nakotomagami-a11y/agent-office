@@ -1,5 +1,3 @@
-import { fmtElapsed } from "./phase-format";
-
 /**
  * How long the stream has been silent before we show the quiet "still
  * connected" note. Agents routinely go silent for a minute+ while thinking or
@@ -8,9 +6,15 @@ import { fmtElapsed } from "./phase-format";
  */
 export const STALE_STREAM_THRESHOLD_MS = 150_000;
 
+export type LiveStats = { elapsedSec: number; tokens: number };
+
 /**
- * Compute the compact "elapsed · N tok" chip shown next to the running phase.
- * Returns `undefined` when the run hasn't started yet (nothing worth showing).
+ * Live elapsed time + running token count for the still-streaming tail row.
+ * Returned as structured numbers, not a pre-joined string — the elapsed
+ * counter and the token count render in two different places (an inline
+ * stopwatch next to the typing dots, and a ledger-style stat in the right
+ * rail), each with its own formatting. Returns `undefined` when the run
+ * hasn't started yet (nothing worth showing).
  */
 export function deriveLiveStats(input: {
   startTs: number | null;
@@ -18,12 +22,12 @@ export function deriveLiveStats(input: {
   historyTokens: number;
   streamTokensIn: number;
   streamTokensOut: number;
-}): string | undefined {
+}): LiveStats | undefined {
   if (!input.startTs || !input.isActivePhase) return undefined;
   const elapsedSec = Math.floor((Date.now() - input.startTs) / 1000);
   if (elapsedSec <= 0) return undefined;
-  const totalTok = input.historyTokens + input.streamTokensIn + input.streamTokensOut;
-  return `${fmtElapsed(elapsedSec)}${totalTok > 0 ? ` · ${totalTok.toLocaleString()} tok` : ""}`;
+  const tokens = input.historyTokens + input.streamTokensIn + input.streamTokensOut;
+  return { elapsedSec, tokens };
 }
 
 export type StreamStaleness = {

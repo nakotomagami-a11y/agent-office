@@ -616,7 +616,8 @@
     "load_earlier_aria": "Load {count, plural, one {# earlier message} other {# earlier messages}}",
     "jump_to_latest": "Jump to latest",
     "jump_to_latest_aria": "Scroll to the most recent message",
-    "scroll_to_bottom": "Scroll to bottom"
+    "scroll_to_bottom": "Scroll to bottom",
+    "stop_run": "Stop"
   },
   "live_status": {
     "idle": "Idle",

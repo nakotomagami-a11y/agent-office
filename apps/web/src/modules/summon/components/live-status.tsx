@@ -10,69 +10,81 @@ export type ChatPhase =
   | "error"
   | "aborted";
 
-const pill = "flex items-center gap-[10px] py-2 px-[14px] bg-[var(--ao-bg-2)] border border-[var(--ao-line-1)] rounded-full text-[12.5px] text-[var(--ao-fg-1)] w-fit self-start";
-const led = "relative w-[7px] h-[7px] rounded-full bg-[var(--ao-accent)] shrink-0 after:content-[''] after:absolute after:inset-0 after:rounded-full after:bg-[var(--ao-accent)] after:animate-[ao-ping_1.5s_ease-out_infinite]";
-const dot1 = "w-[4px] h-[4px] bg-[var(--ao-fg-2)] rounded-full animate-[ao-typing_1.2s_infinite]";
-const dot2 = "w-[4px] h-[4px] bg-[var(--ao-fg-2)] rounded-full animate-[ao-typing_1.2s_infinite] [animation-delay:0.15s]";
-const dot3 = "w-[4px] h-[4px] bg-[var(--ao-fg-2)] rounded-full animate-[ao-typing_1.2s_infinite] [animation-delay:0.3s]";
+const dot = "w-[4px] h-[4px] bg-[var(--acc)] rounded-full shrink-0 animate-[ao-typing_1.2s_infinite]";
 
 function TypingDots() {
   return (
-    <span className="inline-flex gap-[2px]" aria-hidden>
-      <span className={dot1} /><span className={dot2} /><span className={dot3} />
+    <span className="inline-flex gap-[3px]" aria-hidden>
+      <span className={dot} />
+      <span className={`${dot} [animation-delay:0.15s]`} />
+      <span className={`${dot} [animation-delay:0.3s]`} />
     </span>
   );
 }
 
+/** "Thinking" label with a light sweeping across the text — the reference
+ *  design's `aoShimmer` gradient-text treatment, distinct from the plain
+ *  gray labels used for the brief "Connecting…"/"Sending…" states. Shown
+ *  while the agent has no visible output yet (tool calls only). */
+function ShimmerLabel({ children }: { children: string }) {
+  return (
+    <span
+      className="text-[12.5px] font-bold tracking-[-0.01em] whitespace-nowrap bg-clip-text text-transparent bg-no-repeat animate-[ao-label-shimmer_1.7s_linear_infinite]"
+      style={{
+        backgroundImage: "linear-gradient(90deg,var(--txt-4) 0%,var(--txt) 45%,var(--txt-4) 90%)",
+        backgroundSize: "220px 100%",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The still-running indicator inside the live turn's activity row —
+ * dots + (optionally) what the agent's doing, no pill/border/background.
+ * The reference design renders this as a plain inline element in the same
+ * flat list as the tool-call rows below it; the elapsed stopwatch and the
+ * Stop button that sit alongside it are `chat-thread.tsx`'s job (they need
+ * the live turn's timing data, which this component doesn't have).
+ */
 export function LiveStatus({ phase, hint }: { phase: ChatPhase; hint?: string }) {
   if (phase === "idle" || phase === "done" || phase === "aborted") return null;
 
-  if (phase === "streaming") {
+  if (phase === "error") {
     return (
-      <div className={pill} role="status" aria-live="polite">
-        <span className={led} aria-hidden />
-        Typing
+      <span className="text-[12.5px] text-[var(--error)]" role="status" aria-live="polite">
+        {hint ? `Error: ${hint}` : "Run failed"}
+      </span>
+    );
+  }
+
+  if (phase === "connecting" || phase === "sending") {
+    return (
+      <span className="flex items-center gap-[8px] text-[12.5px] text-[var(--txt-3)]" role="status" aria-live="polite">
         <TypingDots />
-      </div>
+        {phase === "connecting" ? "Connecting…" : "Sending…"}
+      </span>
     );
   }
 
   if (phase === "working") {
     return (
-      <div className={pill} role="status" aria-live="polite">
-        <span className={led} aria-hidden />
-        {hint ? (
-          <>
-            Using
-            <span className="font-mono text-[11.5px] text-[var(--ao-fg-2)] px-[6px] py-[1px] bg-[var(--ao-bg-3)] border border-[var(--ao-line-1)] rounded-[4px] max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap">{hint}</span>
-          </>
-        ) : (
-          <>
-            Working
-            <TypingDots />
-          </>
-        )}
-      </div>
-    );
-  }
-
-  if (phase === "error") {
-    return (
-      <div
-        className={`${pill} border-[rgba(217,83,79,0.3)]`}
-        role="status"
-        aria-live="polite"
-      >
-        <span className="w-[7px] h-[7px] rounded-full bg-[var(--ao-bad)] shrink-0" aria-hidden />
-        <span className="text-[var(--ao-bad)]">{hint ? `Error: ${hint}` : "Run failed"}</span>
-      </div>
+      <span className="flex items-center gap-[8px]" role="status" aria-live="polite">
+        <TypingDots />
+        <ShimmerLabel>Thinking</ShimmerLabel>
+      </span>
     );
   }
 
   return (
-    <div className={pill} role="status" aria-live="polite">
-      <span className={led} aria-hidden />
-      {phase === "connecting" ? "Connecting…" : "Sending…"}
-    </div>
+    <span className="flex items-center gap-[8px] text-[12.5px] text-[var(--txt-3)]" role="status" aria-live="polite">
+      <TypingDots />
+      {hint && (
+        <span className="font-[var(--font-mono)] text-[11.5px] text-[var(--txt-4)] px-[6px] py-[1px] bg-[var(--bg-3)] border border-[var(--line)] rounded-[4px] max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap">
+          {hint}
+        </span>
+      )}
+    </span>
   );
 }

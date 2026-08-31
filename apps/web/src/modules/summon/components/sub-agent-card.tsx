@@ -45,7 +45,7 @@ export function SubAgentCard({ item }: { item: SubAgentItem }) {
     <div className="flex items-start gap-[12px] relative group/msg">
       <AgentAvatar unit={unit} size={60} label={item.name} className="shrink-0" />
       <div className="flex-1 min-w-0 w-full">
-        <div className={cn("border border-cyan/25 bg-cyan/[0.05] rounded-[10px] overflow-hidden", open && "ao-open")}>
+        <div className={cn("bg-cyan/[0.05] rounded-[10px] overflow-hidden", open && "ao-open")}>
           <SubAgentHeader item={item} open={open} toggle={toggle} liveHint={liveHint} duration={duration} />
           {open ? <SubAgentBody item={item} totalTok={totalTok} /> : null}
         </div>

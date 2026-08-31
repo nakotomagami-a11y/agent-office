@@ -252,8 +252,21 @@ export function applySseEvent(
     }
     case "rate-limit": {
       const { data } = event;
+      const withoutEcho = dropTrailingTextEcho(prev.thread, data.message);
+      // The CLI can re-report the same rate-limit signal repeatedly (structured
+      // "warning" events resent on every subsequent tool call, then a second,
+      // differently-worded "limit" event from the plain-text fallback) — each
+      // one used to append its own card, spamming the thread with 2-3 near-
+      // identical stacked cards for a single occurrence. If the card already at
+      // the top of the thread IS a rate-limit card, update it in place instead
+      // of appending a new one, keeping its id so the dismiss/retry/schedule
+      // handlers (bound to `item.id` in chat-thread.tsx) keep targeting the
+      // right item.
+      const last = withoutEcho[withoutEcho.length - 1];
+      const card = { kind: "system-rate-limit" as const, id: last?.kind === "system-rate-limit" ? last.id : newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity };
+      const nextThread = last?.kind === "system-rate-limit" ? [...withoutEcho.slice(0, -1), card] : [...withoutEcho, card];
       return {
-        thread: closeStreaming([...dropTrailingTextEcho(prev.thread, data.message), { kind: "system-rate-limit" as const, id: newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity }]),
+        thread: closeStreaming(nextThread),
         usage: prev.usage,
         done: false,
         error: null,
