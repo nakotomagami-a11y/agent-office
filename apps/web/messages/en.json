@@ -771,6 +771,10 @@
         "title": "Couldn't start",
         "body": "The Claude process failed to start."
       },
+      "already_running": {
+        "title": "Still working on the last message",
+        "body": "This agent hasn't finished its current task yet. Your message has been queued and will send automatically."
+      },
       "no_output": {
         "title": "No response",
         "body": "The run ended without producing a response. Try sending your message again."

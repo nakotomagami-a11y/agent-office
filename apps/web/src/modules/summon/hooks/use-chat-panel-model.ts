@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSummon, useAbortRun } from "./use-summon";
 import { useRunStream } from "./use-run-stream";
 import { useRunRecovery, type UseRunRecoveryResult } from "./use-run-recovery";
-import { useRunNotification } from "@/hooks/use-run-notification";
 import { useTranscriptSync } from "./use-transcript-sync";
 import { useStreamingTick } from "./use-streaming-tick";
 import { formatDateTime } from "@/lib/format-date";
@@ -22,7 +21,7 @@ import {
   sliceRunText,
   sumHistoryTokens,
 } from "../format/derive-chat-phase";
-import { deriveLiveStats, deriveStreamStaleness } from "../format/derive-live-stats";
+import { deriveLiveStats, deriveStreamStaleness, type LiveStats } from "../format/derive-live-stats";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "../components/live-status";
 
@@ -42,7 +41,7 @@ export type ChatPanelModel = {
   recovery: UseRunRecoveryResult;
   phase: ChatPhase;
   isStreaming: boolean;
-  liveStats: string | undefined;
+  liveStats: LiveStats | undefined;
   isStale: boolean;
   sinceLastEventMs: number | null;
   lastUserMessageText: string | null;
@@ -76,7 +75,7 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
   const tKey = transcriptKey(input.agent.id, input.instanceId);
 
   const state = useChatState(tKey);
-  const stream = useRunStream(state.activeRunId);
+  const stream = useRunStream(state.activeRunId, input.agent.name);
 
   const recovery = useRunRecovery({
     activeRunId: state.activeRunId,
@@ -109,8 +108,6 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
   });
 
   useRunStartTracking(state.activeRunId, input.onActiveRunChange);
-  const startTs = useRunStartTs(state.activeRunId);
-  useRunNotification({ agentName: input.agent.name, phase: stream.phase, startTs });
   useStreamingTick({ activeRunId: state.activeRunId, streamPhase: stream.phase });
   useBranchSeed(input.agent.id, input.instanceId, state.transcriptLoaded, state.setPendingSeed);
 
@@ -257,15 +254,6 @@ function useRunStartTracking(activeRunId: string | null, onActiveRunChange: ((id
     onActiveRunChange?.(activeRunId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRunId]);
-}
-
-/** Track the wall-clock start-time of the current run so notifications can label it. */
-function useRunStartTs(activeRunId: string | null): number | null {
-  const ref = useRef<number>(0);
-  useEffect(() => {
-    if (activeRunId) ref.current = Date.now();
-  }, [activeRunId]);
-  return ref.current || null;
 }
 
 /** Pre-fill composer with the "Branch from here" seed when the transcript loads. */
