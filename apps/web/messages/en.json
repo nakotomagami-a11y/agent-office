@@ -91,8 +91,7 @@
       "write_tab": "Write",
       "preview_tab": "Preview",
       "empty": "empty",
-      "char_count": "{count} chars · ~{tokens} tokens",
-      "nothing_to_preview": "Nothing to preview."
+      "char_count": "{count} chars · ~{tokens} tokens"
     }
   },
   "first_run": {

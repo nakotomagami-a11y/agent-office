@@ -44,7 +44,7 @@ export function SkillCard({ skill, icons, busy, onInstall, onUninstall, onEdit, 
   const weight = skillWeight(skill);
 
   return (
-    <div className="flex flex-col gap-[13px] p-[16px] rounded-[22px] surface-sheen shadow-[var(--lift)] transition-transform duration-[180ms] hover:-translate-y-[3px]">
+    <div className="h-full flex flex-col gap-[13px] p-[16px] rounded-[22px] surface-sheen shadow-[var(--lift)] transition-transform duration-[180ms] hover:-translate-y-[3px]">
       <div className="flex items-start gap-[13px]">
         <button
           type="button"
