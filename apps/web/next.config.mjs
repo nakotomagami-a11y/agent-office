@@ -21,6 +21,10 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets a second dev server run against the same source tree on a different
+  // port (e.g. scripts/screenshot-app.sh's isolated showcase instance)
+  // without tripping Next's single-instance lock, which keys off `.next`.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Constrain file tracing to the monorepo root. Without this, on Windows the
   // tracer follows pnpm junctions into the user profile and hits NTFS junction
   // points (e.g. "Application Data") it can't enumerate.

@@ -9,17 +9,17 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 
 ## Screenshots
 
-**Every agent on one screen** — live status, model, and current task at a glance:
+**Inside a project** — live runs, roster, environment, and stats at a glance:
 
-![The office](screenshots/office.png)
+![Project](screenshots/project.png)
 
 **Multi-agent orchestration** — one agent plans and dispatches sub-agents (done · running · queued), streamed back into the chat:
 
-![Orchestration](screenshots/chat-orchestration.png)
+![Orchestration](screenshots/chat-orchestrator.png)
 
-**Inside a project** — environment, roster, secrets, and recent activity:
+**Every project, one tab bar away** — switch context without losing your place:
 
-![Project](screenshots/project.png)
+![Projects](screenshots/projects.png)
 
 <details>
 <summary><b>More screenshots</b> — chat, activity, agents, memory, skills, analytics, schedules, servers</summary>
@@ -27,15 +27,19 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 |  |  |
 | --- | --- |
 | Agent chat with a spawned sub-agent | Activity feed |
-| ![Chat](screenshots/chat-subagent.png) | ![Activity](screenshots/activity.png) |
+| ![Chat](screenshots/chat-developer.png) | ![Activity](screenshots/activity.png) |
+| Rate-limited run | Interrupted run |
+| ![Rate limited](screenshots/chat-frontend.png) | ![Interrupted](screenshots/chat-backend.png) |
 | Agents library | Memory (global · project · per-agent) |
 | ![Agents](screenshots/agents.png) | ![Memory](screenshots/memory.png) |
 | Skills registry | Cost analytics |
 | ![Skills](screenshots/skills.png) | ![Analytics](screenshots/analytics.png) |
 | Scheduled tasks | Running servers |
-| ![Schedules](screenshots/schedules.png) | ![Servers](screenshots/servers.png) |
+| ![Schedules](screenshots/schedules.png) | ![Servers](screenshots/processes.png) |
 
 </details>
+
+<sub>Screenshots are captured against a fake, leak-free demo dataset — see [`scripts/screenshot-app.sh`](scripts/screenshot-app.sh).</sub>
 
 ## Features
 
