@@ -71,7 +71,7 @@ export function getContextMessages(opts: {
   const limit = MSG_LIMIT[profile];
 
   const recent = projectId
-    ? db.getRecentMessagesByProject(agentId, projectId, limit)
+    ? db.getRecentMessagesByProject(agentId, instanceId, projectId, limit)
     : db.getRecentMessages(agentId, instanceId, limit);
 
   if (profile === "balanced") {
