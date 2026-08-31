@@ -66,13 +66,13 @@ export function searchMessagesForAgent(agentId: string, instanceId: string, ftsQ
   }
 }
 
-export function getRecentMessagesByProject(agentId: string, projectId: string, limit = 8): HistoryMessage[] {
+export function getRecentMessagesByProject(agentId: string, instanceId: string, projectId: string, limit = 8): HistoryMessage[] {
   const rows = getDb().prepare(`
     SELECT m.role, m.content, m.run_id, m.ts
     FROM messages m JOIN runs r ON m.run_id = r.id
-    WHERE m.agent_id = ? AND r.project_id = ?
+    WHERE m.agent_id = ? AND m.instance_id = ? AND r.project_id = ?
     ORDER BY m.ts DESC LIMIT ?
-  `).all(agentId, projectId, limit) as Array<{ role: string; content: string; run_id: string; ts: number }>;
+  `).all(agentId, instanceId, projectId, limit) as Array<{ role: string; content: string; run_id: string; ts: number }>;
   return rows.reverse().map(r => ({ role: r.role as "user" | "assistant", content: r.content, runId: r.run_id, ts: r.ts }));
 }
 
