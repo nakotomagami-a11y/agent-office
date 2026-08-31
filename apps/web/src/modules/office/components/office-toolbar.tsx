@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/ui/icon";
-import { ActionBar } from "@/components/ui/action-bar";
+import { ActionBar, type ActionBarItem } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { cn } from "@/lib/cn";
@@ -591,24 +591,66 @@ export function BuildButton({ projectId, menu = false }: { projectId: string; me
  * Used in OfficeToolbar, CardsOffice, and project-detail so every header stays in sync.
  */
 export function ProjectActionsBar({ projectId }: { projectId: string }) {
-  const projectQ = useProject(projectId);
-  const hasCwd = !!projectQ.data?.meta.cwd;
+  const hasCwd = useProjectHasCwd(projectId);
 
   return (
     <ActionBar
       items={[
         ...(hasCwd ? [
-          { key: `folder-${projectId}`, element: <OpenFolderButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
-          { key: `vscode-${projectId}`, element: <OpenInVSCodeButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
-          { key: `cache-${projectId}`, element: <ClearCacheButton projectId={projectId} />, segment: "shortcuts", priority: 9 },
+          ...shortcutItems(projectId),
           { key: `div-${projectId}`, type: "divider" as const },
-          { key: `build-${projectId}`, element: <BuildButton key={`build-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
-          { key: `dev-${projectId}`, element: <DevServerButton key={`dev-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
+          ...runtimeItems(projectId),
         ] : []),
         { key: "flutter-device", element: <FlutterDeviceButton /> },
       ]}
     />
   );
+}
+
+/**
+ * Folder / VS Code / clear-cache only — the "shortcuts" segment of
+ * {@link ProjectActionsBar} split out so a header can place it somewhere
+ * other than next to Build/Dev server (e.g. {@link ProjectHero}'s avatar
+ * row, to the left of the roster stack, instead of crowding the "Add agent"
+ * row above it).
+ */
+export function ProjectShortcutsBar({ projectId }: { projectId: string }) {
+  const hasCwd = useProjectHasCwd(projectId);
+  if (!hasCwd) return null;
+  return <ActionBar items={shortcutItems(projectId)} />;
+}
+
+/** Build / dev server / Flutter device only — the "runtime" counterpart to {@link ProjectShortcutsBar}. */
+export function ProjectRuntimeBar({ projectId }: { projectId: string }) {
+  const hasCwd = useProjectHasCwd(projectId);
+  return (
+    <ActionBar
+      items={[
+        ...(hasCwd ? runtimeItems(projectId) : []),
+        { key: "flutter-device", element: <FlutterDeviceButton /> },
+      ]}
+    />
+  );
+}
+
+function useProjectHasCwd(projectId: string): boolean {
+  const projectQ = useProject(projectId);
+  return !!projectQ.data?.meta.cwd;
+}
+
+function shortcutItems(projectId: string): ActionBarItem[] {
+  return [
+    { key: `folder-${projectId}`, element: <OpenFolderButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
+    { key: `vscode-${projectId}`, element: <OpenInVSCodeButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
+    { key: `cache-${projectId}`, element: <ClearCacheButton projectId={projectId} />, segment: "shortcuts", priority: 9 },
+  ];
+}
+
+function runtimeItems(projectId: string): ActionBarItem[] {
+  return [
+    { key: `build-${projectId}`, element: <BuildButton key={`build-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
+    { key: `dev-${projectId}`, element: <DevServerButton key={`dev-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
+  ];
 }
 
 /**
@@ -653,11 +695,11 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "inline-flex items-center justify-center w-7 h-7 rounded-lg text-txt-2 hover:text-txt hover:bg-bg-3 border border-transparent hover:border-line transition-all duration-[120ms]",
+            "inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-txt-2 hover:text-txt hover:bg-bg-3 border border-transparent hover:border-line transition-all duration-[120ms]",
             open && "bg-bg-3 text-txt border-line",
           )}
         >
-          <Icon name="more-vertical" size={16} />
+          <Icon name="more-vertical" size={15} />
         </button>
       </Tooltip>
       {open && (

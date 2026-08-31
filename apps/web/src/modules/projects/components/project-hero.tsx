@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { planetTag } from "@/lib/planet-seed";
-import { ProjectActionsBar } from "@/modules/office/components/office-toolbar";
+import { ProjectRuntimeBar, ProjectShortcutsBar } from "@/modules/office/components/office-toolbar";
 
 export type ProjectHeroProps = {
   project: Project;
@@ -25,8 +25,10 @@ const AVATAR_STACK_CAP = 4;
  * The cosmic hero card — this IS the page header in the V3 dashboard (there's
  * no separate "Project" title bar above it, confirmed against the raw
  * mockup). Planet art, editable name/description, roster status, and the
- * real project action toolbar (build/dev-server/folder/editor/clear-cache)
- * all live here.
+ * real project action toolbar all live here, split across two rows: build/
+ * dev-server stay next to "Add agent"; folder/editor/clear-cache sit on the
+ * roster row, to the left of the avatar stack, since they're reached far
+ * less often.
  */
 export function ProjectHero({
   project,
@@ -104,14 +106,18 @@ export function ProjectHero({
             >
               <Icon name="plus" size={15} /> Add agent
             </button>
-            <ProjectActionsBar projectId={project.id} />
+            <ProjectRuntimeBar projectId={project.id} />
           </div>
 
-          {rosterAgentIds.length > 0 && (
-            <div className="flex items-center gap-[14px]">
+          {/* Unconditional (not gated on roster size) — ProjectShortcutsBar must
+              keep showing on an empty-roster project, matching its old row-1
+              behavior. Only the avatar stack itself needs agents to render. */}
+          <div className="flex items-center gap-[14px]">
+            <ProjectShortcutsBar projectId={project.id} />
+            {rosterAgentIds.length > 0 && (
               <RosterAvatarStack rosterAgentIds={rosterAgentIds} allAgents={allAgents} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

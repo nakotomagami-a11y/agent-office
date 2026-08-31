@@ -76,15 +76,16 @@ export function RosterInstanceRow({
     <RosterSessionRow active={isSelected} onClick={onSelect}>
       {/* Session name */}
       <span className={cn(
-        "text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
+        "flex-1 min-w-0 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
         isSelected ? "font-semibold text-txt" : "font-medium text-txt-2",
       )}>
         {displayLabel}
       </span>
 
-      {/* Cost */}
+      {/* Cost — fixed-width reserve so the LED dot lands in a straight
+          column across rows regardless of whether a row has spend to show. */}
       <span className={cn(
-        "font-[var(--font-mono)] text-[10.5px] tracking-[0.02em]",
+        "w-[44px] shrink-0 text-right font-[var(--font-mono)] text-[10.5px] tracking-[0.02em]",
         isSelected ? "text-acc" : "text-txt-3",
       )}>
         {spend !== undefined ? `$${spend.toFixed(2)}` : ""}

@@ -139,10 +139,6 @@ export function PlanetEditorModal({
         {/* Left: live preview well */}
         <div className="w-[252px] shrink-0 flex flex-col items-center gap-[14px] px-[16px] py-[22px]">
           <div className="relative w-[172px] h-[172px] flex items-center justify-center">
-            <span
-              aria-hidden
-              className="absolute -inset-[22%] rounded-full pointer-events-none animate-pulse bg-[radial-gradient(circle_at_48%_44%,rgba(178,158,71,.3),transparent_66%)]"
-            />
             <PlanetCanvas
               projectId={`${projectId}-editor`}
               config={draft}
