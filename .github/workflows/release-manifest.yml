@@ -1,14 +1,13 @@
 name: Update Manifest
 
 # Assembles the Tauri updater manifest (latest.json) from the signed artifacts
-# uploaded by the per-platform release workflows. Runs once after EACH build
-# workflow finishes; the concurrency group serialises those runs so the final
-# run (once every platform has uploaded its .sig) writes a complete manifest
-# with no clobber race.
+# uploaded by the release workflow. Releases are Linux-only (no Windows/macOS
+# code-signing certs — see README's "Installing a release build" section), so
+# there is exactly one build workflow to wait on.
 
 on:
   workflow_run:
-    workflows: ["Linux Release", "Windows Release", "macOS Release"]
+    workflows: ["Linux Release"]
     types: [completed]
 
 concurrency:
