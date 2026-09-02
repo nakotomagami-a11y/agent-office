@@ -52,7 +52,7 @@ export function ProjectLiveRuns({ projectId, onSummonAnother }: ProjectLiveRunsP
   const isEmpty = live.length === 0 && awaiting.length === 0;
 
   return (
-    <div className="flex-1 min-w-[320px] paper-panel rounded-none px-[20px] py-[18px] flex flex-col">
+    <div className="flex-1 min-w-[320px] rounded-[24px] surface-sheen shadow-[var(--lift)] px-[20px] py-[18px] flex flex-col">
       <div className="flex items-center gap-[10px]">
         <span className="text-[15px] font-bold whitespace-nowrap">Live runs</span>
         {live.length > 0 && (
