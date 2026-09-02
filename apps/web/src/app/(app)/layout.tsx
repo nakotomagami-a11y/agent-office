@@ -15,6 +15,7 @@ import { ResizeHandles } from "@/components/layout/resize-handles";
 import { AgentCapModalMount } from "@/modules/office/components/agent-cap-modal-mount";
 import { RootSignInModal } from "@/modules/accounts/components/root-sign-in-modal";
 import { Toaster } from "@/components/ui/toaster";
+import { PaperPanelPainter } from "@/components/ui/paper-panel-painter";
 /**
  * Group layout for in-app pages (everything except auth, if/when added).
  * Wraps every protected page in the GNOME window chrome + sidebar, plus
@@ -43,6 +44,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <RootSignInModal />
     </GnomeWindow>
     <Toaster />
+    <PaperPanelPainter />
     <Suspense><TabsRouterSync /></Suspense>
     <TabsKeyboard />
     </>
