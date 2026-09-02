@@ -19,6 +19,7 @@
  */
 
 import type { PathMaterialId } from "../pixi/path/materials";
+import type { GrassColor } from "./grass-colors";
 
 export type Terrain = "land" | "water";
 export type DecoCategory = "land" | "buildings" | "water" | "paths" | "animals" | "levels";
@@ -56,6 +57,7 @@ export type DecoFamily =
   | "cursed_chest"
   | "bridge"
   | "floor"
+  | "ramp"
   | "path";
 
 export type DecorationKind =
@@ -112,6 +114,8 @@ export type DecorationKind =
   | "bridge_v"
   | "butterfly"
   | "floor"
+  | "ramp_left"
+  | "ramp_right"
   | "path"
   | "path_stone"
   | "path_sand"
@@ -151,6 +155,10 @@ export interface DecorationDef {
   previewCol?: number;
   /** Preview tile row index within a 2D tilesheet. */
   previewRow?: number;
+  /** Pixel stride between preview grid rows, when it differs from `frameH` —
+   *  e.g. a sprite spanning multiple tiles (ramps are 2 tiles tall) cropped
+   *  from a tileset whose grid unit is one tile. Defaults to `frameH`. */
+  previewRowH?: number;
   /** Shown in the build palette but greyed out and unselectable. Used for
    *  assets that aren't style-matched/finished yet. */
   locked?: boolean;
@@ -543,6 +551,31 @@ export const DECORATIONS: Record<DecorationKind, DecorationDef> = {
     sheetW: 576, sheetH: 384, previewCol: 6, previewRow: 1,
   },
 
+  // ─ Ramps (levels). Cosmetic slope connecting a raised platform's cliff
+  //   wall down to the ground below — mirrored halves cropped straight from
+  //   the same grass sheet's dedicated ramp columns (col 0 = left, col 3 =
+  //   right; rows 4-5 = the 2-tile-tall grass-to-stone slope). Rendered
+  //   directly from the active grass tileset in build-static-layers (not
+  //   `src`, which is only the palette thumbnail), same pattern as `floor`.
+  //   Placement is restricted (see `rampValid`) to a ground cell immediately
+  //   beside a wall column, on the side that matches the mirror's tall edge,
+  //   so it always lines up flush against the cliff face - no free-floating
+  //   ramps. No pathfinding implication yet; purely cosmetic.
+  ramp_left: {
+    label: "Ramp (left)",
+    src: "/tiles/grass.png",
+    frameW: 64, frameH: 128, frames: 1,
+    terrain: "land", category: "levels", family: "ramp",
+    sheetW: 576, sheetH: 384, previewCol: 0, previewRow: 4, previewRowH: 64,
+  },
+  ramp_right: {
+    label: "Ramp (right)",
+    src: "/tiles/grass.png",
+    frameW: 64, frameH: 128, frames: 1,
+    terrain: "land", category: "levels", family: "ramp",
+    sheetW: 576, sheetH: 384, previewCol: 3, previewRow: 4, previewRowH: 64,
+  },
+
   // ─ Path (64×64 per tile, land-only). Procedurally generated at render time
   //   (see pixi/path/*): each cell's tile is drawn from a material config +
   //   world-space noise, auto-connecting to the 8 neighbouring "path" cells.
@@ -667,6 +700,11 @@ export type DecoInstance = {
    *  position — so a higher z brings the item in front of overlapping sprites,
    *  lower sends it behind. Omitted = 0. */
   z?: number;
+  /** Per-cluster biome override for a `floor` tile (and the cliff wall it
+   *  grows below it) — stamped by the fill tool's flood-fill when clicked on
+   *  a raised platform instead of water. Omitted = follow the map's global
+   *  Island color. See `elevation.ts`'s `floorShades`/`floodFillRaised`. */
+  shade?: GrassColor;
 };
 
 /**
@@ -705,7 +743,13 @@ export function familyOf(kind: DecorationKind): DecoFamily {
  */
 export function isStackable(kind: DecorationKind): boolean {
   const def = DECORATIONS[kind];
-  return def.category !== "buildings" && def.family !== "bridge" && def.family !== "path" && def.family !== "floor";
+  return (
+    def.category !== "buildings" &&
+    def.family !== "bridge" &&
+    def.family !== "path" &&
+    def.family !== "floor" &&
+    def.family !== "ramp"
+  );
 }
 
 /**
@@ -803,6 +847,36 @@ export function bridgeGapValid(
   return kind === "bridge_h"
     ? connects(x - 1, y) || connects(x + 1, y)
     : connects(x, y - 1) || connects(x, y + 1);
+}
+
+/** True when a wall face renders at `(x, y)` — i.e. `(x, y-1)` is a raised
+ *  platform whose south neighbour `(x, y)` is not (mirrors `wallTiles` in
+ *  `pixi/elevation.ts`, which draws the cliff face on exactly this cell). */
+function hasWallAt(x: number, y: number, decorations: DecorationsMap): boolean {
+  return cellIsRaised(x, y - 1, decorations) && !cellIsRaised(x, y, decorations);
+}
+
+/**
+ * A ramp only reads correctly flush against a raised platform's cliff wall,
+ * so placement is restricted to a ground cell (not the platform itself)
+ * immediately beside a wall column - on the side matching the sprite's tall
+ * (attached) edge: `ramp_left`'s art is tallest on its own right edge, so it
+ * sits WEST of the wall; `ramp_right`'s is tallest on its left edge, so it
+ * sits EAST of the wall. Purely cosmetic - no pathfinding implication.
+ */
+export function rampValid(
+  kind: DecorationKind,
+  x: number,
+  y: number,
+  grid: boolean[][],
+  decorations: DecorationsMap,
+): boolean {
+  if (kind !== "ramp_left" && kind !== "ramp_right") return false;
+  if (grid[y]?.[x] !== true) return false; // ground only
+  if (cellIsRaised(x, y, decorations)) return false; // never on the platform itself
+  return kind === "ramp_left"
+    ? hasWallAt(x + 1, y, decorations)
+    : hasWallAt(x - 1, y, decorations);
 }
 
 /**

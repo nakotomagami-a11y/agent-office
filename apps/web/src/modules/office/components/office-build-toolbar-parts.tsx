@@ -135,7 +135,7 @@ export function DecoSprite({ def, size }: { def: DecorationDef; size: number }) 
   const sheetW = def.sheetW ?? def.frameW * def.frames;
   const sheetH = def.sheetH ?? def.frameH;
   const srcX = (def.previewCol ?? 0) * def.frameW;
-  const srcY = (def.previewRow ?? 0) * def.frameH;
+  const srcY = (def.previewRow ?? 0) * (def.previewRowH ?? def.frameH);
   return (
     <span
       aria-hidden

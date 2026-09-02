@@ -14,6 +14,7 @@ import {
 } from "./decorations";
 import { DecoSelectMenu } from "./deco-select-menu";
 import { AgentSelectMenu } from "./agent-select-menu";
+import { ResetCanvasModal } from "./reset-canvas-modal";
 import {
   CanvasToolsBar,
   BuildFpsBadge,
@@ -81,6 +82,11 @@ export function OfficeScene({
   const [buildMode, setBuildMode] = useState(false);
   const [tool, setTool] = useState<BuildTool | null>(null);
   const [grassColor, setGrassColor] = useState<GrassColor>(DEFAULT_GRASS_COLOR);
+  // The fill tool's OWN paint color for shading a raised platform — separate
+  // from `grassColor` (the map's global Island color) so picking a shade
+  // doesn't instantly repaint the whole island. Only applied on a click that
+  // lands on a raised cell; see CellClickDeps.fillColorRef.
+  const [fillColor, setFillColor] = useState<GrassColor>(DEFAULT_GRASS_COLOR);
   const [sceneLoaded, setSceneLoaded] = useState(false);
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
   const [hoveredAgentKey, setHoveredAgentKey] = useState<string | null>(null);
@@ -101,6 +107,8 @@ export function OfficeScene({
   currentStateRef.current = { grid, decorations, agentPositions };
   const rectStartRef = useRef<{ x: number; y: number } | null>(null);
   rectStartRef.current = rectStart;
+  const fillColorRef = useRef<GrassColor>(fillColor);
+  fillColorRef.current = fillColor;
 
   // Select-tool editing — decoration + agent selection state, all the menu /
   // keyboard mutations, and the keyboard wiring (see use-canvas-editing).
@@ -263,6 +271,7 @@ export function OfficeScene({
         currentStateRef,
         rectStartRef,
         toolRef,
+        fillColorRef,
         undoStack,
         redoStack,
         setGrid,
@@ -363,11 +372,12 @@ export function OfficeScene({
     setPendingChanges((n) => n + 1);
   }, []);
 
-  const onResetCanvas = useCallback(() => {
-    if (!window.confirm("Reset the canvas? This clears all decorations and placed agents and fills the map with grass.")) return;
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const onResetCanvas = useCallback(() => setResetConfirmOpen(true), []);
+  const doResetCanvas = useCallback(() => {
     undoStack.current = [...undoStack.current.slice(-49), currentStateRef.current];
     redoStack.current = [];
-    setGrid(Array.from({ length: GRID_ROWS }, () => Array.from({ length: GRID_COLS }, () => true)));
+    setGrid(Array.from({ length: GRID_ROWS }, () => Array.from({ length: GRID_COLS }, () => false)));
     setDecorations({});
     setAgentPositions({});
     setRectStart(null);
@@ -608,9 +618,11 @@ export function OfficeScene({
         active={buildMode}
         tool={tool}
         grassColor={grassColor}
+        fillColor={fillColor}
         onToggle={onBuildToggle}
         onSelectTool={setTool}
         onSelectGrassColor={setGrassColor}
+        onSelectFillColor={setFillColor}
         canUndo={undoStack.current.length > 0}
         canRedo={redoStack.current.length > 0}
         onUndo={onUndo}
@@ -630,6 +642,12 @@ export function OfficeScene({
         saveState={saveState}
         retrySave={retrySave}
         retryLoad={retryLoad}
+      />
+
+      <ResetCanvasModal
+        open={resetConfirmOpen}
+        onClose={() => setResetConfirmOpen(false)}
+        onConfirm={doResetCanvas}
       />
     </div>
   );

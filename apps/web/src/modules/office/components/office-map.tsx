@@ -5,11 +5,13 @@ import {
   DECORATIONS,
   bridgeGapValid,
   buildingOccupancy,
+  cellIsRaised,
   decorationKey,
   footprintCells,
   hasBridgeCap,
   isPlacementValid,
   isStackable,
+  rampValid,
   type DecorationsMap,
 } from "./decorations";
 import type { BuildTool } from "./office-build-toolbar";
@@ -238,11 +240,16 @@ export function isToolValidAt(
   const cellHasGrass = grid[y]?.[x] === true;
   const stack = decorations[decorationKey(x, y)];
   if (tool === "grass") return !cellHasGrass;
-  if (tool === "fill") return !cellHasGrass;
+  // Water → land (classic bucket fill), OR a raised platform → shade its
+  // cluster with the active Island color (see apply-cell-click's fillTool).
+  if (tool === "fill") return !cellHasGrass || cellIsRaised(x, y, decorations);
   if (tool === "erase") return cellHasGrass || (stack !== undefined && stack.length > 0);
   if (tool === "select") return false; // select never paints cells
   // Bridges: normal water placement, OR spanning a raised-platform gap on land.
   if (!isPlacementValid(tool, cellHasGrass) && !bridgeGapValid(tool, x, y, grid, decorations)) return false;
+  // Ramps: land-valid per isPlacementValid above, but further restricted to a
+  // ground cell flush against the matching side of a raised platform's wall.
+  if ((tool === "ramp_left" || tool === "ramp_right") && !rampValid(tool, x, y, grid, decorations)) return false;
   // Stackable props can repeat in a cell; unique kinds block re-placement.
   if (!isStackable(tool) && stack?.some((e) => e.kind === tool)) return false;
   // Cells acting as a bridge ramp are reserved for the cap - block any
