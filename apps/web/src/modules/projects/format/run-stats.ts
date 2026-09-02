@@ -4,6 +4,7 @@
 // cards, the live-runs panel, and the recent-runs table.
 
 import type { PersistedRun } from "@agent-office/domain/types";
+import { looksLikeQuestion } from "@/modules/summon/format/thread-rows";
 
 const DAY_MS = 86_400_000;
 /** How many trailing days the stat-card sparklines cover. */
@@ -87,4 +88,30 @@ export function computeRunStats(runs: PersistedRun[]): RunStats {
 /** Runs still in flight, most recently started first. */
 export function runningRuns(runs: PersistedRun[]): PersistedRun[] {
   return runs.filter((r) => r.status === "running").sort((a, b) => b.ts - a.ts);
+}
+
+/**
+ * Runs that are genuinely blocked on the user, most recently started first.
+ *
+ * A *running* process can never be one of these — this CLI harness always
+ * exits the subprocess when it wants a reply rather than pausing mid-run, so
+ * "needs a reply" is a property of the most recent *finished* turn in a
+ * conversation, not of whatever run happens to be first in a running list.
+ *
+ * For each agent instance (falling back to agentId when a run predates
+ * multi-instance), look at only its latest run: if that run is done and its
+ * final output reads as a question, the human hasn't answered it yet — any
+ * later run for that instance would itself be the newest and would replace
+ * it here, so "latest run is a question" already means "no reply since".
+ */
+export function runsAwaitingReply(runs: PersistedRun[]): PersistedRun[] {
+  const latestByThread = new Map<string, PersistedRun>();
+  for (const run of runs) {
+    const key = run.instanceId ?? run.agentId;
+    const current = latestByThread.get(key);
+    if (!current || run.ts > current.ts) latestByThread.set(key, run);
+  }
+  return Array.from(latestByThread.values())
+    .filter((r) => r.status === "done" && looksLikeQuestion(r.output))
+    .sort((a, b) => b.ts - a.ts);
 }

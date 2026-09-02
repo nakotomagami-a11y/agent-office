@@ -61,6 +61,11 @@ export interface LiveRun {
   cost: number;
   status: "running" | "done" | "error";
   exitCode?: number;
+  /** Name of the tool call currently in flight (e.g. "Bash", "Read", "Grep") —
+   *  set on every `tool_use` block and left stale after the run finishes, so
+   *  dashboards polling `getRunningRuns()` can show live activity instead of
+   *  just the original prompt while `status === "running"`. */
+  currentTool?: string;
   /** Set when the user explicitly aborts the run, so the resulting error is
    *  surfaced as a neutral "interrupted" card rather than a red failure. */
   aborted?: boolean;

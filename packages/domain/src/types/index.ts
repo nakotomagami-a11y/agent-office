@@ -107,6 +107,10 @@ export interface PersistedRun {
   parentRunId?: string;
   /** Account whose CLAUDE_CONFIG_DIR the run spawned under (undefined → default). */
   accountId?: string;
+  /** Live-only: name of the tool call in flight right now (e.g. "Bash",
+   *  "Read", "Grep"). Only ever set while `status === "running"` — sourced
+   *  from the in-memory live-run registry, not persisted to the DB. */
+  currentTool?: string;
 }
 
 /**

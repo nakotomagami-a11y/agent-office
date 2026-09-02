@@ -4,14 +4,17 @@ import { useState } from "react";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useSummon } from "@/modules/summon/hooks/use-summon";
 import { formatCost, formatDuration } from "@/modules/runs/format/format-run-meta";
-import { runningRuns } from "../format/run-stats";
+import { runningRuns, runsAwaitingReply } from "../format/run-stats";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { Icon } from "@/components/ui/icon";
+import { ToolIcon } from "@/modules/summon/components/tool-group-row";
 import { ApiError } from "@/lib/api-client";
 import type { PersistedRun } from "@agent-office/domain/types";
 
-const VISIBLE_CAP = 3;
+// "First 2, load more for the rest" per the dashboard's own scope — this is
+// a glance-at-it-in-passing panel, not the place to browse every run.
+const VISIBLE_CAP = 2;
 
 export type ProjectLiveRunsProps = {
   projectId: string;
@@ -20,25 +23,36 @@ export type ProjectLiveRunsProps = {
 };
 
 /**
- * Dashboard panel for the project's currently-running agents, with an inline
- * reply composer that posts straight into a live run's session (real
- * `useSummon` round-trip, not a decorative mock). This is the one genuinely
- * new interaction in the V3 project dashboard — everything else here is a
- * restyle of data the page already had.
+ * Dashboard panel for the project's currently-running agents. Two
+ * independent signals, never conflated:
+ *
+ *  - "Live" rows: agents whose subprocess is still running right now — shown
+ *    with their current activity (the tool call in flight, or "Thinking…"),
+ *    because a live process is by construction NOT waiting on the user (this
+ *    CLI harness always exits the subprocess when it wants a reply instead
+ *    of pausing mid-run).
+ *  - "Awaiting reply" cards: agents whose most recent run already finished
+ *    and ended on what reads like a question — these are the ones that
+ *    actually need the inline reply composer, and they're computed from the
+ *    conversation's real end state (`runsAwaitingReply`), not just "whichever
+ *    running run happened to be first".
  */
 export function ProjectLiveRuns({ projectId, onSummonAnother }: ProjectLiveRunsProps) {
   const runsQ = useRuns({ projectId, limit: 100 });
   const [expanded, setExpanded] = useState(false);
 
-  const live = runningRuns(runsQ.data ?? []);
+  const runs = runsQ.data ?? [];
+  const live = runningRuns(runs);
+  const awaiting = runsAwaitingReply(runs);
   const shown = expanded ? live : live.slice(0, VISIBLE_CAP);
   const totals = live.reduce(
     (acc, r) => ({ tokens: acc.tokens + r.tokensIn + r.tokensOut, cost: acc.cost + r.cost }),
     { tokens: 0, cost: 0 },
   );
+  const isEmpty = live.length === 0 && awaiting.length === 0;
 
   return (
-    <div className="flex-1 min-w-[320px] rounded-[24px] surface-sheen shadow-[var(--lift)] px-[20px] py-[18px] flex flex-col">
+    <div className="flex-1 min-w-[320px] paper-panel rounded-none px-[20px] py-[18px] flex flex-col">
       <div className="flex items-center gap-[10px]">
         <span className="text-[15px] font-bold whitespace-nowrap">Live runs</span>
         {live.length > 0 && (
@@ -54,21 +68,29 @@ export function ProjectLiveRuns({ projectId, onSummonAnother }: ProjectLiveRunsP
             onClick={() => setExpanded((v) => !v)}
             className="text-[12.5px] font-semibold text-acc cursor-pointer bg-transparent border-none whitespace-nowrap"
           >
-            {expanded ? "Show less" : "View all"}
+            {expanded ? "Show less" : `Load more (${live.length - VISIBLE_CAP})`}
           </button>
         )}
       </div>
 
-      {live.length === 0 ? (
+      {isEmpty ? (
         <EmptyState onSummonAnother={onSummonAnother} />
       ) : (
         <>
-          <div className="flex flex-col gap-[9px] mt-[14px]">
-            {shown.map((run) => (
-              <LiveRunRow key={run.id} run={run} />
-            ))}
-          </div>
-          <ReplyComposer projectId={projectId} target={live[0]!} />
+          {awaiting.length > 0 && (
+            <div className="flex flex-col gap-[9px] mt-[14px]">
+              {awaiting.map((run) => (
+                <ReplyComposer key={run.id} projectId={projectId} target={run} />
+              ))}
+            </div>
+          )}
+          {live.length > 0 && (
+            <div className="flex flex-col gap-[9px] mt-[14px]">
+              {shown.map((run) => (
+                <LiveRunRow key={run.id} run={run} />
+              ))}
+            </div>
+          )}
           <div className="flex items-baseline gap-[16px] mt-[14px] pt-[13px] border-t border-edge">
             <span className="text-[11px] text-txt-4 whitespace-nowrap">{totals.tokens.toLocaleString()} tok</span>
             <span className="text-[11px] text-txt-4 whitespace-nowrap">{formatCost(totals.cost)} combined</span>
@@ -102,10 +124,29 @@ function EmptyState({ onSummonAnother }: { onSummonAnother: () => void }) {
   );
 }
 
+/**
+ * What the agent is doing at this exact moment: the tool call currently in
+ * flight (`run.currentTool` — "Bash", "Grep", "Read", …), or "Thinking…"
+ * while it's between tool calls / composing text. Never the original prompt
+ * — that's static from the moment the run started and tells you nothing
+ * about whether it's stuck, mid-Bash, or about to finish.
+ */
+function LiveActivity({ tool }: { tool: string | undefined }) {
+  return (
+    <div className="flex items-center gap-[6px] mt-[2px] min-w-0" title={tool ? `Running ${tool}` : "Thinking"}>
+      <span className="relative shrink-0 flex items-center justify-center w-[14px] h-[14px] rounded-[4px] bg-card-3 text-txt-3">
+        {tool ? <ToolIcon name={tool} size={9.5} /> : <Icon name="activity" size={9.5} />}
+      </span>
+      <span className="font-mono text-[11px] text-txt-3 truncate">{tool ?? "Thinking…"}</span>
+      <span className="w-[4px] h-[4px] rounded-full bg-green shrink-0 animate-pulse" aria-hidden />
+    </div>
+  );
+}
+
 function LiveRunRow({ run }: { run: PersistedRun }) {
   const unit = unitForAgent(run.agentId);
   return (
-    <div className="relative overflow-hidden px-[13px] py-[11px] rounded-[14px] bg-card-2 border border-edge shadow-[var(--inset-hi)]">
+    <div className="relative overflow-hidden px-[13px] py-[11px] rounded-[14px] bg-card-2 border border-edge shadow-[var(--inset-hi)]" title={run.prompt}>
       <div className="flex items-center gap-[11px]">
         <span className="relative shrink-0 rounded-[10px] overflow-hidden bg-card-3 border border-edge-2">
           <UnitSprite unit={unit} size={32} action="working" />
@@ -116,9 +157,7 @@ function LiveRunRow({ run }: { run: PersistedRun }) {
             <span className="text-[13px] font-bold whitespace-nowrap">{run.agentName}</span>
             <span className="text-[10px] font-semibold px-[6px] py-[1px] rounded-[5px] bg-acc-soft text-acc whitespace-nowrap">{run.model}</span>
           </div>
-          <div className="text-[11px] text-txt-3 mt-[2px] overflow-hidden text-ellipsis whitespace-nowrap" title={run.prompt}>
-            {run.prompt}
-          </div>
+          <LiveActivity tool={run.currentTool} />
         </div>
         <div className="text-right shrink-0">
           <div className="font-mono text-[11.5px] text-txt-2 whitespace-nowrap">{formatDuration(Date.now() - run.ts)}</div>
@@ -158,7 +197,7 @@ function ReplyComposer({ projectId, target }: { projectId: string; target: Persi
   };
 
   return (
-    <div className="mt-[12px] px-[14px] py-[12px] rounded-[14px] bg-amber-soft border border-edge">
+    <div className="px-[14px] py-[12px] rounded-[14px] bg-amber-soft border border-edge">
       <div className="flex items-center gap-[8px]">
         <span className="w-[5px] h-[5px] rounded-full bg-amber shrink-0" />
         <span className="text-[10.5px] font-bold tracking-[0.06em] uppercase text-amber whitespace-nowrap">
