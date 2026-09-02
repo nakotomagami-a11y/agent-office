@@ -69,7 +69,7 @@ function FpsMeter() {
  */
 
 type BtnState = "idle" | "loading" | "done" | "error";
-type DevCat = "interface" | "data" | "database" | "simulate" | "inspect" | "environment" | "utilities";
+type DevCat = "interface" | "data" | "database" | "inspect" | "environment" | "utilities";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
 
@@ -253,7 +253,6 @@ const CATS: { id: DevCat; label: string; icon: IconName }[] = [
   { id: "interface", label: "Interface", icon: "monitor" },
   { id: "data", label: "Demo data", icon: "sparkle" },
   { id: "database", label: "Database", icon: "server" },
-  { id: "simulate", label: "Simulate", icon: "zap" },
   { id: "inspect", label: "Inspect", icon: "search" },
   { id: "environment", label: "Environment", icon: "cpu" },
   { id: "utilities", label: "Utilities", icon: "wrench" },
@@ -503,35 +502,12 @@ export function DevMenu() {
               </div>
             )}
 
-            {cat === "simulate" && (
-              <div>
-                <SectionLabel hint="inject fake state">Simulate</SectionLabel>
-                <p className="text-[11.5px] text-txt-3 leading-[1.5] mb-3">
-                  Push synthetic events into the active project to exercise the UI without a real agent run.
-                </p>
-                <div className="flex flex-col gap-2">
-                  <DevButton icon="play" label="Spawn a fake run" planned />
-                  <DevButton icon="bot" label="Inject working status" planned />
-                  <DevButton icon="sparkle" label="Inject thinking status" planned />
-                  <DevButton icon="send" label="Push a fake agent message" planned />
-                  <DevButton icon="slash" label="Trigger rate-limit banner" planned />
-                  <DevButton icon="x" label="Inject run error" variant="danger" planned />
-                </div>
-              </div>
-            )}
-
             {cat === "inspect" && (
               <div>
                 <SectionLabel>Inspect</SectionLabel>
-                <div className="flex flex-col gap-2 mb-4">
+                <div className="flex flex-col gap-2">
                   <DevButton icon="code" label="Dump Zustand stores to console" state={clientState.dump} onClick={() => runClient("dump", dumpStores)} />
                   <DevButton icon="copy" label="Copy app-state snapshot" state={clientState.snapshot} onClick={() => runClient("snapshot", () => navigator.clipboard.writeText(appStateSnapshot()))} />
-                </div>
-                <SectionLabel>Feature flags</SectionLabel>
-                <div className="flex flex-col gap-2">
-                  <ToggleRow icon="edit" label="New composer" desc="Experimental prompt composer." planned checked={false} onChange={() => {}} />
-                  <ToggleRow icon="templates" label="Workflow builder v2" desc="Node-based pipeline editor." planned checked={false} onChange={() => {}} />
-                  <ToggleRow icon="globe" label="Remote agents" desc="Run agents on a remote host." planned checked={false} onChange={() => {}} />
                 </div>
               </div>
             )}
@@ -560,7 +536,7 @@ export function DevMenu() {
                   )}
                   <DevButton icon="archive" label="Clear caches & hard reload" onClick={() => void clearCachesAndReload()} />
                   <DevButton icon="folder" label="Open logs folder" planned />
-                  <DevButton icon="undo" label="Reset onboarding" onClick={() => void resetOnboarding()} />
+                  <DevButton icon="undo" label="Launch first-run wizard" onClick={() => void resetOnboarding()} />
                 </div>
               </div>
             )}

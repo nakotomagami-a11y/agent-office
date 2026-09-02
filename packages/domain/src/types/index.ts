@@ -353,6 +353,10 @@ export interface ScannedEntry {
   name: string;
   fullPath: string;
   excluded: boolean;
+  /** Whether the folder has a `.git` directory. */
+  hasGit: boolean;
+  /** Directory mtime, ms since epoch — used as an "last touched" hint. */
+  mtimeMs: number;
 }
 
 export interface Project {

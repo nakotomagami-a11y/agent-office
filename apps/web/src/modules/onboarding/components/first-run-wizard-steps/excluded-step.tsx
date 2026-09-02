@@ -2,8 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
-import { Button } from "@/components/ui/button";
-import { TextInput } from "@/components/ui/text-input";
 
 export type ExcludedStepProps = {
   excluded: string[];
@@ -18,23 +16,28 @@ export function ExcludedStep({ excluded, input, onInputChange, onAdd, onRemove }
   const t = useTranslations();
   return (
     <section>
-      <h3 className="font-semibold m-0 mb-[6px] text-[15px]">{t("first_run.excluded_title")}</h3>
-      <p className="text-txt-3 m-0 mb-[12px] text-[12.5px] leading-[1.5]">{t("first_run.excluded_hint")}</p>
-      <div className="flex flex-wrap gap-[6px] mb-[10px]">
+      <h3 className="m-0 text-[16.5px] font-extrabold tracking-[-0.025em]">{t("first_run.excluded_title")}</h3>
+      <p className="m-0 mt-[6px] max-w-[560px] text-[12.5px] leading-[1.6] text-txt-3 text-pretty">
+        {t("first_run.excluded_hint")}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-[8px]">
         {excluded.map((name) => (
           <button
             key={name}
             type="button"
-            className="inline-flex items-center bg-bg-2 border border-line rounded-full cursor-pointer text-txt-2 gap-[4px] px-[9px] py-[3px] font-[var(--font-mono)] text-[11.5px] hover:bg-bg-1 hover:text-txt"
             onClick={() => onRemove(name)}
             title={t("first_run.excluded_remove", { name })}
+            className="inline-flex cursor-pointer items-center gap-[6px] rounded-full border border-edge bg-card-2 px-[12px] py-[6px] font-mono text-[11.5px] text-txt-2 transition-colors hover:border-acc-line hover:text-acc"
           >
-            {name} <Icon name="x" size={11} />
+            {name}
+            <Icon name="x" size={11} />
           </button>
         ))}
       </div>
-      <div className="flex gap-1.5">
-        <TextInput
+
+      <div className="mt-[12px] flex gap-[8px]">
+        <input
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={(e) => {
@@ -44,11 +47,20 @@ export function ExcludedStep({ excluded, input, onInputChange, onAdd, onRemove }
             }
           }}
           placeholder={t("first_run.excluded_placeholder")}
+          className="min-w-0 flex-1 rounded-2xl border border-edge bg-card-2 px-[14px] py-[11px] text-[13px] text-txt outline-none focus:border-acc"
         />
-        <Button variant="ghost" size="sm" onClick={onAdd}>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="shrink-0 cursor-pointer rounded-2xl border border-edge bg-card px-[16px] py-[11px] text-[12.5px] font-bold text-txt-2 transition-colors hover:border-acc-line hover:text-acc"
+        >
           {t("first_run.excluded_add")}
-        </Button>
+        </button>
       </div>
+
+      <p className="mt-[14px] rounded-2xl border border-edge bg-card px-4 py-[11px] text-[11.5px] leading-[1.6] text-txt-3">
+        {t("first_run.excluded_note")}
+      </p>
     </section>
   );
 }

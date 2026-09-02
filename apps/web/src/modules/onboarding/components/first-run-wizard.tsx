@@ -8,6 +8,7 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { AppSettings, ScannedEntry, Project, HealthInfo } from "@agent-office/domain/types";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { cn } from "@/lib/cn";
@@ -38,6 +39,8 @@ interface StarterAgent {
   id: string;
   name: string;
   description: string;
+  unit?: string;
+  room?: string;
 }
 
 type Step = "requirements" | "root" | "excluded" | "integrations" | "agents" | "project";
@@ -74,7 +77,7 @@ function clearDraft() {
   });
 }
 
-export function FirstRunWizard({ onDone }: { onDone: () => void }) {
+export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onDone: () => void }) {
   const t = useTranslations();
   const qc = useQueryClient();
   const setActiveProjectId = useActiveProjectStore((s) => s.setId);
@@ -159,16 +162,20 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
     const p = new URLSearchParams();
     p.set("root", root);
     if (excluded.length > 0) p.set("excluded", excluded.join(","));
-    p.set("includeExcluded", "0");
+    // Include excluded entries too — the Workspace step's live preview wants
+    // to show one as an "ignored" example. The Project step filters them
+    // back out before rendering pickable rows (see `projectCandidates`).
+    p.set("includeExcluded", "1");
     return p.toString();
   }, [root, excluded]);
 
   const scanQ = useQuery({
     queryKey: ["wizard-scan", root, excluded.join(",")],
     queryFn: () => apiFetch<ScannedEntry[]>(`${API_ROUTES.settingsScan}?${scanParams}`),
-    enabled: step === "project" && root.length > 0,
+    enabled: (step === "root" || step === "project") && root.length > 0,
   });
   const candidates = scanQ.data ?? [];
+  const projectCandidates = useMemo(() => (scanQ.data ?? []).filter((c) => !c.excluded), [scanQ.data]);
 
   const finishMut = useMutation({
     mutationFn: async () => {
@@ -190,7 +197,7 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
       }
 
       // Create all selected projects. Custom name only applies when exactly one is chosen.
-      const chosen = candidates.filter((c) => chosenFolderIds.has(c.id));
+      const chosen = projectCandidates.filter((c) => chosenFolderIds.has(c.id));
       let lastCreatedId: string | null = null;
       if (chosen.length > 0) {
         for (const folder of chosen) {
@@ -226,6 +233,33 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
       setBusy(false);
     },
   });
+
+  // Returning users only (see `allowSkip` — settings already existed before
+  // this run of the wizard). Just marks setup complete and closes; doesn't
+  // touch the root/excluded/integrations/agents/project the user already has.
+  const skipMut = useMutation({
+    mutationFn: () => apiFetch<AppSettings>(API_ROUTES.settings, {
+      method: "PATCH",
+      body: { firstRunComplete: true },
+    }),
+    onSuccess: () => {
+      clearDraft();
+      setBusy(false);
+      setDismissed(true);
+      qc.invalidateQueries({ queryKey: queryKeys.settings.all });
+      onDone();
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    },
+  });
+
+  const onSkip = () => {
+    setError(null);
+    setBusy(true);
+    skipMut.mutate();
+  };
 
   const onFinish = () => {
     if (!root.trim()) {
@@ -297,18 +331,52 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[9999] p-[24px] [backdrop-filter:blur(8px)] bg-[rgba(0,0,0,0.72)]"
+      className="fixed inset-0 flex items-center justify-center z-[9999] p-6 backdrop-blur-sm bg-black/72"
       role="dialog"
       aria-modal="true"
       aria-labelledby="fr-title"
     >
       <div
-        className="flex flex-col overflow-hidden border border-line-2 rounded-[8px] w-[min(720px,100%)] max-h-[90vh] bg-[var(--bg-elev)] shadow-[0_24px_60px_rgba(0,0,0,0.45),_0_4px_12px_rgba(0,0,0,0.25)]"
-      >
-        <header className="border-b border-line-2 px-[24px] pt-[20px] pb-[12px]">
-          <h2 id="fr-title" className="font-semibold m-0 mb-[4px] text-[18px]">{t("first_run.title")}</h2>
-          <p className="text-txt-3 m-0 text-[13px]">{t("first_run.subtitle")}</p>
-          <ol className="flex list-none uppercase text-txt-3 pt-[14px] m-0 gap-[6px] font-[var(--font-mono)] text-[11px] tracking-[0.06em]">
+        className="pointer-events-none absolute left-1/2 top-[-160px] h-[460px] w-[760px] -translate-x-1/2 bg-[radial-gradient(circle,color-mix(in_srgb,var(--acc)_16%,transparent),transparent_64%)]"
+        aria-hidden
+      />
+      <div className="relative flex w-[min(800px,100%)] max-h-[90vh] flex-col overflow-hidden rounded-[26px] surface-sheen shadow-[var(--lift)] animate-[jump-pill-in_260ms_cubic-bezier(0.22,0.8,0.3,1)]">
+        <header className="shrink-0 px-[26px] pt-[22px]">
+          <div className="flex items-start gap-[14px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icons/scroll.png"
+              alt=""
+              width={80}
+              height={80}
+              className="shrink-0 object-contain animate-[bob_3.4s_ease-in-out_infinite]"
+            />
+            <div className="min-w-0 flex-1">
+              <div id="fr-title" className="text-[22px] font-extrabold leading-[1.15] tracking-[-0.035em]">
+                {t("first_run.title")}
+              </div>
+              <p className="mt-[5px] text-[13px] leading-[1.55] text-txt-3 text-pretty">{t("first_run.subtitle")}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-[8px]">
+              <span className="flex items-center gap-[7px] rounded-full bg-acc-soft px-[11px] py-[5px] shadow-[inset_0_0_0_1px_var(--acc-line)]">
+                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-acc">
+                  {t("first_run.badge")}
+                </span>
+              </span>
+              {allowSkip ? (
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  disabled={busy}
+                  className="text-[11px] font-semibold text-txt-3 underline-offset-2 transition-colors hover:text-acc hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {t("first_run.skip")}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <ol className="m-0 mt-[18px] flex list-none items-center gap-[6px] p-0">
             {STEP_ORDER.map((s, i) => {
               const isActive = i === stepIdx;
               const isPast = i < stepIdx;
@@ -318,34 +386,55 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
                     type="button"
                     onClick={() => jumpTo(s)}
                     disabled={!isPast}
+                    title={isPast ? t("first_run.back_to_step", { step: t(`first_run.step_${s}`) }) : undefined}
                     className={cn(
-                      "inline-flex items-center border border-line rounded-full gap-[6px] px-[10px] py-[4px] bg-transparent",
-                      isActive && "text-acc [border-color:var(--acc)]",
-                      isPast && "text-txt-2 cursor-pointer hover:border-acc hover:text-acc transition-colors",
-                      !isActive && !isPast && "text-txt-3 cursor-default",
+                      "flex items-center gap-[7px] rounded-full bg-transparent py-[5px] pl-[5px] pr-[11px] shadow-[inset_0_0_0_1px_var(--edge)] transition-[box-shadow,background,color] duration-150",
+                      isActive && "bg-acc-soft shadow-[inset_0_0_0_1px_var(--acc-line)] cursor-default",
+                      isPast && "cursor-pointer hover:shadow-[inset_0_0_0_1px_var(--acc-line)]",
+                      !isActive && !isPast && "cursor-default",
                     )}
                   >
-                    <span className={cn(
-                      "inline-flex items-center justify-center rounded-full w-[18px] h-[18px] text-[10px]",
-                      isActive ? "bg-acc text-white" : isPast ? "bg-acc-faint text-acc" : "bg-bg-2 text-txt-3",
-                    )}>
-                      {i + 1}
+                    <span
+                      className={cn(
+                        "flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full font-mono text-[9.5px] font-medium",
+                        isActive
+                          ? "bg-[linear-gradient(140deg,var(--acc),var(--acc-2))] text-white"
+                          : isPast
+                            ? "bg-acc-soft text-acc"
+                            : "bg-card-2 text-txt-3",
+                      )}
+                    >
+                      {isPast ? <Icon name="check" size={11} /> : i + 1}
                     </span>
-                    {t(`first_run.step_${s}`)}
+                    <span
+                      className={cn(
+                        "whitespace-nowrap font-mono text-[10px] font-medium uppercase tracking-[0.06em]",
+                        isActive ? "text-acc" : isPast ? "text-txt-2" : "text-txt-3",
+                      )}
+                    >
+                      {t(`first_run.step_${s}`)}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ol>
+          <div className="mt-[14px] h-px bg-edge" />
         </header>
 
-        <div className="overflow-y-auto flex-1 px-[24px] py-[18px]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-[26px] py-5">
           {step === "requirements" ? (
             <RequirementsStep health={healthQ.data} loading={healthQ.isLoading} />
           ) : null}
 
           {step === "root" ? (
-            <RootStep root={root} onRootChange={setRoot} placeholder={HOME_FALLBACK} />
+            <RootStep
+              root={root}
+              onRootChange={setRoot}
+              placeholder={HOME_FALLBACK}
+              candidates={candidates}
+              loading={scanQ.isLoading}
+            />
           ) : null}
 
           {step === "excluded" ? (
@@ -377,7 +466,7 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
 
           {step === "project" ? (
             <ProjectStep
-              candidates={candidates}
+              candidates={projectCandidates}
               loading={scanQ.isLoading}
               root={root}
               chosen={chosenFolderIds}
@@ -397,29 +486,46 @@ export function FirstRunWizard({ onDone }: { onDone: () => void }) {
 
         {error ? (
           <div
-            className="mx-[24px] px-[12px] py-[8px] rounded-[6px] text-[12px] bg-[rgba(239,68,68,0.1)] border border-[var(--error)] text-[var(--error)]"
+            className="mx-[26px] mb-[14px] rounded-xl border border-[var(--error)] bg-[rgba(239,68,68,0.1)] px-3 py-2 text-[12px] text-[var(--error)]"
             role="alert"
           >
             {error}
           </div>
         ) : null}
 
-        <footer className="border-t border-line-2 flex items-center px-[24px] py-[14px] gap-[8px]">
-          <Button
-            variant="ghost"
+        <footer className="flex shrink-0 items-center gap-[10px] border-t border-edge bg-card-2 px-[22px] py-[14px]">
+          <button
+            type="button"
             onClick={goBack}
             disabled={isFirst || busy}
+            className="flex items-center gap-[7px] rounded-xl px-[14px] py-[9px] text-[12.5px] font-bold text-txt-2 transition-colors hover:text-txt disabled:cursor-not-allowed disabled:opacity-40"
           >
+            <Icon name="chevron" size={13} className="rotate-180" />
             {t("common.back")}
-          </Button>
+          </button>
           <div className="flex-1" />
+          <span className="font-mono text-[10.5px] text-txt-4">
+            {t("first_run.step_counter", { current: stepIdx + 1, total: STEP_ORDER.length })}
+          </span>
           {!isLast ? (
-            <Button variant="primary" onClick={goNext} disabled={busy}>
+            <Button
+              variant="primary"
+              onClick={goNext}
+              disabled={busy}
+              className="h-auto gap-[8px] rounded-xl px-[18px] py-[9px] text-[12.5px]"
+            >
               {t("common.next")}
+              <Icon name="chevron" size={13} />
             </Button>
           ) : (
-            <Button variant="primary" onClick={onFinish} disabled={busy}>
+            <Button
+              variant="primary"
+              onClick={onFinish}
+              disabled={busy}
+              className="h-auto gap-[8px] rounded-xl px-[18px] py-[9px] text-[12.5px]"
+            >
               {busy ? t("first_run.finishing") : t("first_run.finish")}
+              <Icon name="chevron" size={13} />
             </Button>
           )}
         </footer>

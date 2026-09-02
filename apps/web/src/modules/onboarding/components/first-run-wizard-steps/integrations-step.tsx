@@ -14,9 +14,11 @@ export function IntegrationsStep({
   const t = useTranslations();
   return (
     <div>
-      <h3 className="font-semibold m-0 mb-[6px] text-[15px]">{t("first_run.integrations_title")}</h3>
-      <p className="text-txt-3 m-0 mb-[12px] text-[12.5px] leading-[1.5]">{t("first_run.integrations_hint")}</p>
-      <div className="flex flex-col gap-2">
+      <h3 className="m-0 text-[16.5px] font-extrabold tracking-[-0.025em]">{t("first_run.integrations_title")}</h3>
+      <p className="m-0 mt-[6px] max-w-[560px] text-[12.5px] leading-[1.6] text-txt-3 text-pretty">
+        {t("first_run.integrations_hint")}
+      </p>
+      <div className="mt-4 flex flex-col gap-[10px]">
         {INTEGRATIONS.map((def) => (
           <IntegrationRow
             key={def.id}

@@ -92,11 +92,20 @@ export function scanProjects(
     if (e.name.startsWith(".")) continue;
     const isExcluded = exclusionSet.has(e.name);
     if (isExcluded && !includeExcluded) continue;
+    const fullPath = join(expanded, e.name);
+    let mtimeMs = 0;
+    try {
+      mtimeMs = statSync(fullPath).mtimeMs;
+    } catch {
+      /* keep 0 — folder vanished mid-scan */
+    }
     out.push({
       id: slugify(e.name),
       name: e.name,
-      fullPath: join(expanded, e.name),
+      fullPath,
       excluded: isExcluded,
+      hasGit: existsSync(join(fullPath, ".git")),
+      mtimeMs,
     });
   }
 
