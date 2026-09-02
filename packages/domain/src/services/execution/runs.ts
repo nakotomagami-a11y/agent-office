@@ -114,6 +114,7 @@ export function getLiveRunAsPersistedRun(runId: string): PersistedRun | undefine
     instanceLabel: r.instanceLabel,
     sessionId: r.sessionId,
     parentRunId: r.parentRunId,
+    currentTool: r.currentTool,
   };
 }
 
@@ -183,6 +184,7 @@ export function getRunningRuns(): PersistedRun[] {
       projectId: r.projectId,
       instanceId: r.instanceId,
       instanceLabel: r.instanceLabel,
+      currentTool: r.currentTool,
     }));
 }
 
@@ -593,12 +595,18 @@ function handleStreamLine(run: LiveRun, line: string): void {
       typeof ev.delta.text === "string"
     ) {
       run.sawStreamDelta = true;
+      // The model is producing text again, not calling a tool — clear any
+      // stale tool name so "what's it doing right now" dashboards don't keep
+      // showing e.g. "Bash" long after the call finished and the run moved
+      // on to writing a summary.
+      run.currentTool = undefined;
       run.output += ev.delta.text;
       broadcast(run, { name: "chunk", data: { runId: run.id, text: ev.delta.text } });
       return;
     }
     if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
       const toolName = ev.content_block.name ?? "tool";
+      run.currentTool = toolName;
       broadcast(run, {
         name: "tool",
         data: { runId: run.id, name: toolName, input: ev.content_block.input },
@@ -614,10 +622,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
   if (evt.type === "assistant" && evt.message?.content) {
     for (const block of evt.message.content) {
       if (block.type === "text" && typeof block.text === "string" && !run.sawStreamDelta) {
+        run.currentTool = undefined;
         run.output += block.text;
         broadcast(run, { name: "chunk", data: { runId: run.id, text: block.text } });
       } else if (block.type === "tool_use") {
         const toolName = block.name ?? "tool";
+        run.currentTool = toolName;
         // Phase-0 ground-truth probe. Enable with AO_DEBUG_TOOLS=1 to capture the
         // exact tool name / input shape the installed Claude CLI emits for spawns.
         if (process.env.AO_DEBUG_TOOLS) {
