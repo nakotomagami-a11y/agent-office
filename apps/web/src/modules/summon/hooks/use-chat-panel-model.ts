@@ -10,6 +10,7 @@ import { useStreamingTick } from "./use-streaming-tick";
 import { formatDateTime } from "@/lib/format-date";
 import { useChatActions } from "./use-chat-actions";
 import { useChatState, type ChatState } from "./use-chat-state";
+import { useChatStateRegistry } from "../state/chat-state-registry";
 import { transcriptKey } from "../format/transcript-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { useBranchStore } from "@/lib/branch-store";
@@ -76,6 +77,19 @@ export function useChatPanelModel(input: UseChatPanelModelInput): ChatPanelModel
 
   const state = useChatState(tKey);
   const stream = useRunStream(state.activeRunId);
+
+  // Stash the identity `useQueueDrainDaemon` needs to re-summon a queued
+  // message for this tKey while its ChatPanel isn't mounted (a different
+  // project tab is active). Cheap + idempotent — just keeps the registry
+  // entry's identity fields in sync with the props this panel was opened
+  // with.
+  useEffect(() => {
+    useChatStateRegistry.getState().patchEntry(tKey, {
+      agentId: input.agent.id,
+      projectId: input.projectId ?? null,
+      instanceId: input.instanceId ?? null,
+    });
+  }, [tKey, input.agent.id, input.projectId, input.instanceId]);
 
   const recovery = useRunRecovery({
     activeRunId: state.activeRunId,

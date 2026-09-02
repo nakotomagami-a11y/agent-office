@@ -41,6 +41,16 @@ export type ChatStateEntry = {
   contextProfile: ContextProfile;
   transcriptLoaded: boolean;
   /**
+   * Identity the summon POST needs to resend a queued message — set by
+   * `useChatPanelModel` whenever its ChatPanel mounts for this tKey. Lets
+   * `useQueueDrainDaemon` re-summon a queued message for a tKey whose panel
+   * isn't currently mounted (e.g. the user is on a different project tab)
+   * without having to reverse-derive project/instance from the tKey string.
+   */
+  agentId: string | null;
+  projectId: string | null;
+  instanceId: string | null;
+  /**
    * Index in `thread` where the currently-active run's streamed output
    * starts. Persisted across remounts so a mid-stream tab switch can
    * re-hydrate the splice index correctly — without this, a returning
@@ -62,6 +72,9 @@ export const DEFAULT_CHAT_ENTRY: ChatStateEntry = {
   contextProfile: "balanced",
   transcriptLoaded: false,
   runStartIndex: null,
+  agentId: null,
+  projectId: null,
+  instanceId: null,
 };
 
 type ChatStateRegistryState = {
