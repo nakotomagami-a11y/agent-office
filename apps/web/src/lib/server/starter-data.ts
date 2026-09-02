@@ -57,15 +57,16 @@ export interface StarterFrontmatter {
   name?: string;
   description?: string;
   unit?: string;
+  room?: string;
 }
 
-/** Pull name/description/unit from a hand-rolled YAML frontmatter block. */
+/** Pull name/description/unit/room from a hand-rolled YAML frontmatter block. */
 export function parseFrontmatterSubset(raw: string): StarterFrontmatter {
   const m = raw.match(/^---\n([\s\S]*?)\n---\n?/);
   if (!m) return {};
   const out: StarterFrontmatter = {};
   for (const line of m[1]!.split(/\n/)) {
-    const kv = line.match(/^(name|description|unit):\s*(.*)$/);
+    const kv = line.match(/^(name|description|unit|room):\s*(.*)$/);
     if (!kv) continue;
     let val = kv[2]!.trim();
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
@@ -83,6 +84,7 @@ export interface StarterAgent {
   name: string;
   description: string;
   unit?: string;
+  room?: string;
 }
 
 export function listStarterAgents(): StarterAgent[] {
@@ -96,7 +98,7 @@ export function listStarterAgents(): StarterAgent[] {
     if (f.toUpperCase().startsWith("README")) continue;
     const id = f.replace(/\.md$/, "");
     const fm = parseFrontmatterSubset(readFileSync(join(agentsDir, f), "utf8"));
-    out.push({ id, name: fm.name ?? id, description: fm.description ?? "", unit: fm.unit });
+    out.push({ id, name: fm.name ?? id, description: fm.description ?? "", unit: fm.unit, room: fm.room });
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;

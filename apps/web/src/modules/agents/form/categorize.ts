@@ -37,7 +37,7 @@ export function categoryColor(cat: string): string {
     Engineering: "#3b82f6", QA: "#10b981", Design: "#ec4899",
     "AI & Data": "#8b5cf6", Security: "#ef4444", Docs: "#f59e0b",
     Marketing: "#f97316", Research: "#06b6d4", Strategy: "#8b5cf6",
-    Build: "#e95420",
+    Build: "#e95420", Boardroom: "#f59e0b", Product: "#10b981",
   };
   return m[cat] ?? "#8A8079";
 }
