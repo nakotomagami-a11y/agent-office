@@ -49,7 +49,12 @@ export function ProjectHero({
   };
 
   return (
-    <div className="flex-[1.62] min-w-0 relative overflow-hidden paper-panel rounded-none px-[28px] py-[26px] flex items-center gap-[28px]">
+    <div className="flex-[1.62] min-w-0 relative overflow-hidden rounded-[24px] surface-sheen shadow-[var(--lift)] px-[28px] py-[26px] flex items-center gap-[28px]">
+      <div
+        aria-hidden
+        className="absolute left-[-40px] bottom-[-120px] w-[340px] h-[300px] pointer-events-none"
+        style={{ background: "radial-gradient(circle at 50% 50%, rgba(139,123,255,.20), transparent 64%)" }}
+      />
       <button
         type="button"
         onClick={onOpenPlanetEditor}
