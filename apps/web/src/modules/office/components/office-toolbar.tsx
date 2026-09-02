@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/ui/icon";
 import { ActionBar, type ActionBarItem } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Portal } from "@/components/ui/portal";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { cn } from "@/lib/cn";
 import { useActiveProjectStore } from "@/lib/active-project-store";
@@ -45,6 +46,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
   const [installError, setInstallError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
 
   const qc = useQueryClient();
   const store = useDevServerStore();
@@ -97,14 +101,48 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands.length, projectId]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click. The panel itself is portalled to <body>
+  // (see below), so it's no longer a DOM descendant of `dropRef` — check
+  // `panelRef` too, or every click inside the open panel would read as
+  // "outside" and close it before Start/Stop ever registers.
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!dropRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!dropRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Position the portalled panel off the trigger's live bounding rect instead
+  // of `position: absolute` inside the card — the project hero card this
+  // button lives in is `overflow-hidden` (it clips a decorative background
+  // sprite), which was clipping/overlapping the dropdown against whatever
+  // sits below the card instead of letting it float cleanly on top.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPanelStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+        width: 220,
+      });
+    };
+    place();
+    // A fixed-position panel detaches from its trigger the moment the page
+    // scrolls or resizes — close instead of leaving it floating over the
+    // wrong spot (same behaviour as the shared DropdownMenu).
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   function getState(key: string): RunState {
@@ -306,6 +344,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
           {installBtn}
           <div ref={dropRef} className="relative">
             <button
+              ref={triggerRef}
               type="button"
               onClick={() => setOpen((v) => !v)}
               className={cn(
@@ -321,7 +360,12 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
             </button>
 
             {open && (
-              <div className="absolute top-[calc(100%+6px)] right-0 w-[220px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-50 py-1 overflow-hidden">
+              <Portal>
+              <div
+                ref={panelRef}
+                style={panelStyle}
+                className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] py-1 overflow-hidden"
+              >
                 {commands.map((cmd) => {
                   const s = getState(cmd.key);
                   const busy = s.phase === "starting" || s.phase === "stopping";
@@ -368,6 +412,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
                   );
                 })}
               </div>
+              </Portal>
             )}
           </div>
         </span>
