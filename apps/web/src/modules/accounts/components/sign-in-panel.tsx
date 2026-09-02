@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
@@ -25,6 +27,7 @@ interface SignInPanelProps {
  * and inline by the add-account flow.
  */
 export function SignInPanel({ accountId, onSuccess }: SignInPanelProps) {
+  const qc = useQueryClient();
   const start = useStartLogin();
   const submit = useSubmitLoginCode();
   const [started, setStarted] = useState(false);
@@ -49,9 +52,15 @@ export function SignInPanel({ accountId, onSuccess }: SignInPanelProps) {
     }
   }, [state.url]);
 
-  // Notify parent on success.
+  // On success: refresh every cached view of this account (the Settings
+  // health pill / "needs login" tag included — it reads the same
+  // `useAccounts()` list, which would otherwise stay stale until something
+  // else happens to refetch it) and notify the parent.
   useEffect(() => {
-    if (state.phase === "success") onSuccess();
+    if (state.phase !== "success") return;
+    qc.invalidateQueries({ queryKey: queryKeys.accounts.list() });
+    qc.invalidateQueries({ queryKey: queryKeys.accounts.status(accountId) });
+    onSuccess();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
 

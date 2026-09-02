@@ -10,21 +10,17 @@ interface TauriWindow {
   toggleMaximize: () => Promise<void>;
 }
 
-let cached: TauriWindow | null | undefined; // undefined = not yet probed
+// Only the successful probe is cached. A failed probe (bridge not ready yet,
+// or a transient import error) is NOT cached — otherwise one unlucky click
+// before `__TAURI_INTERNALS__` finishes injecting would wedge every window
+// control (close/minimize/maximize) into a silent no-op for the rest of the
+// session, since every future call short-circuited on the cached `null`
+// instead of trying again.
+let cached: TauriWindow | null = null;
 
 async function getTauriWindow(): Promise<TauriWindow | null> {
-  if (cached !== undefined) return cached;
-  if (typeof window === "undefined") {
-    cached = null;
-    return null;
-  }
-  // The Tauri runtime injects this global early. Probing it avoids
-  // pulling in the @tauri-apps/api module in a browser tab where it
-  // would 404 on dynamic import.
-  if (!("__TAURI_INTERNALS__" in window)) {
-    cached = null;
-    return null;
-  }
+  if (cached) return cached;
+  if (!isTauri()) return null;
   try {
     const mod = await import("@tauri-apps/api/window");
     const w = mod.getCurrentWindow();
@@ -33,29 +29,47 @@ async function getTauriWindow(): Promise<TauriWindow | null> {
       minimize: () => w.minimize(),
       toggleMaximize: () => w.toggleMaximize(),
     };
+    return cached;
   } catch {
-    cached = null;
+    return null;
   }
-  return cached;
 }
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+// Callers fire these from a plain `onClick={() => void closeWindow()}` with
+// nothing downstream awaiting the result, so an unhandled rejection here
+// (e.g. a denied ACL permission) would otherwise vanish into the console as
+// an "uncaught (in promise)" with no indication *why* the button did
+// nothing. Swallow-and-log instead of throwing back into a fire-and-forget
+// caller.
 export async function closeWindow(): Promise<void> {
   const w = await getTauriWindow();
-  await w?.close();
+  try {
+    await w?.close();
+  } catch (err) {
+    console.error("tauri-window.close failed", err);
+  }
 }
 
 export async function minimizeWindow(): Promise<void> {
   const w = await getTauriWindow();
-  await w?.minimize();
+  try {
+    await w?.minimize();
+  } catch (err) {
+    console.error("tauri-window.minimize failed", err);
+  }
 }
 
 export async function toggleMaximizeWindow(): Promise<void> {
   const w = await getTauriWindow();
-  await w?.toggleMaximize();
+  try {
+    await w?.toggleMaximize();
+  } catch (err) {
+    console.error("tauri-window.toggleMaximize failed", err);
+  }
 }
 
 /**
