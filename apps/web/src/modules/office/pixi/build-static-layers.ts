@@ -11,7 +11,7 @@ import {
   type DecorationsMap,
 } from "../components/decorations";
 import { grassTilesetSrc, type GrassColor } from "../components/grass-colors";
-import { raisedCells, elevatedTiles, wallTiles } from "./elevation";
+import { raisedCells, rampCoverage, floorShades, elevatedTiles, wallTiles } from "./elevation";
 import { BRIDGE_CAP_SRCS, FOAM_ANIM_SPEED, FOAM_FRAME, FOAM_FRAMES, FOAM_SHEET } from "./constants";
 import { getPathTexture } from "./path/path-texture";
 import { DEFAULT_PATH_MATERIAL } from "./path/materials";
@@ -59,6 +59,11 @@ export async function buildStaticLayers(
   // ── Collect all asset URLs to load ─────────────────────────────────────────
   const tilesetUrl = grassTilesetSrc(grassColor);
   const urls = new Set<string>([tilesetUrl, FOAM_SHEET]);
+
+  // Per-cluster biome overrides (fill tool, shading a raised platform) each
+  // need their own tileset loaded alongside the map's global one.
+  const shades = floorShades(decorations);
+  for (const c of shades.values()) urls.add(grassTilesetSrc(c));
 
   // Collect unique decoration URLs that are actually used
   const usedKinds = new Set<DecorationKind>();
@@ -146,6 +151,7 @@ export async function buildStaticLayers(
   // Cells lifted a tier (a "floor" decoration) get an elevated-grass overlay on
   // top of their ground grass and grow an auto-tiled stone cliff wall below.
   const raised = raisedCells(decorations);
+  const ramps = rampCoverage(decorations);
   const tilesetTex = textureMap.get(tilesetUrl);
   if (tilesetTex) {
     const QUARTER = TILE / 2; // 32
@@ -183,13 +189,17 @@ export async function buildStaticLayers(
       }
     }
     // Elevated-grass surface (auto-tiled → cohesive platform), then the cliff
-    // walls hanging one tile below any south-exposed edge.
-    for (const t of elevatedTiles(raised)) {
-      const tex = cropTexture(tilesetTex, t.c * TILE, t.r * TILE, TILE, TILE);
+    // walls hanging one tile below any south-exposed edge. A shaded cluster
+    // reads from its own biome sheet (falls back to the map's global one) —
+    // cap and wall always share the SAME sheet per cell, see wallTiles' doc.
+    const shadeTex = (t: { shade?: GrassColor }) =>
+      (t.shade && textureMap.get(grassTilesetSrc(t.shade))) || tilesetTex;
+    for (const t of elevatedTiles(raised, ramps, shades)) {
+      const tex = cropTexture(shadeTex(t), t.c * TILE, t.r * TILE, TILE, TILE);
       terrainTilemap.tile(tex, t.x * TILE, t.y * TILE);
     }
-    for (const t of wallTiles(raised)) {
-      const tex = cropTexture(tilesetTex, t.c * TILE, t.r * TILE, TILE, TILE);
+    for (const t of wallTiles(raised, ramps, shades)) {
+      const tex = cropTexture(shadeTex(t), t.c * TILE, t.r * TILE, TILE, TILE);
       terrainTilemap.tile(tex, t.x * TILE, t.y * TILE);
     }
   }
@@ -275,6 +285,29 @@ export async function buildStaticLayers(
     }
     // Raised-floor marker: terrain-only, rendered above as highland grass.
     if (DECORATIONS[kind].family === "floor") continue;
+
+    // Ramp: cosmetic slope cropped straight from the active grass tileset
+    // (col 0 = left, col 3 = right; rows 4-5 = the 2-tile-tall ramp art) —
+    // like `floor`, its `src` is only the palette thumbnail, not the real
+    // in-scene texture. Anchored bottom at (x, y) so it spans that cell and
+    // the platform cell above it (x, y-1), same geometry as `wallTiles`.
+    // Reads the SAME tileset as the platform it's flush against (its "upper
+    // floor" — mirrors `rampCoverage`'s owner-cell math) so a shaded
+    // platform's ramp always matches instead of reverting to the ground's
+    // global Island color.
+    if (DECORATIONS[kind].family === "ramp") {
+      const ownerKey = kind === "ramp_left" ? `${x + 1},${y - 1}` : `${x - 1},${y - 1}`;
+      const rampShade = shades.get(ownerKey);
+      const rampBase = (rampShade && textureMap.get(grassTilesetSrc(rampShade))) || tilesetTex;
+      if (!rampBase) continue;
+      const rampCol = kind === "ramp_left" ? 0 : 3;
+      const tex = cropTexture(rampBase, rampCol * TILE, 4 * TILE, TILE, TILE * 2);
+      const sprite = new Sprite(tex);
+      sprite.x = x * TILE;
+      sprite.y = (y - 1) * TILE;
+      decoLayer.addChild(sprite);
+      continue;
+    }
 
     const def = DECORATIONS[kind];
     const srcForRot = decoSrc(def, inst);

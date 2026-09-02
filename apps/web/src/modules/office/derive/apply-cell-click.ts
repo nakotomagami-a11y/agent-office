@@ -10,6 +10,8 @@ import {
 } from "../components/decorations";
 import { floodFill, type Snapshot } from "./office-scene-data";
 import type { BuildTool } from "../components/office-build-toolbar";
+import { raisedCells, floodFillRaised } from "../pixi/elevation";
+import type { GrassColor } from "../components/grass-colors";
 
 /**
  * Builds the canvas cell-click handler for OfficeScene. Extracted from the
@@ -20,7 +22,7 @@ import type { BuildTool } from "../components/office-build-toolbar";
  *
  * Shape: the exported handler is a thin dispatcher — it derives a per-click
  * `ClickCtx`, handles the shift-rectangle special case, then fans `tool` out to
- * one small named op per tool (paintGrass / floodFillWater / eraseTopmost /
+ * one small named op per tool (paintGrass / fillTool / eraseTopmost /
  * placeDecoration). Each op owns one tool's semantics; read the op, not the
  * dispatcher, to understand a given tool.
  */
@@ -28,6 +30,11 @@ export interface CellClickDeps {
   currentStateRef: MutableRefObject<Snapshot>;
   rectStartRef: MutableRefObject<{ x: number; y: number } | null>;
   toolRef: MutableRefObject<BuildTool | null>;
+  /** The fill tool's own active paint color (picked from its dedicated
+   *  swatch row in the build dock while `F` is selected) — independent of
+   *  the map's global Island color, so shading a platform never repaints
+   *  the rest of the map. */
+  fillColorRef: MutableRefObject<GrassColor>;
   undoStack: MutableRefObject<Snapshot[]>;
   redoStack: MutableRefObject<Snapshot[]>;
   setGrid: Dispatch<SetStateAction<boolean[][]>>;
@@ -141,14 +148,40 @@ function paintGrass(ctx: ClickCtx) {
   });
 }
 
-/** Flood-fill contiguous water reachable from the clicked cell. No-op on land. */
-function floodFillWater(ctx: ClickCtx) {
-  if (ctx.cellHasGrass) return;
-  const [newGrid, count] = floodFill(ctx.grid, ctx.x, ctx.y);
-  if (count === 0) return;
+/** Bucket fill, dual-purpose by what's under the cursor:
+ *  - water → flood-fill contiguous water into land (turns a pond into island).
+ *  - a raised platform → flood-fill the connected platform and stamp every
+ *    tile in it with `fillColor` (the fill tool's own swatch row, separate
+ *    from the map's global Island color — see `floorShades`/
+ *    `floodFillRaised` in pixi/elevation.ts).
+ *  No-op on plain (unraised) land, same as before. */
+function fillTool(ctx: ClickCtx, fillColor: GrassColor) {
+  if (!ctx.cellHasGrass) {
+    const [newGrid, count] = floodFill(ctx.grid, ctx.x, ctx.y);
+    if (count === 0) return;
+    ctx.pushUndo();
+    ctx.setPendingChanges((n) => n + count);
+    startTransition(() => ctx.setGrid(newGrid));
+    return;
+  }
+
+  const cluster = floodFillRaised(raisedCells(ctx.decorations), ctx.x, ctx.y);
+  if (cluster.length === 0) return;
   ctx.pushUndo();
-  ctx.setPendingChanges((n) => n + count);
-  startTransition(() => ctx.setGrid(newGrid));
+  ctx.setPendingChanges((n) => n + cluster.length);
+  startTransition(() => {
+    ctx.setDecorations((prev) => {
+      const next = { ...prev };
+      for (const key of cluster) {
+        const stack = next[key];
+        if (!stack) continue;
+        next[key] = stack.map((inst) =>
+          DECORATIONS[inst.kind].family === "floor" ? { ...inst, shade: fillColor } : inst,
+        );
+      }
+      return next;
+    });
+  });
 }
 
 /** Erase the topmost thing on the cell: agent first, then the top decoration
@@ -198,7 +231,7 @@ function placeDecoration(ctx: ClickCtx, tool: DecorationKind) {
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
 export function createCellClickHandler(deps: CellClickDeps) {
-  const { currentStateRef, rectStartRef, toolRef, undoStack, redoStack, setSelectedDeco } = deps;
+  const { currentStateRef, rectStartRef, toolRef, fillColorRef, undoStack, redoStack, setSelectedDeco } = deps;
 
   return (x: number, y: number, shiftKey = false) => {
     const tool = toolRef.current;
@@ -243,7 +276,7 @@ export function createCellClickHandler(deps: CellClickDeps) {
         paintGrass(ctx);
         break;
       case "fill":
-        floodFillWater(ctx);
+        fillTool(ctx, fillColorRef.current);
         break;
       case "erase":
         eraseTopmost(ctx);
