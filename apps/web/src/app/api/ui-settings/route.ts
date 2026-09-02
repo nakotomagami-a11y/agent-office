@@ -12,6 +12,15 @@ const STATIC_KEYS = new Set([
   "performance-mode",
   ...Object.values(OFFICE_SETTING_KEYS),
   "office-map-rev",
+  // First-run wizard draft — lets a partially-filled wizard survive an app
+  // restart instead of losing everything the user already entered.
+  "agent-office:wizard-draft",
+  // Sidebar/office view state — view mode + expanded/pinned roster groups
+  // (use-office-store.ts's STORAGE_KEY). Was missing here, so every
+  // `patchUiSettings({"office-view": ...})` call 400'd silently (swallowed by
+  // the store's own `.catch(() => {})`) — pinned agents never actually
+  // reached the DB, so they reset to unpinned on every reload.
+  "office-view",
 ]);
 
 const DYNAMIC_PREFIXES = [
