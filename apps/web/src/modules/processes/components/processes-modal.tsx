@@ -268,9 +268,8 @@ export function ProcessesModal() {
           style={{ background: "radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--green) 16%, transparent), transparent 66%)" }}
           aria-hidden
         />
-        <span className="relative w-[40px] h-[40px] shrink-0 flex items-center justify-center rounded-[14px] bg-green-soft text-green shadow-[inset_0_0_0_1px_var(--green)]">
-          <Icon name="server" size={18} />
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/claude-rune.png" alt="" width={60} height={60} className="relative shrink-0 object-contain" />
         <div className="relative flex-1 min-w-0">
           <div className="text-[17px] font-extrabold tracking-[-0.02em]">{t("title")}</div>
           <div className="font-[var(--font-mono)] text-[10.5px] text-txt-4">

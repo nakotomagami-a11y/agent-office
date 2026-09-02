@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { ActionBar, type ActionBarItem } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Portal } from "@/components/ui/portal";
-import { ProjectChip } from "@/modules/projects/components/project-chip";
+import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
@@ -32,6 +32,11 @@ const TBTN = "inline-flex items-center gap-[5px] px-[9px] h-[30px] rounded-[7px]
 
 // Full-width labelled row used when an action is rendered inside the kebab menu
 const MROW = "flex items-center gap-[10px] w-full h-[34px] px-[10px] rounded-[7px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors duration-[120ms] cursor-pointer select-none text-left disabled:cursor-default disabled:hover:bg-transparent";
+
+// Icon-only toolbar buttons that render a decorative PNG (folder, VS Code, bin) —
+// no hover background, the icon itself scales up on hover instead.
+const IMG_BTN = "group inline-flex items-center justify-center w-[40px] h-[40px] rounded-[7px] border border-transparent cursor-pointer select-none shrink-0";
+const IMG_ICON = "shrink-0 object-contain transition-transform duration-[150ms] ease-out group-hover:scale-[1.25]";
 
 type InstallState = "unknown" | "needed" | "installing" | "done" | "failed";
 
@@ -456,15 +461,15 @@ export function OpenFolderButton({ projectId, menu = false }: { projectId: strin
   if (menu) {
     return (
       <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId); }}>
-        <Icon name="folder" size={13} /> Open project folder
+        <img src="/icons/docs-chest.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open project folder
       </button>
     );
   }
   return (
     <Tooltip content="Open project folder" side="bottom">
-      <button type="button" className={TBTN}
+      <button type="button" className={IMG_BTN}
         onClick={() => { void openProjectFolder(projectId); }}>
-        <Icon name="folder" size={13} />
+        <img src="/icons/docs-chest.png" alt="" width={30} height={30} className={IMG_ICON} />
       </button>
     </Tooltip>
   );
@@ -474,15 +479,15 @@ export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: str
   if (menu) {
     return (
       <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId, "code"); }}>
-        <Icon name="code" size={13} /> Open in VS Code
+        <img src="/icons/vscode.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open in VS Code
       </button>
     );
   }
   return (
     <Tooltip content="Open in VS Code" side="bottom">
-      <button type="button" className={TBTN}
+      <button type="button" className={IMG_BTN}
         onClick={() => { void openProjectFolder(projectId, "code"); }}>
-        <Icon name="code" size={13} />
+        <img src="/icons/vscode.png" alt="" width={30} height={30} className={IMG_ICON} />
       </button>
     </Tooltip>
   );
@@ -508,11 +513,15 @@ export function ClearCacheButton({ projectId, menu = false }: { projectId: strin
   if (menu) {
     return (
       <button type="button" className={cn(MROW, phase === "done" && "text-[var(--ok)]", phase === "error" && "text-[var(--error)]")} onClick={() => { void clearCache(); }} disabled={phase !== "idle"}>
-        <Icon
-          name={phase === "clearing" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "trash"}
-          size={13}
-          className={cn("shrink-0", phase === "clearing" && "[animation:spin_1s_linear_infinite]")}
-        />
+        {phase === "idle" ? (
+          <img src="/icons/bin.png" alt="" width={15} height={15} className="shrink-0 object-contain" />
+        ) : (
+          <Icon
+            name={phase === "clearing" ? "refresh" : phase === "done" ? "check" : "x"}
+            size={13}
+            className={cn("shrink-0", phase === "clearing" && "[animation:spin_1s_linear_infinite]")}
+          />
+        )}
         {phase === "clearing" ? "Clearing cache…" : phase === "done" ? "Cache cleared" : phase === "error" ? "Clear failed" : "Clear build cache"}
       </button>
     );
@@ -541,8 +550,8 @@ export function ClearCacheButton({ projectId, menu = false }: { projectId: strin
   }
   return (
     <Tooltip content="Clear build cache (.next, .turbo, node_modules/.cache)" side="bottom">
-      <button type="button" className={TBTN} onClick={() => { void clearCache(); }}>
-        <Icon name="trash" size={12} />
+      <button type="button" className={IMG_BTN} onClick={() => { void clearCache(); }}>
+        <img src="/icons/bin.png" alt="" width={30} height={30} className={IMG_ICON} />
       </button>
     </Tooltip>
   );
@@ -771,46 +780,24 @@ export type OfficeToolbarProps = {
   workingCount: number;
 };
 
-export function OfficeToolbar({ agentCount, workingCount }: OfficeToolbarProps) {
+export function OfficeToolbar({ agentCount: _agentCount, workingCount: _workingCount }: OfficeToolbarProps) {
   const t = useTranslations("office");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const setActiveId = useActiveProjectStore((s) => s.setId);
-  const projectQ = useProject(activeProjectId);
-  const project = projectQ.data;
 
   const [addOpen, setAddOpen] = useState(false);
-
-  const rosterCount = activeProjectId ? project?.meta.roster.length ?? 0 : 0;
 
   return (
     <header className="shrink-0 flex items-center gap-[16px]">
       <div className="flex items-center gap-[14px] min-w-0">
         <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.035em] whitespace-nowrap shrink-0">{t("title")}</h1>
-        {activeProjectId ? (
-          <>
-            <ProjectChip projectId={activeProjectId} project={project} />
-            <span className="text-txt-4 font-mono text-[11.5px] shrink-0 whitespace-nowrap">
-              {t("agents_count", { count: rosterCount })}
-            </span>
-            {workingCount > 0 && (
-              <span className="flex items-center gap-[6px] font-mono text-[11.5px] text-green whitespace-nowrap shrink-0">
-                <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
-                {t("working_count", { count: workingCount })}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-txt-4 font-mono text-[11.5px] shrink-0">
-            {t("agents_count", { count: agentCount })}
-          </span>
-        )}
       </div>
 
       <div className="ml-auto flex items-center gap-[10px]">
         {activeProjectId && <ProjectActionsBar projectId={activeProjectId} />}
         <button
           type="button"
-          className="flex items-center gap-[8px] px-[18px] py-[11px] rounded-[14px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_14px_30px_-14px_rgba(139,123,255,0.9)] transition-transform duration-150 hover:-translate-y-[2px]"
+          className={cn("flex items-center gap-[8px] px-[18px] py-[11px] rounded-[14px] text-[13.5px] font-bold cursor-pointer whitespace-nowrap", ACCENT_BTN)}
           onClick={() => setAddOpen(true)}
         >
           <Icon name="plus" size={15} /> {t("add_agent")}

@@ -10,6 +10,9 @@ import {
 import { formatCost, formatDuration } from "../format/format-run-meta";
 import { buildSparkData, buildSuccessSpark } from "../format/activity-stats";
 
+/** Artistic per-tile icon (real illustration, no icon-font/badge). */
+export type StatTileIcon = { src: string; alt: string };
+
 export interface StatTile {
   label: string;
   value: string | number;
@@ -17,7 +20,7 @@ export interface StatTile {
   delta: Delta;
   spark: number[];
   color: string;
-  icon: "diamond" | "coin" | "trophy" | "clock";
+  icon: StatTileIcon;
 }
 
 interface DayStats {
@@ -56,7 +59,7 @@ export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
       delta: formatDelta(t.tokens, y.tokens),
       spark: buildSparkData(runs, (r) => r.tokensIn + r.tokensOut),
       color: "var(--cyan)",
-      icon: "diamond",
+      icon: { src: "/icons/mana.png", alt: "" },
     },
     {
       label: "Gold spent",
@@ -65,7 +68,7 @@ export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
       delta: formatDelta(t.cost, y.cost),
       spark: buildSparkData(runs, (r) => r.cost),
       color: "var(--amber)",
-      icon: "coin",
+      icon: { src: "/icons/coin.png", alt: "" },
     },
     {
       label: "Win rate",
@@ -74,7 +77,7 @@ export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
       delta: formatDelta(t.success, y.success),
       spark: buildSuccessSpark(runs),
       color: "var(--green)",
-      icon: "trophy",
+      icon: { src: "/icons/trophy.png", alt: "" },
     },
     {
       label: "Time in field",
@@ -83,7 +86,7 @@ export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
       delta: formatDelta(t.durMs, y.durMs),
       spark: buildSparkData(runs, (r) => r.durMs),
       color: "var(--acc)",
-      icon: "clock",
+      icon: { src: "/icons/clock.png", alt: "" },
     },
   ];
 }

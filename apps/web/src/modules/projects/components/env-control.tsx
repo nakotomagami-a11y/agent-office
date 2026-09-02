@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 
 /**
@@ -15,12 +15,8 @@ export const ENV_CONTROL_TRIGGER =
   "hover:border-edge-2 transition-colors duration-150 " +
   "focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2";
 
-/** Icon-badge color per control — mirrors the mock's per-row accent (Claude → violet, GitHub → cyan, Secrets → amber). */
-const TONE_CLASSES: Record<"accent" | "cyan" | "amber", string> = {
-  accent: "bg-acc-soft text-acc",
-  cyan: "bg-[rgba(34,211,238,.12)] text-cyan",
-  amber: "bg-[rgba(251,191,36,.12)] text-amber",
-};
+/** Per-control artistic icon — a standalone illustration, no badge/background. */
+export type EnvIcon = { src: string; alt: string };
 
 /**
  * Inner content of an Environment control button: an icon badge, a stacked
@@ -33,17 +29,15 @@ export function EnvControlTrigger({
   label,
   value,
   accessory,
-  tone = "accent",
 }: {
-  icon: IconName;
+  icon: EnvIcon;
   label: string;
   value: ReactNode;
   accessory?: ReactNode;
-  tone?: "accent" | "cyan" | "amber";
 }) {
   return (
     <span className="flex items-center gap-[12px] min-w-0 w-full">
-      <EnvRowIcon icon={icon} tone={tone} />
+      <EnvRowIcon icon={icon} />
       <EnvRowLabel label={label} value={value} />
       {accessory}
       <Icon name="chevron-down" size={12} className="text-txt-4 shrink-0" />
@@ -61,30 +55,27 @@ export function EnvInfoRow({
   label,
   value,
   trailing,
-  tone = "accent",
   className,
 }: {
-  icon: IconName;
+  icon: EnvIcon;
   label: string;
   value: ReactNode;
   trailing?: ReactNode;
-  tone?: "accent" | "cyan" | "amber";
   className?: string;
 }) {
   return (
     <div className={cn(ENV_CONTROL_TRIGGER, "flex items-center gap-[12px]", className)}>
-      <EnvRowIcon icon={icon} tone={tone} />
+      <EnvRowIcon icon={icon} />
       <EnvRowLabel label={label} value={value} />
       {trailing}
     </div>
   );
 }
 
-function EnvRowIcon({ icon, tone }: { icon: IconName; tone: "accent" | "cyan" | "amber" }) {
+function EnvRowIcon({ icon }: { icon: EnvIcon }) {
   return (
-    <span className={cn("flex items-center justify-center w-[32px] h-[32px] rounded-[11px] shrink-0", TONE_CLASSES[tone])}>
-      <Icon name={icon} size={15} />
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={icon.src} alt={icon.alt} width={32} height={32} className="shrink-0 object-contain" />
   );
 }
 

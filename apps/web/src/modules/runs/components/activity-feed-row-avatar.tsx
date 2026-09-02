@@ -1,8 +1,6 @@
 import type { PersistedRun } from "@agent-office/domain/types";
-import { Icon } from "@/components/ui/icon";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
-import { cn } from "@/lib/cn";
 
 const STATUS_TINT: Record<PersistedRun["status"], string> = {
   done: "var(--green)",
@@ -28,7 +26,7 @@ export function ActivityFeedRowAvatar({
   return (
     <div
       className="relative shrink-0 w-[62px] h-[66px] rounded-[16px] bg-card-2 overflow-hidden flex items-end justify-center"
-      style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tint} 35%, transparent)` }}
+      style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tint} 18%, transparent)` }}
     >
       <span
         aria-hidden
@@ -41,15 +39,6 @@ export function ActivityFeedRowAvatar({
         style={{ background: "radial-gradient(rgba(0,0,0,.45), transparent 70%)" }}
       />
       <UnitSprite unit={unit} size={50} animate={false} className="relative mb-[4px]" />
-      <span
-        className={cn(
-          "absolute top-[5px] right-[5px] flex items-center justify-center rounded-full w-[16px] h-[16px] ring-2 ring-card text-white",
-          run.status === "error" ? "bg-red" : run.status === "running" ? "bg-acc animate-pulse" : "bg-green",
-        )}
-      >
-        {run.status === "done" && <Icon name="check" size={9} />}
-        {run.status === "error" && <Icon name="x" size={9} />}
-      </span>
     </div>
   );
 }

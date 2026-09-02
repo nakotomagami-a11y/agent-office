@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { ScheduledJob } from "@agent-office/domain/types";
-import { Icon } from "@/components/ui/icon";
 import { whenParts } from "../format/schedule-format";
 
 /**
@@ -21,16 +20,14 @@ export function SchedulesSummaryTiles({ jobs }: { jobs: ScheduledJob[] }) {
   return (
     <div className="flex flex-wrap gap-[14px]">
       <Tile
-        icon="clock"
-        color="var(--acc)"
+        icon="/icons/clock.png"
         label="Queued"
         value={stats.queuedCount}
         unit="orders"
         sub={stats.nextFire ? `next fires ${whenParts(stats.nextFire).rel}` : "nothing queued"}
       />
       <Tile
-        icon="refresh"
-        color="var(--cyan)"
+        icon="/icons/recurring.png"
         label="Recurring"
         value={0}
         unit="active"
@@ -38,8 +35,7 @@ export function SchedulesSummaryTiles({ jobs }: { jobs: ScheduledJob[] }) {
         dim
       />
       <Tile
-        icon="eye"
-        color="var(--amber)"
+        icon="/icons/eye.png"
         label="Watchers"
         value={stats.watcherCount}
         unit="armed"
@@ -51,15 +47,13 @@ export function SchedulesSummaryTiles({ jobs }: { jobs: ScheduledJob[] }) {
 
 function Tile({
   icon,
-  color,
   label,
   value,
   unit,
   sub,
   dim,
 }: {
-  icon: "clock" | "refresh" | "eye";
-  color: string;
+  icon: string;
   label: string;
   value: number;
   unit: string;
@@ -69,12 +63,8 @@ function Tile({
   return (
     <div className="flex-1 min-w-[220px] flex flex-col gap-[10px] rounded-[16px] surface-sheen shadow-[var(--lift)] px-[18px] py-[16px]">
       <div className="flex items-center gap-[9px]">
-        <div
-          className="flex items-center justify-center w-[30px] h-[30px] rounded-[9px] shrink-0"
-          style={{ background: `color-mix(in oklab, ${color} 16%, transparent)`, color }}
-        >
-          <Icon name={icon} size={15} />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={icon} alt="" width={60} height={60} className="shrink-0 object-contain" />
         <span className="font-mono text-[9.5px] font-extrabold tracking-[0.09em] uppercase text-txt-4">{label}</span>
       </div>
       <div className={dim ? "opacity-60" : ""}>

@@ -122,9 +122,8 @@ function SecretRow({ secret, onEdit }: { secret: SecretWithStatus; onEdit: () =>
   return (
     <div className="flex flex-col border-b border-edge transition-colors duration-150 hover:bg-card-2">
       <div className="flex items-center gap-[13px] px-[20px] py-[13px]">
-        <span className="w-[32px] h-[32px] shrink-0 flex items-center justify-center rounded-[11px] bg-card-2 shadow-[inset_0_0_0_1px_var(--edge)] text-txt-3">
-          <Icon name="lock" size={14} />
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/lock.png" alt="" width={32} height={32} className="shrink-0 object-contain" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-[9px]">
             <span className="font-mono text-[12.5px] font-bold whitespace-nowrap overflow-hidden text-ellipsis">

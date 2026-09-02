@@ -134,7 +134,8 @@ export function SkillCard({ skill, icons, busy, onInstall, onUninstall, onEdit, 
           aria-label={isLocal ? `Duplicate ${skill.name}` : `Fork ${skill.name} to a local copy`}
           className="flex items-center gap-[6px] py-[8px] px-[13px] rounded-[11px] border border-edge text-txt-4 text-[12px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 hover:text-acc hover:border-acc-line"
         >
-          <Icon name="branch" size={13} /> Fork
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/fork.png" alt="" width={18} height={18} className="shrink-0 object-contain" /> Fork
         </button>
 
         <span className="flex-1" />

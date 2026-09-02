@@ -165,7 +165,12 @@ export function SkillEditorModal({ open, mode, skill, forceFork, onClose }: Skil
             Cancel
           </Button>
           <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit}>
-            <Icon name={createMut.isPending ? "refresh" : submitIcon} size={13} />
+            {!createMut.isPending && isFork ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/icons/fork.png" alt="" width={16} height={16} className="shrink-0 object-contain" />
+            ) : (
+              <Icon name={createMut.isPending ? "refresh" : submitIcon} size={13} />
+            )}
             {createMut.isPending ? "Saving…" : submitLabel}
           </Button>
         </>
@@ -173,7 +178,8 @@ export function SkillEditorModal({ open, mode, skill, forceFork, onClose }: Skil
     >
       {isFork ? (
         <div className="mb-4 flex items-start gap-2.5 rounded-[var(--r-md)] border border-ao-accent-line bg-ao-accent-soft px-3.5 py-2.5">
-          <Icon name="branch" size={15} className="text-acc mt-0.5 shrink-0" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/fork.png" alt="" width={18} height={18} className="mt-0.5 shrink-0 object-contain" />
           <p className="text-[12px] leading-[1.5] text-txt-2">
             {skill && skillOrigin(skill) === "github" ? (
               <>

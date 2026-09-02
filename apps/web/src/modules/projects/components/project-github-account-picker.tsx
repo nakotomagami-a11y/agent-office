@@ -6,7 +6,9 @@ import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useGithubAccounts } from "@/modules/github-accounts/hooks/use-github-accounts";
 import { useUpdateProject } from "../hooks/use-projects";
-import { EnvControlTrigger, ENV_CONTROL_TRIGGER } from "./env-control";
+import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
+
+const GITHUB_ICON: EnvIcon = { src: "/icons/github.png", alt: "" };
 
 /**
  * Per-project GitHub-account control — a button in the project Environment bar.
@@ -45,13 +47,13 @@ export function ProjectGithubAccountPicker({
   ) : undefined;
 
   const trigger = (
-    <EnvControlTrigger icon="branch" label="GitHub" value={activeLabel} accessory={accessory} tone="cyan" />
+    <EnvControlTrigger icon={GITHUB_ICON} label="GitHub" value={activeLabel} accessory={accessory} />
   );
 
   if (!accountsQ.data) {
     return (
       <div className={`flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
-        <EnvControlTrigger icon="branch" label="GitHub" value="…" tone="cyan" />
+        <EnvControlTrigger icon={GITHUB_ICON} label="GitHub" value="…" />
       </div>
     );
   }

@@ -1,11 +1,16 @@
 /* Activity — live run rows + heatmap cells. */
 
 /* ─── Activity — color-mix rules ─── */
+/* Matches sibling `.act-row` (activity-feed-row.tsx) — same sheen-surface
+   card look as the rest of the app, no more one-off green tint/border. The
+   per-row pulsing green dot next to the agent name is the only "live" signal
+   now, same weight as any other status dot in the app. */
 .act-live-run {
   display: flex; align-items: center; position: relative; overflow: hidden;
   gap: 14px; padding: 11px 14px;
-  background: color-mix(in srgb, var(--green) 7%, var(--card-2));
-  border: 1px solid color-mix(in srgb, var(--green) 24%, var(--edge));
+  background: var(--card-bg) padding-box, var(--sheen) border-box;
+  border: 1px solid transparent;
+  box-shadow: var(--lift);
   border-radius: 12px;
 }
 .hcell.l1 { background: color-mix(in oklab, var(--acc) 18%, var(--card-3)); }
