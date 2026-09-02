@@ -19,7 +19,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 
 **Every project, one tab bar away** — switch context without losing your place:
 
-![Projects](screenshots/projects.png)
+![Agents](screenshots/agents.png)
 
 <details>
 <summary><b>More screenshots</b> — chat, activity, agents, memory, skills, analytics, schedules, servers</summary>
