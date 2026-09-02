@@ -10,7 +10,7 @@ export async function GET() {
 }
 
 // Partial merge: PATCH { features: { multiInstance } } for feature flags, or
-// { firstRunComplete } to re-arm the first-run wizard (dev console "Reset onboarding").
+// { firstRunComplete } to re-arm the first-run wizard (dev console "Launch first-run wizard").
 export async function PATCH(request: Request) {
   const raw: unknown = await request.json();
   const current = settings.readSettings();

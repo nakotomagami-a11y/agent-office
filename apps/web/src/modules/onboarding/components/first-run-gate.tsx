@@ -26,5 +26,11 @@ export function FirstRunGate() {
   if (q.isLoading) return null;
   if (q.data && q.data.firstRunComplete) return null;
 
-  return <FirstRunWizard onDone={() => q.refetch()} />;
+  // Settings already exist (a projects root was configured before) but
+  // firstRunComplete is false — this is a returning user re-seeing the
+  // wizard (e.g. re-armed from the dev menu, or a future "redo setup"
+  // entry point), not a genuinely fresh install. Offer a way out.
+  const allowSkip = Boolean(q.data);
+
+  return <FirstRunWizard allowSkip={allowSkip} onDone={() => q.refetch()} />;
 }
