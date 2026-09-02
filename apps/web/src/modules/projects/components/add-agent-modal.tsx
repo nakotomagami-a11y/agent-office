@@ -13,7 +13,7 @@ import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useAddInstance, useProject, useProjects } from "../hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { CHROME_TOP } from "@/lib/chrome";
+import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
 
 export type AddAgentModalProps = {
   open: boolean;
@@ -97,7 +97,14 @@ export function AddAgentModal({ open, projectId, onClose, onProjectChange }: Add
   if (!open) return null;
 
   const content = (
-    <div className="app-modal-backdrop fixed inset-0 flex items-center justify-center bg-[rgba(5,5,10,0.78)] z-[200] p-2 after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(10px)] after:[-webkit-backdrop-filter:blur(10px)] after:pointer-events-none" style={{ top: CHROME_TOP }} onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
+    <div
+      className={cn(
+        "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center bg-[rgba(5,5,10,0.78)] z-[200] p-2 after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(10px)] after:[-webkit-backdrop-filter:blur(10px)] after:pointer-events-none",
+        CHROME_LEFT_CLASS,
+      )}
+      style={{ top: CHROME_TOP }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
       <div className="relative bg-bg-1 border border-line flex flex-col overflow-hidden [width:min(820px,100%)] rounded-[8px] [box-shadow:0_32px_64px_-12px_rgba(0,0,0,0.7)] z-[1]" style={{ maxHeight: "calc(100vh - 90px)" }} role="dialog" aria-modal="true">
         {targetId ? (
           <AgentPickerStep
