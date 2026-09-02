@@ -6,7 +6,7 @@ import { Portal } from "./portal";
 import { Icon } from "./icon";
 import { cn } from "@/lib/cn";
 import { useRegisterModal } from "@/lib/modal-manager";
-import { CHROME_TOP } from "@/lib/chrome";
+import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
 
 export type ModalShellProps = {
   open: boolean;
@@ -111,7 +111,10 @@ export function ModalShell({
       <div
         role="presentation"
         onClick={onClose}
-        className="app-modal-backdrop fixed inset-0 bg-[var(--ao-backdrop)] backdrop-blur-sm flex items-center justify-center z-[200] p-2"
+        className={cn(
+          "app-modal-backdrop fixed top-0 right-0 bottom-0 bg-[var(--ao-backdrop)] backdrop-blur-sm flex items-center justify-center z-[200] p-2",
+          CHROME_LEFT_CLASS,
+        )}
         style={{ top: CHROME_TOP }}
       >
         <div

@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useRegisterModal } from "@/lib/modal-manager";
+import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
 import { useProject, useAddInstance, useRemoveInstance } from "@/modules/projects/hooks/use-projects";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
@@ -472,14 +473,18 @@ export function AgentDetailsModal() {
   return (
     <Portal>
       <div
-        className="app-modal-backdrop fixed inset-0 flex items-center justify-center z-[200] p-[26px] bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none"
+        className={cn(
+          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-[26px] bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none",
+          CHROME_LEFT_CLASS,
+        )}
         role="presentation"
         onClick={closeInspector}
+        style={{ top: CHROME_TOP }}
       >
         <div
           ref={ref}
           className="ao-modal surface-sheen relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
-          style={{ height: "calc(100vh - 52px)", maxHeight: "940px" }}
+          style={{ height: `calc(100vh - ${CHROME_TOP + 52}px)`, maxHeight: "940px" }}
           role="dialog"
           aria-modal="true"
           aria-label={`Agent: ${agent.name}`}
