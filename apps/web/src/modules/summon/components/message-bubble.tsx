@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { assertNever } from "@/lib/assert-never";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
 import { EXTERNAL_LINKS } from "@agent-office/domain/config/routes";
+import { classifyResultError } from "@agent-office/domain/services/execution/runs/errors";
 import type { RunErrorCode } from "@agent-office/domain/types";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
@@ -431,6 +432,25 @@ function InterruptedCard({
   );
 }
 
+const MISCLASSIFIED_AUTH_MAX_LEN = 240;
+
+/**
+ * Some auth/subscription failures never reach the structured run-error path
+ * at all — the CLI streams the raw failure sentence ("Failed to authenticate:
+ * OAuth session expired…") as if it were the model's own reply, so it lands
+ * here as a plain `agent-text` bubble with no Sign-in action and nothing to
+ * click. Re-run the same classifier the structured error cards use on short,
+ * finished agent-text so this still surfaces the interactive card instead of
+ * a dead wall of text the user has to go fix in Settings on their own.
+ */
+function misclassifiedAuthCode(text: string, streaming: boolean): "auth_expired" | "subscription_disabled" | null {
+  if (streaming) return null;
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > MISCLASSIFIED_AUTH_MAX_LEN) return null;
+  const { code } = classifyResultError(trimmed, trimmed);
+  return code === "auth_expired" || code === "subscription_disabled" ? code : null;
+}
+
 /**
  * Auth-specific error card: instead of raw red text + a Retry that just fails
  * again, offer an in-app "Sign in" that re-authenticates the account this
@@ -532,6 +552,10 @@ export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onR
       );
     }
     case "agent-text": {
+      const misclassified = misclassifiedAuthCode(item.text, item.streaming);
+      if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} />;
+      if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} />;
+
       const proseItems = splitProse(item.text);
       const agentImgs = extractImages(item.text);
       const showClarify = isQuestion && !item.streaming && !!onReply;

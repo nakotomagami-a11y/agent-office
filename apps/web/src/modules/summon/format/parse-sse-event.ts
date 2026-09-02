@@ -253,18 +253,30 @@ export function applySseEvent(
     case "rate-limit": {
       const { data } = event;
       const withoutEcho = dropTrailingTextEcho(prev.thread, data.message);
-      // The CLI can re-report the same rate-limit signal repeatedly (structured
-      // "warning" events resent on every subsequent tool call, then a second,
-      // differently-worded "limit" event from the plain-text fallback) — each
-      // one used to append its own card, spamming the thread with 2-3 near-
-      // identical stacked cards for a single occurrence. If the card already at
-      // the top of the thread IS a rate-limit card, update it in place instead
-      // of appending a new one, keeping its id so the dismiss/retry/schedule
-      // handlers (bound to `item.id` in chat-thread.tsx) keep targeting the
-      // right item.
-      const last = withoutEcho[withoutEcho.length - 1];
-      const card = { kind: "system-rate-limit" as const, id: last?.kind === "system-rate-limit" ? last.id : newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity };
-      const nextThread = last?.kind === "system-rate-limit" ? [...withoutEcho.slice(0, -1), card] : [...withoutEcho, card];
+      // The CLI re-reports the same rate-limit signal on every subsequent tool
+      // call while a warning is active (plus a differently-worded "limit"
+      // event from the plain-text fallback) — each one used to append its own
+      // card, spamming the thread with a growing stack of near-identical
+      // cards. Tool/text events interleave between these resends, so only
+      // checking whether the *last* thread item was a rate-limit card missed
+      // almost every repeat (the card is rarely still on top by the time the
+      // next signal arrives). Instead, find any existing rate-limit card
+      // anywhere in the thread — it's still present because the user hasn't
+      // dismissed it — and update it in place, keeping both its id and its
+      // position, so the dismiss/retry/schedule handlers (bound to `item.id`
+      // in chat-thread.tsx) keep targeting the right item.
+      let existingIdx = -1;
+      for (let i = withoutEcho.length - 1; i >= 0; i--) {
+        if (withoutEcho[i]!.kind === "system-rate-limit") {
+          existingIdx = i;
+          break;
+        }
+      }
+      const existing = existingIdx !== -1 ? withoutEcho[existingIdx] : undefined;
+      const card = { kind: "system-rate-limit" as const, id: existing?.kind === "system-rate-limit" ? existing.id : newId(), message: data.message, resetsAt: data.resetsAt, severity: data.severity };
+      const nextThread = existingIdx !== -1
+        ? withoutEcho.map((it, i) => (i === existingIdx ? card : it))
+        : [...withoutEcho, card];
       return {
         thread: closeStreaming(nextThread),
         usage: prev.usage,
