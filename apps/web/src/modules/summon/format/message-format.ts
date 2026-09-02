@@ -77,9 +77,12 @@ export function extractImages(text: string): string[] {
   return urls;
 }
 
-/** Strip the attachment footer that Claude Code appends ("Attachments (read these...)\n- /path"). */
+/** Strip the attachment footer that Claude Code appends ("Attachments (read these...)\n- /path").
+ *  The footer is normally preceded by "\n\n" when it trails real message text, but when the
+ *  user pastes an image with no other text the footer IS the entire message — so the leading
+ *  "\n\n" is optional here, otherwise that case fell through and rendered as raw text. */
 export function stripAttachmentFooter(text: string): string {
-  return text.replace(/\n\nAttachments \(read these with your tools\):[^\n]*(?:\n- [^\n]+)*/g, "").trimEnd();
+  return text.replace(/(?:\n\n)?Attachments \(read these with your tools\):[^\n]*(?:\n- [^\n]+)*/g, "").trim();
 }
 
 export function highlightTS(src: string): string {
