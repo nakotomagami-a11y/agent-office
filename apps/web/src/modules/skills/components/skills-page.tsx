@@ -91,12 +91,7 @@ export function SkillsPage() {
     <div ref={scrollRef} className="overflow-auto">
       <div className="p-[20px] flex flex-col gap-[14px]">
         {/* ── Overview band ─────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-[24px] surface-sheen shadow-[var(--lift)] px-[24px] py-[22px] flex flex-wrap items-center gap-[28px]">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-[30px] -bottom-[130px] w-[320px] h-[290px]"
-            style={{ background: "radial-gradient(circle at 50% 50%, rgba(139,123,255,.18), transparent 64%)" }}
-          />
+        <div className="paper-panel relative rounded-none px-[30px] py-[26px] flex flex-wrap items-center gap-[28px]">
           <div className="relative shrink-0">
             <div className="flex items-baseline gap-[9px]">
               <span className="text-[46px] font-extrabold tracking-[-0.04em] leading-none">
@@ -120,13 +115,12 @@ export function SkillsPage() {
           </div>
 
           <div className="relative flex items-center gap-[8px] flex-wrap">
-            <MiniStat icon="layers" value={catalogCount} label="catalog" loading={registryLoading} tone="acc" />
-            <MiniStat icon="server" value={sourcesCount} label="sources" loading={!mounted || sourcesQ.isLoading} tone="cyan" />
+            <MiniStat icon="/icons/manuscripts.png" value={catalogCount} label="catalog" loading={registryLoading} />
+            <MiniStat icon="/icons/scroll.png" value={sourcesCount} label="sources" loading={!mounted || sourcesQ.isLoading} />
             <MiniStat
-              icon="refresh"
+              icon="/icons/scroll-seal.png"
               value={updatesCount}
               label="updates"
-              tone={updatesCount > 0 ? "warn" : "neutral"}
               loading={!mounted || updatesQ.isLoading}
             />
           </div>
@@ -146,7 +140,8 @@ export function SkillsPage() {
               onClick={() => setForgeOpen(true)}
               className="flex items-center gap-[8px] py-[11px] px-[18px] rounded-[13px] bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13.5px] font-bold whitespace-nowrap cursor-pointer shadow-[0_14px_30px_-14px_rgba(139,123,255,0.9)] transition-transform duration-150 hover:-translate-y-[2px]"
             >
-              <Icon name="hammer" size={15} /> Forge skill
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/anvil.png" alt="" width={18} height={18} className="shrink-0 object-contain" /> Forge skill
             </button>
           </div>
         </div>
@@ -379,32 +374,21 @@ export function SkillsPage() {
   );
 }
 
-const STAT_TONE = {
-  acc: { bg: "bg-acc-soft", fg: "text-acc" },
-  cyan: { bg: "bg-[rgba(34,211,238,.12)]", fg: "text-cyan" },
-  warn: { bg: "bg-card-3", fg: "text-amber" },
-  neutral: { bg: "bg-card-3", fg: "text-txt-3" },
-} as const;
-
 function MiniStat({
   icon,
   value,
   label,
-  tone,
   loading,
 }: {
-  icon: IconName;
+  icon: string;
   value: number;
   label: string;
-  tone: keyof typeof STAT_TONE;
   loading?: boolean;
 }) {
-  const t = STAT_TONE[tone];
   return (
     <div className="flex items-center gap-[10px] py-[11px] px-[15px] rounded-[15px] bg-card-2 border border-edge shadow-[var(--inset-hi)]">
-      <span className={cn("w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0", t.bg, t.fg)}>
-        <Icon name={icon} size={14} />
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={icon} alt="" width={38} height={38} className="shrink-0 object-contain" />
       <div className="leading-[1.25]">
         <div className="text-[18px] font-extrabold tracking-[-0.02em]">{loading ? "—" : value}</div>
         <div className="text-[10px] font-bold tracking-[0.07em] uppercase text-txt-4 whitespace-nowrap">{label}</div>

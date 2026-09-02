@@ -1,9 +1,10 @@
 import type { IntegrationDef } from "@agent-office/domain/config/integrations";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/cn";
 
 /** One integration row: icon, label (+ status badge), description, and a toggle.
- *  Shared by the Settings → Integrations tab and the first-run wizard step. */
+ *  Used by the first-run wizard's "Extras" step. */
 export function IntegrationRow({
   def,
   enabled,
@@ -16,20 +17,30 @@ export function IntegrationRow({
   onToggle: (next: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bg-2 border border-line">
-      <span className="text-txt-3 shrink-0 mt-[1px]">
-        <Icon name={def.icon as IconName} size={15} />
+    <div
+      className={cn(
+        "flex items-center gap-[13px] rounded-2xl border px-4 py-[13px] transition-colors",
+        enabled ? "border-acc-line bg-acc-soft" : "border-edge bg-card",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl",
+          enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
+        )}
+      >
+        <Icon name={def.icon as IconName} size={17} />
       </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-[12.5px] font-medium text-txt">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-[8px] text-[13.5px] font-bold text-txt">
           {def.label}
           {def.status === "experimental" ? (
-            <span className="text-[9.5px] font-mono uppercase tracking-[0.06em] px-[5px] py-[1px] rounded bg-[color-mix(in_oklab,var(--queued)_18%,transparent)] text-[var(--queued)]">
+            <span className="rounded-full bg-amber-soft px-[7px] py-[1.5px] font-mono text-[9px] font-extrabold uppercase tracking-[0.06em] text-amber">
               Experimental
             </span>
           ) : null}
         </div>
-        <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">{def.description}</div>
+        <div className="mt-[3px] text-[11.5px] leading-[1.5] text-txt-4">{def.description}</div>
       </div>
       <Switch checked={enabled} disabled={disabled} onChange={onToggle} label={def.label} />
     </div>

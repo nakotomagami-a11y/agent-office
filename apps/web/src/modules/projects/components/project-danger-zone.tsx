@@ -36,9 +36,8 @@ export function ProjectDangerZone({
         className="flex items-center gap-[11px] px-[22px] py-[16px]"
         style={{ borderBottom: "1px solid rgba(239,68,68,.18)" }}
       >
-        <span className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0 bg-red-soft text-red">
-          <Icon name="shield" size={15} />
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/danger-x.png" alt="" width={30} height={30} className="shrink-0 object-contain" />
         <div>
           <div className="text-[15px] font-bold text-red whitespace-nowrap">Danger zone</div>
           <div className="text-[11px] text-txt-4 whitespace-nowrap">destructive actions — they cannot be undone</div>

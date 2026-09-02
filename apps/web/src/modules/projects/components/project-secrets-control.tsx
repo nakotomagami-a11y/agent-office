@@ -11,7 +11,9 @@ import {
 } from "@/modules/secrets/hooks/use-secrets";
 import { SecretBadges } from "@/modules/secrets/components/secret-badges";
 import { SecretFormModal } from "@/modules/secrets/components/secret-form-modal";
-import { EnvInfoRow } from "./env-control";
+import { EnvInfoRow, type EnvIcon } from "./env-control";
+
+const LOCK_ICON: EnvIcon = { src: "/icons/lock.png", alt: "" };
 
 /**
  * Per-project Secrets rows in the Environment card — one flat row per
@@ -37,10 +39,9 @@ export function ProjectSecretsControl({ projectId }: { projectId: string }) {
       {attached.map((s) => (
         <EnvInfoRow
           key={s.id}
-          icon="lock"
+          icon={LOCK_ICON}
           label="Secret"
           value={s.name}
-          tone="amber"
           trailing={
             <div className="flex items-center gap-[8px] shrink-0 group">
               <SecretBadges secret={s} />

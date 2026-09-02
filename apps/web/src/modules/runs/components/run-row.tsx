@@ -1,7 +1,6 @@
 "use client";
 
 import { StatusDot } from "@/components/ui/status-dot";
-import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { useCompareStore } from "@/lib/compare-store";
 import type { PersistedRun } from "@agent-office/domain/types";
@@ -54,7 +53,8 @@ export function RunRow({ run }: RunRowProps) {
           aria-label={`Fork run ${run.id}`}
           onClick={() => openCompare(run.id)}
         >
-          <Icon name="branch" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/fork.png" alt="" width={16} height={16} className="shrink-0 object-contain" />
         </Button>
       </div>
     </div>

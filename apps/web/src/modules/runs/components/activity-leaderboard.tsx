@@ -41,7 +41,7 @@ export function ActivityLeaderboard({
               key={row.agentId}
               className={cn(
                 "flex items-center gap-[10px] px-[10px] py-[9px] rounded-[12px]",
-                i === 0 ? "bg-amber-soft ring-1 ring-inset ring-amber" : "bg-card-2",
+                i === 0 ? "bg-amber-soft" : "bg-card-2",
               )}
             >
               <span
@@ -52,12 +52,16 @@ export function ActivityLeaderboard({
               >
                 {i + 1}
               </span>
-              <AgentAvatar
-                unit={unitByAgent.get(row.agentId) ?? unitForAgent(row.agentName)}
-                size={28}
-                label={row.agentName}
-                className="rounded-[7px] border border-edge shrink-0"
-              />
+              {/* Fixed-footprint wrapper keeps the row layout unchanged while
+                  the avatar itself renders at 2x and overflows it, borderless. */}
+              <div className="relative w-[28px] h-[28px] shrink-0">
+                <AgentAvatar
+                  unit={unitByAgent.get(row.agentId) ?? unitForAgent(row.agentName)}
+                  size={56}
+                  label={row.agentName}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[7px]"
+                />
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-txt text-[12.5px] truncate">
                   {formatAgentDisplayName(row.agentName)}

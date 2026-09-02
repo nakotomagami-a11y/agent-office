@@ -7,7 +7,9 @@ import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
 import { useAccounts } from "@/modules/accounts/hooks/use-accounts";
 import { PlanBadge } from "@/modules/accounts/components/plan-badge";
 import { useUpdateProject } from "../hooks/use-projects";
-import { EnvControlTrigger, ENV_CONTROL_TRIGGER } from "./env-control";
+import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
+
+const CLAUDE_ICON: EnvIcon = { src: "/icons/claude-rune.png", alt: "" };
 
 /**
  * Per-project Claude-account control — a button in the project Environment bar.
@@ -46,14 +48,14 @@ export function ProjectAccountPicker({
   ) : undefined;
 
   const trigger = (
-    <EnvControlTrigger icon="users" label="Claude account" value={activeLabel} accessory={accessory} />
+    <EnvControlTrigger icon={CLAUDE_ICON} label="Claude account" value={activeLabel} accessory={accessory} />
   );
 
   // Still loading — render the same shell so the bar doesn't jump.
   if (!accountsQ.data) {
     return (
       <div className={`flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
-        <EnvControlTrigger icon="users" label="Claude account" value="…" />
+        <EnvControlTrigger icon={CLAUDE_ICON} label="Claude account" value="…" />
       </div>
     );
   }

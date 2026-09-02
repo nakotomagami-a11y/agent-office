@@ -173,9 +173,14 @@ export function IntegrationsTab() {
               items.map((def) => (
                 <div key={def.id} className="rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden">
                   <div className="flex items-center gap-[13px] px-[20px] py-[16px]">
-                    <span className="w-[38px] h-[38px] shrink-0 flex items-center justify-center rounded-[13px] bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]">
-                      <Icon name={def.icon} size={18} />
-                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={def.kind === "claude" ? "/icons/claude-rune.png" : "/icons/github.png"}
+                      alt=""
+                      width={38}
+                      height={38}
+                      className="shrink-0 object-contain"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-[9px]">
                         <span className="text-[15px] font-bold whitespace-nowrap">{def.name}</span>

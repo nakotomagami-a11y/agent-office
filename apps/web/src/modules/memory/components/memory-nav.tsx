@@ -2,9 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import type { PlanetConfig } from "@agent-office/domain/types";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
+import { WeaponIcon } from "@/components/ui/weapon-icon";
+import { PlanetCanvas } from "@/components/ui/planet-canvas";
+import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
+import { useSkillList } from "@/modules/skills/hooks/use-skill-list";
+import { useSkillIcons, skillIconKey, skillIconConfig } from "@/modules/skills/hooks/use-skills";
 import { cn } from "@/lib/cn";
 import { type MemoryScope } from "../hooks/use-memory";
 import { scopeKey } from "../scope/scope";
@@ -19,8 +26,15 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
   const t = useTranslations("memory_page");
   const agentsQ = useAgents();
   const projectsQ = useProjects();
+  const { skills: allSkills } = useSkillList();
+  const skillIconsQ = useSkillIcons();
   const [filter, setFilter] = useState("");
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+
+  // Skill rows only carry a bare name (agent frontmatter's `skills: string[]`)
+  // — the icon key needs the skill's real provenance (`source`), so join
+  // against the merged installed+catalog list the Skills page itself uses.
+  const skillByName = useMemo(() => new Map(allSkills.map((s) => [s.name, s])), [allSkills]);
 
   // Two scopes are "the same" iff their canonical keys match — same
   // equivalence `scopeKey` already encodes (kind + id/slug), so reuse it
@@ -85,6 +99,8 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
                 <NavRow
                   key={p.id}
                   icon="folder"
+                  planetProjectId={p.id}
+                  planetConfig={p.planet}
                   name={p.name}
                   selected={isSel(scope)}
                   hasNote={contentMap.get(scopeKey(scope)) ?? false}
@@ -107,6 +123,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
                 <div key={a.name}>
                   <NavRow
                     icon="cpu"
+                    avatarUnit={unitForAgent(a.name, a.unit)}
                     name={a.name}
                     selected={isSel(scope)}
                     hasNote={contentMap.get(scopeKey(scope)) ?? false}
@@ -120,6 +137,8 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
                       {skills.map((slug) => {
                         const sk: MemoryScope = { kind: "agent-skill", agentId: a.name, skillSlug: slug };
                         const active = isSel(sk);
+                        const source = skillByName.get(slug)?.source ?? "local";
+                        const config = skillIconConfig(skillIconsQ.data, skillIconKey({ source, name: slug }));
                         return (
                           <button
                             key={slug}
@@ -131,7 +150,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
                               active ? "bg-acc-soft text-acc" : "text-txt-3 hover:bg-card-2",
                             )}
                           >
-                            <Icon name="sparkle" size={11} className={cn("shrink-0", active ? "text-acc" : "text-txt-4")} />
+                            <WeaponIcon config={config} size={14} particles="none" className="shrink-0" />
                             <span className="truncate">{slug}</span>
                           </button>
                         );
@@ -163,6 +182,9 @@ function NavGroup({ label, count, children }: { label: string; count: number; ch
 
 function NavRow({
   icon,
+  avatarUnit,
+  planetProjectId,
+  planetConfig,
   name,
   selected,
   hasNote,
@@ -172,6 +194,11 @@ function NavRow({
   onToggle,
 }: {
   icon: IconName;
+  /** When set (agent rows), renders the agent's real avatar instead of `icon`. */
+  avatarUnit?: UnitSelection;
+  /** When set (project rows), renders the project's own planet icon instead of `icon`. */
+  planetProjectId?: string;
+  planetConfig?: PlanetConfig;
   name: string;
   selected: boolean;
   hasNote: boolean;
@@ -203,7 +230,13 @@ function NavRow({
           />
         ) : null}
       </span>
-      <Icon name={icon} size={13} className={cn("shrink-0", selected || hasChildren ? "text-acc" : "text-txt-4")} />
+      {avatarUnit ? (
+        <AgentAvatar unit={avatarUnit} size={17} className="shrink-0 rounded-[5px]" />
+      ) : planetProjectId ? (
+        <PlanetCanvas projectId={planetProjectId} config={planetConfig} size={17} className="rounded-full shrink-0" />
+      ) : (
+        <Icon name={icon} size={13} className={cn("shrink-0", selected || hasChildren ? "text-acc" : "text-txt-4")} />
+      )}
       <span
         className={cn(
           "flex-1 min-w-0 text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis",

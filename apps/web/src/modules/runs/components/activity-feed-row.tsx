@@ -68,13 +68,16 @@ export function ActivityFeedRow({
 
           <div className="flex items-center gap-[14px] font-mono text-[10px]">
             <span className="flex items-center gap-[5px] text-amber whitespace-nowrap shrink-0">
-              <Icon name="coin" size={10} /> {formatCost(run.cost)}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/coin.png" alt="" width={14} height={14} className="shrink-0 object-contain" /> {formatCost(run.cost)}
             </span>
             <span className="flex items-center gap-[5px] text-cyan whitespace-nowrap shrink-0">
-              <Icon name="diamond" size={10} /> {fmtTok(tokens)} tok
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/mana.png" alt="" width={14} height={14} className="shrink-0 object-contain" /> {fmtTok(tokens)} tok
             </span>
             <span className="flex items-center gap-[5px] text-txt-4 whitespace-nowrap shrink-0">
-              <Icon name="clock" size={10} /> {formatDuration(run.durMs)}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/clock.png" alt="" width={14} height={14} className="shrink-0 object-contain" /> {formatDuration(run.durMs)}
             </span>
             <ActivityFeedRowCost cost={run.cost} maxCost={maxCost} />
             <span className="font-bold text-acc shrink-0">+{xpForRun(run)} xp</span>
