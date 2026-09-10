@@ -1,27 +1,23 @@
 /* Modals — scrim (light) + agent modal (.ao-modal) subsystem. */
-
-/* Modal backdrops start BELOW the top bar (see `lib/chrome.ts`'s CHROME_TOP)
-   so it stays visible instead of being covered. Enforced per-instance via
-   inline `style={{ top: CHROME_TOP }}` on every `.app-modal-backdrop` mount
-   (see modal-shell.tsx, agent-details/index.tsx, add-agent-modal.tsx,
-   workflow-picker-dialog.tsx). Kept out of CSS because Turbopack's HMR was
-   inconsistent about picking up new class rules for a pre-existing class
-   name; inline styles bypass the CSS pipeline entirely. */
-
-/* ─── Modal scrim, both themes ─── */
-/* The backdrop mounts each hardcode their own near-black wash
-   (rgba(10,10,18,.55), rgba(5,5,10,.78), a radial near-#060 60c gradient,
-   bg-black/40). One rule re-points all of them at --ao-backdrop so the scrim
-   always tracks the active theme instead of a literal that happens to match
-   dark mode by coincidence. The html+class selector (0,2,0) outranks the
-   Tailwind arbitrary utilities (0,1,0); `background` shorthand also clears
-   the gradient variants. The ::after blur layers the two custom mounts add
-   are left alone — they only carry the blur. */
 html .app-modal-backdrop {
-  background: var(--ao-backdrop);
-}
-html:not([data-theme="dark"]) .app-modal-backdrop::after {
   background: transparent;
+}
+html .app-modal-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--ao-backdrop);
+  --ao-scrim-feather: 52px;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 var(--ao-scrim-feather)),
+    linear-gradient(to bottom, transparent 0, #000 var(--ao-scrim-feather));
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 var(--ao-scrim-feather)),
+    linear-gradient(to bottom, transparent 0, #000 var(--ao-scrim-feather));
+  mask-composite: intersect;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -97,8 +93,6 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
 /* ao-prose — generated markdown HTML, cannot use inline classes on inner nodes */
 .ao-modal .ao-prose {
   color: var(--ao-fg-0); font-size: 14px; line-height: 1.65;
-  /* Break long unbreakable tokens (URL-encoded blobs, hashes, no-space strings)
-     so they wrap inside the bubble instead of overflowing horizontally. */
   overflow-wrap: anywhere;
   word-break: break-word;
   min-width: 0;
@@ -106,9 +100,6 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
 .ao-modal .ao-prose p { margin: 0 0 12px; overflow-wrap: anywhere; word-break: break-word; }
 .ao-modal .ao-prose p:last-child { margin-bottom: 0; }
 .ao-modal .ao-prose h3 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--ao-fg-0); }
-/* Tailwind Preflight zeroes list-style on every ul/ol — restore the browser
-   defaults here since these are ambient/generated nodes with no Tailwind
-   classes to counteract it (list-disc/list-decimal) on the elements themselves. */
 .ao-modal .ao-prose ul { margin: 0 0 14px; padding-left: 22px; list-style-type: disc; }
 .ao-modal .ao-prose ol { margin: 0 0 14px; padding-left: 22px; list-style-type: decimal; }
 .ao-modal .ao-prose li { margin-bottom: 4px; color: var(--ao-fg-0); }
@@ -134,6 +125,11 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
 .ao-modal .ao-codeblock .tk-num { color: var(--hl-n); }
 .ao-modal .ao-codeblock .tk-typ { color: var(--hl-fn); }
 .ao-modal .ao-codeblock .tk-fn  { color: var(--hl-i); }
+
+/* ao-tool-arg — expanded tool-call input (pretty-printed JSON). Its .hl-*
+   token colors are defined in code.css alongside .code-block's (combined
+   into shared-selector rules there — see that file's comment for why they
+   can't be two separately-declared rules with identical bodies). */
 
 /* ao-cursor — streaming cursor */
 .ao-modal .ao-cursor {
@@ -189,7 +185,3 @@ html:not([data-theme="dark"]) .app-modal-backdrop::after {
   background-repeat: no-repeat;
   padding-right: 30px;
 }
-
-/* ao-modal scrollbar: themed via `[scrollbar-color:...]`/`[scrollbar-width:thin]`
-   on `.ao-modal-body` itself (see agent-details/index.tsx) — see
-   styles/scrollbars.css for why this isn't a `::-webkit-scrollbar` rule. */

@@ -99,7 +99,7 @@ export function AddAgentModal({ open, projectId, onClose, onProjectChange }: Add
   const content = (
     <div
       className={cn(
-        "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center bg-[rgba(5,5,10,0.78)] z-[200] p-2 after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(10px)] after:[-webkit-backdrop-filter:blur(10px)] after:pointer-events-none",
+        "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-2 before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
         CHROME_LEFT_CLASS,
       )}
       style={{ top: CHROME_TOP }}
