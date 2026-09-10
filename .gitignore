@@ -47,3 +47,6 @@ apps/web/src-tauri/server/
 
 # Screenshot-generation scratch (scripts + working shots) — the README images live in screenshots/
 .showcase/
+
+# Playwright MCP debug output (console logs, page snapshots/screenshots)
+.playwright-mcp/
