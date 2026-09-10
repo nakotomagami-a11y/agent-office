@@ -152,6 +152,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     instanceId: resolvedInstanceId,
     instanceLabel,
     args: built.args,
+    conversationId: req.conversationId,
   });
 
   return { runId };

@@ -12,9 +12,7 @@ import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "./live-status";
 import type { ContextProfile } from "@agent-office/domain/types";
 import type { ThreadItem } from "../format/thread-types";
-import type { QueuedMessage } from "../hooks/use-chat-state";
 import type { useRunStream } from "../hooks/use-run-stream";
-import type { UseRunRecoveryResult } from "../hooks/use-run-recovery";
 
 type StreamState = ReturnType<typeof useRunStream>;
 
@@ -26,12 +24,17 @@ export type ChatPanelBodyProps = {
   noHeader: boolean | undefined;
   projectName: string | undefined;
   thread: ThreadItem[];
-  setThread: (updater: (prev: ThreadItem[]) => ThreadItem[]) => void;
+  /** The id of the thread's current unresolved failure (see ChatThread's
+   *  `currentFailureItemId` doc comment) — null when the conversation isn't
+   *  parked on a failure. */
+  currentFailureItemId: string | null;
   activeRunId: string | null;
-  pendingSeed: string | undefined;
-  setPendingSeed: (v: string | undefined) => void;
-  queuedMessages: QueuedMessage[];
-  setQueuedMessages: (updater: (prev: QueuedMessage[]) => QueuedMessage[]) => void;
+  queuedMessages: Array<{ id: string; text: string }>;
+  onCancelQueuedMessage: (id: string) => void;
+  /** Hide a thread item from THIS view only (rate-limit "Continue" dismiss,
+   *  own-message delete) — cosmetic, not persisted; see
+   *  use-conversation-chat-model.ts's doc comment on why. */
+  onDismissThreadItem: (id: string) => void;
   quotaWarning: string | null;
   setQuotaWarning: (v: string | null) => void;
   contextProfile: ContextProfile;
@@ -42,14 +45,6 @@ export type ChatPanelBodyProps = {
   isStale: boolean;
   sinceLastEventMs: number | null;
   stream: StreamState;
-  recovered: UseRunRecoveryResult["recovered"];
-  setRecovered: UseRunRecoveryResult["setRecovered"];
-  resumeError: UseRunRecoveryResult["resumeError"];
-  retryResume: UseRunRecoveryResult["retryResume"];
-  dismissResume: UseRunRecoveryResult["dismissResume"];
-  lastUserMessageText: string | null;
-  onContinueRecovered: () => void;
-  onResummonLastMessage: () => void;
   onScheduleRateLimit: (resetsAtSeconds: number) => Promise<void>;
   onScheduleResumeAt: (fireAtMs: number) => Promise<void>;
   resumeResetsAtMs: number | null;
@@ -58,6 +53,11 @@ export type ChatPanelBodyProps = {
   onAbort: () => void;
   onCommand: (cmd: string) => void;
   onNewThread: () => void;
+  onRetry: () => void;
+  onResume: () => void;
+  onSkip: () => void;
+  pendingSeed: string | undefined;
+  setPendingSeed: (v: string | undefined) => void;
 };
 
 /**
@@ -77,20 +77,11 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
       )}
 
       <ChatBanners
-        activeRunId={props.activeRunId}
-        recovered={props.recovered}
-        setRecovered={props.setRecovered}
-        resumeError={props.resumeError}
-        retryResume={props.retryResume}
-        dismissResume={props.dismissResume}
         stream={props.stream}
         isStale={props.isStale}
         sinceLastEventMs={props.sinceLastEventMs}
         quotaWarning={props.quotaWarning}
         setQuotaWarning={props.setQuotaWarning}
-        onContinueRecovered={props.onContinueRecovered}
-        onResummonLastMessage={props.onResummonLastMessage}
-        lastUserMessageText={props.lastUserMessageText}
       />
 
       <ChatThread
@@ -105,17 +96,21 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
             : undefined
         }
         onAbortRun={props.onAbort}
-        onDismissRateLimit={(id) => props.setThread((prev) => prev.filter((it) => it.id !== id))}
-        onDeleteMessage={(id) => props.setThread((prev) => prev.filter((it) => it.id !== id))}
+        onDismissRateLimit={(id) => props.onDismissThreadItem(id)}
+        onDeleteMessage={(id) => props.onDismissThreadItem(id)}
         onScheduleRateLimit={props.onScheduleRateLimit}
         onScheduleResumeAt={props.onScheduleResumeAt}
         resumeResetsAtMs={props.resumeResetsAtMs}
         canScheduleResume={props.canScheduleResume}
+        currentFailureItemId={props.currentFailureItemId}
+        onRetryFailedTurn={props.onRetry}
+        onResumeFailedTurn={props.onResume}
+        onSkipFailedTurn={props.onSkip}
         phase={props.phase}
         phaseHint={phaseHint(props.phase, props.stream.usage)}
         phaseStats={props.liveStats}
         queuedMessages={props.queuedMessages}
-        onCancelQueuedMessage={(id) => props.setQueuedMessages((prev) => prev.filter((m) => m.id !== id))}
+        onCancelQueuedMessage={props.onCancelQueuedMessage}
       />
       {/* key=tKey forces a fresh Composer mount whenever the agent or
           instance changes, ensuring useState re-initialises from the correct

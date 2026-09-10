@@ -123,4 +123,12 @@ export const queryKeys = {
     page: (opts: { start: number; end: number; projectId?: string }) =>
       [...queryKeys.analytics.all, "page", opts] as const,
   },
+
+  // Server-authoritative chat conversations (see docs/chat-refactor.md).
+  conversations: {
+    all: ["conversations"] as const,
+    /** The current conversation for one (agentId, instanceId) slot. */
+    bySlot: (agentId: string, instanceId: string) => [...queryKeys.conversations.all, "slot", agentId, instanceId] as const,
+    detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
+  },
 } as const;

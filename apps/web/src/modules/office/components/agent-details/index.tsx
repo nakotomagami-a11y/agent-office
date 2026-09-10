@@ -22,9 +22,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UnitSprite } from "@/components/ui/unit-sprite";
-import { AgentStrip } from "./agent-strip";
 import { ProjectActionsMenu } from "../office-toolbar";
-import { useSettings } from "@/modules/settings/hooks/use-settings";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import type { OfficeAgent } from "../../hooks/use-office-agents";
@@ -262,29 +260,20 @@ export function AgentDetailsModal() {
   const { agents } = useOfficeAgents();
   const agent = selectedId ? agents.find((a) => a.id === selectedId) ?? null : null;
 
-  const settingsQ = useSettings();
-  const isMultiInstance = settingsQ.data?.features?.multiInstance === true;
-
   const projectQ = useProject(activeProjectId);
-  const rosterAgentIds = projectQ.data?.meta.roster
-    ? Array.from(new Set(projectQ.data.meta.roster.map((inst) => inst.agentId)))
-    : null;
   const rosterInstances = projectQ.data?.meta.roster ?? [];
-  const pinnedGroups = useOfficeStore((s) => s.pinnedGroups);
-  const pinnedIds = activeProjectId ? pinnedGroups[activeProjectId] ?? [] : [];
-  const rosterAgents = rosterAgentIds
-    ? rosterAgentIds
-        .map((id) => agents.find((a) => a.id === id))
-        .filter((a): a is NonNullable<typeof a> => !!a)
-        // Pinned agents float to the top, mirroring the sidebar roster order.
-        .sort((a, b) => (pinnedIds.includes(b.id) ? 1 : 0) - (pinnedIds.includes(a.id) ? 1 : 0))
-    : [];
 
   // Instances for the currently selected agent
   const agentInstances = rosterInstances.filter(
     (i) => i.agentId === selectedId,
   );
-  const isMultiAgentSelected = isMultiInstance && agentInstances.length > 1;
+  // Instance-switching UI (arrows, breadcrumb, overview) only needs multiple
+  // instances to exist — it's not gated behind the multiInstance feature
+  // flag, which merely controls whether new instances get their own git
+  // worktree. Instances can already be created via "+ New" regardless of
+  // that flag, so hiding the switcher behind it stranded users with no way
+  // to navigate between sessions they'd already created.
+  const isMultiAgentSelected = agentInstances.length > 1;
 
   // Overview mode: local state only, not persisted
   const [showOverview, setShowOverview] = useState(false);
@@ -430,7 +419,17 @@ export function AgentDetailsModal() {
   const isStreamActive =
     stream.phase === "starting" ||
     stream.phase === "streaming";
-  const effectiveStatus = isStreamActive ? "working" : projectStatus(agent.id);
+  // Header status is for the *selected instance*, not the agent as a whole —
+  // statusFromRuns aggregates every instance of this agent, so a second,
+  // brand-new instance would read as "live" just because instance #1 happens
+  // to be running. statusFromRunsForInstance scopes it to the one you're
+  // actually looking at (falls back to the agent-wide status when there's no
+  // instance concept, e.g. project-less agents).
+  const instanceStatus =
+    selectedInstanceId && activeProjectId
+      ? statusFromRunsForInstance(selectedInstanceId, projectRunsQ.data ?? []).status
+      : projectStatus(agent.id);
+  const effectiveStatus = isStreamActive ? "working" : instanceStatus;
 
   const isWorking = effectiveStatus === "working" || effectiveStatus === "thinking";
 
@@ -474,7 +473,7 @@ export function AgentDetailsModal() {
     <Portal>
       <div
         className={cn(
-          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-[26px] bg-[radial-gradient(ellipse_1200px_700px_at_50%_35%,rgba(18,18,28,0.94),rgba(6,6,12,0.995)_80%)] after:content-[''] after:absolute after:inset-0 after:[backdrop-filter:blur(14px)_saturate(0.85)] after:[-webkit-backdrop-filter:blur(14px)_saturate(0.85)] after:bg-[rgba(10,10,18,0.20)] after:pointer-events-none",
+          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-[26px] before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
           CHROME_LEFT_CLASS,
         )}
         role="presentation"
@@ -520,23 +519,8 @@ export function AgentDetailsModal() {
             </Tooltip>
           </div>
 
-          {/* ── Body row: agent strip + content ── */}
+          {/* ── Body row ── */}
           <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
-          {/* Agent switcher strip - only shown when inside a project with multiple agents in multi-instance mode */}
-          {isMultiInstance && rosterAgents.length > 1 && (
-            <AgentStrip
-              agents={rosterAgents}
-              instances={rosterInstances}
-              runs={projectRunsQ.data ?? []}
-              pinnedIds={pinnedIds}
-              selectedId={selectedId}
-              selectedInstanceId={selectedInstanceId}
-              isStreamActive={isStreamActive}
-              agentStatus={projectStatus}
-              onSelect={(agentId, instanceId) => selectAgent(agentId, { tab, instanceId })}
-            />
-          )}
-
           <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
           {showOverview && isMultiAgentSelected ? (

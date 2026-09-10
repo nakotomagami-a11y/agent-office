@@ -105,12 +105,46 @@ export interface PersistedRun {
   sessionId?: string;
   /** Set for sub-agent runs spawned by a Task tool call. */
   parentRunId?: string;
+  /** The conversation (server-authoritative chat thread) this run belongs to.
+   *  A top-level turn = one run with a conversationId. Sub-agent runs inherit
+   *  their parent's. Undefined for legacy rows logged before the refactor. */
+  conversationId?: string;
   /** Account whose CLAUDE_CONFIG_DIR the run spawned under (undefined → default). */
   accountId?: string;
   /** Live-only: name of the tool call in flight right now (e.g. "Bash",
    *  "Read", "Grep"). Only ever set while `status === "running"` — sourced
    *  from the in-memory live-run registry, not persisted to the DB. */
   currentTool?: string;
+}
+
+// ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ──────
+// Pure data shapes only (no service logic) so the CLIENT can import them
+// directly — `services/execution/conversation.ts` has real deps
+// (better-sqlite3, node:child_process) that must never reach a browser
+// bundle. That module's own `ConversationView` is defined in terms of these.
+
+export type ConversationStatus = "idle" | "running" | "needs_attention";
+
+export interface ConversationQueuedMessage {
+  id: string;
+  text: string;
+  attachments: string | null;
+  position: number;
+  createdAt: number;
+}
+
+export interface ConversationView {
+  id: string;
+  agentId: string;
+  instanceId: string;
+  projectId: string | null;
+  status: ConversationStatus;
+  activeRunId: string | null;
+  sessionId: string | null;
+  /** Top-level turns (runs), oldest → newest. */
+  turns: PersistedRun[];
+  /** Pending queued messages, FIFO. */
+  queue: ConversationQueuedMessage[];
 }
 
 /**
@@ -413,6 +447,11 @@ export interface SummonRequest {
   resumeSessionId?: string;
   /** How much prior-conversation context to inject. Defaults to "balanced". */
   contextProfile?: ContextProfile;
+  /** The server-authoritative conversation this turn belongs to (see
+   *  execution/conversation.ts). Undefined for callers not yet migrated onto
+   *  conversations (legacy /api/summon direct calls, some scheduled jobs) —
+   *  those runs simply aren't tracked by the queue/auto-advance driver. */
+  conversationId?: string;
 }
 
 export type ContextProfile = "tight" | "balanced" | "deep";

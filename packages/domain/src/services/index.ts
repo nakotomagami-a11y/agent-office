@@ -8,6 +8,13 @@ export * as userAnalysis from "./analytics/user-analysis";
 export * as runs from "./execution/runs";
 export * as summon from "./execution/summon";
 export * as summonRun from "./execution/summon-run";
+export * as conversation from "./execution/conversation";
+export * as conversationRunner from "./execution/conversation-runner";
+// Side-effect only: installs the run-finished → conversation auto-advance
+// wiring. See conversation-wiring.ts's header comment for why this can't be
+// a plain dependency of runs.ts. Must be imported somewhere every server
+// process loads; this barrel is it (every API route imports from it).
+import "./execution/conversation-wiring";
 export * as scheduler from "./execution/scheduler";
 export * as templates from "./projects/templates";
 export * as health from "./infra/health";

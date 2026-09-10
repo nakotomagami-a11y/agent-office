@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { useExpandedState } from "./expanded-state";
+import { highlight } from "@/components/ui/highlight";
+import { prettyPrintToolArg } from "../format/message-format";
 
 /**
  * Grouped tool-call row for a message bubble. Renders one contiguous run
@@ -51,6 +53,16 @@ function ToolIcon({ name, size = 13 }: { name: string; size?: number }) {
  */
 function ToolCallRow({ name, arg, running = false }: { name: string; arg?: string; running?: boolean }) {
   const [showIn, setShowIn] = useState(false);
+  // Pretty-print + highlight lazily — only the rows a user actually expands
+  // pay for JSON.parse and the highlighter's regex passes. Reuses the same
+  // `highlight()`/`.hl-*` tokenizer as every other code surface in the app
+  // (CodeBlock, the memory/docs editor) instead of a bespoke one, so tool
+  // args get the same VS-Code-ish coloring for free.
+  const pretty = useMemo(() => {
+    if (!arg) return "";
+    const { text, json } = prettyPrintToolArg(arg);
+    return highlight(text, json ? "json" : "");
+  }, [arg]);
   return (
     <div className="px-[14px] py-[7px]">
       <div
@@ -75,9 +87,10 @@ function ToolCallRow({ name, arg, running = false }: { name: string; arg?: strin
         )}
       </div>
       {showIn && arg && (
-        <div className="mt-[6px] ml-[15px] border border-[var(--ao-line-0)] rounded-[6px] p-[8px_10px] font-mono text-[11.5px] leading-[1.55] text-ao-fg-1 max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words bg-[var(--ao-bg-1)]">
-          {arg}
-        </div>
+        <pre
+          className="ao-tool-arg mt-[6px] ml-[15px] border border-[var(--ao-line-0)] rounded-[6px] p-[8px_10px] font-mono text-[11.5px] leading-[1.55] text-ao-fg-1 max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words bg-[var(--ao-bg-1)]"
+          dangerouslySetInnerHTML={{ __html: pretty }}
+        />
       )}
     </div>
   );

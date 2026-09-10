@@ -85,6 +85,34 @@ export function stripAttachmentFooter(text: string): string {
   return text.replace(/(?:\n\n)?Attachments \(read these with your tools\):[^\n]*(?:\n- [^\n]+)*/g, "").trim();
 }
 
+/**
+ * Tool-call `arg` is stored as a single-line `JSON.stringify` of the raw
+ * input object (see `formatToolArg` in `parse-sse-event.ts`) — fine for the
+ * truncated inline preview, unreadable once expanded (one long line of
+ * `{"command":"...","description":"..."}`). Re-parse and pretty-print it for
+ * the expanded view; a bare string arg (e.g. a `Read` file path) isn't JSON
+ * and round-trips through unchanged, flagged as such so the caller doesn't
+ * run it through the JSON highlighter below.
+ */
+export function prettyPrintToolArg(arg: string): { text: string; json: boolean } {
+  try {
+    const parsed: unknown = JSON.parse(arg);
+    if (parsed !== null && typeof parsed === "object") {
+      const pretty = JSON.stringify(parsed, null, 2);
+      // `JSON.stringify`'s indentation newlines are real; the only literal
+      // (backslash + "n") two-char sequences left in its output are escaped
+      // newlines *inside* string values (e.g. a multi-line Bash `command`).
+      // Turning those back into real line breaks is what actually makes a
+      // shell script readable here — the structural formatting alone still
+      // left every command as one giant wrapped line of "\n" tokens.
+      return { text: pretty.replace(/\\n/g, "\n"), json: true };
+    }
+  } catch {
+    // not JSON — render as-is
+  }
+  return { text: arg, json: false };
+}
+
 export function highlightTS(src: string): string {
   let out = escapeHtml(src);
   out = out.replace(/(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g, "\x01C\x01$1\x02");

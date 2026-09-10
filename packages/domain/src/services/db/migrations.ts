@@ -297,7 +297,102 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       CREATE INDEX IF NOT EXISTS idx_project_secrets_secret ON project_secrets(secret_id);
     `);
   },
+  // v13 → v14: server-authoritative conversations (chat refactor). A
+  // conversation is one chat thread for an (agent, instance) slot; a turn is
+  // one top-level run tagged with its conversationId; the queue is a durable
+  // server-owned FIFO. Replaces the client-authored transcript blob + client
+  // queue. See docs/chat-refactor.md. Backfills one conversation per existing
+  // slot and tags historical top-level runs so old threads still render.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        instance_id TEXT NOT NULL DEFAULT 'default',
+        project_id TEXT,
+        session_id TEXT,
+        status TEXT NOT NULL DEFAULT 'idle',   -- 'idle' | 'running' | 'needs_attention'
+        active_run_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_conversations_slot ON conversations(agent_id, instance_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS queued_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        attachments TEXT,
+        position INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_queued_messages_conv ON queued_messages(conversation_id, position);
+
+      ALTER TABLE runs ADD COLUMN conversation_id TEXT;
+      CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_id, started_at);
+    `);
+    backfillConversations(db);
+  },
 ];
+
+/**
+ * Create one conversation per legacy (agent, instance) slot that lacks one and
+ * tag that slot's top-level runs with it. Idempotent: only ever creates a
+ * conversation for a slot with none, and only assigns runs whose
+ * `conversation_id` is still NULL — safe to call repeatedly (the v14 migration
+ * calls it once; tests call it after seeding legacy rows).
+ *
+ * Session carry-over: the slot's transcript sessionId wins, else the newest
+ * top-level run's sessionId, so a resumed thread keeps its claude session.
+ */
+export function backfillConversations(db: Database.Database): void {
+  const now = Date.now();
+  const slots = db
+    .prepare(
+      `SELECT agent_id, instance_id FROM transcripts
+       UNION
+       SELECT agent_id, instance_id FROM runs WHERE parent_run_id IS NULL AND conversation_id IS NULL`,
+    )
+    .all() as Array<{ agent_id: string; instance_id: string }>;
+
+  // rowid tie-break — see getActiveConversation's doc comment in db/conversations.ts.
+  const findConv = db.prepare(
+    "SELECT id FROM conversations WHERE agent_id = ? AND instance_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+  );
+  const transcriptSession = db.prepare(
+    "SELECT session_id, updated_at FROM transcripts WHERE agent_id = ? AND instance_id = ?",
+  );
+  const newestRunSession = db.prepare(
+    "SELECT session_id FROM runs WHERE agent_id = ? AND instance_id = ? AND parent_run_id IS NULL AND session_id IS NOT NULL ORDER BY started_at DESC LIMIT 1",
+  );
+  const newestProject = db.prepare(
+    "SELECT project_id FROM runs WHERE agent_id = ? AND instance_id = ? AND project_id IS NOT NULL ORDER BY started_at DESC LIMIT 1",
+  );
+  const insertConv = db.prepare(
+    `INSERT INTO conversations (id, agent_id, instance_id, project_id, session_id, status, active_run_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'idle', NULL, ?, ?)`,
+  );
+  const assignRuns = db.prepare(
+    "UPDATE runs SET conversation_id = ? WHERE agent_id = ? AND instance_id = ? AND parent_run_id IS NULL AND conversation_id IS NULL",
+  );
+
+  db.transaction(() => {
+    for (const s of slots) {
+      let convId = (findConv.get(s.agent_id, s.instance_id) as { id: string } | undefined)?.id;
+      if (!convId) {
+        const t = transcriptSession.get(s.agent_id, s.instance_id) as
+          | { session_id: string | null; updated_at: number }
+          | undefined;
+        const runSession = newestRunSession.get(s.agent_id, s.instance_id) as { session_id: string | null } | undefined;
+        const proj = (newestProject.get(s.agent_id, s.instance_id) as { project_id: string | null } | undefined)?.project_id ?? null;
+        const session = t?.session_id ?? runSession?.session_id ?? null;
+        convId = randomUUID();
+        insertConv.run(convId, s.agent_id, s.instance_id, proj, session, t?.updated_at ?? now, now);
+      }
+      assignRuns.run(convId, s.agent_id, s.instance_id);
+    }
+  })();
+}
 
 export function createSchema(db: Database.Database): void {
   const current = (db.pragma("user_version", { simple: true }) as number) ?? 0;
@@ -316,6 +411,7 @@ export function createSchema(db: Database.Database): void {
     if (v < 11) { MIGRATIONS[10]!(db); v = 11; db.pragma("user_version = 11"); }
     if (v < 12) { MIGRATIONS[11]!(db); v = 12; db.pragma("user_version = 12"); }
     if (v < 13) { MIGRATIONS[12]!(db); v = 13; db.pragma("user_version = 13"); }
+    if (v < 14) { MIGRATIONS[13]!(db); v = 14; db.pragma("user_version = 14"); }
   })();
 }
 
