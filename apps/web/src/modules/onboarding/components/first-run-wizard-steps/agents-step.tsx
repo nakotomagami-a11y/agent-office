@@ -6,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { formatAgentDisplayName } from "@/lib/agent-display-name";
 import { categoryColor } from "@/modules/agents/form/categorize";
-import { cn } from "@/lib/cn";
 
 export type StarterAgent = {
   id: string;
@@ -52,12 +51,7 @@ function AgentList({ starter, selected, onToggle, onToggleAll }: {
   const allSelected = selected.size === starter.length && starter.length > 0;
   return (
     <>
-      <label
-        className={cn(
-          "mt-4 flex cursor-pointer items-center gap-[10px] rounded-2xl border px-[14px] py-[11px]",
-          allSelected ? "border-acc-line bg-acc-soft" : "border-edge bg-card",
-        )}
-      >
+      <label className="mt-4 flex cursor-pointer items-center gap-[10px] rounded-2xl border border-edge bg-card px-[14px] py-[11px]">
         <Checkbox checked={allSelected} onChange={onToggleAll} />
         <span className="flex-1 text-[13px] font-bold">
           {t("first_run.agents_select_all", { count: starter.length })}
@@ -67,7 +61,7 @@ function AgentList({ starter, selected, onToggle, onToggleAll }: {
         </span>
       </label>
 
-      <div className="mt-[10px] flex max-h-[320px] flex-col gap-[5px] overflow-y-auto">
+      <div className="mt-[10px] flex flex-col gap-[5px]">
         {starter.map((a) => (
           <AgentRow key={a.id} agent={a} checked={selected.has(a.id)} onToggle={() => onToggle(a.id)} />
         ))}
@@ -83,14 +77,9 @@ function AgentRow({ agent, checked, onToggle }: { agent: StarterAgent; checked: 
   const catColor = category ? categoryColor(category) : null;
 
   return (
-    <label
-      className={cn(
-        "flex cursor-pointer items-center gap-[11px] rounded-2xl border px-[13px] py-[10px] transition-colors",
-        checked ? "border-acc-line bg-acc-soft" : "border-edge bg-card",
-      )}
-    >
+    <label className="flex cursor-pointer items-center gap-[11px] rounded-2xl border border-edge bg-card px-[13px] py-[10px] transition-colors">
       <Checkbox checked={checked} onChange={onToggle} />
-      <AgentAvatar unit={unit} size={40} label={displayName} />
+      <AgentAvatar unit={unit} size={80} label={displayName} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-[7px]">
           <span className="text-[12.5px] font-bold">{displayName}</span>
