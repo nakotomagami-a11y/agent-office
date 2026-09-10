@@ -215,28 +215,6 @@ export function removeWorktree(
 }
 
 /**
- * List all worktree directories that physically exist inside <projectCwd>/.worktrees/.
- * Returns absolute paths.
- */
-export function listWorktrees(projectCwd: string): string[] {
-  const worktreesDir = join(projectCwd, ".worktrees");
-  if (!existsSync(worktreesDir)) return [];
-  try {
-    return readdirSync(worktreesDir)
-      .map((name) => join(worktreesDir, name))
-      .filter((p) => {
-        try {
-          return statSync(p).isDirectory();
-        } catch {
-          return false;
-        }
-      });
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Returns a map of absolute worktree path → branch name for all worktrees
  * registered with git. Parses `git worktree list --porcelain` output.
  * The main worktree is included; callers filter it out as needed.

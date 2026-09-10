@@ -42,7 +42,7 @@ import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { SKILLS_DIR, isValidIdSegment } from "../infra/paths";
 import { log } from "../infra/log";
 import { EXTERNAL_API } from "../../config/routes";
-import { parseYaml, stringifyYaml, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, parseYaml, stringifyYaml, type YamlValue } from "../infra/yaml";
 import type { SkillIconClass } from "../../config/skill-icons";
 
 const REGISTRY_CACHE = join(SKILLS_DIR, "_registry.json");
@@ -256,17 +256,13 @@ async function fetchSkillMd(source: string, ref: string, path: string): Promise<
   return res.text();
 }
 
-function parseFrontmatterDescription(content: string): string {
-  // Normalize CRLF — GitHub-hosted SKILL.md files are often \r\n, which the
-  // `\n`-anchored frontmatter regex would otherwise fail to match entirely.
-  const fm = content.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---/);
-  if (!fm) return "";
-  try {
-    const meta = parseYaml(fm[1]!) as { description?: string };
-    return meta?.description ?? "";
-  } catch {
-    return "";
-  }
+/** Pull description + trimmed body out of a SKILL.md document. */
+function parseSkillMd(content: string): { description: string; body: string } {
+  const { fm, body } = parseFrontmatter(content);
+  return {
+    description: typeof fm.description === "string" ? fm.description : "",
+    body: body.trim(),
+  };
 }
 
 function dedupeName(name: string, source: string, used: Set<string>): string {
@@ -346,7 +342,7 @@ async function refreshRegistry(prev: CachedRegistry | null): Promise<RegistrySki
         if (!description) {
           try {
             const content = await fetchSkillMd(src.source, src.ref, blob.path);
-            description = parseFrontmatterDescription(content);
+            description = parseSkillMd(content).description;
           } catch (e) {
             log.warn("registry.fetch_skill_failed", { path: blob.path, err: String(e) });
           }
@@ -564,19 +560,7 @@ export function listInstalled(): InstalledSkill[] {
     if (dir.startsWith("_")) continue;
     const skillMdPath = join(SKILLS_DIR, dir, "SKILL.md");
     if (!existsSync(skillMdPath)) continue;
-    const content = readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n");
-    const fm = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-    let description = "";
-    let body = content;
-    if (fm) {
-      try {
-        const meta = parseYaml(fm[1]!) as { description?: string };
-        description = meta?.description ?? "";
-      } catch {
-        /* leave description empty */
-      }
-      body = fm[2]!.trim();
-    }
+    const { description, body } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
     out.push({
       name: dir,
       description,
@@ -590,19 +574,7 @@ export function listInstalled(): InstalledSkill[] {
 export function readInstalledSkill(name: string): InstalledSkill | null {
   const skillMdPath = join(SKILLS_DIR, name, "SKILL.md");
   if (!existsSync(skillMdPath)) return null;
-  const content = readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n");
-  const fm = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  let description = "";
-  let body = content;
-  if (fm) {
-    try {
-      const meta = parseYaml(fm[1]!) as { description?: string };
-      description = meta?.description ?? "";
-    } catch {
-      /* leave description empty */
-    }
-    body = fm[2]!.trim();
-  }
+  const { description, body } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
   return {
     name,
     description,
