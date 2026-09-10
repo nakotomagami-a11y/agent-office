@@ -98,6 +98,19 @@ export const API_ROUTES = {
   runTree: (id: string) => `/api/runs/${encodeURIComponent(id)}/tree`,
 
   summon: "/api/summon",
+
+  // Server-authoritative chat conversations (see docs/chat-refactor.md).
+  conversations: "/api/conversations",
+  conversation: (id: string) => `/api/conversations/${encodeURIComponent(id)}`,
+  conversationMessages: (id: string) => `/api/conversations/${encodeURIComponent(id)}/messages`,
+  conversationQueueItem: (id: string, messageId: string) =>
+    `/api/conversations/${encodeURIComponent(id)}/queue/${encodeURIComponent(messageId)}`,
+  conversationQueue: (id: string) => `/api/conversations/${encodeURIComponent(id)}/queue`,
+  conversationResume: (id: string) => `/api/conversations/${encodeURIComponent(id)}/resume`,
+  conversationRetry: (id: string) => `/api/conversations/${encodeURIComponent(id)}/retry`,
+  conversationSkip: (id: string) => `/api/conversations/${encodeURIComponent(id)}/skip`,
+  conversationNew: (id: string) => `/api/conversations/${encodeURIComponent(id)}/new`,
+
   schedules: "/api/schedules",
   schedule: (id: string) => `/api/schedules/${encodeURIComponent(id)}`,
   scheduleRun: (id: string) => `/api/schedules/${encodeURIComponent(id)}/run`,

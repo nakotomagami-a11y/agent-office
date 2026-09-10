@@ -35,6 +35,16 @@ export { detectSubAgentSpawn, parseClaudeBashSpawn } from "./runs/subagent-parse
 // stdout silence is not inactivity (Claude may be waiting on a long bash tool).
 const MAX_WALL_CLOCK_MS = 4 * 60 * 60_000; // 4-hour safety cap
 
+/** `(runId, ok, sessionId)` — dispatched by `finalizeRun` for every top-level
+ *  turn that carries a `conversationId`. `ok` is true on a clean exit (status
+ *  "done"), false on error/interrupt/rate-limit/abort. Registered by
+ *  `execution/conversation-wiring.ts`, which connects this to the
+ *  conversation service's auto-advance driver — see docs/chat-refactor.md.
+ *  Kept as a plain callback registry (not a direct import of the conversation
+ *  service) so this low-level module never depends on it; that would create
+ *  an import cycle through summon-run.ts, which already imports `runs.ts`. */
+export type RunFinishedListener = (runId: string, ok: boolean, sessionId: string | null) => void;
+
 declare global {
   // eslint-disable-next-line no-var
   var __agentOfficeLiveRuns: Map<string, LiveRun> | undefined;
@@ -46,11 +56,29 @@ declare global {
   // never runs until the dev server is fully restarted.
   // eslint-disable-next-line no-var
   var __agentOfficeKillAllRuns: (() => void) | undefined;
+  // Global (not a module-local Set) for the same reason as __agentOfficeLiveRuns:
+  // it must survive this module being HMR-reloaded, or a dev-mode edit anywhere
+  // in the runs.ts/conversation.ts dependency graph would silently stop
+  // draining every conversation's queue until a full server restart.
+  // eslint-disable-next-line no-var
+  var __agentOfficeRunFinishedListeners: Set<RunFinishedListener> | undefined;
 }
 
 const liveRuns: Map<string, LiveRun> =
   globalThis.__agentOfficeLiveRuns ??
   (globalThis.__agentOfficeLiveRuns = new Map());
+
+const runFinishedListeners: Set<RunFinishedListener> =
+  globalThis.__agentOfficeRunFinishedListeners ??
+  (globalThis.__agentOfficeRunFinishedListeners = new Set());
+
+/** Subscribe to run completions. Returns an unsubscribe function (unused by
+ *  the one production wiring callsite, which registers for the process
+ *  lifetime, but kept for symmetry and tests). */
+export function registerRunFinishedListener(fn: RunFinishedListener): () => void {
+  runFinishedListeners.add(fn);
+  return () => runFinishedListeners.delete(fn);
+}
 
 const RUN_RETENTION_MS = 4 * 60 * 60_000;
 
@@ -114,6 +142,7 @@ export function getLiveRunAsPersistedRun(runId: string): PersistedRun | undefine
     instanceLabel: r.instanceLabel,
     sessionId: r.sessionId,
     parentRunId: r.parentRunId,
+    conversationId: r.conversationId,
     currentTool: r.currentTool,
   };
 }
@@ -333,6 +362,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     lastActivityAt: Date.now(),
     eventLog: [],
     parentRunId: opts.parentRunId,
+    conversationId: opts.conversationId,
     childRunIds: [],
     subAgents: new Map(),
   };
@@ -354,6 +384,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     cwd: opts.cwd,
     startedAt: run.startTs,
     parentRunId: opts.parentRunId,
+    conversationId: opts.conversationId,
     accountId,
   });
 
@@ -922,6 +953,7 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     instanceLabel: run.instanceLabel,
     sessionId: run.sessionId,
     parentRunId: run.parentRunId,
+    conversationId: run.conversationId,
   };
 
   // Persist best-effort - a DB failure must never swallow the broadcast below.
@@ -929,6 +961,22 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     pushRun(persisted);
   } catch (err) {
     log.warn("run.persist_failed", { runId: run.id, err: String(err) });
+  }
+
+  // Drive the conversation queue's auto-advance (see conversation-wiring.ts).
+  // Only top-level turns are tagged with a conversationId — sub-agent runs
+  // never fire this. Listener errors are caught + logged, never allowed to
+  // interrupt the broadcast below: a bug in the chat-queue driver must not
+  // also break the live SSE stream the user is watching.
+  if (run.conversationId) {
+    const ok = run.status === "done";
+    for (const listener of runFinishedListeners) {
+      try {
+        listener(run.id, ok, run.sessionId ?? null);
+      } catch (err) {
+        log.warn("run.finished_listener_failed", { runId: run.id, err: String(err) });
+      }
+    }
   }
 
   try {

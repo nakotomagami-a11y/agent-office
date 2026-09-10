@@ -213,6 +213,26 @@ export const summonRequestSchema = z.object({
   contextProfile: z.enum(["tight", "balanced", "deep"]).optional(),
 });
 
+// ─── Conversations (server-authoritative chat, see docs/chat-refactor.md) ────
+
+export const conversationQuerySchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
+});
+
+export const conversationCreateSchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+export const conversationMessageSchema = z.object({
+  text: z.string().min(1).max(MAX_PROMPT_BYTES),
+  // Only meaningful when this send happens to start a session-less turn
+  // (StartRunInput.contextProfile's doc comment) — harmless to send always.
+  contextProfile: z.enum(["tight", "balanced", "deep"]).optional(),
+});
+
 export const createScheduleSchema = z.object({
   fireAt: z.number().int().positive(),
   summonRequest: summonRequestSchema,

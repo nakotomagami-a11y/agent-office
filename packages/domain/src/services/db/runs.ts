@@ -7,14 +7,15 @@ export interface RunInsert {
   sessionId?: string; status: string; prompt: string;
   model: string; effort: string; cwd?: string; startedAt: number;
   parentRunId?: string;
+  conversationId?: string;
   accountId?: string;
 }
 
 export function insertRun(r: RunInsert): void {
   getDb().prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, output, model, effort, cwd, started_at, parent_run_id, account_id, owner_pid)
-    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, '', @model, @effort, @cwd, @startedAt, @parentRunId, @accountId, @ownerPid)
-  `).run({ ...r, instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
+    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid)
+    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid)
+  `).run({ ...r, instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
 }
 
 export interface RunUpdate {
@@ -45,7 +46,7 @@ interface RunRow {
   status: string; exit_code: number | null; prompt: string; output: string;
   tokens_in: number; tokens_out: number; cost_usd: number; dur_ms: number | null;
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
-  parent_run_id: string | null; account_id: string | null;
+  parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
 }
 
 function rowToRun(row: RunRow): PersistedRun {
@@ -61,6 +62,7 @@ function rowToRun(row: RunRow): PersistedRun {
     cwd: row.cwd ?? undefined, ts: row.started_at,
     parentRunId: row.parent_run_id ?? undefined,
     accountId: row.account_id ?? undefined,
+    conversationId: row.conversation_id ?? undefined,
   };
 }
 

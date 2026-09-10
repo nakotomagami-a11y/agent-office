@@ -30,8 +30,12 @@ export function phaseHint(
   phase: ChatPhase,
   usage: { tokensIn: number; tokensOut: number; cost: number },
 ): string | undefined {
+  // Cost is deliberately omitted while streaming: the CLI only reports
+  // `total_cost_usd` once, in the final `result` event, so `usage.cost` is
+  // always 0 mid-turn. Showing "$0.000" as if it were live data reads as a
+  // bug ("cost is always 0") rather than "not known yet" — just show tokens.
   if (phase === "streaming") {
-    return `${usage.tokensOut.toLocaleString()} tok · $${usage.cost.toFixed(3)}`;
+    return `${usage.tokensOut.toLocaleString()} tok`;
   }
   if (phase === "done") {
     return `${(usage.tokensIn + usage.tokensOut).toLocaleString()} tok · $${usage.cost.toFixed(3)}`;

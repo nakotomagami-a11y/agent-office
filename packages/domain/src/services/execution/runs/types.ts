@@ -83,6 +83,11 @@ export interface LiveRun {
   eventLog: ReplayableEvent[];
   /** Parent run ID if this is a sub-agent run. */
   parentRunId?: string;
+  /** The conversation this top-level turn belongs to (undefined for sub-agent
+   *  runs and for callers not yet migrated onto conversations). Read by
+   *  `finalizeRun` to dispatch the run-finished listeners that drive the
+   *  conversation queue's auto-advance — see execution/conversation.ts. */
+  conversationId?: string;
   /** IDs of child runs spawned by Task tool calls. */
   childRunIds: string[];
   /**
@@ -106,6 +111,7 @@ export interface StartRunOpts {
   instanceLabel?: string;
   args: string[];
   parentRunId?: string;
+  conversationId?: string;
   /**
    * Multi-account: explicit account override. When set, the child claude
    * process gets `CLAUDE_CONFIG_DIR=<that account's dir>`. When unset,

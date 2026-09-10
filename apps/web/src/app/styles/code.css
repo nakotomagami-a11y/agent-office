@@ -2,12 +2,12 @@
 
 /* ─── Code block — theme-aware surface + syntax highlighting ─── */
 .code-block { background: var(--code-bg); color: var(--code-fg); }
-.code-block .hl-k { color: var(--hl-k); }
-.code-block .hl-s { color: var(--hl-s); }
-.code-block .hl-c { color: var(--hl-c); font-style: italic; }
-.code-block .hl-n { color: var(--hl-n); }
-.code-block .hl-fn{ color: var(--hl-fn); }
-.code-block .hl-i { color: var(--hl-i); }
+.code-block .hl-k, .ao-tool-arg .hl-k { color: var(--hl-k); }
+.code-block .hl-s, .ao-tool-arg .hl-s { color: var(--hl-s); }
+.code-block .hl-c, .ao-tool-arg .hl-c { color: var(--hl-c); font-style: italic; }
+.code-block .hl-n, .ao-tool-arg .hl-n { color: var(--hl-n); }
+.code-block .hl-fn, .ao-tool-arg .hl-fn { color: var(--hl-fn); }
+.code-block .hl-i, .ao-tool-arg .hl-i { color: var(--hl-i); }
 .code-block .head {
   display: flex; align-items: center; gap: 6px;
   padding: 7px 14px;

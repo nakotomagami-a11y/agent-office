@@ -93,7 +93,7 @@ function InlineImage({ src }: { src: string }) {
 }
 
 // ── Image strip (row of thumbnails) ──────────────────────────────────────────
-function ImageStrip({ urls }: { urls: string[] }) {
+export function ImageStrip({ urls }: { urls: string[] }) {
   if (urls.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2 mt-2">
@@ -300,8 +300,15 @@ export type MessageBubbleProps = {
   onRerun?: (text: string) => void;
   /** Called when the user deletes their own message from the thread. */
   onDelete?: () => void;
-  /** Called when the user clicks Retry on an error card. */
+  /** Called when the user clicks Retry on an error card — re-runs the exact
+   *  turn that failed. */
   onRetry?: () => void;
+  /** Called when the user clicks Resume on an error card — continues the
+   *  same session as a new turn. Omitted where that's not plausible (auth). */
+  onResume?: () => void;
+  /** Called when the user clicks Skip on an error card — discards this
+   *  failed turn and advances to the next queued message (or idle). */
+  onSkip?: () => void;
   /** Called when the user repairs a missing worktree on a cwd error card. */
   onRepair?: () => Promise<void> | void;
   /** Stop the active run from a rate-limit warning card. */
@@ -329,6 +336,8 @@ function ErrorCard({
   detail,
   interrupted,
   onRetry,
+  onResume,
+  onSkip,
   onRepair,
   onScheduleResumeAt,
   resumeResetsAtMs,
@@ -337,6 +346,13 @@ function ErrorCard({
   detail?: string;
   interrupted?: boolean;
   onRetry?: () => void;
+  /** Continue the same session as a new turn (conversation is parked
+   *  `needs_attention`). Only offered when re-running with the existing
+   *  session is plausible — the auth/subscription cards below omit it. */
+  onResume?: () => void;
+  /** Discard this failed turn and advance to the next queued message (or
+   *  idle if none). Always safe/well-defined, so offered on every variant. */
+  onSkip?: () => void;
   onRepair?: () => Promise<void> | void;
   onScheduleResumeAt?: (fireAtMs: number) => void;
   resumeResetsAtMs?: number | null;
@@ -360,10 +376,22 @@ function ErrorCard({
 
   // "stopped" (and any interrupted run) is a neutral pause, not a red failure.
   if (code === "stopped" || interrupted) {
-    return <InterruptedCard onRetry={onRetry} onScheduleResumeAt={onScheduleResumeAt} resumeResetsAtMs={resumeResetsAtMs} scheduled={scheduled} onScheduled={() => setScheduled(true)} />;
+    return (
+      <InterruptedCard
+        onRetry={onRetry}
+        onResume={onResume}
+        onSkip={onSkip}
+        onScheduleResumeAt={onScheduleResumeAt}
+        resumeResetsAtMs={resumeResetsAtMs}
+        scheduled={scheduled}
+        onScheduled={() => setScheduled(true)}
+      />
+    );
   }
-  if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} />;
-  if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} />;
+  // Re-running with the existing session would just hit the same wall again —
+  // Resume isn't offered on auth/subscription cards, only Retry and Skip.
+  if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
+  if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
 
   return (
     <FlagCard
@@ -377,6 +405,8 @@ function ErrorCard({
           ? [{ key: "repair", label: repairing ? "Repairing…" : "Repair worktree", tone: "primary", onClick: handleRepair, disabled: repairing } satisfies FlagAction]
           : []),
         { key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry || repairing },
+        { key: "resume", label: "Resume", tone: "neutral", onClick: onResume, disabled: !onResume },
+        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
       extraActions={
         onScheduleResumeAt && (
@@ -399,12 +429,16 @@ function ErrorCard({
  */
 function InterruptedCard({
   onRetry,
+  onResume,
+  onSkip,
   onScheduleResumeAt,
   resumeResetsAtMs,
   scheduled,
   onScheduled,
 }: {
   onRetry?: () => void;
+  onResume?: () => void;
+  onSkip?: () => void;
   onScheduleResumeAt?: (fireAtMs: number) => void;
   resumeResetsAtMs?: number | null;
   scheduled: boolean;
@@ -417,7 +451,11 @@ function InterruptedCard({
       icon="stop"
       title={t("interrupted.title")}
       body={t("interrupted.body")}
-      actions={[{ key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry }]}
+      actions={[
+        { key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry },
+        { key: "resume", label: "Resume", tone: "neutral", onClick: onResume, disabled: !onResume },
+        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
+      ]}
       extraActions={
         onScheduleResumeAt && (
           <ScheduleResumeMenu
@@ -456,7 +494,7 @@ function misclassifiedAuthCode(text: string, streaming: boolean): "auth_expired"
  * again, offer an in-app "Sign in" that re-authenticates the account this
  * project runs under, then retries the failed message automatically.
  */
-function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => void }) {
+function AuthErrorCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?: () => void; onSkip?: () => void }) {
   const t = useTranslations("errors.run");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
@@ -487,6 +525,7 @@ function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => v
       actions={[
         { key: "sign-in", label: "Sign in", tone: "primary", onClick: handleSignIn },
         { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
+        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
     />
   );
@@ -498,7 +537,7 @@ function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => v
  * primary action is a direct link out to the Claude account where the user can
  * see what's going on; secondary is switching to an account that has access.
  */
-function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetry?: () => void }) {
+function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?: () => void; onSkip?: () => void }) {
   const t = useTranslations("errors.run");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
@@ -528,12 +567,13 @@ function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetr
         { key: "check-account", label: t("subscription_disabled.check_account"), tone: "primary", href: EXTERNAL_LINKS.claudeUsage },
         { key: "switch-account", label: t("subscription_disabled.switch_account"), tone: "neutral", onClick: handleSwitch },
         { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
+        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
     />
   );
 }
 
-export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   switch (item.kind) {
     case "you": {
       const youImgs = extractImages(item.text);
@@ -553,8 +593,8 @@ export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onR
     }
     case "agent-text": {
       const misclassified = misclassifiedAuthCode(item.text, item.streaming);
-      if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} />;
-      if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} />;
+      if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
+      if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
 
       const proseItems = splitProse(item.text);
       const agentImgs = extractImages(item.text);
@@ -611,7 +651,17 @@ export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onR
       );
     case "system-error":
       return (
-        <ErrorCard code={item.code} detail={item.detail} interrupted={item.interrupted} onRetry={onRetry} onRepair={onRepair} onScheduleResumeAt={onScheduleResumeAt} resumeResetsAtMs={resumeResetsAtMs} />
+        <ErrorCard
+          code={item.code}
+          detail={item.detail}
+          interrupted={item.interrupted}
+          onRetry={onRetry}
+          onResume={onResume}
+          onSkip={onSkip}
+          onRepair={onRepair}
+          onScheduleResumeAt={onScheduleResumeAt}
+          resumeResetsAtMs={resumeResetsAtMs}
+        />
       );
     case "system-done": {
       const totalTok =

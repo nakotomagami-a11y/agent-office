@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatPanelBody } from "./chat-panel-body";
-import { useChatPanelModel } from "../hooks/use-chat-panel-model";
+import { useConversationChatModel } from "../hooks/use-conversation-chat-model";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 
 export type ChatPanelProps = {
@@ -21,22 +21,11 @@ export type ChatPanelProps = {
 /**
  * Top-level chat surface.
  *
- * Persistence: per-agent transcript stored server-side via /api/transcripts.
- * On agent change / refresh / modal close, the thread is restored.
- *
- * Reliability: a `runStartIndex` ref marks where the *current* run's
- * output begins in `thread`. The SSE stream's incremental items splice
- * into that slice on every update, so the visible thread is always the
- * single source of truth and the committed items never duplicate the
- * live stream view.
- *
- * Recovery: a stored `activeRunId` is probed once via /api/runs/[id] —
- * if the server still has it live, the SSE re-attach picks it up; if it's
- * already finished, we fall back to the persisted run's output so the user
- * actually sees the result instead of an empty bubble.
- *
- * All the wiring lives in `useChatPanelModel`. This component just picks
- * the pieces the presentational body needs and hands them over.
+ * Server-authoritative: the conversation (turns, queue, session, status) is
+ * owned by the server (see docs/chat-refactor.md, `execution/conversation.ts`)
+ * — this component and everything below it renders and appends, never
+ * reconstructs. All the wiring lives in `useConversationChatModel`; this
+ * component just picks the pieces the presentational body needs.
  */
 export function ChatPanel({
   agent,
@@ -46,7 +35,7 @@ export function ChatPanel({
   newThreadSignal,
   onActiveRunChange,
 }: ChatPanelProps) {
-  const m = useChatPanelModel({ agent, projectId, instanceId, newThreadSignal, onActiveRunChange });
+  const m = useConversationChatModel({ agent, projectId, instanceId, newThreadSignal, onActiveRunChange });
 
   return (
     <ChatPanelBody
@@ -56,31 +45,22 @@ export function ChatPanel({
       tKey={m.tKey}
       noHeader={noHeader}
       projectName={m.projectName}
-      thread={m.state.thread}
-      setThread={m.state.setThread}
-      activeRunId={m.state.activeRunId}
-      pendingSeed={m.state.pendingSeed}
-      setPendingSeed={m.state.setPendingSeed}
-      queuedMessages={m.state.queuedMessages}
-      setQueuedMessages={m.state.setQueuedMessages}
-      quotaWarning={m.state.quotaWarning}
-      setQuotaWarning={m.state.setQuotaWarning}
-      contextProfile={m.state.contextProfile}
-      setContextProfile={m.state.setContextProfile}
+      thread={m.thread}
+      currentFailureItemId={m.currentFailureItemId}
+      activeRunId={m.activeRunId}
+      queuedMessages={m.queuedMessages}
+      onCancelQueuedMessage={m.onCancelQueuedMessage}
+      onDismissThreadItem={m.onDismissThreadItem}
+      quotaWarning={m.quotaWarning}
+      setQuotaWarning={m.setQuotaWarning}
+      contextProfile={m.contextProfile}
+      setContextProfile={m.setContextProfile}
       phase={m.phase}
       isStreaming={m.isStreaming}
       liveStats={m.liveStats}
       isStale={m.isStale}
       sinceLastEventMs={m.sinceLastEventMs}
       stream={m.stream}
-      recovered={m.recovery.recovered}
-      setRecovered={m.recovery.setRecovered}
-      resumeError={m.recovery.resumeError}
-      retryResume={m.recovery.retryResume}
-      dismissResume={m.recovery.dismissResume}
-      lastUserMessageText={m.lastUserMessageText}
-      onContinueRecovered={m.onContinueRecovered}
-      onResummonLastMessage={m.onResummonLastMessage}
       onScheduleRateLimit={m.onScheduleRateLimit}
       onScheduleResumeAt={m.onScheduleResumeAt}
       resumeResetsAtMs={m.resumeResetsAtMs}
@@ -89,6 +69,11 @@ export function ChatPanel({
       onAbort={m.onAbort}
       onCommand={m.onCommand}
       onNewThread={m.onNewThread}
+      onRetry={m.onRetry}
+      onResume={m.onResume}
+      onSkip={m.onSkip}
+      pendingSeed={m.pendingSeed}
+      setPendingSeed={m.setPendingSeed}
     />
   );
 }

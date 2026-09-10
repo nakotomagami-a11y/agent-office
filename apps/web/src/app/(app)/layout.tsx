@@ -14,7 +14,6 @@ import { FlutterModal } from "@/modules/flutter/components/flutter-modal";
 import { ResizeHandles } from "@/components/layout/resize-handles";
 import { AgentCapModalMount } from "@/modules/office/components/agent-cap-modal-mount";
 import { RootSignInModal } from "@/modules/accounts/components/root-sign-in-modal";
-import { QueueDrainDaemonMount } from "@/modules/summon/components/queue-drain-daemon-mount";
 import { Toaster } from "@/components/ui/toaster";
 import { PaperPanelPainter } from "@/components/ui/paper-panel-painter";
 /**
@@ -43,7 +42,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <FlutterModal />
       <AgentCapModalMount />
       <RootSignInModal />
-      <QueueDrainDaemonMount />
     </GnomeWindow>
     <Toaster />
     <PaperPanelPainter />

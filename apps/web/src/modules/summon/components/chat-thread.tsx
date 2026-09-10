@@ -6,11 +6,11 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { ExpandedStateContext, MessageBubble, ToolGroupRow } from "./message-bubble";
+import { ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
 import { MsgActions } from "./msg-actions";
 import { LiveStatus, type ChatPhase } from "./live-status";
 import { agentDisplayName } from "@/lib/agent-display-name";
-import { fmtClockTime, fmtDuration, fmtTok } from "../format/message-format";
+import { extractImages, fmtClockTime, fmtDuration, fmtTok, stripAttachmentFooter } from "../format/message-format";
 import { fmtElapsedColon } from "../format/phase-format";
 import type { ThreadItem } from "../format/thread-types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
@@ -56,6 +56,21 @@ export type ChatThreadProps = {
   resumeResetsAtMs?: number | null;
   /** True when a rate-limit reset time is known for this thread. */
   canScheduleResume?: boolean;
+  /**
+   * The id of the ONE error/interrupted item that represents the
+   * conversation's current unresolved failure (the last turn, while the
+   * server-side conversation is parked `needs_attention`) — Retry/Resume/
+   * Skip only ever act on that turn (see execution/conversation-machine.ts),
+   * so older, already-superseded historical error cards render with none of
+   * these three actions (there's nothing left for the server to act on).
+   */
+  currentFailureItemId?: string | null;
+  /** Re-run the exact prompt that failed (the current unresolved failure only). */
+  onRetryFailedTurn?: () => void;
+  /** Continue the same session as a new turn (current unresolved failure only). */
+  onResumeFailedTurn?: () => void;
+  /** Discard the failed turn and advance the queue (current unresolved failure only). */
+  onSkipFailedTurn?: () => void;
   phase: ChatPhase;
   phaseHint?: string;
   phaseStats?: LiveStats;
@@ -124,7 +139,7 @@ function TurnLedger({ turn }: { turn: Turn }) {
   );
 }
 
-export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
+export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, currentFailureItemId, onRetryFailedTurn, onResumeFailedTurn, onSkipFailedTurn, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
   // server restarts on any server-side edit and the panel replays the active
@@ -374,6 +389,8 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
             {visibleTurns.map((turn, turnIdx) => {
               const isLastTurn = turnIdx === visibleTurns.length - 1;
               const clockTime = turn.ask ? fmtClockTime(turn.ask.id) : undefined;
+              const askImages = turn.ask ? extractImages(turn.ask.text) : [];
+              const askText = turn.ask ? stripAttachmentFooter(turn.ask.text) : "";
               return (
                 <div key={turn.id} className="flex gap-[14px] pb-[22px]">
                   <TurnRail n={turn.ask ? turnIdx + 1 : null} />
@@ -386,9 +403,12 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                             <span className="font-[var(--font-mono)] text-[10px] text-[var(--txt-4)]">{clockTime}</span>
                           )}
                         </div>
-                        <div className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[var(--txt)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                          {turn.ask.text}
-                        </div>
+                        {askText ? (
+                          <div className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[var(--txt)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {askText}
+                          </div>
+                        ) : null}
+                        <ImageStrip urls={askImages} />
                         <MsgActions
                           text={turn.ask.text}
                           onRerun={onSubmit}
@@ -406,7 +426,12 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                           // shown anywhere else), so that one still renders.
                           if (item.kind === "system-done" && item.exitCode === 0) return null;
                           const isQuestion = questionIds.has(item.id);
-                          const lastYouText = item.kind === "system-error" && onSubmit ? turn.ask?.text : undefined;
+                          // Retry/Resume/Skip only ever act on the conversation's
+                          // CURRENT unresolved failure — see currentFailureItemId's
+                          // doc comment. An older, already-superseded error card
+                          // gets none of the three (nothing left for the server
+                          // to act on for it).
+                          const isCurrentFailure = item.kind === "system-error" && item.id === currentFailureItemId;
                           const rlResetsAt = item.kind === "system-rate-limit" ? item.resetsAt : undefined;
                           const wasInterrupted = item.kind === "system-error" && item.interrupted === true;
                           const errLooksLimited = item.kind === "system-error" && (canScheduleResume === true || wasInterrupted);
@@ -419,12 +444,14 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                               isQuestion={isQuestion}
                               hideAvatar
                               onReply={isQuestion && onSubmit ? onSubmit : undefined}
-                              onRetry={lastYouText ? () => onSubmit!(lastYouText) : undefined}
+                              onRetry={isCurrentFailure ? onRetryFailedTurn : undefined}
+                              onResume={isCurrentFailure ? onResumeFailedTurn : undefined}
+                              onSkip={isCurrentFailure ? onSkipFailedTurn : undefined}
                               onRepair={
-                                onRepairWorktree
+                                isCurrentFailure && onRepairWorktree
                                   ? async () => {
                                       await onRepairWorktree();
-                                      if (lastYouText) onSubmit?.(lastYouText);
+                                      onRetryFailedTurn?.();
                                     }
                                   : undefined
                               }
@@ -501,7 +528,10 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                 <div key={q.id + "qm_"+i} className="flex flex-row-reverse ml-auto w-fit max-w-[80%] gap-[12px] relative opacity-[0.55]">
                   <UserAvatar size={60} className="shrink-0" />
                   <div className="flex flex-col items-end gap-[6px]">
-                    <div className="bg-ao-bg-3 border border-dashed border-ao-line-1 rounded-[14px_14px_4px_14px] px-4 py-3 text-[14px] leading-[1.55] text-ao-fg-0">{q.text}</div>
+                    <div className="bg-ao-bg-3 border border-dashed border-ao-line-1 rounded-[14px_14px_4px_14px] px-4 py-3 text-[14px] leading-[1.55] text-ao-fg-0">
+                      {stripAttachmentFooter(q.text)}
+                      <ImageStrip urls={extractImages(q.text)} />
+                    </div>
                     <div className="flex items-center gap-[6px]">
                       <span className="font-mono text-[10px] tracking-[0.06em] uppercase text-ao-fg-3 bg-ao-bg-3 border border-ao-line-1 rounded-full px-[7px] py-[1px]">
                         queued{queuedMessages.length > 1 ? ` ${i + 1}/${queuedMessages.length}` : ""}

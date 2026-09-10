@@ -84,13 +84,3 @@ export async function apiFetch<T>(url: string, init: ApiInit = {}): Promise<T> {
   }
   return (await res.json()) as T;
 }
-
-export async function apiUpload<T>(url: string, file: File): Promise<T> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(url, { method: "POST", body: form });
-  if (!res.ok) {
-    throw new ApiError(res.status, res.statusText);
-  }
-  return (await res.json()) as T;
-}
