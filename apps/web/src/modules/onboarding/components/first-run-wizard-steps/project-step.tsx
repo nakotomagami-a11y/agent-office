@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl";
 import type { ScannedEntry } from "@agent-office/domain/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Icon } from "@/components/ui/icon";
 import { relativeTime } from "@/modules/projects/format/format";
 import { cn } from "@/lib/cn";
 
@@ -59,7 +58,7 @@ function CandidateList({ loading, candidates, root, chosen, onToggle }: {
     );
   }
   return (
-    <div className="mt-4 flex max-h-[280px] flex-col gap-[5px] overflow-y-auto">
+    <div className="mt-4 flex flex-col gap-[5px]">
       {candidates.map((c) => (
         <CandidateRow key={c.id} entry={c} selected={chosen.has(c.id)} onToggle={() => onToggle(c)} />
       ))}
@@ -77,7 +76,8 @@ function CandidateRow({ entry, selected, onToggle }: { entry: ScannedEntry; sele
       )}
     >
       <Checkbox checked={selected} onChange={onToggle} />
-      <Icon name="folder" size={15} className={selected ? "shrink-0 text-acc" : "shrink-0 text-txt-4"} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/icons/folder.png" alt="" className="h-[34px] w-[34px] shrink-0 object-contain" />
       <div className="min-w-0 flex-1">
         <div className="text-[12.5px] font-bold">{entry.name}</div>
         <div className="mt-[2px] truncate font-mono text-[10.5px] text-txt-4">{entry.fullPath}</div>

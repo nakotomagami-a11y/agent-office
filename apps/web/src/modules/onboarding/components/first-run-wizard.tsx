@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
@@ -150,10 +150,14 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
   // Pre-select every starter agent the first time the list loads, but only
   // when there was no saved draft (so saved selections aren't overwritten).
   // Waits for hydration — before it, `draft` is null and a stored selection
-  // would look like "no draft".
+  // would look like "no draft". Runs at most once: without the `autoSelected`
+  // guard, deselecting everyone via "Hire all" drops selectedAgents.size back
+  // to 0 and this effect would immediately re-select everyone.
+  const autoSelectedRef = useRef(false);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || autoSelectedRef.current) return;
     if (starter.length > 0 && selectedAgents.size === 0 && !draft?.selectedAgents) {
+      autoSelectedRef.current = true;
       setSelectedAgents(new Set(starter.map((a) => a.id)));
     }
   }, [hydrated, starter, selectedAgents.size, draft?.selectedAgents]);
@@ -358,11 +362,6 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
               <p className="mt-[5px] text-[13px] leading-[1.55] text-txt-3 text-pretty">{t("first_run.subtitle")}</p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-[8px]">
-              <span className="flex items-center gap-[7px] rounded-full bg-acc-soft px-[11px] py-[5px] shadow-[inset_0_0_0_1px_var(--acc-line)]">
-                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-acc">
-                  {t("first_run.badge")}
-                </span>
-              </span>
               {allowSkip ? (
                 <button
                   type="button"
@@ -389,7 +388,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
                     title={isPast ? t("first_run.back_to_step", { step: t(`first_run.step_${s}`) }) : undefined}
                     className={cn(
                       "flex items-center gap-[7px] rounded-full bg-transparent py-[5px] pl-[5px] pr-[11px] shadow-[inset_0_0_0_1px_var(--edge)] transition-[box-shadow,background,color] duration-150",
-                      isActive && "bg-acc-soft shadow-[inset_0_0_0_1px_var(--acc-line)] cursor-default",
+                      isActive && "bg-acc-soft shadow-[inset_0_0_0_1px_transparent] cursor-default",
                       isPast && "cursor-pointer hover:shadow-[inset_0_0_0_1px_var(--acc-line)]",
                       !isActive && !isPast && "cursor-default",
                     )}
@@ -400,7 +399,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
                         isActive
                           ? "bg-[linear-gradient(140deg,var(--acc),var(--acc-2))] text-white"
                           : isPast
-                            ? "bg-acc-soft text-acc"
+                            ? "text-acc"
                             : "bg-card-2 text-txt-3",
                       )}
                     >
@@ -504,9 +503,6 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
             {t("common.back")}
           </button>
           <div className="flex-1" />
-          <span className="font-mono text-[10.5px] text-txt-4">
-            {t("first_run.step_counter", { current: stepIdx + 1, total: STEP_ORDER.length })}
-          </span>
           {!isLast ? (
             <Button
               variant="primary"

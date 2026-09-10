@@ -97,7 +97,6 @@
   "first_run": {
     "title": "Set up the office",
     "subtitle": "Six short steps and your crew can start work. Everything here is editable later in Settings.",
-    "badge": "First run",
     "skip": "Skip setup",
     "step_requirements": "Essentials",
     "step_root": "Workspace",
@@ -155,8 +154,7 @@
 
     "finish": "Open the office",
     "finishing": "Setting things up…",
-    "error_root_required": "Projects root is required.",
-    "step_counter": "step {current} / {total}"
+    "error_root_required": "Projects root is required."
   },
   "sidebar": {
     "roster_label": "Roster · {count}",

@@ -45,11 +45,19 @@ interface CardDef {
   name: string;
   tagline: string;
   icon: IconName;
+  /** Optional PNG override for the icon glyph (e.g. flutter/iso-view get custom art). */
+  image?: string;
   category: Category;
   kind: Kind;
   required?: boolean;
   experimental?: boolean;
 }
+
+const CARD_IMAGE: Record<string, string> = {
+  flutter: "/icons/pigeon.png",
+  "iso-view": "/icons/isomap.png",
+  "about-you": "/icons/aboutyou.png",
+};
 
 const CLAUDE_DEF: CardDef = {
   id: "claude",
@@ -68,6 +76,7 @@ const REGISTRY_CARDS: CardDef[] = INTEGRATIONS.map((def) => ({
   name: def.label,
   tagline: def.description,
   icon: def.icon as IconName,
+  image: CARD_IMAGE[def.id],
   category: def.id === "github" ? "connections" : "capabilities",
   kind: def.id === "github" ? "github" : "capability",
   experimental: def.status === "experimental",
@@ -262,11 +271,21 @@ function CapabilityCard({
     <div className="flex-1 basis-[300px] min-w-0 flex items-start gap-[13px] rounded-[22px] surface-sheen shadow-[var(--lift)] px-[18px] py-[16px]">
       <span
         className={cn(
-          "w-[38px] h-[38px] shrink-0 flex items-center justify-center rounded-[12px]",
-          enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
+          "w-[38px] h-[38px] shrink-0 flex items-center justify-center",
+          def.image
+            ? undefined
+            : cn(
+                "rounded-[12px] overflow-hidden",
+                enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
+              ),
         )}
       >
-        <Icon name={def.icon} size={17} />
+        {def.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={def.image} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Icon name={def.icon} size={17} />
+        )}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-[8px]">

@@ -3,6 +3,13 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 
+const INTEGRATION_IMAGE: Record<string, string> = {
+  github: "/icons/github.png",
+  flutter: "/icons/pigeon.png",
+  "iso-view": "/icons/isomap.png",
+  "about-you": "/icons/aboutyou.png",
+};
+
 /** One integration row: icon, label (+ status badge), description, and a toggle.
  *  Used by the first-run wizard's "Extras" step. */
 export function IntegrationRow({
@@ -20,16 +27,26 @@ export function IntegrationRow({
     <div
       className={cn(
         "flex items-center gap-[13px] rounded-2xl border px-4 py-[13px] transition-colors",
-        enabled ? "border-acc-line bg-acc-soft" : "border-edge bg-card",
+        enabled ? "border-transparent bg-acc-soft" : "border-edge bg-card",
       )}
     >
       <span
         className={cn(
-          "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl",
-          enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
+          "flex h-[54px] w-[54px] shrink-0 items-center justify-center",
+          INTEGRATION_IMAGE[def.id]
+            ? undefined
+            : cn(
+                "overflow-hidden rounded-xl",
+                enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
+              ),
         )}
       >
-        <Icon name={def.icon as IconName} size={17} />
+        {INTEGRATION_IMAGE[def.id] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={INTEGRATION_IMAGE[def.id]} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Icon name={def.icon as IconName} size={22} />
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-[8px] text-[13.5px] font-bold text-txt">
