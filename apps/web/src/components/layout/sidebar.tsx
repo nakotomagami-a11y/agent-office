@@ -357,15 +357,22 @@ function RosterHeader({ label, count, pinned = false }: { label: string; count: 
 
 function TrafficDot({ kind, onClick, label }: { kind: "close" | "min" | "max"; onClick: () => void; label: string }) {
   const bg = { close: "bg-[#FF5F57]", min: "bg-[#FFBD2E]", max: "bg-[#28C840]" }[kind];
+  // A real <button>, and deliberately WITHOUT `data-tauri-drag-region` (not
+  // even `="false"`). The parent row IS a drag region; these dots must not be.
+  // `="false"` is an Electron (`-webkit-app-region: no-drag`) idiom — Tauri
+  // only learned to honour that value in a later 2.x, so on any build made
+  // with an earlier Tauri the attribute's mere *presence* marked the dot as a
+  // drag handle and swallowed its click (the "dots stopped working" bug).
+  // Omitting the attribute makes the dots clickable on every Tauri version:
+  // the drag handler skips them (a <button> blocks drag / the attr is absent),
+  // while the parent's bare `data-tauri-drag-region` only drags on a direct
+  // hit of the empty strip, never on a child.
   return (
-    <span
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       aria-label={label}
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
-      data-tauri-drag-region="false"
-      className={cn(bg, "w-[12px] h-[12px] rounded-full cursor-pointer border border-[rgba(0,0,0,0.08)]")}
+      className={cn(bg, "w-[12px] h-[12px] p-0 rounded-full cursor-pointer border border-[rgba(0,0,0,0.08)]")}
     />
   );
 }

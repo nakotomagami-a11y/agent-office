@@ -14,7 +14,11 @@ export type UpdateInfo = {
   date?: string;
 };
 
-export type DownloadProgress = (fraction: number | null) => void;
+export type DownloadProgress = (info: {
+  fraction: number | null;
+  downloadedBytes: number;
+  totalBytes: number | null;
+}) => void;
 
 export type PendingUpdate = {
   info: UpdateInfo;
@@ -140,14 +144,18 @@ export async function checkForUpdate(): Promise<PendingUpdate | null> {
           switch (event.event) {
             case "Started":
               total = event.data.contentLength ?? 0;
-              onProgress?.(0);
+              onProgress?.({ fraction: 0, downloadedBytes: 0, totalBytes: total || null });
               break;
             case "Progress":
               downloaded += event.data.chunkLength;
-              onProgress?.(total ? downloaded / total : null);
+              onProgress?.({
+                fraction: total ? downloaded / total : null,
+                downloadedBytes: downloaded,
+                totalBytes: total || null,
+              });
               break;
             case "Finished":
-              onProgress?.(1);
+              onProgress?.({ fraction: 1, downloadedBytes: downloaded, totalBytes: total || null });
               break;
           }
         });

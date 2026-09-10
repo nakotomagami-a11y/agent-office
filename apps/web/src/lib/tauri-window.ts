@@ -39,6 +39,22 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+// A window control that does nothing is indistinguishable from a dead button.
+// Surface the real reason (ACL denial, bridge-not-ready, Wayland refusal) as a
+// toast + tagged console error instead of swallowing it, so failures are
+// diagnosable in the shipped app without opening devtools. `getTauriWindow`
+// returning null (plain browser tab) is NOT an error — only a thrown call is.
+async function reportWindowError(op: string, err: unknown): Promise<void> {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`tauri-window.${op} failed`, err);
+  try {
+    const { toast } = await import("./toast-store");
+    toast(`Window ${op} failed: ${msg}`);
+  } catch {
+    /* toast store unavailable — console.error above still fired */
+  }
+}
+
 // Callers fire these from a plain `onClick={() => void closeWindow()}` with
 // nothing downstream awaiting the result, so an unhandled rejection here
 // (e.g. a denied ACL permission) would otherwise vanish into the console as
@@ -50,7 +66,7 @@ export async function closeWindow(): Promise<void> {
   try {
     await w?.close();
   } catch (err) {
-    console.error("tauri-window.close failed", err);
+    await reportWindowError("close", err);
   }
 }
 
@@ -59,7 +75,7 @@ export async function minimizeWindow(): Promise<void> {
   try {
     await w?.minimize();
   } catch (err) {
-    console.error("tauri-window.minimize failed", err);
+    await reportWindowError("minimize", err);
   }
 }
 
@@ -68,7 +84,7 @@ export async function toggleMaximizeWindow(): Promise<void> {
   try {
     await w?.toggleMaximize();
   } catch (err) {
-    console.error("tauri-window.toggleMaximize failed", err);
+    await reportWindowError("toggleMaximize", err);
   }
 }
 

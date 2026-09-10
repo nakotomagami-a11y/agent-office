@@ -18,6 +18,7 @@
     "limits": "Limits",
     "processes": "Servers",
     "project": "Project",
+    "docs": "Docs",
     "primary_label": "Primary",
     "live_badge": "{count} live"
   },
