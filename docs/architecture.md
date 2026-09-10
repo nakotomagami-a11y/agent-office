@@ -163,20 +163,6 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: string; status: nu
 The route maps `ok: false` → `NextResponse.json({ error }, { status })`. Status codes
 stay at the HTTP layer; the domain stays transport-free.
 
-### When to reach for ts-pattern
-
-`match(x).with(...)` earns its place when **one value is fanned out to several
-mutually-exclusive alternatives** — a discriminated-union `name`, a status string, a
-terminal name. It is the *wrong* tool for:
-
-- guard clauses / early returns (`if (!x) return …`);
-- applying several **independent** optional fields (a conjunction — e.g. a settings
-  PATCH merging `features` + `integrations` + `firstRunComplete`);
-- fanning over `Promise.allSettled` results.
-
-Heuristic: *"Is one value being compared against several cases?"* → `match`. *"Am I
-doing several unrelated things?"* → plain `if`s. Don't add the dependency for a
-two-arm boolean.
 
 ### Standing conventions
 

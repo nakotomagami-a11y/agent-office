@@ -111,7 +111,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules — see [`docs/data-fetching.md`](docs/data-fetching.md))
 - **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, pipelines, workflows, UI state
 - **framer-motion** for page + modal transitions
-- **ts-pattern** + **zod** for typed control flow and validation
+- **zod** for validation at every trust boundary
 - **Tauri v2** for desktop bundling
 - Backend runs in-process inside Next.js; shells out to `claude -p` per summon and streams stdout back over SSE
 
