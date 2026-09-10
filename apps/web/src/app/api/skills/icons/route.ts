@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     // Explicit seed → persist that exact config; otherwise reroll a random one.
     const config =
       data.seed
-        ? skills.setSkillIcon(data.key, { seed: data.seed, iconClass })
+        ? skills.setSkillIcon(data.key, { seed: data.seed, iconClass, parts: data.parts })
         : skills.rerollSkillIcon(data.key, iconClass);
     return NextResponse.json({ ok: true, key: data.key, config });
   } catch (e) {

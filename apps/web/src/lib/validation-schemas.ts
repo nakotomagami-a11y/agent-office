@@ -190,6 +190,9 @@ export const skillIconSetSchema = z.object({
   key: z.string().min(1),
   seed: z.string().optional(),
   iconClass: z.string().optional(),
+  /** Explicit "build it yourself" part overrides, namespaced per weapon
+   *  class — e.g. { blades: { profile: "katana" } }. Opaque pass-through. */
+  parts: z.record(z.string(), z.record(z.string(), z.union([z.string(), z.boolean()]))).optional(),
 });
 
 export const starterAgentsImportSchema = z.object({
