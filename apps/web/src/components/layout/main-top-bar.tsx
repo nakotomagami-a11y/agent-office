@@ -3,7 +3,7 @@
 import { Reorder } from "framer-motion";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
 import type { PlanetConfig, ProjectSummary, Tab } from "@agent-office/domain/types";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
@@ -29,15 +29,13 @@ import { DevMenu } from "@/components/dev/dev-menu";
 
 /**
  * The top row every page renders at the top of `<main>` — project tabs,
- * Docs, theme toggle, and the account chip whose dropdown carries all
- * primary page navigation.
+ * update affordance, theme toggle, and the account chip whose dropdown
+ * carries all primary page navigation (including Docs).
  *
- * Docs is always shown, reachable from every page, since the app already
- * treats Docs as globally accessible — hiding it on some pages would be a
- * regression. It navigates to `/docs` as a full page rather than opening a
- * slide-over panel: the docs content (`modules/docs/*`) is a full page, not
- * a panel-ready component, and building a slide-over is real scope (props
- * for panel mode, internal nav, close handling) that hasn't been done yet.
+ * Docs lives in the account dropdown rather than as its own top-bar button
+ * now — the top-bar slot it used to occupy shows the "Update available"
+ * button instead. Docs is still reachable from every page (via the account
+ * menu, and the ⌘/ shortcut still deep-links to `/docs` as a full page).
  *
  * This row is not `position:fixed` — it renders in normal page flow — but
  * modals still anchor below it via the shared `CHROME_TOP` constant, so it's
@@ -46,7 +44,7 @@ import { DevMenu } from "@/components/dev/dev-menu";
  */
 
 const NAV_ITEMS: ReadonlyArray<{
-  key: "office" | "project" | "activity" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings";
+  key: "office" | "project" | "activity" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings" | "docs";
   icon: IconName;
   href: string;
   exact?: boolean;
@@ -59,6 +57,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { key: "skills", icon: "sparkle", href: PAGE_ROUTES.skills },
   { key: "schedules", icon: "list", href: PAGE_ROUTES.schedules },
   { key: "servers", icon: "server", href: "#" },
+  { key: "docs", icon: "book", href: PAGE_ROUTES.docs },
   { key: "settings", icon: "settings", href: PAGE_ROUTES.settings },
 ];
 
@@ -115,6 +114,9 @@ export function MainTopBar() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
   const navMenuRef = useRef<HTMLDivElement>(null);
+  const navMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const navMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [navMenuStyle, setNavMenuStyle] = useState<CSSProperties>({});
 
   const handlePickProject = useCallback(
     (projectId: string) => {
@@ -195,11 +197,18 @@ export function MainTopBar() {
     };
   }, [contextMenu]);
 
-  // Account/nav menu — outside click / Escape.
+  // Account/nav menu — outside click / Escape. The panel is portalled to
+  // <body> (see below), so it's no longer a DOM descendant of `navMenuRef` —
+  // check `navMenuPanelRef` too, same pattern as ProjectActionsMenu/
+  // DevServerButton, or every click inside the open panel would read as
+  // "outside" and close it before a nav link ever registers.
   useEffect(() => {
     if (!navMenuOpen) return;
     const onMouse = (e: MouseEvent) => {
-      if (!navMenuRef.current?.contains(e.target as Node)) setNavMenuOpen(false);
+      const target = e.target as Node;
+      if (!navMenuRef.current?.contains(target) && !navMenuPanelRef.current?.contains(target)) {
+        setNavMenuOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setNavMenuOpen(false); };
     document.addEventListener("mousedown", onMouse);
@@ -207,6 +216,35 @@ export function MainTopBar() {
     return () => {
       document.removeEventListener("mousedown", onMouse);
       document.removeEventListener("keydown", onKey);
+    };
+  }, [navMenuOpen]);
+
+  // Position the portalled panel off the trigger's live bounding rect instead
+  // of `position: absolute` — this top bar can render underneath an open
+  // agent modal (`.ao-modal`, z-[200]), which establishes its own stacking
+  // context that a nested `z-[60]` can never escape, so the panel would paint
+  // BEHIND the modal's backdrop. Portalling to <body> with `position: fixed`
+  // sidesteps that entirely — same fix already applied to ProjectActionsMenu/
+  // DevServerButton's dropdowns.
+  useEffect(() => {
+    if (!navMenuOpen) return;
+    const place = () => {
+      const rect = navMenuTriggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setNavMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+        width: 226,
+      });
+    };
+    place();
+    const close = () => setNavMenuOpen(false);
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
     };
   }, [navMenuOpen]);
 
@@ -234,8 +272,13 @@ export function MainTopBar() {
 
   return (
     <div className="shrink-0 flex items-center gap-[10px] px-[20px] pt-[16px] pb-[16px]" data-tauri-drag-region>
-      {/* Project tabs — sheen pill, drag-to-reorder, right-click menu */}
-      <div className="surface-sheen flex items-center gap-[3px] min-w-0 p-[5px] rounded-2xl shadow-[var(--lift)]" data-tauri-drag-region="false">
+      {/* Project tabs — sheen pill, drag-to-reorder, right-click menu.
+          No `data-tauri-drag-region="false"` anywhere in this bar: the outer
+          row + the flex-1 spacer are the (bare) drag surfaces, and Tauri only
+          drags on a direct hit of a bare region — never on a child — so the
+          controls are click-safe without the Electron-style `="false"` opt-out
+          (which breaks clicks on older Tauri; see TrafficDot). */}
+      <div className="surface-sheen flex items-center gap-[3px] min-w-0 p-[5px] rounded-2xl shadow-[var(--lift)]">
         {tabs.length === 0 ? (
           <span className="text-[12px] text-txt-4 italic px-2 select-none whitespace-nowrap">{t("tabs.empty_hint")}</span>
         ) : (
@@ -314,27 +357,17 @@ export function MainTopBar() {
 
       <span className="flex-1" data-tauri-drag-region />
 
-      {/* Dev/update affordances — kept small and muted; SkillUpdatesBell/
-          UpdateBell render nothing when there's nothing to report. */}
-      <div className="flex items-center gap-1 shrink-0" data-tauri-drag-region="false">
+      {/* Dev affordances — kept small and muted; SkillUpdatesBell renders
+          nothing when there's nothing to report. */}
+      <div className="flex items-center gap-1 shrink-0">
         <SkillUpdatesBell />
-        <UpdateBell />
         <DevMenu />
         <RefreshButton />
       </div>
 
-      {/* Docs — always shown, see file doc-comment above */}
-      <Tooltip content={t("titlebar.documentation_title")} side="bottom" className="shrink-0">
-        <Link
-          href={PAGE_ROUTES.docs}
-          className="group surface-sheen h-[38px] flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 no-underline hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
-          data-tauri-drag-region="false"
-        >
-          <Icon name="book" size={15} className="text-acc transition-transform duration-200 group-hover:scale-110" />
-          Docs
-          <span className="font-[var(--font-mono)] text-[10px] font-medium px-[6px] py-[2px] rounded-[7px] bg-card-3 text-txt-4 transition-colors duration-200 group-hover:text-txt-2">⌘/</span>
-        </Link>
-      </Tooltip>
+      {/* Update available — renders nothing until UpdateBell detects a
+          newer build; occupies the top-bar slot the Docs button used to. */}
+      <UpdateBell />
 
       {/* Theme toggle */}
       <Tooltip content={t("titlebar.toggle_theme_title")} side="bottom" className="shrink-0">
@@ -343,7 +376,6 @@ export function MainTopBar() {
           onClick={toggleTheme}
           aria-label={theme === "dark" ? t("titlebar.switch_to_light") : t("titlebar.switch_to_dark")}
           className="group surface-sheen w-[38px] h-[38px] flex items-center justify-center rounded-full text-txt-2 hover:text-txt shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
-          data-tauri-drag-region="false"
         >
           <Icon
             name={theme === "dark" ? "moon" : "sun"}
@@ -354,8 +386,9 @@ export function MainTopBar() {
       </Tooltip>
 
       {/* Account chip — dropdown carries all primary page navigation */}
-      <div className="relative shrink-0" ref={navMenuRef} data-tauri-drag-region="false">
+      <div className="relative shrink-0" ref={navMenuRef}>
         <button
+          ref={navMenuTriggerRef}
           type="button"
           onClick={() => setNavMenuOpen((v) => !v)}
           aria-haspopup="menu"
@@ -371,7 +404,12 @@ export function MainTopBar() {
         </button>
 
         {navMenuOpen ? (
-          <div className="absolute top-[calc(100%+8px)] right-0 w-[226px] p-[7px] surface-sheen rounded-[18px] shadow-[var(--lift)] z-[60]">
+          <Portal>
+          <div
+            ref={navMenuPanelRef}
+            style={navMenuStyle}
+            className="p-[7px] surface-sheen rounded-[18px] shadow-[var(--lift)] z-[9999]"
+          >
             {navItems.map((item) => {
               const active = isActiveRoute(pathname, item.href, { exact: item.exact });
               // nav.servers doesn't exist — the shared key for this entry is
@@ -418,6 +456,7 @@ export function MainTopBar() {
               );
             })}
           </div>
+          </Portal>
         ) : null}
       </div>
     </div>
