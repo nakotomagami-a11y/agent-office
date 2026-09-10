@@ -16,33 +16,15 @@ import { join } from "node:path";
 import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, Project } from "../../types/index";
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { isYamlMapping, parseYaml, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, stringifyYaml, type YamlValue } from "../infra/yaml";
 import { buildSkillsPrompt } from "../skills/skills";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
 import { historyNote } from "../projects/history";
 
-interface ParsedFile {
-  fm: YamlMapping;
-  body: string;
-}
-
-export function hasFrontmatter(content: string): boolean {
-  return /^---\n[\s\S]*?\n---\n?/.test(content);
-}
-
-function parseFrontmatter(content: string): ParsedFile {
-  const m = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { fm: {}, body: content };
-  let fm: YamlMapping = {};
-  try {
-    const parsed = parseYaml(m[1]!);
-    if (isYamlMapping(parsed)) fm = parsed;
-  } catch {
-    fm = {};
-  }
-  return { fm, body: m[2]! };
+function hasFrontmatter(content: string): boolean {
+  return /^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/.test(content);
 }
 
 function asStringList(v: unknown): string[] {

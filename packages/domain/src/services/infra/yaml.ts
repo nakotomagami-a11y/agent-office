@@ -16,8 +16,23 @@ export function isYamlMapping(v: unknown): v is YamlMapping {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
-export function isYamlSequence(v: unknown): v is YamlSequence {
-  return Array.isArray(v);
+/**
+ * Split a `---\n<yaml>\n---` frontmatter block off a markdown document.
+ * CRLF-tolerant (GitHub-hosted files are often `\r\n`). Unparseable or
+ * non-mapping YAML yields an empty mapping; a document without a
+ * frontmatter block yields `{ fm: {}, body: content }` unchanged.
+ */
+export function parseFrontmatter(content: string): { fm: YamlMapping; body: string } {
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!m) return { fm: {}, body: content };
+  let fm: YamlMapping = {};
+  try {
+    const parsed = parseYaml(m[1]!.replace(/\r\n/g, "\n"));
+    if (isYamlMapping(parsed)) fm = parsed;
+  } catch {
+    fm = {};
+  }
+  return { fm, body: m[2]! };
 }
 
 const SCALAR_RE = /^[A-Za-z0-9_./@:+\-]+$/;
