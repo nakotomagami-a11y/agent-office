@@ -18,8 +18,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/domain
       '@agent-office/pixel-icons':
-        specifier: github:nakotomagami-a11y/pixel-icons-generator#be9ab28bc0e60bc0eee4f538f0ace89c256403f6
-        version: pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/be9ab28bc0e60bc0eee4f538f0ace89c256403f6(react@19.2.6)
+        specifier: github:nakotomagami-a11y/pixel-icons-generator#7a2ae13a885d8d8ac3553d7324f96ebf4851d552
+        version: pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/7a2ae13a885d8d8ac3553d7324f96ebf4851d552(react@19.2.6)
       '@agent-office/pixel-planets':
         specifier: github:nakotomagami-a11y/pixel-planets-generator#f708678006d4fb237e51982d6c855f520cb7888c
         version: pixel-planets@https://codeload.github.com/nakotomagami-a11y/pixel-planets-generator/tar.gz/f708678006d4fb237e51982d6c855f520cb7888c(react@19.2.6)
@@ -2571,8 +2571,8 @@ packages:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
 
-  pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/be9ab28bc0e60bc0eee4f538f0ace89c256403f6:
-    resolution: {gitHosted: true, integrity: sha512-WZwA12GU5AKIYBTlOZC94a8hl8lIoiq428oI7hGZ9MrE+fU/YoU4HmpIvLLTv36ywjzMp6ff5ZoODCdsT4I7SQ==, tarball: https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/be9ab28bc0e60bc0eee4f538f0ace89c256403f6}
+  pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/7a2ae13a885d8d8ac3553d7324f96ebf4851d552:
+    resolution: {gitHosted: true, integrity: sha512-LdYwnG9P6coCCaMdx67WHw2Nywn6vUwI1U7YRL/ogzIm8902s+eeoH94pHE4pG6MSGmVcJg+xJoWapDXu6bOiA==, tarball: https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/7a2ae13a885d8d8ac3553d7324f96ebf4851d552}
     version: 0.2.0
     peerDependencies:
       react: '>=18.0.0'
@@ -5740,7 +5740,7 @@ snapshots:
 
   picomatch@4.0.4: {}
 
-  pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/be9ab28bc0e60bc0eee4f538f0ace89c256403f6(react@19.2.6):
+  pixel-icons@https://codeload.github.com/nakotomagami-a11y/pixel-icons-generator/tar.gz/7a2ae13a885d8d8ac3553d7324f96ebf4851d552(react@19.2.6):
     optionalDependencies:
       react: 19.2.6
 
