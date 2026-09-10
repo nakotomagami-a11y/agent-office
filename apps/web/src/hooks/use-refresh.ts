@@ -1,42 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 
 /**
- * In-app equivalent of the browser's Ctrl+F5 for developers.
+ * In-app equivalent of the browser's reload button, for a shell (Tauri /
+ * WebKitGTK) that has none.
  *
- * The app runs in Tauri (WebKitGTK) where the user has no browser reload
- * affordance, and React Query aggressively caches with `refetchOnWindowFocus:
- * false`. When the underlying data drifts (files edited on disk, a run
- * finishes without an SSE event, etc.) there's no built-in way to force a
- * fresh view. This hook provides one:
+ * `frontendDist`/`devUrl` in `tauri.conf.json` point at a URL served by a
+ * separate Next.js process (the "backend") — the webview is just a client of
+ * it, same as a browser tab is a client of any web server. So a real
+ * `location.reload()` behaves exactly like hitting refresh in a browser: the
+ * frontend (JS bundle, React tree, every store/cache) comes back fresh, while
+ * the backend process keeps running untouched.
  *
- *   - `refresh()` invalidates *every* React Query cache entry, causing all
- *     active subscribers to refetch. It does NOT reload the page — component
- *     state (open modals, unsaved drafts, in-flight compositions) is
- *     preserved.
- *   - The hook installs a global Ctrl/Cmd+R capture listener that hijacks the
- *     browser's native reload while the app is focused. In Tauri this
- *     replaces the default WebKitGTK behaviour of dumping the entire session.
- *   - `refreshing` briefly flips to `true` after each refresh so the caller
- *     can render a "just happened" acknowledgement (e.g. a spinning icon or
- *     a subtle toast).
+ * An earlier version of this hook tried to approximate a refresh by calling
+ * `queryClient.invalidateQueries()` instead of actually reloading, to
+ * "preserve state". In practice that only ever refetched React Query's own
+ * cache — it left stale Zustand stores, stuck modals, and any other local
+ * component state exactly as broken as they were, which is why "Refresh"
+ * looked like it did nothing. A real reload fixes all of that generically,
+ * with no per-store/per-cache hardcoding to maintain.
  */
 export function useRefresh(): {
   refresh: () => void;
   refreshing: boolean;
 } {
-  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(() => {
-    void queryClient.invalidateQueries();
     setRefreshing(true);
-    // Match the ~400ms icon spin so the visual acknowledgement isn't
-    // shorter than the network flight for the invalidated queries.
-    window.setTimeout(() => setRefreshing(false), 700);
-  }, [queryClient]);
+    window.location.reload();
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

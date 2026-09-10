@@ -106,6 +106,32 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands.length, projectId]);
 
+  // Dev servers are spawned in a detached OS terminal window (see the `dev`
+  // route's `spawnInTerminal`) — closing that window kills the process
+  // without the app ever hearing about it, so the store would say "running"
+  // forever. Poll the tracked pid's actual OS-level liveness (same check the
+  // kill button already relies on) and self-heal back to idle the moment the
+  // process is gone, instead of requiring a manual Stop/refresh.
+  useEffect(() => {
+    if (commands.length === 0) return;
+    let cancelled = false;
+    const poll = async () => {
+      const state = useDevServerStore.getState();
+      for (const cmd of commands) {
+        const s = state.getRunState(projectId, cmd.key);
+        if (s.phase !== "running") continue;
+        const alive = await getProcess(s.pid).then((r) => r.alive ?? true).catch(() => true);
+        if (!cancelled && !alive) state.setRunState(projectId, cmd.key, { phase: "idle" });
+      }
+    };
+    const id = setInterval(() => { void poll(); }, 4000);
+    return () => { cancelled = true; clearInterval(id); };
+  // `commands` is a fresh `[]` literal on every render until `devQ.data`
+  // resolves — depend on its length like the reconcile effect above instead
+  // of re-arming the interval every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commands.length, projectId]);
+
   // Close dropdown on outside click. The panel itself is portalled to <body>
   // (see below), so it's no longer a DOM descendant of `dropRef` — check
   // `panelRef` too, or every click inside the open panel would read as
@@ -157,6 +183,41 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
   function setKeyState(key: string, s: RunState) {
     store.setRunState(projectId, key, s);
   }
+
+  // Self-heal stale "running" state. Start/Stop are the only writers besides
+  // the one-time reconcile above, so a dev server killed OUT of band (terminal
+  // closed, crash, `kill` elsewhere) would otherwise sit "running" forever with
+  // a dead pid. While any command is running, poll its pid's liveness (the
+  // server reads /proc — always accurate) and flip it back to idle once the OS
+  // says the process is gone. Transient API errors are ignored (retry next
+  // tick); only a definitive `alive === false` clears the state.
+  const runningSig = commands
+    .map((cmd) => {
+      const s = getState(cmd.key);
+      return s.phase === "running" && s.pid > 0 ? `${cmd.key}:${s.pid}` : "";
+    })
+    .filter(Boolean)
+    .join(",");
+  useEffect(() => {
+    if (!runningSig) return;
+    let cancelled = false;
+    const checkOnce = async () => {
+      for (const cmd of commands) {
+        const s = getState(cmd.key);
+        if (s.phase !== "running" || s.pid <= 0) continue;
+        try {
+          const { alive } = await getProcess(s.pid);
+          if (!cancelled && alive === false) setKeyState(cmd.key, { phase: "idle" });
+        } catch {
+          /* transient — leave state as-is, retry on the next tick */
+        }
+      }
+    };
+    void checkOnce(); // prompt heal on mount / when a run starts
+    const id = setInterval(() => { void checkOnce(); }, 4000);
+    return () => { cancelled = true; clearInterval(id); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runningSig encodes the running pids; store getters/setters are stable
+  }, [runningSig]);
 
   async function runInstall(): Promise<boolean> {
     setInstall("installing");
@@ -716,6 +777,9 @@ function runtimeItems(projectId: string): ActionBarItem[] {
 export function ProjectActionsMenu({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const projectQ = useProject(projectId);
   const hasCwd = !!projectQ.data?.meta.cwd;
 
@@ -728,13 +792,47 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
   });
   const hasBuild = buildQ.data?.hasBuild ?? false;
 
+  // Close on outside click. The panel is portalled to <body> (see below), so
+  // it's no longer a DOM descendant of `ref` — check `panelRef` too, same as
+  // DevServerButton's dropdown, or every click inside the open panel would
+  // read as "outside" and close it before an action ever registers.
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Position the portalled panel off the trigger's live bounding rect instead
+  // of `position: absolute` — this menu renders inside the agent conversation
+  // modal (and the project hero card), both of which establish their own
+  // stacking context. A nested `z-[9999]` can never escape an ancestor's
+  // context, so the panel would paint *behind* any backdrop/modal opened on
+  // top of it. Portalling to <body> with `position: fixed` sidesteps that
+  // entirely, same fix already used by DevServerButton's own dropdown.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPanelStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+        width: 240,
+      });
+    };
+    place();
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   if (!hasCwd) return null;
@@ -743,6 +841,7 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
     <div ref={ref} className="relative">
       <Tooltip content="Project actions" side="bottom" delayMs={400}>
         <button
+          ref={triggerRef}
           type="button"
           aria-label="Project actions"
           aria-haspopup="menu"
@@ -757,19 +856,25 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
         </button>
       </Tooltip>
       {open && (
-        <div className="absolute top-[calc(100%+6px)] right-0 w-[240px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col gap-[1px]">
-          <OpenFolderButton projectId={projectId} menu />
-          <OpenInVSCodeButton projectId={projectId} menu />
-          <ClearCacheButton projectId={projectId} menu />
-          <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
-          {hasBuild && (
-            <>
-              <BuildButton projectId={projectId} menu />
-              <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
-            </>
-          )}
-          <DevServerButton projectId={projectId} menu />
-        </div>
+        <Portal>
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col gap-[1px]"
+          >
+            <OpenFolderButton projectId={projectId} menu />
+            <OpenInVSCodeButton projectId={projectId} menu />
+            <ClearCacheButton projectId={projectId} menu />
+            <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+            {hasBuild && (
+              <>
+                <BuildButton projectId={projectId} menu />
+                <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+              </>
+            )}
+            <DevServerButton projectId={projectId} menu />
+          </div>
+        </Portal>
       )}
     </div>
   );

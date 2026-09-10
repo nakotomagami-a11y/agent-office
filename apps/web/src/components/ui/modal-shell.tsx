@@ -112,7 +112,7 @@ export function ModalShell({
         role="presentation"
         onClick={onClose}
         className={cn(
-          "app-modal-backdrop fixed top-0 right-0 bottom-0 bg-[var(--ao-backdrop)] backdrop-blur-sm flex items-center justify-center z-[200] p-2",
+          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-2 before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
           CHROME_LEFT_CLASS,
         )}
         style={{ top: CHROME_TOP }}
@@ -124,7 +124,7 @@ export function ModalShell({
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
-          className={cn("surface-sheen rounded-lg shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
+          className={cn("relative z-[1] surface-sheen rounded-lg shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
           style={{
             maxWidth: maxWidth ?? SIZE_PX[size],
             maxHeight: "calc(100vh - 90px)",

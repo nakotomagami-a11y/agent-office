@@ -209,7 +209,7 @@
     "win_min": "Minimise window",
     "win_max": "Maximise window",
     "refresh_label": "Refresh view",
-    "refresh_tooltip": "Refresh (Ctrl+R) — refetch all data without reloading the app",
+    "refresh_tooltip": "Refresh (Ctrl+R) — reloads the frontend, servers keep running",
     "documentation_title": "Documentation — ⌘/",
     "toggle_theme_title": "Toggle theme"
   },
