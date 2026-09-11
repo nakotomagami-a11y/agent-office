@@ -190,7 +190,7 @@ export function useSetSkillIcon() {
     mutationFn: ({ key, config }: { key: string; config: IconConfig }) =>
       apiFetch<{ ok: boolean; key: string; config: IconConfig }>(API_ROUTES.skillsIcons, {
         method: "POST",
-        body: { key, seed: config.seed, iconClass: config.iconClass },
+        body: { key, seed: config.seed, iconClass: config.iconClass, parts: config.parts },
       }),
     onSuccess: (res) => {
       qc.setQueryData<SkillIconMap>(queryKeys.skills.icons(), (prev) => ({
