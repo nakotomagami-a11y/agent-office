@@ -367,9 +367,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       <span className="inline-flex items-center gap-1">
         {installBtn}
         {s.phase === "idle" && (
-          <Tooltip content="Start dev server" side="bottom">
+          <Tooltip content={`Start ${cmd.name}`} side="bottom">
             <button type="button" className={TBTN} onClick={() => { void startCmd(cmd.key); }} disabled={busyInstall}>
-              <Icon name="play" size={11} /> Dev
+              <Icon name="play" size={11} /> {cmd.name}
             </button>
           </Tooltip>
         )}
