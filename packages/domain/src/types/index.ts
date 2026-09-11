@@ -689,6 +689,14 @@ export interface SkillSection {
 export interface SkillIconConfig {
   seed: string;
   iconClass: SkillIconClass;
+  /**
+   * Optional explicit "build it yourself" overrides, e.g.
+   * `{ blades: { profile: "katana", guard: "swept" } }`. Opaque to the
+   * domain layer — persisted as-is; `@agent-office/pixel-icons` interprets
+   * the shape (see its `WeaponParts` type, kept in sync by hand since domain
+   * doesn't depend on the generator package).
+   */
+  parts?: Record<string, Record<string, string | boolean>>;
 }
 export type SkillIconMap = Record<string, SkillIconConfig>;
 

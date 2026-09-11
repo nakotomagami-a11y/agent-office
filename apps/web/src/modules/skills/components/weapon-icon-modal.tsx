@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { IconConfig, IconClassSelector } from "@agent-office/pixel-icons";
-import { createRandomSeed } from "@agent-office/pixel-icons";
+import type { IconConfig, IconClass, IconClassSelector, WeaponParts } from "@agent-office/pixel-icons";
+import { createRandomSeed, WEAPON_PART_SCHEMA } from "@agent-office/pixel-icons";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
+import { Select } from "@/components/ui/select";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 
 const WEAPON_TYPES: { value: IconClassSelector; label: string }[] = [
@@ -18,6 +19,20 @@ const WEAPON_TYPES: { value: IconClassSelector; label: string }[] = [
   { value: "tridents", label: "Trident" },
   { value: "shields", label: "Shield" },
 ];
+
+const AUTO = ""; // sentinel <select> value for "no override, stay random"
+
+/** Read a part value out of the draft's loosely-shaped parts bag. */
+function getPart(parts: WeaponParts | undefined, cls: IconClass, key: string): string {
+  const bag = parts?.[cls] as Record<string, unknown> | undefined;
+  const v = bag?.[key];
+  return typeof v === "string" ? v : AUTO;
+}
+
+function getTwoHanded(parts: WeaponParts | undefined): "auto" | "one" | "two" {
+  const v = parts?.blades?.twoHanded;
+  return v === true ? "two" : v === false ? "one" : "auto";
+}
 
 interface WeaponIconModalProps {
   open: boolean;
@@ -41,13 +56,29 @@ export function WeaponIconModal({ open, name, current, onSave, onClose }: Weapon
     onClose();
   };
 
+  /** Set (or clear, on AUTO) one field within `parts[cls]`. */
+  const setPart = (cls: IconClass, key: string, value: string | boolean | undefined) => {
+    setDraft((d) => {
+      const parts = { ...(d.parts ?? {}) } as Record<string, Record<string, unknown>>;
+      const bag = { ...(parts[cls] ?? {}) };
+      if (value === undefined) delete bag[key];
+      else bag[key] = value;
+      if (Object.keys(bag).length === 0) delete parts[cls];
+      else parts[cls] = bag;
+      return { ...d, parts: parts as WeaponParts };
+    });
+  };
+
+  const cls = draft.iconClass as IconClass;
+  const fields = WEAPON_PART_SCHEMA[cls];
+
   return (
     <ModalShell
       open={open}
       onClose={onClose}
       title={`Icon — ${name}`}
       size="sm"
-      maxWidth={460}
+      maxWidth={520}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -118,6 +149,55 @@ export function WeaponIconModal({ open, name, current, onSave, onClose }: Weapon
               </Button>
             </div>
           </div>
+
+          {/* Build it yourself — headline shape/hilt overrides for the picked
+              weapon type. Everything else stays random from the seed, so
+              "Random" above still gives useful variety with these locked. */}
+          {fields ? (
+            <div>
+              <div className="text-[9px] font-mono text-txt-3 uppercase tracking-wide mb-[5px]">Customize</div>
+              <div className="flex flex-wrap gap-[8px]">
+                {fields.map((f) => (
+                  <label key={f.key} className="basis-[calc(50%-4px)] flex flex-col gap-[3px]">
+                    <span className="text-[10px] text-txt-3">{f.label}</span>
+                    <Select
+                      value={getPart(draft.parts, cls, f.key)}
+                      onChange={(e) => setPart(cls, f.key, e.target.value === AUTO ? undefined : e.target.value)}
+                      className="w-full"
+                    >
+                      <option value={AUTO}>Auto (random)</option>
+                      {f.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                ))}
+                {cls === "blades" ? (
+                  <label className="basis-[calc(50%-4px)] flex flex-col gap-[3px]">
+                    <span className="text-[10px] text-txt-3">Grip</span>
+                    <Select
+                      value={getTwoHanded(draft.parts)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setPart("blades", "twoHanded", v === "auto" ? undefined : v === "two");
+                      }}
+                      className="w-full"
+                    >
+                      <option value="auto">Auto (random)</option>
+                      <option value="one">One-Handed</option>
+                      <option value="two">Two-Handed</option>
+                    </Select>
+                  </label>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10.5px] text-txt-4 leading-[1.5]">
+              Pick a specific weapon type above to customize its parts — the pieces stay locked while "Random" still varies colour and details.
+            </p>
+          )}
         </div>
       </div>
     </ModalShell>
