@@ -219,13 +219,8 @@ export function MainTopBar() {
     };
   }, [navMenuOpen]);
 
-  // Position the portalled panel off the trigger's live bounding rect instead
-  // of `position: absolute` — this top bar can render underneath an open
-  // agent modal (`.ao-modal`, z-[200]), which establishes its own stacking
-  // context that a nested `z-[60]` can never escape, so the panel would paint
-  // BEHIND the modal's backdrop. Portalling to <body> with `position: fixed`
-  // sidesteps that entirely — same fix already applied to ProjectActionsMenu/
-  // DevServerButton's dropdowns.
+  // An open agent modal establishes its own stacking context that a nested
+  // z-index can't escape, so portal to <body> with `position: fixed` instead.
   useEffect(() => {
     if (!navMenuOpen) return;
     const place = () => {

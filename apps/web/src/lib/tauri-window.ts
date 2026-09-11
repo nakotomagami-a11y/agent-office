@@ -1,8 +1,5 @@
-// Helpers for talking to the Tauri window API.
-//
-// When the app runs in a browser tab the Tauri APIs aren't available;
-// every function in here no-ops in that environment so the same React
-// code can ship to both targets.
+// Tauri window API helpers. No-op in a plain browser tab so the same React
+// code ships to both targets.
 
 interface TauriWindow {
   close: () => Promise<void>;
@@ -10,12 +7,7 @@ interface TauriWindow {
   toggleMaximize: () => Promise<void>;
 }
 
-// Only the successful probe is cached. A failed probe (bridge not ready yet,
-// or a transient import error) is NOT cached — otherwise one unlucky click
-// before `__TAURI_INTERNALS__` finishes injecting would wedge every window
-// control (close/minimize/maximize) into a silent no-op for the rest of the
-// session, since every future call short-circuited on the cached `null`
-// instead of trying again.
+// Only cache a successful probe — a failed one must retry on the next call.
 let cached: TauriWindow | null = null;
 
 async function getTauriWindow(): Promise<TauriWindow | null> {
@@ -39,11 +31,8 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-// A window control that does nothing is indistinguishable from a dead button.
-// Surface the real reason (ACL denial, bridge-not-ready, Wayland refusal) as a
-// toast + tagged console error instead of swallowing it, so failures are
-// diagnosable in the shipped app without opening devtools. `getTauriWindow`
-// returning null (plain browser tab) is NOT an error — only a thrown call is.
+// Surfaces a failed window op as a toast + console error instead of
+// swallowing it, so it's diagnosable without opening devtools.
 async function reportWindowError(op: string, err: unknown): Promise<void> {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(`tauri-window.${op} failed`, err);
@@ -55,12 +44,8 @@ async function reportWindowError(op: string, err: unknown): Promise<void> {
   }
 }
 
-// Callers fire these from a plain `onClick={() => void closeWindow()}` with
-// nothing downstream awaiting the result, so an unhandled rejection here
-// (e.g. a denied ACL permission) would otherwise vanish into the console as
-// an "uncaught (in promise)" with no indication *why* the button did
-// nothing. Swallow-and-log instead of throwing back into a fire-and-forget
-// caller.
+// close/minimize/toggleMaximize are fired from fire-and-forget onClick
+// handlers, so errors are caught and reported here rather than thrown.
 export async function closeWindow(): Promise<void> {
   const w = await getTauriWindow();
   try {
@@ -88,13 +73,8 @@ export async function toggleMaximizeWindow(): Promise<void> {
   }
 }
 
-/**
- * Opens a URL in the user's default system browser.
- *
- * `window.open()` is a no-op inside the Tauri webview (there's no browser
- * tab for it to open) — the app needs the shell plugin's `open()` to hand
- * the URL off to the OS. Falls back to `window.open` in a plain browser tab.
- */
+// Opens a URL in the system browser. `window.open()` is a no-op in the Tauri
+// webview, so use the shell plugin there; falls back to `window.open` otherwise.
 export async function openExternalUrl(url: string): Promise<void> {
   if (isTauri()) {
     try {

@@ -216,12 +216,9 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
 
   const onAbort = () => {
     if (!view?.activeRunId) return;
-    // No client-side queue clearing here (the old code used to drop every
-    // queued message on Stop) — an aborted run is just another interrupted
-    // turn now: it parks in needs_attention via the SAME finalizeRun→
-    // conversation dispatch every other failure uses, and the queue is
-    // preserved like any other failure (see docs/chat-refactor.md decision
-    // #1). Use "Clear queue" to drop it explicitly.
+    // No client-side queue clearing: an aborted run parks in needs_attention
+    // via the same path as any other failure, preserving the queue (see
+    // docs/chat-refactor.md decision #1). Use "Clear queue" to drop it.
     abort.mutate(view.activeRunId);
   };
 

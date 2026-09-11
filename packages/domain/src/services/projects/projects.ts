@@ -194,9 +194,8 @@ function projectFromScan(entry: ScannedEntry): Project {
     roster: normalizeRoster(md?.meta.roster),
   };
   // Every project must carry a planet. Persisted config wins; otherwise fall
-  // back to a deterministic high-quality planet derived from the id so the UI
-  // never renders the low-res procedural placeholder (the "low quality planet"
-  // bug that hit scanned folders and fresh devices).
+  // back to a deterministic high-quality planet derived from the id, never
+  // the low-res procedural placeholder.
   meta.planet = md?.meta.planet ?? defaultPlanetForId(entry.id);
   if (md?.meta.accountId) meta.accountId = md.meta.accountId;
   if (md?.meta.githubAccountId) meta.githubAccountId = md.meta.githubAccountId;

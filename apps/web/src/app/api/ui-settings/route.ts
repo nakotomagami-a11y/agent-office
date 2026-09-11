@@ -12,14 +12,10 @@ const STATIC_KEYS = new Set([
   "performance-mode",
   ...Object.values(OFFICE_SETTING_KEYS),
   "office-map-rev",
-  // First-run wizard draft — lets a partially-filled wizard survive an app
-  // restart instead of losing everything the user already entered.
+  // First-run wizard draft — lets a partially-filled wizard survive an app restart.
   "agent-office:wizard-draft",
   // Sidebar/office view state — view mode + expanded/pinned roster groups
-  // (use-office-store.ts's STORAGE_KEY). Was missing here, so every
-  // `patchUiSettings({"office-view": ...})` call 400'd silently (swallowed by
-  // the store's own `.catch(() => {})`) — pinned agents never actually
-  // reached the DB, so they reset to unpinned on every reload.
+  // (use-office-store.ts's STORAGE_KEY).
   "office-view",
 ]);
 
@@ -32,9 +28,8 @@ const DYNAMIC_PREFIXES = [
   "office-map-rev:",
 ];
 
-// The office grid alone (108×68 boolean array) serializes to ~40KB, so the old
-// 10KB cap silently rejected every map save once a map grew — a real data-loss
-// bug. 2MB is generous headroom while still bounding abuse.
+// The office grid alone (108×68 boolean array) serializes to ~40KB; 2MB is
+// generous headroom while still bounding abuse.
 const MAX_VALUE_BYTES = 2 * 1024 * 1024;
 
 function isAllowedKey(key: string): boolean {

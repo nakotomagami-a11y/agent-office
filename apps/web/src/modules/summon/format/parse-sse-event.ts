@@ -254,17 +254,9 @@ export function applySseEvent(
       const { data } = event;
       const withoutEcho = dropTrailingTextEcho(prev.thread, data.message);
       // The CLI re-reports the same rate-limit signal on every subsequent tool
-      // call while a warning is active (plus a differently-worded "limit"
-      // event from the plain-text fallback) — each one used to append its own
-      // card, spamming the thread with a growing stack of near-identical
-      // cards. Tool/text events interleave between these resends, so only
-      // checking whether the *last* thread item was a rate-limit card missed
-      // almost every repeat (the card is rarely still on top by the time the
-      // next signal arrives). Instead, find any existing rate-limit card
-      // anywhere in the thread — it's still present because the user hasn't
-      // dismissed it — and update it in place, keeping both its id and its
-      // position, so the dismiss/retry/schedule handlers (bound to `item.id`
-      // in chat-thread.tsx) keep targeting the right item.
+      // call while a warning is active, so find any existing rate-limit card
+      // anywhere in the thread (not just the last item — other events interleave)
+      // and update it in place, keeping its id so dismiss/retry stay bound to it.
       let existingIdx = -1;
       for (let i = withoutEcho.length - 1; i >= 0; i--) {
         if (withoutEcho[i]!.kind === "system-rate-limit") {

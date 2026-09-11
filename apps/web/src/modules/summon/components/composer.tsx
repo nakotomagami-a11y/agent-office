@@ -48,9 +48,8 @@ export function Composer(props: ComposerProps) {
   useComposerDraft({ draftKey: props.draftKey, seed: props.seed, textRef, setValue, onSeedConsumed: props.onSeedConsumed });
   const menus = useComposerMenus(value, savedPrompts);
 
-  // Persist the draft at most once per idle pause instead of once per keystroke
-  // — the old per-character PUT hammered the drafts DB write and added input
-  // latency on the native (WebKitGTK) build. Flush on unmount so nothing is lost.
+  // Persist the draft at most once per idle pause, not per keystroke.
+  // Flush on unmount so nothing is lost.
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDraft = useRef<{ key: string; text: string } | null>(null);
   const flushDraft = () => {

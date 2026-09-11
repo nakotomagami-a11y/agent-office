@@ -164,11 +164,8 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
                   className={cn(
                   "flex items-center gap-[10px] h-[34px] px-[10px] rounded-sm text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
                   item.destructive && "text-status-error",
-                  // Selected sits on the accent (purple) fill. Use `--txt`, which
-                  // is near-white in dark theme and near-black in light theme, so
-                  // the label always reads on the purple. `[&_*]` forces nested
-                  // label spans/icons to inherit it too (they otherwise keep their
-                  // own muted colour and vanish on the fill).
+                  // `--txt` reads correctly on the accent fill in both themes;
+                  // `[&_*]` forces nested label spans/icons to inherit it too.
                   fillSelected && "bg-acc text-txt [&_*]:!text-txt",
                   !fillSelected && i === activeIndex && "bg-bg-3 text-txt"
                 )}
