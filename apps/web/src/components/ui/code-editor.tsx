@@ -7,11 +7,8 @@ import { escapeHtml as esc } from "@/lib/markdown";
 
 // ── Syntax highlight helpers ─────────────────────────────────────────────────
 //
-// These build an HTML string for the "Write" tab's highlight layer (see the
-// two-layer overlay in the component below). Colour/weight/style come from
-// Tailwind token classes — `text-acc`, `text-[var(--md-code)]`, etc. — the
-// same convention `code-block.tsx`/`highlight.ts` use for their `.hl-*`
-// tokens, so theme changes apply here for free. All source text is
+// Build an HTML string for the "Write" tab's highlight layer, using the same
+// Tailwind token classes as code-block.tsx/highlight.ts. Source text is
 // HTML-escaped via `esc` before interpolation.
 
 /** Highlight inline markdown on an already-HTML-escaped string. */
@@ -122,17 +119,12 @@ const GUTTER_PX = 44; // width of the visual gutter band (background + border)
 const TEXT_PAD_PX = GUTTER_PX + 8; // where text starts — a small gap past the gutter's border, not flush against it
 
 // Applied identically to both the <pre> and <textarea> so their character
-// grid aligns pixel-perfectly — every property here is a fixed literal, so
-// it lives in Tailwind classes rather than a style object. Only the left
-// padding depends on a runtime constant (TEXT_PAD_PX); that's the one value
-// that stays inline (see LAYER_STYLE below).
+// grid aligns pixel-perfectly. Left padding depends on a runtime constant
+// (TEXT_PAD_PX), so it stays inline via LAYER_STYLE instead.
 const LAYER_CLASS =
   "absolute inset-0 m-0 pt-[12px] pr-[14px] pb-[12px] font-mono text-[12.5px] leading-[1.6] " +
   "whitespace-pre-wrap break-words [word-break:break-word] [tab-size:2] overflow-hidden";
 
-// Left padding reserves the gutter column (plus the small text gap); the
-// line numbers live in that same padding, positioned back toward the
-// gutter's left edge (see preHtml).
 const LAYER_STYLE: React.CSSProperties = { paddingLeft: TEXT_PAD_PX };
 
 export function CodeEditor({
@@ -153,10 +145,8 @@ export function CodeEditor({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [measuredH, setMeasuredH] = useState(0);
   const lines   = value.split("\n");
-  // The logical-line estimate (lines × LINE_PX) undercounts when long lines
-  // soft-wrap, which clipped the bottom of wrapped content in Write view (the
-  // textarea's overflow is hidden and the container height is fixed). Measure
-  // the textarea's true scrollHeight and grow to whichever is larger.
+  // The logical-line estimate undercounts when long lines soft-wrap, so grow
+  // to the textarea's real scrollHeight when that's larger.
   const editorH = Math.max(minHeight, lines.length * LINE_PX + PAD_PX, measuredH);
 
   useEffect(() => {
@@ -164,23 +154,16 @@ export function CodeEditor({
     if (view !== "write" || !ta) return;
     const measure = () => setMeasuredH(ta.scrollHeight);
     measure();
-    // Re-measure when the textarea's width changes (wrapping shifts) or content
-    // grows — ResizeObserver covers panel/window resizes the deps miss.
+    // Covers width/content changes that shift wrapping (deps alone miss these).
     const ro = new ResizeObserver(measure);
     ro.observe(ta);
     return () => ro.disconnect();
   }, [value, view]);
 
-  // When empty, the <pre> layer renders the placeholder so the transparent
-  // textarea doesn't need to show its own (which can't be coloured reliably
-  // when -webkit-text-fill-color is transparent).
-  //
-  // highlightMd emits one entry per source line (no internal newlines), joined
-  // by "\n" with a trailing "\n". We split it back to per-line HTML and wrap
-  // each line in a block that carries its own number, absolutely positioned in
-  // the reserved left padding. Because the numbers ride the same wrapping flow
-  // as the text, they stay aligned with wrapped lines and always reach the
-  // bottom — unlike a fixed-line-height gutter column.
+  // When empty, the <pre> layer renders the placeholder (the transparent
+  // textarea can't colour its own reliably). Each highlighted line is wrapped
+  // in a block carrying its own line number in the reserved left padding, so
+  // numbers stay aligned with wrapped lines instead of a fixed-height gutter.
   const htmlLines = value
     ? highlightMd(value).replace(/\n$/, "").split("\n")
     : [placeholder ? `<span class="text-txt-3">${esc(placeholder)}</span>` : "&nbsp;"];

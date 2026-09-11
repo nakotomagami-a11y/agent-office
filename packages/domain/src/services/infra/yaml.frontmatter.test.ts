@@ -18,7 +18,7 @@ import { parseFrontmatter } from "./yaml";
   assert.strictEqual(body, "# Body\n");
 }
 
-// CRLF document must parse identically (the bug the shared helper fixes).
+// CRLF document must parse identically to LF.
 {
   const { fm, body } = parseFrontmatter("---\r\nname: dev\r\n---\r\nBody line\r\n");
   assert.strictEqual(fm.name, "dev", "CRLF frontmatter must parse");

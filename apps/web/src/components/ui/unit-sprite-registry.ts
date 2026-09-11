@@ -82,9 +82,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     pickaxe: { frames: 6 },
     knife: { frames: 4 },
     // Pixel-verified across every idle + run frame (native 192x192): content
-    // spans y:58-134, x:65-130. The old {64,60,64,104} box left ~30px of
-    // phantom padding below the real feet, so the character read smaller
-    // and floated above the tile's ground line vs warrior/archer/lancer.
+    // spans y:58-134, x:65-130.
     bbox: { x: 65, y: 58, w: 65, h: 76 },
     label: "Pawn",
   },
@@ -95,9 +93,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     run: { frames: 6 },
     attack: { frames: 8 }, // Warrior_Attack1 + Attack2 combo (1536x192): swings 1→2 then loops
     // Pixel-verified across every idle + run frame (native 192x192): content
-    // spans y:46-136, x:53-145. The old shared {56,56,80,112} box put the top
-    // 10px below the head's actual highest point, so the head clipped
-    // against `overflow-hidden` on the idle sway frames.
+    // spans y:46-136, x:53-145.
     bbox: { x: 53, y: 46, w: 92, h: 90 },
     label: "Warrior",
   },
@@ -107,8 +103,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     idle: { frames: 6 },
     run: { frames: 4 },
     attack: { frames: 8 }, // Archer_Shoot (1536x192)
-    // Pixel-verified across every idle + run frame: content spans y:46-135,
-    // x:56-129 — same head-clipping issue as warrior, same fix.
+    // Pixel-verified across every idle + run frame: content spans y:46-135, x:56-129.
     bbox: { x: 56, y: 46, w: 73, h: 89 },
     label: "Archer",
   },
@@ -118,8 +113,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     idle: { frames: 6 },
     run: { frames: 4 },
     attack: { frames: 11 }, // Monk Heal (2112x192)
-    // Pixel-verified across every idle + run frame: content spans y:63-133,
-    // x:55-137 — same undersized/floating issue as pawn, same fix.
+    // Pixel-verified across every idle + run frame: content spans y:63-133, x:55-137.
     bbox: { x: 55, y: 63, w: 82, h: 70 },
     label: "Monk",
   },
@@ -130,17 +124,13 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     run: { frames: 6 },
     attack: { frames: 3 }, // Lancer_Right_Attack (960x320 → 3 frames @320)
     // bbox.x/w are pixel-verified to the character's body only (helmet to
-    // boots, x:128-183 in the native 320x320 frame) so `bodyCenterX` centres
-    // on the human, not the spear. bbox.h stays the old spear-inflated value
-    // (272, not the body's true ~72px) so `scale` derives from it; combined
-    // with sizeMultiplier below, this fills the tile at roughly the same
-    // visual weight as warrior/archer instead of reading tiny and off-centre.
+    // boots, x:128-183) so `bodyCenterX` centres on the human, not the spear.
+    // bbox.h is intentionally the spear-inflated 272 (not the body's ~72px)
+    // so `scale` + sizeMultiplier fill the tile at warrior/archer's weight.
     bbox: { x: 128, y: 24, w: 55, h: 272 },
     label: "Lancer",
-    // 2.5 read too small next to the other units (body filled ~66% of the
-    // tile height vs ~80% for warrior/archer) - 3.0 matches their weight and
-    // still leaves the spear tip poking over the top edge, clipped by
-    // `overflow-hidden`, which is the intended look.
+    // 3.0 matches the body's visual weight to warrior/archer; the spear tip
+    // pokes over the top edge, clipped by `overflow-hidden` — intended.
     sizeMultiplier: 3.0,
     groundY: 185,
   },

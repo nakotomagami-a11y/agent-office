@@ -106,12 +106,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands.length, projectId]);
 
-  // Dev servers are spawned in a detached OS terminal window (see the `dev`
-  // route's `spawnInTerminal`) — closing that window kills the process
-  // without the app ever hearing about it, so the store would say "running"
-  // forever. Poll the tracked pid's actual OS-level liveness (same check the
-  // kill button already relies on) and self-heal back to idle the moment the
-  // process is gone, instead of requiring a manual Stop/refresh.
+  // Dev servers run in a detached OS terminal window, so closing that window
+  // kills the process without the store ever hearing about it. Poll the
+  // tracked pid's OS-level liveness and self-heal back to idle once it's gone.
   useEffect(() => {
     if (commands.length === 0) return;
     let cancelled = false;
@@ -126,16 +123,13 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
     };
     const id = setInterval(() => { void poll(); }, 4000);
     return () => { cancelled = true; clearInterval(id); };
-  // `commands` is a fresh `[]` literal on every render until `devQ.data`
-  // resolves — depend on its length like the reconcile effect above instead
-  // of re-arming the interval every render.
+  // `commands` is a fresh [] literal every render until it resolves — depend
+  // on length, not the array, to avoid re-arming the interval every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands.length, projectId]);
 
-  // Close dropdown on outside click. The panel itself is portalled to <body>
-  // (see below), so it's no longer a DOM descendant of `dropRef` — check
-  // `panelRef` too, or every click inside the open panel would read as
-  // "outside" and close it before Start/Stop ever registers.
+  // Panel is portalled to <body>, so it's not a DOM descendant of `dropRef` —
+  // also check `panelRef`, or clicks inside the open panel read as "outside".
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -146,11 +140,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Position the portalled panel off the trigger's live bounding rect instead
-  // of `position: absolute` inside the card — the project hero card this
-  // button lives in is `overflow-hidden` (it clips a decorative background
-  // sprite), which was clipping/overlapping the dropdown against whatever
-  // sits below the card instead of letting it float cleanly on top.
+  // Position off the trigger's live bounding rect rather than `position:
+  // absolute` — the card this button lives in is `overflow-hidden`, which
+  // would otherwise clip the dropdown.
   useEffect(() => {
     if (!open) return;
     const place = () => {
@@ -164,9 +156,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       });
     };
     place();
-    // A fixed-position panel detaches from its trigger the moment the page
-    // scrolls or resizes — close instead of leaving it floating over the
-    // wrong spot (same behaviour as the shared DropdownMenu).
+    // A fixed-position panel detaches from its trigger on scroll/resize.
     const close = () => setOpen(false);
     window.addEventListener("scroll", close, { passive: true, capture: true });
     window.addEventListener("resize", close);
@@ -184,13 +174,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
     store.setRunState(projectId, key, s);
   }
 
-  // Self-heal stale "running" state. Start/Stop are the only writers besides
-  // the one-time reconcile above, so a dev server killed OUT of band (terminal
-  // closed, crash, `kill` elsewhere) would otherwise sit "running" forever with
-  // a dead pid. While any command is running, poll its pid's liveness (the
-  // server reads /proc — always accurate) and flip it back to idle once the OS
-  // says the process is gone. Transient API errors are ignored (retry next
-  // tick); only a definitive `alive === false` clears the state.
+  // Self-heal stale "running" state for servers killed out of band (terminal
+  // closed, crash, `kill` elsewhere). Poll pid liveness while any command is
+  // running and flip back to idle once the OS confirms it's gone.
   const runningSig = commands
     .map((cmd) => {
       const s = getState(cmd.key);
@@ -792,10 +778,8 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
   });
   const hasBuild = buildQ.data?.hasBuild ?? false;
 
-  // Close on outside click. The panel is portalled to <body> (see below), so
-  // it's no longer a DOM descendant of `ref` — check `panelRef` too, same as
-  // DevServerButton's dropdown, or every click inside the open panel would
-  // read as "outside" and close it before an action ever registers.
+  // Panel is portalled to <body>, so it's not a DOM descendant of `ref` —
+  // also check `panelRef`, or clicks inside the open panel read as "outside".
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -806,13 +790,9 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Position the portalled panel off the trigger's live bounding rect instead
-  // of `position: absolute` — this menu renders inside the agent conversation
-  // modal (and the project hero card), both of which establish their own
-  // stacking context. A nested `z-[9999]` can never escape an ancestor's
-  // context, so the panel would paint *behind* any backdrop/modal opened on
-  // top of it. Portalling to <body> with `position: fixed` sidesteps that
-  // entirely, same fix already used by DevServerButton's own dropdown.
+  // This menu renders inside a modal/hero card that establishes its own
+  // stacking context, so a nested z-index can't escape it. Portal to <body>
+  // with `position: fixed` off the trigger's live rect instead.
   useEffect(() => {
     if (!open) return;
     const place = () => {

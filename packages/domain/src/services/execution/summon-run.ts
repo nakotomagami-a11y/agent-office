@@ -102,10 +102,9 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
   // client can lose track of a run that *did* spawn and start it again on
   // retry.
   //
-  // Two cases, handled differently — confirmed by an incident in production
-  // logs (summon.duplicate_suppressed) where the *first* version of this
-  // guard silently swallowed a genuinely different, queued message just
-  // because it landed while another run was still active:
+  // Two cases, handled differently — a naive guard would silently swallow a
+  // genuinely different, queued message just because it landed while another
+  // run was still active:
   //   - Same prompt as the live run → this really is a lost-track-of retry
   //     (e.g. "New Thread" + resend). Hand back the live run's id; the
   //     client just attaches to it. Silent and correct — nothing was lost.

@@ -79,7 +79,7 @@ check("queue drains strictly FIFO on success", () => {
   );
 });
 
-// 4. THE CORE FIX: a failed turn does NOT auto-advance and does NOT re-run.
+// 4. A failed turn does NOT auto-advance and does NOT re-run.
 check("failure pauses: needs_attention, queue preserved, no effect", () => {
   const { state, effects } = run(initialConversationState(), [
     { type: "send", message: msg("a") },
