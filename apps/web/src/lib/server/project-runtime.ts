@@ -3,12 +3,75 @@
 // bootstrap in one place so `install` targets exactly what `dev` detects.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import * as net from "node:net";
 import type { DetectedCommand } from "@agent-office/domain/types";
 
-/** Subfolders the project bootstrapper emits / common monorepo layouts. */
+/** Subfolders the project bootstrapper emits / common monorepo layouts. Only
+ *  a fallback for projects that don't declare a real workspace config — see
+ *  `resolveWorkspacePackageDirs` for the general case (pnpm/npm/yarn/bun). */
 const SUBFOLDERS = ["frontend", "backend", "web", "client", "server", "api"] as const;
+
+/** Extract the `packages:` block-list from a pnpm-workspace.yaml body. */
+function parsePnpmWorkspaceGlobs(yamlText: string): string[] {
+  const lines = yamlText.split("\n");
+  const start = lines.findIndex((l) => /^packages:\s*$/.test(l.trim()));
+  if (start === -1) return [];
+  const globs: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim()) continue;
+    if (!/^\s/.test(line)) break; // next top-level key
+    const m = line.match(/^\s*-\s*['"]?([^'"]+?)['"]?\s*$/);
+    if (m) globs.push(m[1]!);
+  }
+  return globs;
+}
+
+/** `packages:` globs from pnpm-workspace.yaml, or the npm/yarn/bun
+ *  `workspaces` package.json field (`string[]` or `{ packages: string[] }`). */
+function readWorkspaceGlobs(cwd: string): string[] {
+  const pnpmPath = join(cwd, "pnpm-workspace.yaml");
+  try {
+    if (existsSync(pnpmPath)) {
+      const globs = parsePnpmWorkspaceGlobs(readFileSync(pnpmPath, "utf8"));
+      if (globs.length > 0) return globs;
+    }
+  } catch { /* ignore */ }
+
+  const pkgPath = join(cwd, "package.json");
+  try {
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { workspaces?: string[] | { packages?: string[] } };
+      if (Array.isArray(pkg.workspaces)) return pkg.workspaces;
+      if (pkg.workspaces?.packages) return pkg.workspaces.packages;
+    }
+  } catch { /* ignore */ }
+
+  return [];
+}
+
+/** Resolve workspace globs to actual directories. Only supports a single
+ *  trailing `*` segment (`apps/*`) or an exact path — covers the globs every
+ *  real-world pnpm/npm/yarn/bun workspace we've seen actually uses. */
+function resolveWorkspacePackageDirs(cwd: string): string[] {
+  const dirs = new Set<string>();
+  for (const glob of readWorkspaceGlobs(cwd)) {
+    const clean = glob.replace(/\/$/, "");
+    if (clean.includes("*")) {
+      const prefix = clean.slice(0, clean.indexOf("*")).replace(/\/$/, "");
+      const parentDir = join(cwd, prefix);
+      try {
+        for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
+          if (entry.isDirectory()) dirs.add(join(parentDir, entry.name));
+        }
+      } catch { /* not a real dir, e.g. an unsupported deeper glob */ }
+    } else {
+      const dir = join(cwd, clean);
+      if (existsSync(dir)) dirs.add(dir);
+    }
+  }
+  return [...dirs];
+}
 
 export function detectPackageManager(dir: string): string {
   if (existsSync(join(dir, "pnpm-lock.yaml"))) return "pnpm";
@@ -121,8 +184,11 @@ function scriptToName(key: string): string {
 
 // Scan a single dir's package.json for dev-style scripts. With `opts` the dir is a
 // subfolder (e.g. frontend/), so keys/names are prefixed to stay unique and a `cwd`
-// override is attached so it spawns there.
-function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix: string }): DetectedCommand[] {
+// override is attached so it spawns there. `pmOverride` forces the package manager
+// instead of re-detecting from `dir`'s own lockfile — a real workspace member
+// (declared via pnpm-workspace.yaml / package.json `workspaces`) shares its root's
+// package manager and typically has no lockfile of its own.
+function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix: string; pmOverride?: string }): DetectedCommand[] {
   const pkgPath = join(dir, "package.json");
   if (!existsSync(pkgPath)) return [];
   const out: DetectedCommand[] = [];
@@ -135,7 +201,7 @@ function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix:
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
     const isNextJs = "next" in allDeps;
     const scripts = pkg.scripts ?? {};
-    const pm = detectPackageManager(dir);
+    const pm = opts?.pmOverride ?? detectPackageManager(dir);
 
     // Bare "dev"/"start" before "dev:*".
     const keys = Object.keys(scripts).sort((a, b) => {
@@ -209,14 +275,23 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
     });
   }
 
-  // package.json scripts — root plus the bootstrapped subfolders (each with its cwd).
+  // package.json scripts — root, the bootstrapped subfolders, and (for real
+  // pnpm/npm/yarn/bun monorepos) every package the workspace config declares,
+  // so nested layouts like `apps/web` + `apps/desktop` aren't invisible just
+  // because they don't match the bootstrapper's flat `frontend/`/`backend/`.
   commands.push(...collectPkgCommands(cwd));
-  for (const sub of SUBFOLDERS) {
-    const subDir = join(cwd, sub);
-    if (existsSync(join(subDir, "package.json"))) {
-      const label = sub.charAt(0).toUpperCase() + sub.slice(1);
-      commands.push(...collectPkgCommands(subDir, { keyPrefix: sub, namePrefix: label }));
-    }
+  const rootPm = detectPackageManager(cwd);
+  const workspaceDirs = new Set(resolveWorkspacePackageDirs(cwd));
+  const subDirs = new Set<string>([...SUBFOLDERS.map((sub) => join(cwd, sub)), ...workspaceDirs]);
+  for (const subDir of subDirs) {
+    if (subDir === cwd || !existsSync(join(subDir, "package.json"))) continue;
+    const rel = relative(cwd, subDir).split("/").pop()!;
+    const label = rel.charAt(0).toUpperCase() + rel.slice(1);
+    commands.push(...collectPkgCommands(subDir, {
+      keyPrefix: relative(cwd, subDir).replace(/\//g, "-"),
+      namePrefix: label,
+      ...(workspaceDirs.has(subDir) ? { pmOverride: rootPm } : {}),
+    }));
   }
 
   return commands;
