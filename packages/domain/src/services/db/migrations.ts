@@ -387,6 +387,18 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
+  // v17 → v18: composite index for the per-run message read. Loading a
+  // conversation runs `SELECT ... FROM messages WHERE run_id = ? ORDER BY ts`,
+  // which under the old run_id-only index still needed a temp B-tree to sort.
+  // `(run_id, ts)` satisfies both the filter and the order, so the sort is
+  // free. The old single-column `idx_messages_run` becomes redundant (the
+  // composite's leading column covers every run_id lookup), so drop it.
+  (db) => {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_messages_run_ts ON messages(run_id, ts);
+      DROP INDEX IF EXISTS idx_messages_run;
+    `);
+  },
 ];
 
 /**
@@ -469,5 +481,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 15) { MIGRATIONS[14]!(db); v = 15; db.pragma("user_version = 15"); }
     if (v < 16) { MIGRATIONS[15]!(db); v = 16; db.pragma("user_version = 16"); }
     if (v < 17) { MIGRATIONS[16]!(db); v = 17; db.pragma("user_version = 17"); }
+    if (v < 18) { MIGRATIONS[17]!(db); v = 18; db.pragma("user_version = 18"); }
   })();
 }
