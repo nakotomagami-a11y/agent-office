@@ -10,74 +10,43 @@
 
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import type { PersistedRun, SubAgentStatus, WorkflowNode } from "../../types/index";
+import type { PersistedRun, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
-import { buildAugmentedPath, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID } from "../infra/paths";
+import { emitAppEvent } from "../infra/events";
 import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
-import * as accounts from "../accounts/accounts";
-import * as githubAccounts from "../accounts/github-accounts";
-import * as secrets from "../accounts/secrets";
-import { readProject } from "../projects/projects";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "../infra/sleep-inhibit";
 import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent } from "./runs/types";
 import { buildRateLimitEvent, classifyResultError, classifySpawnError, detectRateLimitResult } from "./runs/errors";
 import { detectSubAgentSpawn, stringifyToolResult } from "./runs/subagent-parse";
+import { liveRuns, runFinishedListeners } from "./runs/registry";
+import { resolveSpawnEnv } from "./runs/spawn-env";
+import { isBackgroundBashInput, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
 export type { SseEvent, SseEmit, StartRunOpts } from "./runs/types";
+export type { RunFinishedListener } from "./runs/registry";
 export { buildRateLimitEvent } from "./runs/errors";
 export { detectSubAgentSpawn, parseClaudeBashSpawn } from "./runs/subagent-parse";
+export { registerRunFinishedListener, getLiveRun } from "./runs/registry";
+export { buildRunTree, findActiveRunForTarget, getLiveRunAsPersistedRun, getRunningRuns } from "./runs/queries";
+export { resolveSpawnEnv } from "./runs/spawn-env";
 
 // Hard wall-clock cap. The process is "active" as long as it is alive —
 // stdout silence is not inactivity (Claude may be waiting on a long bash tool).
 const MAX_WALL_CLOCK_MS = 4 * 60 * 60_000; // 4-hour safety cap
 
-/** `(runId, ok, sessionId)` — dispatched by `finalizeRun` for every top-level
- *  turn that carries a `conversationId`. `ok` is true on a clean exit (status
- *  "done"), false on error/interrupt/rate-limit/abort. Registered by
- *  `execution/conversation-wiring.ts`, which connects this to the
- *  conversation service's auto-advance driver — see docs/chat-refactor.md.
- *  Kept as a plain callback registry (not a direct import of the conversation
- *  service) so this low-level module never depends on it; that would create
- *  an import cycle through summon-run.ts, which already imports `runs.ts`. */
-export type RunFinishedListener = (runId: string, ok: boolean, sessionId: string | null) => void;
-
+// The `liveRuns` registry + completion listeners live in `./runs/registry`
+// (state container). This module owns behavior: spawn, stream, finalize.
 declare global {
-  // eslint-disable-next-line no-var
-  var __agentOfficeLiveRuns: Map<string, LiveRun> | undefined;
-  // eslint-disable-next-line no-var
   var __agentOfficeRunsInstalled: boolean | undefined;
   // Indirection so the signal handler always invokes the *current* module's
   // killAllRuns - without this, HMR replaces the function but the SIGINT
   // handler stays bound to the old one and our new finalize-on-kill logic
   // never runs until the dev server is fully restarted.
-  // eslint-disable-next-line no-var
   var __agentOfficeKillAllRuns: (() => void) | undefined;
-  // Global (not a module-local Set) for the same reason as __agentOfficeLiveRuns:
-  // it must survive this module being HMR-reloaded, or a dev-mode edit anywhere
-  // in the runs.ts/conversation.ts dependency graph would silently stop
-  // draining every conversation's queue until a full server restart.
-  // eslint-disable-next-line no-var
-  var __agentOfficeRunFinishedListeners: Set<RunFinishedListener> | undefined;
-}
-
-const liveRuns: Map<string, LiveRun> =
-  globalThis.__agentOfficeLiveRuns ??
-  (globalThis.__agentOfficeLiveRuns = new Map());
-
-const runFinishedListeners: Set<RunFinishedListener> =
-  globalThis.__agentOfficeRunFinishedListeners ??
-  (globalThis.__agentOfficeRunFinishedListeners = new Set());
-
-/** Subscribe to run completions. Returns an unsubscribe function (unused by
- *  the one production wiring callsite, which registers for the process
- *  lifetime, but kept for symmetry and tests). */
-export function registerRunFinishedListener(fn: RunFinishedListener): () => void {
-  runFinishedListeners.add(fn);
-  return () => runFinishedListeners.delete(fn);
 }
 
 const RUN_RETENTION_MS = 4 * 60 * 60_000;
@@ -114,220 +83,6 @@ if (!globalThis.__agentOfficeRunsInstalled) {
   globalThis.__agentOfficeRunsInstalled = true;
 }
 
-export function getLiveRun(runId: string): LiveRun | undefined {
-  return liveRuns.get(runId);
-}
-
-export function getLiveRunAsPersistedRun(runId: string): PersistedRun | undefined {
-  const r = liveRuns.get(runId);
-  if (!r) return undefined;
-  return {
-    id: r.id,
-    agentId: r.agentId,
-    agentName: r.agentName,
-    ts: r.startTs,
-    prompt: r.prompt,
-    status: r.status,
-    exitCode: r.exitCode,
-    output: r.output,
-    tokensIn: r.tokensIn,
-    tokensOut: r.tokensOut,
-    cost: r.cost,
-    durMs: Date.now() - r.startTs,
-    model: r.model,
-    effort: r.effort,
-    cwd: r.cwd,
-    projectId: r.projectId,
-    instanceId: r.instanceId,
-    instanceLabel: r.instanceLabel,
-    sessionId: r.sessionId,
-    parentRunId: r.parentRunId,
-    conversationId: r.conversationId,
-    currentTool: r.currentTool,
-  };
-}
-
-/**
- * Build the spawn tree rooted at `rootId` by walking `parentRunId` links in the
- * DB and overlaying in-flight `liveRuns` state (fresher tokens/cost/status for
- * runs still streaming). Depth-capped and cycle-guarded. Returns null when the
- * root run is unknown.
- */
-export function buildRunTree(rootId: string, maxDepth = 6): WorkflowNode | null {
-  const visited = new Set<string>();
-
-  const toNode = (run: PersistedRun, depth: number): WorkflowNode => {
-    visited.add(run.id);
-    const live = liveRuns.get(run.id);
-    const status = live?.status ?? run.status;
-    const durMs = live
-      ? (live.status === "running" ? Date.now() - live.startTs : (live.finishedAt ?? Date.now()) - live.startTs)
-      : run.durMs;
-
-    const children: WorkflowNode[] =
-      depth >= maxDepth
-        ? []
-        : db
-            .getChildRuns(run.id)
-            .filter((c) => !visited.has(c.id))
-            .map((c) => toNode(c, depth + 1));
-
-    return {
-      runId: run.id,
-      agentId: run.agentId,
-      agentName: run.agentName,
-      status,
-      prompt: run.prompt,
-      startTs: run.ts,
-      durMs,
-      tokensIn: live?.tokensIn ?? run.tokensIn,
-      tokensOut: live?.tokensOut ?? run.tokensOut,
-      cost: live?.cost ?? run.cost,
-      children,
-    };
-  };
-
-  const root = getLiveRunAsPersistedRun(rootId) ?? db.getRun(rootId);
-  if (!root) return null;
-  return toNode(root, 0);
-}
-
-export function getRunningRuns(): PersistedRun[] {
-  return Array.from(liveRuns.values())
-    .filter((r) => r.status === "running")
-    .map((r): PersistedRun => ({
-      id: r.id,
-      agentId: r.agentId,
-      agentName: r.agentName,
-      ts: r.startTs,
-      prompt: r.prompt,
-      status: "running",
-      output: r.output,
-      tokensIn: r.tokensIn,
-      tokensOut: r.tokensOut,
-      cost: r.cost,
-      durMs: Date.now() - r.startTs,
-      model: r.model,
-      effort: r.effort,
-      cwd: r.cwd,
-      projectId: r.projectId,
-      instanceId: r.instanceId,
-      instanceLabel: r.instanceLabel,
-      currentTool: r.currentTool,
-    }));
-}
-
-/**
- * Is there already a live, running `claude` process for this exact target
- * (same agentId + instanceId — the same slot `transcriptKey()` on the client
- * uses to key a conversation)? Used by `startSummonRun` as a spawn guard.
- *
- * Why this exists: the client is supposed to serialize sends per target (see
- * `useQueueDrain` in `use-chat-actions.ts`) and never issue a second
- * `/api/summon` for a target that already has an active run. But a project-tab
- * switch can unmount the `ChatPanel` mid-request, and TanStack Query's
- * `MutationObserver` drops the *per-call* `.mutate(vars, { onSuccess })`
- * callback once its last subscriber (the unmounted component) is gone — the
- * POST still completes and this module still spawns the process, but the
- * client never learns the new `runId` and is left with `activeRunId: null`.
- * If the user then retries (e.g. "New Thread" + resend), nothing on the
- * client stops a second `/api/summon` for the same target — the first
- * process is still running, orphaned but alive. This function is the
- * backend-side backstop: it makes "one live run per target" true regardless
- * of what the client does or fails to track.
- */
-export function findActiveRunForTarget(
-  agentId: string,
-  instanceId: string | undefined,
-): { runId: string; prompt: string } | undefined {
-  for (const run of liveRuns.values()) {
-    if (run.status !== "running") continue;
-    if (run.agentId !== agentId) continue;
-    if (run.instanceId !== instanceId) continue;
-    return { runId: run.id, prompt: run.prompt };
-  }
-  return undefined;
-}
-
-/**
- * Force a spawned git process to authenticate github.com as the account whose
- * dir is in `env.GH_CONFIG_DIR`, using git's `GIT_CONFIG_*` env mechanism so
- * nothing on disk (the user's global ~/.gitconfig) is mutated. We append two
- * entries after any pre-existing GIT_CONFIG_COUNT: an empty value to reset the
- * github.com helper list (clobbering any OS-cached / global helper that would
- * otherwise win), then `!gh auth git-credential`, which reads GH_CONFIG_DIR at
- * runtime. `gh` is resolved via the augmented PATH already set on `env`.
- */
-function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
-  const base = Number.parseInt(env.GIT_CONFIG_COUNT ?? "", 10);
-  const start = Number.isNaN(base) || base < 0 ? 0 : base;
-  env[`GIT_CONFIG_KEY_${start}`] = "credential.https://github.com.helper";
-  env[`GIT_CONFIG_VALUE_${start}`] = "";
-  env[`GIT_CONFIG_KEY_${start + 1}`] = "credential.https://github.com.helper";
-  env[`GIT_CONFIG_VALUE_${start + 1}`] = "!gh auth git-credential";
-  env.GIT_CONFIG_COUNT = String(start + 2);
-}
-
-/**
- * Resolve the effective account for a run and return the spawn env. Explicit
- * `opts.accountId` beats the project's accountId. `default` (or missing) →
- * no CLAUDE_CONFIG_DIR is set, and the child inherits the shared ~/.claude.
- *
- * Exported for unit testing (env plumbing is the entire multi-account
- * spawn contract). `startRun` is the sole production caller.
- */
-export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined } {
-  const explicit = opts.accountId;
-  // Read the project once — both accountId and githubAccountId come off it.
-  const project = opts.projectId ? readProject(opts.projectId) : undefined;
-  const fromProject = !explicit ? project?.meta.accountId : undefined;
-  const resolvedId = explicit ?? fromProject;
-  const env: NodeJS.ProcessEnv = { ...process.env, PATH: buildAugmentedPath() };
-  if (resolvedId && resolvedId !== DEFAULT_ACCOUNT_ID) {
-    const account = accounts.get(resolvedId);
-    if (account) {
-      env.CLAUDE_CONFIG_DIR = account.configDir;
-    } else {
-      log.warn("run.account_missing", { runId: opts.projectId, accountId: resolvedId });
-    }
-  }
-
-  // Per-project GitHub account: inject GH_CONFIG_DIR so every git/gh command the
-  // agent runs uses that identity. Only ever sourced from the project (no
-  // explicit opts override). `default`/unset → no injection → inherit system gh.
-  const githubAccountId = project?.meta.githubAccountId;
-  if (githubAccountId && githubAccountId !== DEFAULT_GITHUB_ACCOUNT_ID) {
-    const githubAccount = githubAccounts.get(githubAccountId);
-    if (githubAccount) {
-      env.GH_CONFIG_DIR = githubAccount.configDir;
-      // GH_CONFIG_DIR only redirects the `gh` CLI. `git push/fetch` over HTTPS
-      // authenticate via git's credential system, which ignores GH_CONFIG_DIR —
-      // so without this, git falls back to whatever the machine's global git
-      // config / OS credential store cached (the WRONG account) and fails with
-      // "Repository not found". We inject the credential helper directly into
-      // the child's env with GIT_CONFIG_* (never touching the user's global
-      // ~/.gitconfig): reset the github.com helper list, then set
-      // `gh auth git-credential`, which resolves its token from GH_CONFIG_DIR at
-      // runtime. Scoped to this spawn and gated on a non-default account, so the
-      // default/system-gh path is untouched.
-      applyGitCredentialHelper(env);
-    } else {
-      log.warn("run.github_account_missing", { projectId: opts.projectId, githubAccountId });
-    }
-  }
-
-  // Per-project secrets: inject each linked secret as its named env var. Free-
-  // form — `env[name] = value` verbatim (see secrets.ts). Only sourced from the
-  // project; a run with no projectId gets none.
-  if (opts.projectId) {
-    for (const secret of secrets.listRawForProject(opts.projectId)) {
-      env[secret.name] = secret.value;
-    }
-  }
-
-  return { env, accountId: resolvedId };
-}
-
 export function startRun(opts: StartRunOpts): { runId: string } {
   const runId = randomUUID();
   const { env, accountId } = resolveSpawnEnv(opts);
@@ -351,6 +106,8 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     output: "",
     tokensIn: 0,
     tokensOut: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
     cost: 0,
     status: "running",
     proc,
@@ -365,6 +122,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     conversationId: opts.conversationId,
     childRunIds: [],
     subAgents: new Map(),
+    pendingBackgroundBash: new Map(),
   };
   liveRuns.set(runId, run);
   acquireInhibit();
@@ -389,6 +147,8 @@ export function startRun(opts: StartRunOpts): { runId: string } {
   });
 
   log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId });
+  // A new run appeared — refresh runs lists / office agent statuses / trees.
+  emitAppEvent("runs:changed");
 
   pumpStdout(run);
   pumpStderr(run);
@@ -484,13 +244,30 @@ export function detachEmit(runId: string, emit: SseEmit): void {
 }
 
 /**
- * Terminal SSE events for a run that is NOT in the live emit registry, derived
- * from persisted state so a reconnecting stream still gets a correct outcome.
- * Marks genuine orphans aborted as a side effect. Callers just write the events.
+ * Finalizes a "running" persisted row this process's `liveRuns` doesn't know
+ * about: marks it aborted and notifies `runFinishedListeners`, same as a live
+ * run's own finalize. No-op for anything already resolved.
  *
- * A "running" persisted row means another server process owns it: only declare
- * it dead if that process is actually gone (orphan) - otherwise the run is alive
- * but unreachable from this worker, and killing it would fake a failure.
+ * UNCONDITIONAL — doesn't check whether the owner process is actually dead.
+ * Only call this from an explicit user action (Abort), never a passive path
+ * (a poll, an SSE reconnect): in dev, more than one server process can share
+ * this DB (e.g. a leftover `pnpm dev`), and a passive caller would wrongly
+ * kill-on-paper a run that's genuinely alive under a different process.
+ */
+function finalizeDetachedRun(runId: string, persisted: PersistedRun | null): boolean {
+  if (!persisted || persisted.status !== "running") return false;
+  markRunAborted(runId);
+  for (const listener of runFinishedListeners) listener(runId, false, persisted.sessionId ?? null);
+  return true;
+}
+
+/**
+ * Terminal SSE events for a run not in the live emit registry, derived from
+ * persisted state so a reconnecting stream still gets a correct outcome.
+ * Marks genuine orphans aborted via `finalizeDetachedRun`; callers just write
+ * the events. A "running" row owned by another process is only declared dead
+ * if that process is actually gone (orphan) — otherwise it's alive but
+ * unreachable from here, and finalizing it would fake a failure.
  */
 export function resolveDetachedRunEvents(runId: string): SseEvent[] {
   const persisted = getRun(runId);
@@ -503,10 +280,13 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
 
   const stillRunning = persisted.status === "running";
   const orphaned = stillRunning && isRunOrphaned(runId);
-  if (orphaned) markRunAborted(runId);
+  if (orphaned) finalizeDetachedRun(runId, persisted);
 
-  // Alive on another worker (e.g. dev server restarted mid-run). Not a failure -
-  // its real result lands in history when it finishes; this stream just can't follow it.
+  // Alive on another worker (e.g. dev server restarted mid-run, or a stray
+  // second `pnpm dev` process). Not a failure - its real result lands in
+  // history when it finishes; this stream just can't follow it. Cosmetic
+  // only: nothing is persisted, so this branch doesn't fight with whichever
+  // process actually owns the run.
   if (stillRunning && !orphaned) {
     return [
       { name: "error", data: { runId, code: "server_restart" } },
@@ -514,8 +294,8 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
     ];
   }
 
-  // markRunAborted moved an orphan row to error/-1; `persisted` is the stale
-  // pre-update snapshot, so derive the outcome from `orphaned` too.
+  // finalizeDetachedRun moved an orphan row to error/-1; `persisted` is the
+  // stale pre-update snapshot, so derive the outcome from `orphaned` too.
   const exitCode = orphaned ? -1 : persisted.exitCode ?? null;
   const failed = orphaned || persisted.status === "error" || (exitCode != null && exitCode !== 0);
   const events: SseEvent[] = [];
@@ -533,14 +313,20 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
 
 export function abortRun(runId: string): boolean {
   const run = liveRuns.get(runId);
-  if (!run) return false;
-  run.aborted = true;
-  try {
-    run.proc.kill();
-  } catch {
-    /* already exited */
+  if (run) {
+    run.aborted = true;
+    try {
+      run.proc.kill();
+    } catch {
+      /* already exited */
+    }
+    return true;
   }
-  return true;
+  // Not driven by this process — either genuinely dead or a hung/foreign
+  // owner that will never come back to it either way (see
+  // `finalizeDetachedRun`). Finalize directly instead of silently no-op'ing,
+  // which is what left Abort unable to unstick a stranded conversation.
+  return finalizeDetachedRun(runId, getRun(runId));
 }
 
 export function killAllRuns(): void {
@@ -673,16 +459,37 @@ function handleStreamLine(run: LiveRun, line: string): void {
         if (spawn) {
           spawnSubAgentRecord(run, block.id, spawn);
         }
+        if (toolName === "Bash" && block.id && run.proc.pid && isBackgroundBashInput(block.input)) {
+          run.pendingBackgroundBash.set(block.id, {
+            command: block.input.command,
+            description: typeof block.input.description === "string" ? block.input.description : undefined,
+            childPidsBefore: new Set(snapshotChildPids(run.proc.pid)),
+          });
+        }
       }
     }
     if (evt.message.usage) {
       const ti = evt.message.usage.input_tokens;
       const to = evt.message.usage.output_tokens;
+      const cc = evt.message.usage.cache_creation_input_tokens;
+      const cr = evt.message.usage.cache_read_input_tokens;
       if (typeof ti === "number") run.tokensIn += ti;
       if (typeof to === "number") run.tokensOut += to;
+      // Each assistant message is its own separately-billed API call in a
+      // multi-step tool-use turn (same reason tokensIn/tokensOut accumulate
+      // above rather than being overwritten) — sum, don't overwrite.
+      if (typeof cc === "number") run.cacheCreationTokens += cc;
+      if (typeof cr === "number") run.cacheReadTokens += cr;
       broadcast(run, {
         name: "usage",
-        data: { runId: run.id, tokensIn: run.tokensIn, tokensOut: run.tokensOut, cost: run.cost },
+        data: {
+          runId: run.id,
+          tokensIn: run.tokensIn,
+          tokensOut: run.tokensOut,
+          cost: run.cost,
+          cacheCreationTokens: run.cacheCreationTokens,
+          cacheReadTokens: run.cacheReadTokens,
+        },
       });
     }
     return;
@@ -696,6 +503,11 @@ function handleStreamLine(run: LiveRun, line: string): void {
     for (const block of evt.message.content) {
       if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
+        const pending = run.pendingBackgroundBash.get(block.tool_use_id);
+        if (pending) {
+          run.pendingBackgroundBash.delete(block.tool_use_id);
+          if (!block.is_error) trackBackgroundShell(run, pending);
+        }
       }
     }
     return;
@@ -722,12 +534,24 @@ function handleStreamLine(run: LiveRun, line: string): void {
     if (evt.usage) {
       run.tokensIn = evt.usage.input_tokens ?? run.tokensIn;
       run.tokensOut = evt.usage.output_tokens ?? run.tokensOut;
+      // The result event's usage is the CLI's own final tally for the whole
+      // turn (unlike the per-message events above), so overwrite rather than
+      // accumulate — same reasoning as tokensIn/tokensOut just above.
+      run.cacheCreationTokens = evt.usage.cache_creation_input_tokens ?? run.cacheCreationTokens;
+      run.cacheReadTokens = evt.usage.cache_read_input_tokens ?? run.cacheReadTokens;
     }
     if (typeof evt.total_cost_usd === "number") run.cost = evt.total_cost_usd;
     if (typeof evt.session_id === "string") run.sessionId = evt.session_id;
     broadcast(run, {
       name: "usage",
-      data: { runId: run.id, tokensIn: run.tokensIn, tokensOut: run.tokensOut, cost: run.cost },
+      data: {
+        runId: run.id,
+        tokensIn: run.tokensIn,
+        tokensOut: run.tokensOut,
+        cost: run.cost,
+        cacheCreationTokens: run.cacheCreationTokens,
+        cacheReadTokens: run.cacheReadTokens,
+      },
     });
     if (evt.is_error) {
       // A user-initiated abort makes the CLI exit with is_error too. Surface it
@@ -908,6 +732,7 @@ function finalizeSubAgentFromResult(
   });
 }
 
+
 function finalizeRun(run: LiveRun, exitCode: number): void {
   if (run.status !== "running") return;
 
@@ -943,6 +768,8 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     output: run.output,
     tokensIn: run.tokensIn,
     tokensOut: run.tokensOut,
+    cacheCreationTokens: run.cacheCreationTokens,
+    cacheReadTokens: run.cacheReadTokens,
     cost: run.cost,
     durMs: run.finishedAt - run.startTs,
     model: run.model,
@@ -1003,4 +830,11 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
       cost: run.cost,
     },
   });
+
+  // A run finished: refresh runs lists/trees/office statuses, and the spend
+  // totals it just contributed to. (The chat itself updates live off the
+  // per-run SSE stream above; this is for the app-wide list/summary views that
+  // used to poll.)
+  emitAppEvent("runs:changed");
+  emitAppEvent("spend:changed");
 }

@@ -333,6 +333,61 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
     `);
     backfillConversations(db);
   },
+  // v14 → v15: prompt-cache token breakdown, for the Context & Cost tab — see
+  // execution/runs.ts's usage parsing and agents/context-cost.ts. Nullable
+  // (not NOT NULL DEFAULT 0) because a run predating this migration truly has
+  // no known value, vs. a post-migration run that measured zero cache use.
+  (db) => {
+    db.exec(`
+      ALTER TABLE runs ADD COLUMN cache_creation_tokens INTEGER;
+      ALTER TABLE runs ADD COLUMN cache_read_tokens INTEGER;
+    `);
+  },
+  // v15 → v16: background shells an agent started via a `run_in_background`
+  // Bash call — tracked so the Servers modal can surface (and let the user
+  // kill) one even after the owning `claude` process has long since exited.
+  // See execution/runs.ts's tool_use/tool_result handling and
+  // execution/processes.ts's listProcesses(). No `ended_at`/status column:
+  // liveness is always checked live against /proc when read, and a row is
+  // deleted the moment it's found dead — a row existing means "believed
+  // alive", not a historical record.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS background_shells (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES runs(id),
+        agent_id TEXT NOT NULL,
+        agent_name TEXT NOT NULL,
+        instance_id TEXT,
+        instance_label TEXT,
+        project_id TEXT,
+        pid INTEGER NOT NULL,
+        command TEXT NOT NULL,
+        description TEXT,
+        started_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_background_shells_pid ON background_shells(pid);
+    `);
+  },
+  // v16 → v17: "Measure exactly" — a real (not estimated) split of an
+  // agent's native overhead into CC base + built-in tools vs. MCP servers,
+  // from actually spawning a throwaway probe session and diffing its real
+  // cache-write usage across two turns (see agents/context-cost-measure.ts).
+  // One row per agent (not per instance — built-in tools/MCP come from the
+  // agent definition, not per-instance state). `mcp_server_names` is a JSON
+  // array; empty when the agent declares no `mcp__*` tools (nothing to wait
+  // on, so `measureAgentContextCost` skips straight to a single-number result).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_context_measurements (
+        agent_id TEXT PRIMARY KEY,
+        cc_base_and_tools_tokens INTEGER NOT NULL,
+        mcp_tokens INTEGER NOT NULL,
+        mcp_server_names TEXT NOT NULL,
+        measured_at INTEGER NOT NULL
+      );
+    `);
+  },
 ];
 
 /**
@@ -412,6 +467,9 @@ export function createSchema(db: Database.Database): void {
     if (v < 12) { MIGRATIONS[11]!(db); v = 12; db.pragma("user_version = 12"); }
     if (v < 13) { MIGRATIONS[12]!(db); v = 13; db.pragma("user_version = 13"); }
     if (v < 14) { MIGRATIONS[13]!(db); v = 14; db.pragma("user_version = 14"); }
+    if (v < 15) { MIGRATIONS[14]!(db); v = 15; db.pragma("user_version = 15"); }
+    if (v < 16) { MIGRATIONS[15]!(db); v = 16; db.pragma("user_version = 16"); }
+    if (v < 17) { MIGRATIONS[16]!(db); v = 17; db.pragma("user_version = 17"); }
   })();
 }
 

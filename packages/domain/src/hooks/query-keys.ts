@@ -33,6 +33,8 @@ export const queryKeys = {
     uploads: (id: string) => [...queryKeys.agents.all, "uploads", id] as const,
     /** Bundled-vs-installed diff for the roster migration modal. */
     migrationDiff: () => [...queryKeys.agents.all, "migration-diff"] as const,
+    contextCost: (id: string, instanceId: string | undefined, projectId: string | undefined) =>
+      [...queryKeys.agents.all, "context-cost", id, instanceId ?? "default", projectId ?? "none"] as const,
   },
 
   memory: {

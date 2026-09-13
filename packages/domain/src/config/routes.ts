@@ -37,6 +37,8 @@ export const API_ROUTES = {
   agentUploads: (id: string) => `/api/agents/${encodeURIComponent(id)}/uploads`,
   agentUploadFile: (id: string, filename: string) =>
     `/api/agents/${encodeURIComponent(id)}/uploads/${encodeURIComponent(filename)}`,
+  agentContextCost: (id: string) => `/api/agents/${encodeURIComponent(id)}/context-cost`,
+  agentContextCostMeasure: (id: string) => `/api/agents/${encodeURIComponent(id)}/context-cost/measure`,
 
   memoryGlobal: "/api/memory/global",
 
@@ -93,6 +95,8 @@ export const API_ROUTES = {
   runsAbortAll: "/api/runs/abort-all",
   run: (id: string) => `/api/runs/${encodeURIComponent(id)}`,
   runStream: (id: string) => `/api/runs/${encodeURIComponent(id)}/stream`,
+  /** App-wide SSE stream of coarse domain events (see app-events.tsx). */
+  events: "/api/events",
   runAbort: (id: string) => `/api/runs/${encodeURIComponent(id)}/abort`,
   runChildren: (id: string) => `/api/runs/${encodeURIComponent(id)}/children`,
   runTree: (id: string) => `/api/runs/${encodeURIComponent(id)}/tree`,

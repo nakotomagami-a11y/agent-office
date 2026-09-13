@@ -74,11 +74,15 @@ export function detectProto(name: string, cmd: string): string {
   return "tcp";
 }
 
-/** "http" processes get the accent color, everything else (raw tcp) gets cyan
- *  — matches the port-panel treatment in the server card. */
+/** "http" processes get the accent color, raw tcp gets cyan, an agent-started
+ *  background shell (no port at all) gets amber — matches the port-panel
+ *  treatment in the server card. */
 export function accentForProto(proto: string): { fg: string; soft: string; pad: string } {
   if (proto === "http") {
     return { fg: "var(--acc)", soft: "color-mix(in srgb, var(--acc) 16%, transparent)", pad: "color-mix(in srgb, var(--acc) 7%, transparent)" };
+  }
+  if (proto === "bg") {
+    return { fg: "var(--amber)", soft: "color-mix(in srgb, var(--amber) 16%, transparent)", pad: "color-mix(in srgb, var(--amber) 7%, transparent)" };
   }
   return { fg: "var(--cyan)", soft: "color-mix(in srgb, var(--cyan) 14%, transparent)", pad: "color-mix(in srgb, var(--cyan) 6%, transparent)" };
 }

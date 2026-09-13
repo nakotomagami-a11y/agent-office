@@ -12,6 +12,7 @@
  * See docs/chat-refactor.md.
  */
 import * as db from "../db";
+import { emitAppEvent } from "../infra/events";
 import {
   reduce,
   type ConversationState,
@@ -134,6 +135,7 @@ async function apply(
       // start is not a turn (no run row), so there's nothing to retry-by-run;
       // the user can Retry (re-run lastPrompt) or Resume.
       db.updateConversation(convId, { status: "needs_attention", activeRunId: null });
+      emitAppEvent("conversations:changed");
       return view(convId);
     }
     // Adopt the new runId as active (mirror the machine's `runStarted`).
@@ -141,6 +143,7 @@ async function apply(
     persist(convId, reduce(buildState(conv2), { type: "runStarted", runId }).state);
   }
 
+  emitAppEvent("conversations:changed");
   return view(convId);
 }
 

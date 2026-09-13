@@ -7,6 +7,7 @@ import * as os from "node:os";
 import { normalize } from "node:path";
 import type { ProcessInfo } from "../../types/index";
 import * as projects from "../projects/projects";
+import * as db from "../db";
 
 const CLOCK_TICKS = 100;
 
@@ -173,26 +174,73 @@ export function killProcess(pid: number): KillResult {
   }
 }
 
-/** List listening dev/build processes matched to projects. Linux-only ([] elsewhere). */
+/** Merge in agent-started `run_in_background` shells (`background_shells`
+ *  table) that `ss` can't see because they never listen on a port. A row
+ *  whose PID has since died is pruned here. One already covered by the port
+ *  scan is left alone, just enriched with the agent attribution. */
+function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: SortedProject[]): void {
+  for (const row of db.listBackgroundShells()) {
+    if (!db.isPidAlive(row.pid)) {
+      db.deleteBackgroundShell(row.id);
+      continue;
+    }
+    const existing = byPid.get(row.pid);
+    if (existing) {
+      existing.agentId = row.agentId;
+      existing.agentName = row.agentName;
+      existing.instanceLabel = row.instanceLabel ?? undefined;
+      continue;
+    }
+    const cwd = readProcCwd(row.pid);
+    byPid.set(row.pid, {
+      pid: row.pid,
+      port: 0,
+      address: "",
+      name: row.description || row.command.split(/\s+/)[0] || row.agentName,
+      cmd: row.command,
+      cwd,
+      startedAt: row.startedAt,
+      memMb: readProcMem(row.pid),
+      source: "background-task",
+      agentId: row.agentId,
+      agentName: row.agentName,
+      instanceLabel: row.instanceLabel ?? undefined,
+      ...(row.projectId ? matchProjectById(projectList, row.projectId) : matchProjectByCwd(projectList, cwd)),
+    });
+  }
+}
+
+function matchProjectById(projectList: SortedProject[], projectId: string): { projectId: string; projectName: string } | undefined {
+  const match = projectList.find((p) => p.id === projectId);
+  return match ? { projectId: match.id, projectName: match.name } : undefined;
+}
+
+/** List listening dev/build processes matched to projects, plus any
+ *  agent-started background shell that's still alive (see
+ *  `collectBackgroundShells`). Linux-only ([] elsewhere). */
 export function listProcesses(): ProcessInfo[] {
   if (process.platform !== "linux") return [];
-
-  let ssOutput: string;
-  try {
-    ssOutput = execFileSync("ss", ["-tlnp"], { encoding: "utf8", timeout: 5000 });
-  } catch {
-    return [];
-  }
 
   const currentUid = typeof process.getuid === "function" ? process.getuid() : null;
   const projectList = buildSortedProjectList();
   const byPid = new Map<number, ProcessInfo>();
 
-  for (const line of ssOutput.split("\n")) {
-    if (!line.includes("users:((")) continue;
-    const parsed = parseSsAddressAndPort(line);
-    if (!parsed) continue;
-    collectPidsFromLine(line, parsed.address, parsed.port, currentUid, projectList, byPid);
+  try {
+    const ssOutput = execFileSync("ss", ["-tlnp"], { encoding: "utf8", timeout: 5000 });
+    for (const line of ssOutput.split("\n")) {
+      if (!line.includes("users:((")) continue;
+      const parsed = parseSsAddressAndPort(line);
+      if (!parsed) continue;
+      collectPidsFromLine(line, parsed.address, parsed.port, currentUid, projectList, byPid);
+    }
+  } catch {
+    // `ss` itself failing shouldn't hide background shells below.
+  }
+
+  try {
+    collectBackgroundShells(byPid, projectList);
+  } catch {
+    // best-effort — a DB hiccup here must not break the whole list
   }
 
   return Array.from(byPid.values());

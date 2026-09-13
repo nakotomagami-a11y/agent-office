@@ -58,6 +58,10 @@ export interface LiveRun {
   output: string;
   tokensIn: number;
   tokensOut: number;
+  /** See `SseUsageEvent.cacheCreationTokens` — tokens newly cached this run. */
+  cacheCreationTokens: number;
+  /** See `SseUsageEvent.cacheReadTokens` — tokens served from cache this run. */
+  cacheReadTokens: number;
   cost: number;
   status: "running" | "done" | "error";
   exitCode?: number;
@@ -97,6 +101,11 @@ export interface LiveRun {
    * Bash `claude -p` spawns both run outside this process's run registry).
    */
   subAgents: Map<string, SubAgentRecord>;
+  /** Bash tool_use ids awaiting their tool_result, for `run_in_background`
+   *  calls — keyed by tool_use id so the matching tool_result (which carries
+   *  no input, only the id) can be paired back up. See `trackBackgroundShell`
+   *  for what `childPidsBefore` is for. */
+  pendingBackgroundBash: Map<string, { command: string; description?: string; childPidsBefore: Set<number> }>;
 }
 
 export interface StartRunOpts {
@@ -122,11 +131,22 @@ export interface StartRunOpts {
   accountId?: string;
 }
 
+/** The raw Anthropic `usage` object as it appears in Claude Code's
+ *  stream-json (both per-message and the final `result` event carry one).
+ *  `cache_creation_input_tokens`/`cache_read_input_tokens` were previously
+ *  parsed but discarded — see `context-cost.ts` for why they matter. */
+export interface UsagePayload {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
 export interface StreamEvent {
   type?: string;
   event?: { type?: string; delta?: { type?: string; text?: string }; content_block?: { type?: string; name?: string; input?: unknown } };
-  message?: { content?: Array<{ type: string; id?: string; text?: string; name?: string; input?: unknown; tool_use_id?: string; content?: unknown; is_error?: boolean }>; usage?: { input_tokens?: number; output_tokens?: number } };
-  usage?: { input_tokens?: number; output_tokens?: number };
+  message?: { content?: Array<{ type: string; id?: string; text?: string; name?: string; input?: unknown; tool_use_id?: string; content?: unknown; is_error?: boolean }>; usage?: UsagePayload };
+  usage?: UsagePayload;
   total_cost_usd?: number;
   session_id?: string;
   is_error?: boolean;

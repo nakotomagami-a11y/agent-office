@@ -30,6 +30,8 @@ export function pushRun(run: PersistedRun): void {
     output: run.output,
     tokensIn: run.tokensIn,
     tokensOut: run.tokensOut,
+    cacheCreationTokens: run.cacheCreationTokens,
+    cacheReadTokens: run.cacheReadTokens,
     costUsd: run.cost,
     durMs: run.durMs,
     sessionId: run.sessionId,

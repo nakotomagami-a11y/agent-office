@@ -13,14 +13,10 @@ import { POLL } from "@/lib/polling";
  * daemon entirely — the server is the single source of truth for turns,
  * queue, session, and status; this hook just reads and mutates it.
  *
- * Polling: an idle conversation with an empty queue never polls (its state
- * only ever changes in response to THIS client's own actions, which already
- * invalidate the query). A running/needs_attention/queued conversation polls
- * lightly — the auto-advance driver lives in the SERVER (finalizeRun), so the
- * moment a run finishes the server may already have started the next queued
- * turn before this client's next poll; polling is what picks that up (the
- * live SSE stream for the CURRENT run is unaffected and unpolled — see
- * use-conversation-chat-model.ts).
+ * Freshness is SSE-driven (see the `refetchInterval` comment below); this
+ * hook's own polling is only a slow fallback. The live stream for the
+ * CURRENT run's output is a separate, unpolled mechanism — see
+ * use-conversation-chat-model.ts.
  */
 export function useConversation(agentId: string, instanceId: string | undefined) {
   const slot = instanceId && instanceId.length > 0 ? instanceId : "default";
@@ -30,10 +26,13 @@ export function useConversation(agentId: string, instanceId: string | undefined)
       apiFetch<ConversationView | null>(
         `${API_ROUTES.conversations}?agentId=${encodeURIComponent(agentId)}&instanceId=${encodeURIComponent(slot)}`,
       ),
+    // Transitions arrive instantly via the app-wide SSE "conversations:changed"
+    // event (app-events.tsx). While a conversation is active/queued, keep a slow
+    // reconnect safety net; an idle conversation doesn't poll at all.
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;
-      return data.status !== "idle" || data.queue.length > 0 ? POLL.CONVERSATION_ACTIVE : false;
+      return data.status !== "idle" || data.queue.length > 0 ? POLL.SAFETY_NET : false;
     },
   });
 }

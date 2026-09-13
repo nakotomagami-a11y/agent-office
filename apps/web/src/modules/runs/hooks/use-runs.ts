@@ -22,7 +22,9 @@ export function useRuns(filters?: {
   return useQuery({
     queryKey: queryKeys.runs.list(filters),
     queryFn: () => apiFetch<PersistedRun[]>(`${API_ROUTES.runs}?${params.toString()}`),
-    refetchInterval: POLL.RUNS,
+    // Freshness comes from the app-wide SSE "runs:changed" event (app-events.tsx);
+    // this slow interval is just a reconnect safety net.
+    refetchInterval: POLL.SAFETY_NET,
   });
 }
 
