@@ -108,6 +108,8 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `GET` | `/api/agents/:id/uploads` | List agent uploads |
 | `POST` | `/api/agents/:id/uploads` | Upload file (multipart/form-data) |
 | `GET` | `/api/agents/:id/uploads/:filename` | Download agent upload |
+| `GET` | `/api/agents/:id/context-cost` | Context & Cost breakdown: per-segment token estimate + native overhead + cost/week, for an instance (`?instanceId=&projectId=`). `no-store` — always fresh |
+| `POST` | `/api/agents/:id/context-cost/measure` | "Measure exactly" — spawns one real, throwaway probe session (~10-15s) to replace the native-overhead estimate with a measured split (CC base+tools vs. MCP schemas). Body: `{ instanceId?, projectId? }` |
 
 ### Memory
 
@@ -351,6 +353,19 @@ Events `chunk`, `tool`, and `usage` are stored in an in-memory `eventLog` and re
 
 The SSE route sends `: keepalive` every 25 seconds to prevent proxy timeouts.
 
+### App-wide events — `GET /api/events`
+
+A separate SSE stream, one per browser tab, for coarse domain events unrelated to any single run's output:
+
+| Event | When emitted |
+|---|---|
+| `runs:changed` | A run started or finished |
+| `spend:changed` | A run finished (its cost is now reflected in spend totals) |
+| `conversations:changed` | A conversation transitioned state (queued a message, started a run, hit `needs_attention`, etc.) |
+| `schedules:changed` | The scheduler created, fired, or updated a job |
+
+The client maps each event type to a React Query `invalidateQueries` call by key prefix (`app/app-events.tsx`), replacing most `refetchInterval` polling for runs/spend/conversations/schedules with instant, push-driven refresh. Polling still runs on those queries as a slow (60s, `NEXT_PUBLIC_POLL_SAFETY_NET`) reconnect safety net. External-world state (OAuth login, credential-file appearance, OS process liveness, connected hardware) is **not** on this channel — those still poll on their own short, purpose-specific intervals, since the server can only learn about them by polling too.
+
 ### Wire format examples
 
 ```
@@ -434,7 +449,11 @@ Pipeline definitions and per-step state.
 ### Other tables
 
 - `tool_calls` — one row per tool_use content block
-- `transcripts` — per-`tKey` (`<agentId>::<instanceId>`) chat state row: full thread items, `active_run_id`, `session_id`, `queued_messages` (JSON array of pending sends, DEFAULT `'[]'` per migration v6), `updated_at`. Written through by every chat state change so a hard refresh or app restart restores the conversation exactly.
+- `transcripts` — legacy per-`tKey` (`<agentId>::<instanceId>`) chat state row (full thread items, `active_run_id`, `session_id`, `updated_at`). Superseded by `conversations` + `queued_messages` (below) — migration v14 backfilled one `conversations` row per pre-existing slot.
+- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`.
+- `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
+- `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
+- `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.
 - `saved_prompts` — workflow templates with usage counter (table name predates the "Workflows" rename; exposed via `/api/workflows`)
 - `drafts` — chat draft persistence
 - `ui_settings` — key-value store for UI state (see the allow-list below)
@@ -497,19 +516,19 @@ Subprocess exit
 
 ### Claude CLI flags
 
-Every summon call assembles flags from the agent frontmatter:
+`buildClaudeArgs` (`packages/domain/src/services/execution/summon.ts`) assembles the real argv in a fixed order — see architecture.md's "CLI argv order" for the full authoritative table. Summary:
 
 | Flag | Source |
 |---|---|
-| `--model <alias>` | `default-model` |
-| `--allowedTools ...` | `tools[]` |
-| `--effort <level>` | `default-effort` |
-| `--system-prompt @/tmp/...` | Composed body written to temp file |
-| `--append-system-prompt @/tmp/...` | Skills + memory + history note |
-| `--add-dir <path>` | Each entry in `add-dirs[]` |
+| `-p --agent <id> --output-format stream-json --include-partial-messages --verbose` | Always present, hardcoded |
+| `--model <alias>` | `default-model`, omitted if `"default"` |
+| `--effort <level>` | `default-effort`, omitted if `"default"` |
+| `--max-budget-usd <n>` | `request.maxBudgetUsd`, omitted if ≤ 0 |
 | `--permission-mode <mode>` | `permission-mode` |
-| `--session-id <id>` | If continuing an existing conversation |
-| `--resume` | Set when session-id is present |
+| `--add-dir <path>` | One flag per entry in `add-dirs[]` (tilde-expanded) |
+| `--append-system-prompt-file <path>` | The composed appended prompt (skills, identity, memory tiers, history note — see `docs/03-agents.md`), written to a temp file to sidestep `execve` arg-length limits, not passed inline |
+| `--resume <sessionId>` | Present when continuing an existing conversation |
+| *(final positional arg)* | Prior-context text (if any) + the prompt |
 
 ### Environment variables
 
@@ -523,6 +542,9 @@ Every summon call assembles flags from the agent frontmatter:
 | `DEFAULT_LOCALE` | Override the i18n default locale (defaults to `en`). Used by `next-intl`. |
 | `NODE_ENV` | Standard Node env — `development` / `production`. |
 | `NEXT_RUNTIME` | Internal Next.js signal (`nodejs` vs `edge`). Not user-settable. |
+
+> [!NOTE]
+> Polling-interval vars (`NEXT_PUBLIC_POLL_*`) are covered in `docs/architecture.md`'s Environment variables table, next to the SSE/`/api/events` section they relate to — not repeated here to avoid a second copy of the same list drifting from the first.
 
 ### PATH augmentation
 

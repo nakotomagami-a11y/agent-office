@@ -68,21 +68,35 @@ unit: blue/warrior
 
 ## How the system prompt is assembled
 
-When you summon an agent, Agent Office builds an appended prompt passed to Claude Code alongside your message. Composition order is fixed:
+When you summon an agent, Agent Office builds an appended prompt passed to Claude Code alongside your message. It's composed as a list of named segments (skills, identity, each memory tier, …) in a fixed order, then joined — the same segment list backs the **Context & Cost** tab (see below), so what you see costed there is exactly what gets sent, never a re-derived estimate:
 
 1. **Skills** — bodies of all installed skills in the agent's `skills` list, concatenated in order.
-2. **Global memory** — contents of `~/.claude/agents/_global.memory.md` — applies to every agent.
-3. **Project context** — active project name, working directory, and description.
-4. **Project memory** — the memory body from `~/.claude/projects/<id>/project.md`.
-5. **Per-agent memory** — contents of `~/.claude/agents/<id>.memory.md`.
-6. **History note** — SQLite DB path and a `sqlite3` command so the agent can query its own past runs. Omitted when `permission-mode` is `plan`.
+2. **Identity** — contents of `~/.claude/agents/<id>.identity.md`, if present. Foundational, ships-with-the-agent knowledge (distinct from memory, which accumulates locally) — sits right after skills, before any memory tier.
+3. **Global memory** — contents of `~/.claude/agents/_global.memory.md` — applies to every agent.
+4. **Active project** — active project name, working directory, and description.
+5. **Project environment** — non-secret manifest of which Claude account, GitHub identity, and named secrets (never values) are available in this run's environment, so the agent knows rather than guesses. Only present when a project is active and has at least one of these configured.
+6. **Project memory** — the memory body from `~/.claude/projects/<id>/project.md`.
+7. **Per-agent memory** — contents of `~/.claude/agents/<id>.memory.md`.
+8. **History note** — SQLite DB path and a `sqlite3` command so the agent can query its own past runs. Omitted when `permission-mode` is `plan`, or when the conversation already has messages (a resumed thread doesn't need the pointer repeated).
 
 > [!TIP]
 > The `.md` body (after the closing `---`) is the `--system-prompt`. The items above are injected as an *appended* prompt, not a replacement.
 
+### Inspecting exact cost
+
+Every agent's **Context & Cost** tab (open an agent → Context & Cost) breaks down the segments above into per-item token estimates plus Claude Code's own native overhead (base prompt + built-in tools + any MCP servers the agent declares), priced at published Anthropic cache rates and amortized over that agent's real average turns/session. A "Measure exactly" button spawns one real, throwaway probe session to replace the estimate with a measured number. See [Reference → REST API → Agents](#/reference) for the underlying routes.
+
 ### Prior context injection
 
-When a run is *not* using `--resume`, the last 8 messages for that agent and instance are fetched from SQLite and prepended to the prompt text as prior context. This gives the agent conversational continuity without requiring an active session ID.
+When a run is *not* using `--resume` (the first message of a new thread), recent conversation history for that agent + instance is fetched from SQLite and prepended to the prompt **text** — not the system prompt — so it's paid once, in that first message, not on every turn. How much is pulled in depends on a context profile:
+
+| Profile | Messages | Truncation | Behaviour |
+|---|---|---|---|
+| `tight` | last 3 | 800 chars | Just the immediate tail — cheapest |
+| `balanced` (default) | up to 8 | 500 chars | Relevance-filtered against the current prompt's keywords (the last 2 messages always included) |
+| `deep` | up to 16 | 300 chars | Recent messages merged with full-text search hits for the current prompt, across the whole agent+instance history |
+
+The Context & Cost tab reports this separately from the resident system-prompt total (as "first message of a new thread only"), since resumed turns don't pay it at all.
 
 ### Plan mode behaviour
 

@@ -190,6 +190,7 @@ Where to see spend:
 - **Per-project** — `GET /api/projects/:id/spend` returns a USD breakdown by instance.
 - **Per-instance** — `GET /api/projects/:id/roster/:instanceId` includes the instance's accumulated USD spend.
 - **Usage & spend modal** — daily spend and per-agent cost over a period, plus your Claude plan badge. Derived from your local `runs` history — not a read of Anthropic's session / 5-hour / weekly limits.
+- **Context & Cost tab** (per agent) — the *predictive* counterpart to the above: what a run costs *before* you send one, broken down by system-prompt segment. See [Agents → Inspecting exact cost](#/agents).
 
 > [!NOTE]
 > If you need a hard budget ceiling, cap it at the Anthropic account level — Agent Office reports usage but does not stop runs at a dollar threshold.
