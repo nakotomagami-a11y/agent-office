@@ -369,14 +369,7 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       CREATE INDEX IF NOT EXISTS idx_background_shells_pid ON background_shells(pid);
     `);
   },
-  // v16 → v17: "Measure exactly" — a real (not estimated) split of an
-  // agent's native overhead into CC base + built-in tools vs. MCP servers,
-  // from actually spawning a throwaway probe session and diffing its real
-  // cache-write usage across two turns (see agents/context-cost-measure.ts).
-  // One row per agent (not per instance — built-in tools/MCP come from the
-  // agent definition, not per-instance state). `mcp_server_names` is a JSON
-  // array; empty when the agent declares no `mcp__*` tools (nothing to wait
-  // on, so `measureAgentContextCost` skips straight to a single-number result).
+  // v16 → v17: "Measure exactly" native-overhead measurements, one row per agent.
   (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS agent_context_measurements (
@@ -384,6 +377,20 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
         cc_base_and_tools_tokens INTEGER NOT NULL,
         mcp_tokens INTEGER NOT NULL,
         mcp_server_names TEXT NOT NULL,
+        measured_at INTEGER NOT NULL
+      );
+    `);
+  },
+  // v17 → v18: per-server MCP token breakdown (was one combined total), so the
+  // Context & Cost tab can exclude a specific disabled server (e.g. Playwright
+  // toggled off) instead of all-or-nothing. Cache table, safe to rebuild.
+  (db) => {
+    db.exec(`
+      DROP TABLE IF EXISTS agent_context_measurements;
+      CREATE TABLE agent_context_measurements (
+        agent_id TEXT PRIMARY KEY,
+        cc_base_and_tools_tokens INTEGER NOT NULL,
+        mcp_tokens_by_server TEXT NOT NULL,
         measured_at INTEGER NOT NULL
       );
     `);
