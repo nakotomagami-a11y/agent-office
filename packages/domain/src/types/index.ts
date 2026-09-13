@@ -179,6 +179,8 @@ export interface AgentInstance {
   effort?: string;
   permissionMode?: string;
   room?: string;
+  /** Undefined/true = Playwright MCP loaded; false = excluded from the spawn. */
+  playwrightEnabled?: boolean;
   /** Absolute path to the git worktree for this instance. Falls back to project.meta.cwd when unset. */
   cwd?: string;
   worktree?: {

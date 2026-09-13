@@ -156,6 +156,7 @@ export const rosterPatchSchema = z.object({
   model: z.string().optional(),
   effort: z.string().optional(),
   permissionMode: z.string().optional(),
+  playwrightEnabled: z.boolean().optional(),
   room: z.string().optional(),
 });
 

@@ -1,6 +1,6 @@
 // Build the `claude -p` arg list for a summon, applying instance + agent defaults.
 
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -52,6 +52,33 @@ function writeSystemPromptFile(content: string): string {
   return file;
 }
 
+// When an instance disables Playwright, the CLI must never even *connect* the
+// Playwright MCP server — otherwise its tool schemas load into context on every
+// turn (thousands of tokens) regardless of whether the agent calls them.
+// `--strict-mcp-config` makes the CLI use ONLY the servers we pass via
+// `--mcp-config`, ignoring all other MCP configuration, so we hand it the
+// user's global server set with Playwright stripped out. Native Task
+// sub-agents share this process's MCP connections, so they inherit the same
+// exclusion automatically. (Servers configured per-project via .mcp.json are
+// also dropped by strict mode — acceptable here since agents rely on the
+// global config; revisit if project-scoped MCP servers become common.)
+function mcpArgsWithoutPlaywright(): string[] {
+  let servers: Record<string, unknown> = {};
+  try {
+    const raw = JSON.parse(readFileSync(join(homedir(), ".claude.json"), "utf8")) as {
+      mcpServers?: Record<string, unknown>;
+    };
+    servers = raw.mcpServers ?? {};
+  } catch {
+    // No global config / unreadable — strict mode with an empty set still
+    // guarantees Playwright can't connect, which is the whole point.
+  }
+  const filtered = Object.fromEntries(
+    Object.entries(servers).filter(([name]) => name !== "playwright"),
+  );
+  return ["--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers: filtered })];
+}
+
 export function buildClaudeArgs(opts: {
   request: SummonRequest;
   agent: ApiAgent;
@@ -81,6 +108,7 @@ export function buildClaudeArgs(opts: {
     args.push("--max-budget-usd", String(request.maxBudgetUsd));
   }
   if (permissionMode) args.push("--permission-mode", permissionMode);
+  if (instance?.playwrightEnabled === false) args.push(...mcpArgsWithoutPlaywright());
   for (const dir of agent.addDirs ?? []) {
     args.push("--add-dir", dir.replace(/^~/, homedir()));
   }
