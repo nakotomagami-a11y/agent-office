@@ -37,6 +37,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 - **Spend tracking** — every run's cost, tokens, and runtime saved to SQLite; visible per-instance and per-project. See [Usage → Spend tracking](#/usage).
 - **Cost dashboards** — spend/runs/runtime trends, model split, per-agent and per-project rankings, tool usage, and a per-account breakdown. See [Interface → Analytics page](#/interface).
 - **Usage & spend modal** — daily spend and per-agent cost over a period, plus your Claude plan badge (read from credentials; derived from your local run history, not a read of Anthropic's limits). See [Interface → Usage & spend modal](#/interface).
+- **Context & Cost tab** — see exactly what's in an agent's system prompt before you type a word: skills, memory tiers, project context, and Claude Code's own native overhead, each priced at published Anthropic rates and amortized over that agent's real turns/session. A "Measure exactly" button trades a ~10-15s real probe for an estimate. See [Agents → Inspecting exact cost](#/agents).
 
 > Agent Office reports spend but does not enforce hard dollar caps — set a budget ceiling at the Anthropic account level if you need one.
 

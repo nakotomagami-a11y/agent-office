@@ -212,21 +212,29 @@ POST /api/summon
 
 **Resume retry:** If the run exits code 1 with stderr `"No conversation found with session ID"`, the app automatically retries the spawn without `--resume`.
 
-### Per-run spawn environment (multi-account) — `resolveSpawnEnv` (runs.ts)
+### Per-run spawn environment (multi-account) — `resolveSpawnEnv` (`runs/spawn-env.ts`)
 
 The child `claude` process env is built per run from the project's frontmatter:
 
 - **Claude account:** an explicit `opts.accountId` (or the project's `meta.accountId`) that is non-`default` → `CLAUDE_CONFIG_DIR = <account's config dir>`. `default`/unset → inherits the shared `~/.claude`.
 - **GitHub account:** the project's `meta.githubAccountId` that is non-`default` → `GH_CONFIG_DIR = <account's gh config dir>` **and** a git credential helper injected via `GIT_CONFIG_*` env (reset the `github.com` helper, then `!gh auth git-credential`, which reads `GH_CONFIG_DIR` at runtime). This makes `git push`/`fetch` — not just the `gh` CLI — authenticate as the project's GitHub identity, **without mutating the user's global `~/.gitconfig`**. `default`/unset → no injection (inherits the machine's active gh auth).
 
-### System prompt composition order (buildAppendedPrompt)
+### System prompt composition (`composeAppendedPrompt` / `buildAppendedPrompt`, `agents/agents.ts`)
 
-1. Skills (most stable — each skill's SKILL.md body)
-2. Global memory (`~/.claude/agents/_global.memory.md`)
-3. Project context (from roster instance metadata)
-4. Project memory (`~/.claude/projects/<id>/project.md` body section)
-5. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
-6. History note — **omitted if permission-mode is `plan`**
+`composeAppendedPrompt` returns a `PromptSegment[]` (id, sent `text`, display `sub`, `locked`, `phase`) — the single source of truth for what gets appended. `buildAppendedPrompt` is a thin `.map(s => s.text).join("\n\n")` over it for the real spawn; the Context & Cost tab (`agents/context-cost.ts`) maps the *same* segments to display rows, so the estimate can't drift from what's actually sent (an earlier design re-derived the composition by hand in the cost tab and repeatedly desynced from it).
+
+Segment order:
+
+1. Skills (most stable — each skill's SKILL.md body, inlined or referenced by path depending on size)
+2. Identity (`~/.claude/agents/<id>.identity.md`) — foundational, ships with the agent
+3. Global memory (`~/.claude/agents/_global.memory.md`)
+4. Active project (name, cwd, description)
+5. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
+6. Project memory (`~/.claude/projects/<id>/project.md` body section)
+7. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
+8. History note — **omitted if permission-mode is `plan`**, or if the conversation already has messages
+
+Prior-turn conversation history (when *not* using `--resume`) is a **separate** mechanism — it's prepended to the user's prompt text, not this appended system prompt, so it's billed once (first message of a new thread) rather than on every turn. See `projects/history.ts` (`getContextMessages` / `formatPriorContext`, profiles `tight`/`balanced`/`deep`) and `docs/03-agents.md`'s "Prior context injection".
 
 ---
 
@@ -254,13 +262,19 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 
 **Endpoint:** `GET /api/runs/:id/stream`
 
+### App-wide events (`GET /api/events`)
+
+A second, separate SSE stream broadcasts coarse **domain** events unrelated to any one run's output: `runs:changed`, `spend:changed`, `conversations:changed`, `schedules:changed` (see `services/infra/events.ts`'s `emitAppEvent`/`onAppEvent`). One `EventSource` per browser tab (`app/app-events.tsx`, mounted once in `providers.tsx`) maps each event type to a React Query `invalidateQueries` call by key prefix, replacing most of what used to be `refetchInterval` polling for runs lists, office agent statuses, spend, conversations, and schedules. Polling still exists on those queries as a slow (60s) reconnect safety net, not the primary freshness mechanism.
+
+**Not converted to this channel** (deliberately still polling, on their own short intervals): anything watching *external* state the server only learns by polling itself — OAuth login completion, credential-file appearance after a terminal `claude login`/`gh auth login`, OS process liveness, connected hardware (Flutter devices). Routing those through `/api/events` would just relocate the poll server-side for no gain in a single-user app.
+
 ---
 
 ## SQLite schema
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at v13. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at v17. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned. Pipelines with no still-live run → `status='error', interrupted=1`.
 
 ### Tables
@@ -271,7 +285,11 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
 | `tool_calls` | id, run_id, name, input, ts | Best-effort insert |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
-| `transcripts` | PK(agent_id, instance_id), items, active_run_id, session_id, queued_messages, updated_at | Full chat thread as JSON array; `queued_messages` holds messages typed while a run is in flight |
+| `transcripts` | PK(agent_id, instance_id), items, active_run_id, session_id, updated_at | Legacy full chat thread as a JSON array — superseded by `conversations` + `queued_messages` (below). The v14 migration (`backfillConversations`) created one `conversations` row per pre-existing (agent, instance) slot that lacked one, carrying over its session id |
+| `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to |
+| `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at | Messages typed while a run is in flight, dispatched in order once it finishes |
+| `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
+| `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens, mcp_server_names, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Multi-step pipeline run record |
@@ -338,9 +356,11 @@ Validated once at startup by `apps/web/src/lib/env.ts` (Zod schema). Read env th
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |
-| `NEXT_PUBLIC_POLL_RUNS` | `5000` | Run list polling interval (ms) |
+| `NEXT_PUBLIC_POLL_RUNS` | `5000` | Legacy runs-list poll interval (ms) — still read by a couple of non-SSE call sites; most run/spend/conversation freshness now comes from `/api/events` (see SSE section above) |
+| `NEXT_PUBLIC_POLL_SAFETY_NET` | `60000` | Reconnect safety net (ms) for queries driven by `/api/events` — SSE delivers changes instantly; this only re-fetches if an event was missed mid-reconnect |
 | `NEXT_PUBLIC_POLL_HEALTH` | `30000` | Health check polling interval (ms) |
 | `NEXT_PUBLIC_POLL_SKILLS_UPDATES` | `60000` | Skills update check interval (ms) |
+| `NEXT_PUBLIC_POLL_CONVERSATION_ACTIVE` | `2000` | Fallback poll while a conversation is `running`/`needs_attention`/queued — an idle conversation never polls |
 | `NEXT_PUBLIC_APP_VERSION` | — | App version shown in the UI (injected at build) |
 | `NEXT_PUBLIC_GIT_SHA` | — | Build commit SHA shown in the UI (injected at build) |
 
