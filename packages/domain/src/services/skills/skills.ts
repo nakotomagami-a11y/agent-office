@@ -773,9 +773,26 @@ export function resolveSkillBody(name: string, rawBody: string): string {
 // start getting deferred and losing residency.
 const INLINE_MAX_CHARS = 1500;
 
-export function buildSkillsPrompt(skills: string[]): string {
-  const inline: string[] = [];
-  const refs: string[] = [];
+export interface SkillBreakdownRow {
+  name: string;
+  /** Character count of what actually lands in the prompt for this skill —
+   *  the full body when inlined, or just the short reference line (name +
+   *  description + path) when it's read-on-demand instead. */
+  chars: number;
+  mode: "inline" | "reference";
+}
+
+interface ClassifiedSkill extends SkillBreakdownRow {
+  /** The exact fragment this skill contributes: the inlined body block, or the
+   *  one-line reference entry. `chars` is `fragment.length`. */
+  fragment: string;
+}
+
+/** Resolves each skill once into its final prompt fragment + mode + size.
+ *  `buildSkillsPrompt` and `buildSkillsBreakdown` both derive from this, so
+ *  they can't drift apart. Skills with no body produce no entry. */
+function classifySkills(skills: string[]): ClassifiedSkill[] {
+  const out: ClassifiedSkill[] = [];
   for (const name of skills) {
     const skill = readInstalledSkill(name);
     if (!skill?.body) continue;
@@ -786,13 +803,22 @@ export function buildSkillsPrompt(skills: string[]): string {
     const body = resolveSkillBody(name, skill.body);
     if (!body) continue;
     if (body.length <= INLINE_MAX_CHARS || isSkillCustomized(cfg)) {
-      inline.push(`### Skill: ${skill.name}\n\n${body}`);
+      const fragment = `### Skill: ${skill.name}\n\n${body}`;
+      out.push({ name: skill.name, chars: fragment.length, mode: "inline", fragment });
     } else {
       const path = join(SKILLS_DIR, name, "SKILL.md");
       const desc = skill.description ? ` — ${skill.description.replace(/\s+/g, " ").trim()}` : "";
-      refs.push(`- **${skill.name}**${desc}\n  Read when the task calls for it: \`${path}\``);
+      const fragment = `- **${skill.name}**${desc}\n  Read when the task calls for it: \`${path}\``;
+      out.push({ name: skill.name, chars: fragment.length, mode: "reference", fragment });
     }
   }
+  return out;
+}
+
+export function buildSkillsPrompt(skills: string[]): string {
+  const classified = classifySkills(skills);
+  const inline = classified.filter((c) => c.mode === "inline").map((c) => c.fragment);
+  const refs = classified.filter((c) => c.mode === "reference").map((c) => c.fragment);
   const sections: string[] = [];
   if (inline.length > 0) sections.push(inline.join("\n\n---\n\n"));
   if (refs.length > 0) {
@@ -803,6 +829,13 @@ export function buildSkillsPrompt(skills: string[]): string {
     );
   }
   return sections.join("\n\n---\n\n");
+}
+
+/** Per-skill sizing for the Context & Cost tab — one row per skill, derived
+ *  from the same `classifySkills` walk `buildSkillsPrompt` uses. */
+export function buildSkillsBreakdown(skills: string[]): SkillBreakdownRow[] {
+  const out: SkillBreakdownRow[] = classifySkills(skills).map(({ name, chars, mode }) => ({ name, chars, mode }));
+  return out;
 }
 
 export function registrySources(): Array<{ source: string; ref: string; builtIn: boolean }> {
