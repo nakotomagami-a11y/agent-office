@@ -636,6 +636,107 @@ export interface Doc extends DocMeta {
   body: string;
 }
 
+// ─── Prompt composition ──────────────────────────────────────────────────────
+// What agent-office appends to an agent's system prompt. `composeAppendedPrompt`
+// (agents.ts) is the one source of truth: the real spawn joins `segment.text`,
+// and the Context & Cost tab measures the same segments, so the two can't drift.
+
+export interface PromptSegmentChild {
+  /** Stable id, unique within the parent (e.g. a skill name). */
+  key: string;
+  name: string;
+  /** Display sub-line for the cost tab. */
+  sub: string;
+  /** Characters this child contributes to the parent segment's text. */
+  chars: number;
+}
+
+export interface PromptSegment {
+  /** Stable id (e.g. "identity", "global-memory", "skills"). */
+  key: string;
+  /** Display name for the cost tab (e.g. "Identity", "Global memory"). */
+  name: string;
+  /** Exact text this segment contributes, heading included. Segments join
+   *  with "\n\n" to form the real appended prompt. */
+  text: string;
+  /** `text` without its "## " heading — what a cost row sizes. Empty for the
+   *  skills segment, which is itemized via `children` instead. */
+  body: string;
+  /** Display sub-line for the cost tab (path · line count, etc.). */
+  sub: string;
+  /** True for content whose size agent-office doesn't own / the user can't
+   *  trim (project info, the history-note pointer). */
+  locked: boolean;
+  /** When it's paid for — see ContextCostRow.phase. Appended segments are
+   *  always "always" (resident system prompt); first-turn injection is sourced
+   *  separately (not composed here). */
+  phase: "always" | "first-turn";
+  /** Set on the skills segment so the cost tab can group its children. */
+  group?: "skills";
+  /** Segments the cost tab itemizes further (skills → one row per skill) while
+   *  the prompt contributes a single grouped section. */
+  children?: PromptSegmentChild[];
+}
+
+// ─── Context & Cost ──────────────────────────────────────────────────────────
+// What actually goes into an agent's system prompt on every run, and what it
+// costs — see `services/agents/context-cost.ts` for how this is computed.
+
+export interface ContextCostRow {
+  key: string;
+  name: string;
+  /** Short descriptive line — file path + line count, skill usage mode, etc. */
+  sub: string;
+  tokensEst: number;
+  /** Always true today: every row here is a local char-count approximation
+   *  (see `estimateTokens`), never a number Anthropic has confirmed. Kept as
+   *  a field (not dropped) so a future exact source (`count_tokens` API) can
+   *  flip specific rows to `false` without changing the shape. */
+  est: boolean;
+  /** True for content agent-office doesn't own the size of (Claude Code's own
+   *  base prompt + CLAUDE.md/AGENTS.md discovery) — nothing to trim here. */
+  locked: boolean;
+  /** Set on skill rows so the UI can group them under one "Skills" umbrella. */
+  group?: "skills";
+  /** When this is paid for. "always" (default): resident system prompt,
+   *  written to cache once, read every turn — the headline total. "first-turn":
+   *  prior-history injection, prepended to the first message of a new thread
+   *  only; kept out of the headline so it doesn't inflate the per-run cost. */
+  phase?: "always" | "first-turn";
+}
+
+export interface ContextCostBreakdown {
+  agentId: string;
+  instanceId: string;
+  model: string;
+  rows: ContextCostRow[];
+  /** Sum of the `phase: "always"` rows only — the resident system-prompt
+   *  overhead. The headline "per run" number. */
+  totalTokensEst: number;
+  /** Sum of `phase: "first-turn"` rows — extra tokens the FIRST message of a
+   *  new thread pays on top of `totalTokensEst` (prior-history injection).
+   *  0 for a fresh instance with no history. Shown separately, never folded
+   *  into the per-run headline. */
+  firstTurnTokensEst: number;
+  /** Modeled as: write this content to cache once, read it back on every
+   *  subsequent turn of the session (`avgTurnsPerSession`) — the same shape
+   *  Anthropic actually bills a `--resume`'d session at. */
+  costPerRunEst: number;
+  costPerWeekEst: number;
+  runsPerWeek: number;
+  avgTurnsPerSession: number;
+  /** Published per-token cache write/read rates for `model` (USD) — real
+   *  Anthropic pricing, not derived/guessed from this agent's own history. */
+  writeRatePerTokUsd: number;
+  readRatePerTokUsd: number;
+  contextWindowTokens: number;
+  windowPct: number;
+  /** Other CLAUDE.md/AGENTS.md elsewhere in the project, not ancestors of this
+   *  instance's cwd — only loaded if the agent's task touches that subtree.
+   *  Informational only, never added to `totalTokensEst`. */
+  conditionalFiles: Array<{ path: string; tokens: number; lines: number }>;
+}
+
 // ─── Skill contracts ─────────────────────────────────────────────────────────
 // Manifest / compatibility / customization shapes exchanged with the skills UI.
 

@@ -13,15 +13,19 @@
 
 import { readdirSync, readFileSync, existsSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, Project } from "../../types/index";
-import { AGENTS_DIR, GLOBAL_MEMORY_PATH, isValidIdSegment } from "../infra/paths";
+import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
+import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatter, stringifyYaml, type YamlValue } from "../infra/yaml";
-import { buildSkillsPrompt } from "../skills/skills";
+import { buildSkillsBreakdown, buildSkillsPrompt } from "../skills/skills";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
 import { historyNote } from "../projects/history";
+
+function lineCount(text: string): number {
+  return text ? text.split("\n").length : 0;
+}
 
 function hasFrontmatter(content: string): boolean {
   return /^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/.test(content);
@@ -240,7 +244,7 @@ export function writeAgentMemory(agentId: string, content: string): void {
  * env vars injected at spawn). DB reads are wrapped defensively so a missing/locked
  * store degrades to "no block" rather than failing the whole prompt build.
  */
-function buildProjectEnvironmentBlock(project: Project): string | null {
+export function buildProjectEnvironmentBlock(project: Project): string | null {
   const lines: string[] = [];
   try {
     if (project.meta.accountId) {
@@ -271,7 +275,18 @@ function buildProjectEnvironmentBlock(project: Project): string | null {
   return lines.length > 0 ? lines.join("\n") : null;
 }
 
-export function buildAppendedPrompt(agentName: string, project: Project | null, instanceId?: string, hasMessages?: boolean): string {
+/**
+ * The structured, itemized description of everything agent-office appends to
+ * the agent's system prompt — the SINGLE source of truth for the composition.
+ * The real spawn joins `segment.text`; the Context & Cost tab measures the same
+ * segments (see context-cost.ts). Composition order: skills → identity → global
+ * → project → project-env → project-memory → per-agent → history-note.
+ */
+export function composeAppendedPrompt(
+  agentName: string,
+  project: Project | null,
+  opts?: { instanceId?: string; hasMessages?: boolean },
+): PromptSegment[] {
   const agent = readAgent(agentName);
   const skillFragment = agent ? buildSkillsPrompt(agent.info.skills).trim() : "";
   const identity = readAgentIdentity(agentName).trim();
@@ -280,30 +295,102 @@ export function buildAppendedPrompt(agentName: string, project: Project | null, 
   const perAgent = readAgentMemory(agentName).trim();
   const permissionMode = agent?.info.permissionMode;
 
-  const parts: string[] = [];
-  if (skillFragment) parts.push("## Capabilities (from selected skills)\n\n" + skillFragment);
-  if (identity) parts.push(`## Identity (${agentName} — part of who this agent is)\n` + identity);
-  if (global) parts.push("## Global memory (applies to every agent)\n" + global);
+  const segments: PromptSegment[] = [];
+
+  if (skillFragment) {
+    const children: PromptSegmentChild[] = buildSkillsBreakdown(agent?.info.skills ?? []).map((s) => ({
+      key: `skill-${s.name}`,
+      name: s.name,
+      sub: s.mode === "inline" ? "skill · loaded in full" : "skill · read on demand",
+      chars: s.chars,
+    }));
+    segments.push({
+      key: "skills", name: "Skills", group: "skills",
+      text: "## Capabilities (from selected skills)\n\n" + skillFragment, body: "",
+      sub: `${children.length} skill${children.length === 1 ? "" : "s"}`,
+      locked: false, phase: "always", children,
+    });
+  }
+
+  if (identity) {
+    segments.push({
+      key: "identity", name: "Identity",
+      text: `## Identity (${agentName} — part of who this agent is)\n` + identity, body: identity,
+      sub: `${identityPathFor(agentName)} · ${lineCount(identity)} lines`,
+      locked: false, phase: "always",
+    });
+  }
+
+  if (global) {
+    segments.push({
+      key: "global-memory", name: "Global memory",
+      text: "## Global memory (applies to every agent)\n" + global, body: global,
+      sub: `${GLOBAL_MEMORY_PATH} · ${lineCount(global)} lines`,
+      locked: false, phase: "always",
+    });
+  }
+
   if (project) {
     const projectLines = [`**Project:** ${project.meta.name}`];
     if (project.meta.cwd) projectLines.push(`**Working directory:** ${project.meta.cwd}`);
     if (project.meta.description) projectLines.push(`**Description:** ${project.meta.description}`);
-    parts.push(`## Active project\n` + projectLines.join("\n"));
+    const projectBody = projectLines.join("\n");
+    segments.push({
+      key: "project", name: "Project info",
+      text: "## Active project\n" + projectBody, body: projectBody,
+      sub: "name, working directory, description",
+      locked: true, phase: "always",
+    });
+
     const envBlock = buildProjectEnvironmentBlock(project);
-    if (envBlock) parts.push(`## Project environment\n` + envBlock);
+    if (envBlock) {
+      segments.push({
+        key: "project-env", name: "Project environment",
+        text: "## Project environment\n" + envBlock, body: envBlock,
+        sub: "account, GitHub identity, secret names injected at spawn",
+        locked: true, phase: "always",
+      });
+    }
   }
-  if (projectMemory) parts.push(`## Project memory (${project!.meta.name})\n` + projectMemory);
-  if (perAgent) parts.push(`## Memory specific to ${agentName}\n` + perAgent);
 
-  if (permissionMode !== "plan" && !hasMessages) {
-    const effectiveInstanceId = instanceId ?? "default";
-    const hNote = historyNote(agentName, effectiveInstanceId);
-    parts.push(
-      `## Conversation history\n` +
+  if (projectMemory) {
+    segments.push({
+      key: "project-memory", name: "Project memory",
+      text: `## Project memory (${project!.meta.name})\n` + projectMemory, body: projectMemory,
+      sub: `${join(PROJECTS_DIR, project!.id, "project.md")} · ${lineCount(projectMemory)} lines`,
+      locked: false, phase: "always",
+    });
+  }
+
+  if (perAgent) {
+    segments.push({
+      key: "agent-memory", name: "Agent memory",
+      text: `## Memory specific to ${agentName}\n` + perAgent, body: perAgent,
+      sub: `${memoryPathFor(agentName)} · ${lineCount(perAgent)} lines`,
+      locked: false, phase: "always",
+    });
+  }
+
+  if (permissionMode !== "plan" && !opts?.hasMessages) {
+    const hNote = historyNote(agentName, opts?.instanceId ?? "default");
+    const body =
       `Your past runs are stored in SQLite: ${hNote}\n` +
-      `Use the sqlite3 command shown above to read past context when you need to recall previous sessions.`
-    );
+      `Use the sqlite3 command shown above to read past context when you need to recall previous sessions.`;
+    segments.push({
+      key: "history-note", name: "History note",
+      text: "## Conversation history\n" + body, body,
+      sub: "pointer to past runs (sqlite3 command)",
+      locked: true, phase: "always",
+    });
   }
 
-  return parts.join("\n\n");
+  return segments;
+}
+
+/** The composed system prompt as one string — exactly what a real spawn sends.
+ *  A thin join over `composeAppendedPrompt`, which is the source of truth. */
+export function buildAppendedPrompt(agentName: string, project: Project | null, instanceId?: string, hasMessages?: boolean): string {
+  return composeAppendedPrompt(agentName, project, { instanceId, hasMessages })
+    .map((s) => s.text)
+    .join("\n\n");
 }
