@@ -8,8 +8,9 @@ import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
-import { categorize } from "@/modules/agents/form/categorize";
+import { categorize, categoryColor } from "@/modules/agents/form/categorize";
 import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { familyOf, MODEL_CATALOG } from "@agent-office/domain/config/models";
 import { useAddInstance, useProject, useProjects } from "../hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -24,43 +25,23 @@ export type AddAgentModalProps = {
 
 /* ── Category metadata ─────────────────────────────────────────── */
 
-/**
- * `fg` is the chip's label colour on a *dark* surface — each one is a
- * lightened tint of `color`. On the light theme those same values sit on a
- * 10%-alpha wash of themselves over white and measure 1.4-1.9:1, i.e. all but
- * invisible. `fgLight` is the mirror-image darkened tint for that case; the
- * `.cat-chip` rule in globals.css picks whichever matches the active theme.
- */
-const CAT_META: Record<string, { color: string; bg: string; border: string; fg: string; fgLight: string }> = {
-  Engineering: { color: "#2A6FDB", bg: "rgba(42,111,219,0.10)",   border: "rgba(42,111,219,0.30)",   fg: "#74a8f0", fgLight: "#1a54ad" },
-  QA:          { color: "#4eb96f", bg: "rgba(78,185,111,0.10)",   border: "rgba(78,185,111,0.30)",   fg: "#80d29c", fgLight: "#27703f" },
-  Design:      { color: "#ec4899", bg: "rgba(236,72,153,0.10)",   border: "rgba(236,72,153,0.30)",   fg: "#f09ec4", fgLight: "#a81f5f" },
-  "AI & Data": { color: "#8b5cf6", bg: "rgba(139,92,246,0.10)",   border: "rgba(139,92,246,0.30)",   fg: "#b39dfa", fgLight: "#6532cc" },
-  Security:    { color: "#ef4444", bg: "rgba(239,68,68,0.10)",    border: "rgba(239,68,68,0.30)",    fg: "#f48080", fgLight: "#b91c1c" },
-  Docs:        { color: "#f59e0b", bg: "rgba(245,158,11,0.10)",   border: "rgba(245,158,11,0.30)",   fg: "#fbbf55", fgLight: "#875106" },
-  Marketing:   { color: "#f97316", bg: "rgba(249,115,22,0.10)",   border: "rgba(249,115,22,0.30)",   fg: "#fb9a55", fgLight: "#a8460c" },
-  Research:    { color: "#06b6d4", bg: "rgba(6,182,212,0.10)",    border: "rgba(6,182,212,0.30)",    fg: "#4fd9ea", fgLight: "#0b6b82" },
-  Strategy:    { color: "#8b5cf6", bg: "rgba(139,92,246,0.10)",   border: "rgba(139,92,246,0.30)",   fg: "#b39dfa", fgLight: "#6532cc" },
-  Build:       { color: "#e95420", bg: "rgba(233,84,32,0.10)",    border: "rgba(233,84,32,0.30)",    fg: "#f07a52", fgLight: "#9c3410" },
-  Other:       { color: "#9b9089", bg: "rgba(155,144,137,0.08)",  border: "rgba(155,144,137,0.30)",  fg: "#cdc4bd", fgLight: "#5a534e" },
-};
-
+/** Colors derive from `categorize.ts`'s `categoryColor()` — the shared
+ *  source also used by agent-list, the agent editor, and onboarding. `--cat-bg`/
+ *  `--cat-border` are the color at 10%/30% alpha; the light-theme label color
+ *  is handled by `.cat-chip` in forms.css via the same `color-mix` formula
+ *  `.cat-tag` already uses for the same problem. */
 function catStyle(cat: string): React.CSSProperties {
-  const c = CAT_META[cat] ?? CAT_META.Other!;
+  const color = categoryColor(cat);
   return {
-    "--cat-color": c.color,
-    "--cat-bg": c.bg,
-    "--cat-border": c.border,
-    "--cat-fg": c.fg,
-    "--cat-fg-light": c.fgLight,
+    "--cat-color": color,
+    "--cat-bg": `color-mix(in srgb, ${color} 10%, transparent)`,
+    "--cat-border": `color-mix(in srgb, ${color} 30%, transparent)`,
   } as React.CSSProperties;
 }
 
 function modelColor(m: string | undefined): string {
   if (!m) return "var(--txt-4)";
-  if (m.includes("haiku"))  return "var(--working)";
-  if (m.includes("opus"))   return "#ffcb6b";
-  return "#c792ea";
+  return familyOf(m)?.swatchColor ?? MODEL_CATALOG.sonnet.swatchColor;
 }
 
 /* ── Main modal ─────────────────────────────────────────────────── */
@@ -223,7 +204,7 @@ function AgentPickerStep({
     return [
       { id: "all", label: "All", color: null, count: agents.length },
       ...Array.from(seen).map((cat) => ({
-        id: cat, label: cat, color: CAT_META[cat]?.color ?? null,
+        id: cat, label: cat, color: categoryColor(cat),
         count: agents.filter((a) => categorize(a) === cat).length,
       })).sort((a, b) => b.count - a.count),
     ];

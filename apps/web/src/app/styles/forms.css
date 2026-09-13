@@ -15,15 +15,14 @@
 .aa-btn-done:not(.cursor-default):hover { background: color-mix(in oklab, var(--acc) 88%, white); }
 
 /* ─── Category chips (add-agent modal) ─── */
-/* Per-chip colours arrive as inline custom properties from catStyle(); the
-   label colour is resolved here so the light theme can swap the dark-tuned
-   --cat-fg for the darkened --cat-fg-light. Keeping `color` out of the
-   inline style is what makes this override possible at all. */
+/* Colours arrive as inline custom properties from catStyle(). Same fix as
+   .cat-tag below: darken the one base hue for light theme instead of a
+   second hand-tuned color per category. */
 .cat-chip {
-  color: var(--cat-fg, var(--txt-2));
+  color: var(--cat-color, var(--txt-2));
 }
 html:not([data-theme="dark"]) .cat-chip {
-  color: var(--cat-fg-light, var(--txt-2));
+  color: color-mix(in srgb, var(--cat-color, var(--txt-2)) 68%, #000);
 }
 
 /* Agents-list department tag. Same problem, different palette (see
