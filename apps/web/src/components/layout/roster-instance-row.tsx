@@ -7,14 +7,23 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
 import { LIVE_STATUSES, RosterSessionActionButton, RosterSessionActions, RosterSessionRow } from "./roster-row-controls";
+import { AgentQuickView } from "./agent-quick-view";
+import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
+import type { AgentInstance } from "@agent-office/domain/types";
 
 export interface RosterInstanceRowProps {
+  /** Owning agent + the full instance record — needed only to drive the
+   *  hover quick-view card (see `agent-quick-view.tsx`); every other prop
+   *  below is the row's own already-derived display data. */
+  agent: OfficeAgent;
+  instance: AgentInstance;
   instanceId: string;
   instanceNumber: number;
   label?: string;
   status: AgentStatusInfo["status"];
   isSelected: boolean;
   onSelect: () => void;
+  onSpawn: (agentId: string) => void;
   onRemove: () => void;
   onRename: () => void;
   isRenaming: boolean;
@@ -24,12 +33,15 @@ export interface RosterInstanceRowProps {
 }
 
 export function RosterInstanceRow({
+  agent,
+  instance,
   instanceId,
   instanceNumber,
   label,
   status,
   isSelected,
   onSelect,
+  onSpawn,
   onRemove,
   onRename,
   isRenaming,
@@ -73,51 +85,66 @@ export function RosterInstanceRow({
   }
 
   return (
-    <RosterSessionRow active={isSelected} onClick={onSelect}>
-      {/* Session name */}
-      <span className={cn(
-        "flex-1 min-w-0 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
-        isSelected ? "font-semibold text-txt" : "font-medium text-txt-2",
-      )}>
-        {displayLabel}
-      </span>
+    <AgentQuickView
+      subject={{ kind: "single", agent, instance, index: instanceNumber - 1, headerMode: "instance" }}
+      spendByInstance={spend ? { [`${agent.id}|${instanceId}`]: spend } : {}}
+      onSelect={() => onSelect()}
+      onSpawn={onSpawn}
+    >
+      {(trigger) => (
+        <RosterSessionRow
+          ref={trigger.ref}
+          active={isSelected}
+          onClick={onSelect}
+          onMouseEnter={trigger.onMouseEnter}
+          onMouseLeave={trigger.onMouseLeave}
+        >
+          {/* Session name */}
+          <span className={cn(
+            "flex-1 min-w-0 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
+            isSelected ? "font-semibold text-txt" : "font-medium text-txt-2",
+          )}>
+            {displayLabel}
+          </span>
 
-      {/* Cost — fixed-width reserve so the LED dot lands in a straight
-          column across rows regardless of whether a row has spend to show. */}
-      <span className={cn(
-        "w-[44px] shrink-0 text-right font-[var(--font-mono)] text-[10.5px] tracking-[0.02em]",
-        isSelected ? "text-acc" : "text-txt-3",
-      )}>
-        {spend !== undefined ? `$${spend.toFixed(2)}` : ""}
-      </span>
+          {/* Cost — fixed-width reserve so the LED dot lands in a straight
+              column across rows regardless of whether a row has spend to show. */}
+          <span className={cn(
+            "w-[44px] shrink-0 text-right font-[var(--font-mono)] text-[10.5px] tracking-[0.02em]",
+            isSelected ? "text-acc" : "text-txt-3",
+          )}>
+            {spend !== undefined ? `$${spend.toFixed(2)}` : ""}
+          </span>
 
-      {/* LED dot */}
-      <span className={cn(
-        "w-[6px] h-[6px] rounded-full shrink-0",
-        isLive ? "bg-status-working shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
-      )} />
+          {/* LED dot */}
+          <span className={cn(
+            "w-[6px] h-[6px] rounded-full shrink-0",
+            isLive ? "bg-status-working shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
+          )} />
 
-      <RosterSessionActions>
-        <Tooltip content={t("sidebar.rename_button_title")} side="top" delayMs={300}>
-          <RosterSessionActionButton
-            onClick={(e) => { e.stopPropagation(); onRename(); }}
-            aria-label={t("sidebar.rename_button_aria", { number: instanceNumber })}
-            data-instance-id={instanceId}
-          >
-            <Icon name="edit" size={11} />
-          </RosterSessionActionButton>
-        </Tooltip>
-        <Tooltip content={t("sidebar.remove_from_project_title")} side="top" delayMs={300}>
-          <RosterSessionActionButton
-            danger
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            aria-label={t("sidebar.remove_instance_aria", { number: instanceNumber, label: label ?? "" })}
-            data-instance-id={instanceId}
-          >
-            <Icon name="x" size={11} />
-          </RosterSessionActionButton>
-        </Tooltip>
-      </RosterSessionActions>
-    </RosterSessionRow>
+          <RosterSessionActions>
+            <Tooltip content={t("sidebar.rename_button_title")} side="top" delayMs={300}>
+              <RosterSessionActionButton
+                onClick={(e) => { e.stopPropagation(); onRename(); }}
+                aria-label={t("sidebar.rename_button_aria", { number: instanceNumber })}
+                data-instance-id={instanceId}
+              >
+                <Icon name="edit" size={11} />
+              </RosterSessionActionButton>
+            </Tooltip>
+            <Tooltip content={t("sidebar.remove_from_project_title")} side="top" delayMs={300}>
+              <RosterSessionActionButton
+                danger
+                onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                aria-label={t("sidebar.remove_instance_aria", { number: instanceNumber, label: label ?? "" })}
+                data-instance-id={instanceId}
+              >
+                <Icon name="x" size={11} />
+              </RosterSessionActionButton>
+            </Tooltip>
+          </RosterSessionActions>
+        </RosterSessionRow>
+      )}
+    </AgentQuickView>
   );
 }

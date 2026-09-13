@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useSummon } from "@/modules/summon/hooks/use-summon";
+import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { formatCost, formatDuration } from "@/modules/runs/format/format-run-meta";
 import { runningRuns, runsAwaitingReply } from "../format/run-stats";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { Icon } from "@/components/ui/icon";
+import { LiveSweep } from "@/components/ui/live-sweep";
 import { ToolIcon } from "@/modules/summon/components/tool-group-row";
 import { ApiError } from "@/lib/api-client";
-import type { PersistedRun } from "@agent-office/domain/types";
+import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 
 // "First 2, load more for the rest" per the dashboard's own scope — this is
 // a glance-at-it-in-passing panel, not the place to browse every run.
@@ -18,32 +21,51 @@ const VISIBLE_CAP = 2;
 
 export type ProjectLiveRunsProps = {
   projectId: string;
+  /** Project roster — used only to label reply cards by session (see
+   *  `sessionLabelFor`). Passed in by the caller, not re-fetched. */
+  roster: AgentInstance[];
   /** Opens the real "add agent to roster" flow — reused as the empty-state CTA. */
   onSummonAnother: () => void;
 };
 
 /**
- * Dashboard panel for the project's currently-running agents. Two
- * independent signals, never conflated:
- *
- *  - "Live" rows: agents whose subprocess is still running right now — shown
- *    with their current activity (the tool call in flight, or "Thinking…"),
- *    because a live process is by construction NOT waiting on the user (this
- *    CLI harness always exits the subprocess when it wants a reply instead
- *    of pausing mid-run).
- *  - "Awaiting reply" cards: agents whose most recent run already finished
- *    and ended on what reads like a question — these are the ones that
- *    actually need the inline reply composer, and they're computed from the
- *    conversation's real end state (`runsAwaitingReply`), not just "whichever
- *    running run happened to be first".
+ * Session label for disambiguating "Reply to {agent}" when an agent has
+ * multiple instances. `null` when there's only one (nothing to disambiguate).
+ * Mirrors the sidebar's 1-indexed "Session N" numbering. For an instance no
+ * longer in the roster (removed since the run), falls back to a short id
+ * suffix rather than `run.instanceLabel` — that field defaults to the agent
+ * name, i.e. the useless duplicate this exists to avoid.
  */
-export function ProjectLiveRuns({ projectId, onSummonAnother }: ProjectLiveRunsProps) {
+function sessionLabelFor(roster: AgentInstance[], run: PersistedRun, t: (key: string, values?: Record<string, string | number>) => string): string | null {
+  const siblings = roster.filter((i) => i.agentId === run.agentId);
+  if (siblings.length <= 1) return null;
+  const idx = siblings.findIndex((i) => i.instanceId === run.instanceId);
+  const inst = idx === -1 ? undefined : siblings[idx];
+  if (!inst) return run.instanceId ? `#${run.instanceId.slice(-6)}` : null;
+  return inst.label || t("sidebar.session_default_label", { number: idx + 1 });
+}
+
+/**
+ * Dashboard panel for the project's running agents. Two distinct signals:
+ *  - "Live" rows: subprocess still running — shows the current activity. A
+ *    live process is never waiting on the user (this harness exits to ask).
+ *  - "Awaiting reply" cards: last run finished on what reads like a question
+ *    (`runsAwaitingReply`) — these get the inline reply composer.
+ */
+export function ProjectLiveRuns({ projectId, roster, onSummonAnother }: ProjectLiveRunsProps) {
+  const t = useTranslations();
   const runsQ = useRuns({ projectId, limit: 100 });
   const [expanded, setExpanded] = useState(false);
+  // Client-side "not now" dismissal, keyed by run id — a new turn gets a new
+  // id, so a real reply or fresh question re-shows the card.
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
-  const runs = runsQ.data ?? [];
+  const runs = useMemo(() => runsQ.data ?? [], [runsQ.data]);
   const live = runningRuns(runs);
-  const awaiting = runsAwaitingReply(runs);
+  const awaiting = useMemo(
+    () => runsAwaitingReply(runs, roster).filter((r) => !dismissedIds.has(r.id)),
+    [runs, roster, dismissedIds],
+  );
   const shown = expanded ? live : live.slice(0, VISIBLE_CAP);
   const totals = live.reduce(
     (acc, r) => ({ tokens: acc.tokens + r.tokensIn + r.tokensOut, cost: acc.cost + r.cost }),
@@ -80,7 +102,13 @@ export function ProjectLiveRuns({ projectId, onSummonAnother }: ProjectLiveRunsP
           {awaiting.length > 0 && (
             <div className="flex flex-col gap-[9px] mt-[14px]">
               {awaiting.map((run) => (
-                <ReplyComposer key={run.id} projectId={projectId} target={run} />
+                <ReplyComposer
+                  key={run.id}
+                  projectId={projectId}
+                  target={run}
+                  sessionLabel={sessionLabelFor(roster, run, t)}
+                  onDismiss={() => setDismissedIds((prev) => new Set(prev).add(run.id))}
+                />
               ))}
             </div>
           )}
@@ -124,13 +152,8 @@ function EmptyState({ onSummonAnother }: { onSummonAnother: () => void }) {
   );
 }
 
-/**
- * What the agent is doing at this exact moment: the tool call currently in
- * flight (`run.currentTool` — "Bash", "Grep", "Read", …), or "Thinking…"
- * while it's between tool calls / composing text. Never the original prompt
- * — that's static from the moment the run started and tells you nothing
- * about whether it's stuck, mid-Bash, or about to finish.
- */
+/** Current live activity: the tool in flight (`run.currentTool`), or
+ *  "Thinking…" between tool calls. Never the static original prompt. */
 function LiveActivity({ tool }: { tool: string | undefined }) {
   return (
     <div className="flex items-center gap-[6px] mt-[2px] min-w-0" title={tool ? `Running ${tool}` : "Thinking"}>
@@ -145,8 +168,14 @@ function LiveActivity({ tool }: { tool: string | undefined }) {
 
 function LiveRunRow({ run }: { run: PersistedRun }) {
   const unit = unitForAgent(run.agentId);
+  const select = useOfficeStore((s) => s.select);
   return (
-    <div className="relative overflow-hidden px-[13px] py-[11px] rounded-[14px] bg-card-2 border border-edge shadow-[var(--inset-hi)]" title={run.prompt}>
+    <button
+      type="button"
+      onClick={() => select(run.agentId, { instanceId: run.instanceId ?? null, tab: "conversation" })}
+      title={run.prompt}
+      className="relative w-full overflow-hidden px-[13px] py-[11px] rounded-[14px] bg-card-2 border border-edge shadow-[var(--inset-hi)] text-left cursor-pointer transition-colors duration-150 hover:border-txt-4"
+    >
       <div className="flex items-center gap-[11px]">
         <span className="relative shrink-0 rounded-[10px] overflow-hidden bg-card-3 border border-edge-2">
           <UnitSprite unit={unit} size={32} action="working" />
@@ -164,12 +193,19 @@ function LiveRunRow({ run }: { run: PersistedRun }) {
           <div className="font-mono text-[10px] text-txt-4 mt-[2px] whitespace-nowrap">{formatCost(run.cost)}</div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
 /** Posts straight into `target`'s session via the real summon API — the round-trip this feature exists to test. */
-function ReplyComposer({ projectId, target }: { projectId: string; target: PersistedRun }) {
+function ReplyComposer({ projectId, target, sessionLabel, onDismiss }: {
+  projectId: string;
+  target: PersistedRun;
+  /** Which instance this is, when the agent has more than one — see
+   *  `sessionLabelFor`. `null` when there's nothing to disambiguate. */
+  sessionLabel: string | null;
+  onDismiss: () => void;
+}) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const summon = useSummon();
@@ -197,12 +233,28 @@ function ReplyComposer({ projectId, target }: { projectId: string; target: Persi
   };
 
   return (
-    <div className="px-[14px] py-[12px] rounded-[14px] bg-amber-soft border border-edge">
+    <div className="relative overflow-hidden px-[14px] py-[12px] rounded-[14px] bg-amber-soft">
+      <LiveSweep />
       <div className="flex items-center gap-[8px]">
         <span className="w-[5px] h-[5px] rounded-full bg-amber shrink-0" />
         <span className="text-[10.5px] font-bold tracking-[0.06em] uppercase text-amber whitespace-nowrap">
           Reply to {target.agentName}
         </span>
+        {sessionLabel && (
+          <span className="text-[10.5px] font-semibold text-amber/70 whitespace-nowrap truncate">
+            · {sessionLabel}
+          </span>
+        )}
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Not now"
+          title="Not now — dismiss this reply prompt"
+          className="shrink-0 w-[20px] h-[20px] flex items-center justify-center rounded-[6px] text-amber/70 hover:bg-black/10 hover:text-amber transition-colors duration-150"
+        >
+          <Icon name="x" size={11} />
+        </button>
       </div>
       <div className="flex items-center gap-[8px] mt-[9px]">
         <input

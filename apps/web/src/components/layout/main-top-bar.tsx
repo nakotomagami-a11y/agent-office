@@ -17,6 +17,8 @@ import { useProjects } from "@/modules/projects/hooks/use-projects";
 import { useTabsStore } from "@/lib/tabs-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
+import { runningRuns } from "@/modules/projects/format/run-stats";
+import { ProjectQuickView } from "./project-quick-view";
 import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { useProcessesStore } from "@/lib/processes-store";
 import { isActiveRoute } from "./sidebar-routing";
@@ -72,10 +74,23 @@ export function MainTopBar() {
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggle);
 
-  const { spendToday, agents } = useOfficeAgents();
+  const { spendToday, agents, runs } = useOfficeAgents();
   // The office page is iso-only now; hide its nav entry unless the Isometric
   // view integration is enabled (matches OfficeView's gate).
   const isoEnabled = useIntegrationEnabled("iso-view");
+
+  // Per-tab "live agents" badge — reuses the same runs `useOfficeAgents()`
+  // already fetched for the header's spend/agent-count (no extra request)
+  // and the same `runningRuns` helper the project dashboard's "Live runs"
+  // panel uses, just grouped by `projectId` instead of filtered to one.
+  const liveCountByProject = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const run of runningRuns(runs)) {
+      if (!run.projectId) continue;
+      m.set(run.projectId, (m.get(run.projectId) ?? 0) + 1);
+    }
+    return m;
+  }, [runs]);
 
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
@@ -291,6 +306,7 @@ export function MainTopBar() {
                   isActive={tab.id === activeTabId}
                   projectName={projectsById.get(tab.projectId)?.name ?? tab.projectId}
                   projectPlanet={projectsById.get(tab.projectId)?.planet}
+                  liveCount={liveCountByProject.get(tab.projectId) ?? 0}
                   onActivate={() => handleActivate(tab)}
                   onClose={() => handleClose(tab)}
                   closeLabel={t("tabs.close_tab_label")}
@@ -463,34 +479,47 @@ type TabPillProps = {
   isActive: boolean;
   projectName: string;
   projectPlanet: PlanetConfig | undefined;
+  /** Agents currently running in this tab's project — 0 hides the badge. */
+  liveCount: number;
   onActivate: () => void;
   onClose: () => void;
   onContextMenu: (x: number, y: number) => void;
   closeLabel: string;
 };
 
-function TabPill({ tab, isActive, projectName, projectPlanet, onActivate, onClose, onContextMenu, closeLabel }: TabPillProps) {
+function TabPill({ tab, isActive, projectName, projectPlanet, liveCount, onActivate, onClose, onContextMenu, closeLabel }: TabPillProps) {
+  const t = useTranslations();
   const [hovered, setHovered] = useState(false);
   return (
+    <ProjectQuickView tab={tab} isActive={isActive} projectName={projectName} projectPlanet={projectPlanet}>
+      {(trigger) => (
     <div
+      ref={trigger.ref}
       className={cn(
         "group relative flex items-center gap-[8px] pl-[8px] pr-[6px] max-w-[220px] min-w-[110px] h-[38px] rounded-xl cursor-pointer select-none text-[12.5px] font-semibold transition-colors duration-150",
         isActive ? "bg-card-2" : "text-txt-2 hover:bg-card-2",
       )}
       role="tab"
       aria-selected={isActive}
-      aria-label={projectName}
-      title={projectName}
       tabIndex={0}
       onClick={onActivate}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onActivate(); } }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); trigger.onMouseEnter(); }}
+      onMouseLeave={() => { setHovered(false); trigger.onMouseLeave(); }}
       onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onClose(); } }}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e.clientX, e.clientY); }}
     >
       <PlanetCanvas projectId={tab.projectId} config={projectPlanet} size={18} className="rounded-full shrink-0 pointer-events-none" />
       <span className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap pointer-events-none">{projectName}</span>
+      {liveCount > 0 && (
+        <span
+          aria-label={t("tabs.live_agents_aria", { count: liveCount })}
+          className="flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-green-soft text-green text-[10px] font-bold whitespace-nowrap shrink-0 pointer-events-none"
+        >
+          <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
+          {liveCount}
+        </span>
+      )}
       <Tooltip content={closeLabel} side="bottom" className="shrink-0">
         <button
           type="button"
@@ -506,6 +535,8 @@ function TabPill({ tab, isActive, projectName, projectPlanet, onActivate, onClos
         </button>
       </Tooltip>
     </div>
+      )}
+    </ProjectQuickView>
   );
 }
 

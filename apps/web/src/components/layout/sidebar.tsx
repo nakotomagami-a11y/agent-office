@@ -225,6 +225,7 @@ export function Sidebar() {
                     <RosterGroup
                       key={group.agentId}
                       group={group}
+                      runs={runs}
                       projectId={activeProjectId ?? ""}
                       selectedInstanceId={selectedInstanceId}
                       renamingInstanceId={renamingInstanceId}
@@ -250,6 +251,7 @@ export function Sidebar() {
                 <RosterGroup
                   key={group.agentId}
                   group={group}
+                  runs={runs}
                   projectId={activeProjectId ?? ""}
                   selectedInstanceId={selectedInstanceId}
                   renamingInstanceId={renamingInstanceId}

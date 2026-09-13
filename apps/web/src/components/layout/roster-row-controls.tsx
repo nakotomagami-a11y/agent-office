@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
 import { cn } from "@/lib/cn";
 
@@ -14,6 +14,21 @@ import { cn } from "@/lib/cn";
 
 /** Statuses that render as "live" (pulsing working LED) across the roster tree. */
 export const LIVE_STATUSES: AgentStatusInfo["status"][] = ["working", "thinking"];
+
+/** Ascending urgency — later entries win when folding several instances'
+ *  statuses into one (the group row's LED, the quick-view roll-up badge). */
+export const STATUS_PRIORITY: AgentStatusInfo["status"][] = [
+  "idle", "done", "queued", "thinking", "working", "error",
+];
+
+/** Folds a list of per-instance statuses into the single most-urgent one. */
+export function aggregateStatus(statuses: AgentStatusInfo["status"][]): AgentStatusInfo["status"] {
+  let best: AgentStatusInfo["status"] = "idle";
+  for (const s of statuses) {
+    if (STATUS_PRIORITY.indexOf(s) > STATUS_PRIORITY.indexOf(best)) best = s;
+  }
+  return best;
+}
 
 // ── Action button (pin / spawn / remove / rename) ──────────────────────────
 
@@ -54,6 +69,11 @@ export type RosterSessionRowProps = {
   /** Omit for a non-interactive row (e.g. the rename text input): no button
    *  role, no click/keyboard handling gets attached. */
   onClick?: () => void;
+  /** Forwarded straight onto the row's own div — lets `AgentQuickView`'s
+   *  render-prop attach its hover trigger without an extra wrapper box
+   *  (see that component's doc comment for why a wrapper broke hover). */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   "aria-label"?: string;
   children: ReactNode;
   className?: string;
@@ -67,10 +87,14 @@ export type RosterSessionRowProps = {
  * same spot instead, so it reads as "the tick, lit up". `group` here pairs
  * with `RosterSessionActions`' `group-hover:` below to reveal hover actions.
  */
-export function RosterSessionRow({ active, onClick, "aria-label": ariaLabel, children, className }: RosterSessionRowProps) {
+export const RosterSessionRow = forwardRef<HTMLDivElement, RosterSessionRowProps>(function RosterSessionRow(
+  { active, onClick, onMouseEnter, onMouseLeave, "aria-label": ariaLabel, children, className },
+  ref,
+) {
   const interactive = !!onClick;
   return (
     <div
+      ref={ref}
       aria-label={ariaLabel}
       className={cn(
         "group relative flex items-center gap-[10px] px-[10px] py-[6px] rounded-[6px] text-txt-2 hover:bg-bg-3",
@@ -83,6 +107,8 @@ export function RosterSessionRow({ active, onClick, "aria-label": ariaLabel, chi
         className,
       )}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={
@@ -96,7 +122,7 @@ export function RosterSessionRow({ active, onClick, "aria-label": ariaLabel, chi
       {children}
     </div>
   );
-}
+});
 
 /** Hover-reveal action cluster, absolutely positioned over a `RosterSessionRow`. */
 export function RosterSessionActions({ children }: { children: ReactNode }) {

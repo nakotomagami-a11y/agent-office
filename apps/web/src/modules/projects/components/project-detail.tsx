@@ -71,7 +71,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
             onAddAgent={() => setAddOpen(true)}
             onSaveDescription={(description) => updateMut.mutateAsync({ id, patch: { meta: { description } } })}
           />
-          <ProjectLiveRuns projectId={id} onSummonAnother={() => setAddOpen(true)} />
+          <ProjectLiveRuns projectId={id} roster={project.meta.roster} onSummonAnother={() => setAddOpen(true)} />
         </div>
 
         <ProjectStatCards
