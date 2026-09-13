@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { MotionConfig } from "framer-motion";
 import { useState } from "react";
+import { AppEvents } from "./app-events";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,6 +22,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* One app-wide SSE listener → React Query invalidations (replaces most
+          refetchInterval polling for server-driven state). Renders nothing. */}
+      <AppEvents />
       {/* `reducedMotion="user"` makes every `motion.*`/`AnimatePresence` in the
           tree respect the OS-level prefers-reduced-motion setting automatically
           (collapsing transforms/opacity transitions to instant) — CSS's own

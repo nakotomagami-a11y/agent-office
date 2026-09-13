@@ -223,6 +223,21 @@ export const conversationQuerySchema = z.object({
   instanceId: z.string().optional(),
 });
 
+// ─── Context & Cost tab ───────────────────────────────────────────────────────
+
+export const contextCostQuerySchema = z.object({
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+// The measured CC-base/tools/MCP split is agent-level, but the probe still
+// runs from the instance's own worktree cwd (so CLAUDE.md discovery matches),
+// hence instanceId is accepted.
+export const contextCostMeasureBodySchema = z.object({
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
 export const conversationCreateSchema = z.object({
   agentId: z.string().min(1),
   instanceId: z.string().optional(),

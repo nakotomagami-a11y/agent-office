@@ -17,6 +17,8 @@ export function useWorkflowTree(rootId: string | null, opts?: { active?: boolean
     queryKey: queryKeys.runs.tree(rootId ?? "none"),
     queryFn: () => apiFetch<WorkflowNode>(API_ROUTES.runTree(rootId as string)),
     enabled: !!rootId,
-    refetchInterval: opts?.active ? POLL.RUNS : false,
+    // Driven by the app-wide SSE "runs:changed" event; while a workflow is
+    // active, keep a slow reconnect safety net (nothing when idle).
+    refetchInterval: opts?.active ? POLL.SAFETY_NET : false,
   });
 }

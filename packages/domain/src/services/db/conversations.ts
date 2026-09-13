@@ -200,6 +200,7 @@ interface RunRow {
   instance_label: string | null; project_id: string | null; session_id: string | null;
   status: string; exit_code: number | null; prompt: string; output: string;
   tokens_in: number; tokens_out: number; cost_usd: number; dur_ms: number | null;
+  cache_creation_tokens: number | null; cache_read_tokens: number | null;
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
   parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
 }
@@ -213,6 +214,8 @@ function rowToRun(row: RunRow): PersistedRun {
     status: row.status as "running" | "done" | "error",
     exitCode: row.exit_code ?? undefined, prompt: row.prompt, output: row.output,
     tokensIn: row.tokens_in, tokensOut: row.tokens_out, cost: row.cost_usd,
+    cacheCreationTokens: row.cache_creation_tokens ?? undefined,
+    cacheReadTokens: row.cache_read_tokens ?? undefined,
     durMs: row.dur_ms ?? (row.ended_at != null ? row.ended_at - row.started_at : 0),
     model: row.model, effort: row.effort, cwd: row.cwd ?? undefined, ts: row.started_at,
     parentRunId: row.parent_run_id ?? undefined, accountId: row.account_id ?? undefined,

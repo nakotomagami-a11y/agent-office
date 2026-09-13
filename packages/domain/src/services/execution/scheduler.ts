@@ -2,8 +2,16 @@ import { randomUUID } from "node:crypto";
 import type { ScheduledJob, SummonRequest } from "../../types/index";
 import * as db from "../db";
 import { log } from "../infra/log";
+import { emitAppEvent } from "../infra/events";
 import * as runs from "./runs";
 import { startSummonRun, summonTargetExists } from "./summon-run";
+
+/** Update a job and notify listeners (the schedules list used to poll for
+ *  these tick-driven status changes; now it refreshes on this SSE event). */
+function updateJob(id: string, patch: Parameters<typeof db.updateScheduledJob>[1]): void {
+  db.updateScheduledJob(id, patch);
+  emitAppEvent("schedules:changed");
+}
 
 const TICK_MS = 30_000;
 /** Jobs more than this overdue don't auto-fire — they wait for the user (Q5). */
@@ -12,7 +20,6 @@ const STALE_MS = 12 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __agentOfficeSchedulerTimer: ReturnType<typeof setInterval> | undefined;
 }
 
@@ -27,7 +34,7 @@ function instanceBusy(req: SummonRequest): boolean {
 }
 
 function markAttention(job: ScheduledJob, attention: ScheduledJob["attention"]): void {
-  db.updateScheduledJob(job.id, { status: "needs-attention", attention });
+  updateJob(job.id, { status: "needs-attention", attention });
   log.info("scheduler.needs_attention", { jobId: job.id, attention });
 }
 
@@ -49,13 +56,13 @@ async function fireDue(job: ScheduledJob, now: number, bypassStale = false): Pro
     return markAttention(job, "missing-instance");
   }
 
-  db.updateScheduledJob(job.id, { status: "firing", firedRunId: result.runId });
+  updateJob(job.id, { status: "firing", firedRunId: result.runId });
   log.info("scheduler.fired", { jobId: job.id, runId: result.runId, reason: job.reason });
 }
 
 /** A fired job's run has an outcome — mark done, or reschedule if re-limited. */
 function reconcileFiring(job: ScheduledJob): void {
-  if (!job.firedRunId) return void db.updateScheduledJob(job.id, { status: "done" });
+  if (!job.firedRunId) return void updateJob(job.id, { status: "done" });
   const outcome = db.getRunOutcome(job.firedRunId);
   if (!outcome || outcome.status === "running") return; // still running or gone
 
@@ -64,7 +71,7 @@ function reconcileFiring(job: ScheduledJob): void {
     if (job.attempts + 1 > MAX_ATTEMPTS) return markAttention(job, "retry-exceeded");
     // Resume the *latest* session on the next fire so context carries forward.
     const resumeSessionId = db.getRun(job.firedRunId)?.sessionId ?? job.summonRequest.resumeSessionId;
-    db.updateScheduledJob(job.id, {
+    updateJob(job.id, {
       status: "pending",
       fireAt: resetsAt * 1000,
       attempts: job.attempts + 1,
@@ -74,7 +81,7 @@ function reconcileFiring(job: ScheduledJob): void {
     log.info("scheduler.rescheduled", { jobId: job.id, attempt: job.attempts + 1, fireAt: resetsAt * 1000 });
     return;
   }
-  db.updateScheduledJob(job.id, { status: "done" });
+  updateJob(job.id, { status: "done" });
 }
 
 let ticking = false;

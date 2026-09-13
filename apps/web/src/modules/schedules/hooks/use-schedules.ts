@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { ScheduledJob, SummonRequest } from "@agent-office/domain/types";
+import { POLL } from "@/lib/polling";
 
 const KEY = ["schedules"] as const;
 
@@ -11,7 +12,9 @@ export function useSchedules() {
   return useQuery({
     queryKey: KEY,
     queryFn: async () => (await apiFetch<{ jobs: ScheduledJob[] }>(API_ROUTES.schedules)).jobs,
-    refetchInterval: 15_000,
+    // Driven by the app-wide SSE "schedules:changed" event (scheduler ticks);
+    // slow reconnect safety net.
+    refetchInterval: POLL.SAFETY_NET,
   });
 }
 

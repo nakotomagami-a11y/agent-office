@@ -1,4 +1,5 @@
 export * as agents from "./agents/agents";
+export * as contextCost from "./agents/context-cost";
 export * as db from "./db";
 export * as history from "./projects/history";
 export * as projects from "./projects/projects";
@@ -24,6 +25,7 @@ export * as save from "./projects/save";
 export * as processes from "./execution/processes";
 export * as gitStatus from "./projects/git-status";
 export * as paths from "./infra/paths";
+export * as events from "./infra/events";
 export * as pipeline from "./execution/pipeline";
 export * as docs from "./docs/docs";
 export * as cleanup from "./projects/cleanup";

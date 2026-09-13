@@ -22,6 +22,7 @@ export function useProjectSpend(projectId: string | null) {
         `/api/projects/${encodeURIComponent(projectId!)}/spend`,
       ),
     enabled: !!projectId,
-    refetchInterval: POLL.RUNS,
+    // Driven by the app-wide SSE "spend:changed" event; slow reconnect safety net.
+    refetchInterval: POLL.SAFETY_NET,
   });
 }

@@ -9,6 +9,7 @@ import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
 import { AgentEditorForm } from "@/modules/agents/components/agent-editor-form";
+import { ContextCostTab } from "./context-cost-tab";
 import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useActiveProjectStore } from "@/lib/active-project-store";
@@ -34,6 +35,7 @@ type Tab = AgentTab;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "conversation", label: "Conversation" },
+  { id: "context-cost", label: "Context & Cost" },
   { id: "customization", label: "Customization" },
 ];
 
@@ -720,6 +722,13 @@ export function AgentDetailsModal() {
                 noHeader
                 newThreadSignal={newThreadSignal}
                 onActiveRunChange={setActiveRunId}
+              />
+            )}
+            {tab === "context-cost" && (
+              <ContextCostTab
+                agentId={agent.id}
+                instanceId={selectedInstanceId ?? undefined}
+                projectId={activeProjectId ?? undefined}
               />
             )}
             {tab === "customization" && (

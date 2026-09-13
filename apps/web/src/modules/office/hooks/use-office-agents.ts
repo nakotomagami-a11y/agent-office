@@ -39,7 +39,8 @@ export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
   const runsQuery = useQuery({
     queryKey: queryKeys.runs.list({ limit: 50 }),
     queryFn: () => apiFetch<PersistedRun[]>(`${API_ROUTES.runs}?limit=50`),
-    refetchInterval: POLL.RUNS,
+    // Driven by the app-wide SSE "runs:changed" event; slow reconnect safety net.
+    refetchInterval: POLL.SAFETY_NET,
   });
 
   const enriched = useMemo<

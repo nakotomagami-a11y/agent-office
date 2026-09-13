@@ -7,6 +7,10 @@ function envInt(key: string, fallback: number): number {
 
 export const POLL = {
   RUNS: envInt("NEXT_PUBLIC_POLL_RUNS", 5_000),
+  // Slow fallback for queries now driven primarily by the app-wide SSE event
+  // channel (see app-events.tsx). SSE delivers changes instantly; this only
+  // catches an event missed during a reconnect, so it can be lazy.
+  SAFETY_NET: envInt("NEXT_PUBLIC_POLL_SAFETY_NET", 60_000),
   HEALTH: envInt("NEXT_PUBLIC_POLL_HEALTH", 30_000),
   SKILLS_UPDATES: envInt("NEXT_PUBLIC_POLL_SKILLS_UPDATES", 60_000),
   // Only used while a conversation is running/needs_attention/queued — see

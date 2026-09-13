@@ -42,10 +42,11 @@ function ServerCard({
 }) {
   const t = useTranslations("processes_modal");
   const [open, setOpen] = useState(false);
-  const framework = detectFramework(p.name, p.cmd);
-  const proto = detectProto(p.name, p.cmd);
+  const isBackgroundTask = p.source === "background-task";
+  const framework = isBackgroundTask ? p.agentName ?? p.name : detectFramework(p.name, p.cmd);
+  const proto = isBackgroundTask ? "bg" : detectProto(p.name, p.cmd);
   const accent = accentForProto(proto);
-  const isLocal = p.address === "127.0.0.1" || p.address === "::1" || p.address === "0.0.0.0" || p.address === "::";
+  const isLocal = !isBackgroundTask && (p.address === "127.0.0.1" || p.address === "::1" || p.address === "0.0.0.0" || p.address === "::");
   const spark = sparkPath(history);
 
   return (
@@ -72,7 +73,7 @@ function ServerCard({
             {proto}
           </span>
           <span className="relative font-[var(--font-mono)] text-[18px] font-extrabold tracking-[-0.02em]" style={{ color: accent.fg }}>
-            {p.port}
+            {isBackgroundTask ? <Icon name="terminal" size={18} /> : p.port}
           </span>
           <span className="relative flex items-center gap-[5px] font-[var(--font-mono)] text-[9px] text-txt-4">
             <span className="w-[5px] h-[5px] rounded-full bg-green shadow-[0_0_5px_1px_rgba(52,211,153,0.6)] animate-[ao-pulse_2s_ease-in-out_infinite]" />
@@ -168,7 +169,9 @@ function ServerCard({
             [t("working_dir"), p.cwd || "-"],
             [t("command"), p.cmd || "-"],
             [t("started"), `${fmtAgo(p.startedAt)} · up ${fmtUptime(p.startedAt)}`],
-            [t("address"), `${p.address}:${p.port}`],
+            ...(isBackgroundTask
+              ? p.instanceLabel ? [[t("started_by"), p.instanceLabel]] : []
+              : [[t("address"), `${p.address}:${p.port}`]]),
           ].map(([k, v]) => (
             <div key={k} className="flex gap-[8px] text-[11px]">
               <span className="min-w-[86px] text-txt-4 font-[var(--font-mono)] shrink-0">{k}</span>

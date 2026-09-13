@@ -115,6 +115,11 @@ export interface PersistedRun {
    *  "Read", "Grep"). Only ever set while `status === "running"` — sourced
    *  from the in-memory live-run registry, not persisted to the DB. */
   currentTool?: string;
+  /** See {@link SseUsageEvent.cacheCreationTokens}. Persisted so historical
+   *  cost breakdowns (Context & Cost tab) don't need to replay live streams. */
+  cacheCreationTokens?: number;
+  /** See {@link SseUsageEvent.cacheReadTokens}. */
+  cacheReadTokens?: number;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ──────
@@ -351,6 +356,7 @@ export interface FlutterDevice {
 /** A tracked dev/build server process — GET /api/processes. */
 export interface ProcessInfo {
   pid: number;
+  /** 0 for a `source: "background-task"` entry — it never listens on a port. */
   port: number;
   address: string;
   name: string;
@@ -360,6 +366,13 @@ export interface ProcessInfo {
   memMb: number;
   projectId?: string;
   projectName?: string;
+  /** Set when this entry came from an agent's `run_in_background` Bash call
+   *  (tracked in `background_shells`) rather than the port scan — the UI uses
+   *  this to skip the "open in browser" action and show which agent started it. */
+  source?: "background-task";
+  agentId?: string;
+  agentName?: string;
+  instanceLabel?: string;
 }
 
 /** A project's git working-tree summary — GET /api/projects/<id>/git-status. */
@@ -484,7 +497,18 @@ export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "atta
 
 export interface SseChunkEvent { runId: string; text: string }
 export interface SseToolEvent { runId: string; name: string; input?: unknown }
-export interface SseUsageEvent { runId: string; tokensIn: number; tokensOut: number; cost: number }
+export interface SseUsageEvent {
+  runId: string;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
+  /** Tokens newly written to the prompt cache this turn (first time this
+   *  content — system prompt, tools, prior turns — appears in a session). */
+  cacheCreationTokens?: number;
+  /** Tokens served from the prompt cache this turn (content unchanged since
+   *  a prior turn wrote it) — billed at a steep discount vs. a fresh token. */
+  cacheReadTokens?: number;
+}
 export interface SseDoneEvent { runId: string; exitCode: number; sessionId?: string; durationMs?: number; tokensIn?: number; tokensOut?: number; cost?: number }
 // Run-error codes are the shared FE/BE vocabulary. The runtime values
 // (`RUN_ERROR_CODES`, `isRunErrorCode`) live in `../config/run-errors` — the
