@@ -30,6 +30,15 @@ export type UnitSpriteProps = {
   /** Optional accessible label. Decorative by default. */
   label?: string;
   className?: string;
+  /**
+   * Fit the WHOLE character (weapon tip down to the feet) inside the box
+   * instead of the office-floor default, which scales the body to a shared
+   * visual weight and lets weapon-dominated units (the lancer's spear) extend
+   * above the frame and get clipped. Use for previews/portraits where the
+   * complete sprite must be visible with nothing cut off. Ignores
+   * `sizeMultiplier`; feet stay anchored to the box bottom.
+   */
+  contain?: boolean;
 };
 
 /**
@@ -46,6 +55,7 @@ export function UnitSprite({
   flip = false,
   label,
   className,
+  contain = false,
 }: UnitSpriteProps) {
   // Hooks MUST be called before any early return so React sees the same
   // hook order on every render (rules-of-hooks). The placeholder branch
@@ -129,23 +139,32 @@ export function UnitSprite({
   // Scale the character *body* to a consistent visual weight, then feet-anchor.
   // Weapon-dominated kinds (the Lancer's spear) declare a `sizeMultiplier` so
   // their body reads at the same size as other units instead of shrinking to
-  // fit the tall spear bbox; the spear then extends above the frame and is
-  // clipped by `overflow-hidden`. For units without a multiplier/groundY this
-  // is mathematically identical to the previous bbox-fit + centre behaviour.
+  // fit the tall spear bbox. Office-floor default: the spear then extends
+  // above the square `size`x`size` frame and is clipped by `overflow-hidden`
+  // (tiles are packed tight; that's the intended tradeoff there).
+  const groundY = def.groundY ?? def.bbox.y + def.bbox.h;
   const mult = def.sizeMultiplier ?? 1;
   const scale = (size / Math.max(def.bbox.w, def.bbox.h)) * mult;
   const frameW = def.frameW * scale;
   const sheetW = frameW * sheet.frames;
   const sheetH = def.frameH * scale;
 
-  // Horizontal: centre the character body (bbox centre) in the square.
+  // Horizontal: centre the character body (bbox centre) in the box.
   const bodyCenterX = def.bbox.x + def.bbox.w / 2;
+  // `contain`: grow the box's HEIGHT (not the scale) so the full character —
+  // weapon tip down to feet — fits with nothing clipped, at the exact same
+  // scale/visual weight as every other unit. Width stays `size` so avatars
+  // still line up in a row; only weapon-dominated kinds (the lancer) end up
+  // taller than they are wide. Box width==height==size for every other kind,
+  // matching the office-floor box exactly.
+  const cropH = groundY - def.bbox.y;
+  const boxW = size;
+  const boxH = contain ? Math.ceil(cropH * scale) : size;
   // Vertical: stand the feet (`groundY`, falling back to the bbox bottom) on
-  // the avatar baseline so every unit shares a ground line regardless of the
-  // weapon extent above.
-  const groundY = def.groundY ?? def.bbox.y + def.bbox.h;
-  const offX = size / 2 - bodyCenterX * scale - frame * frameW;
-  const offY = size - groundY * scale;
+  // the box's own bottom edge so every unit shares a ground line regardless
+  // of the weapon extent above.
+  const offX = boxW / 2 - bodyCenterX * scale - frame * frameW;
+  const offY = boxH - groundY * scale;
 
   const ariaProps = label
     ? { role: "img" as const, "aria-label": label }
@@ -155,8 +174,8 @@ export function UnitSprite({
     <div
       className={cn("unit-sprite overflow-hidden relative shrink-0", className)}
       style={{
-        width: size,
-        height: size,
+        width: boxW,
+        height: boxH,
         transform: flip ? "scaleX(-1)" : undefined,
       }}
       {...ariaProps}
