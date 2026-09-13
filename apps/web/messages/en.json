@@ -722,7 +722,8 @@
     "working_dir": "Working dir",
     "command": "Command",
     "started": "Started",
-    "address": "Address"
+    "address": "Address",
+    "started_by": "Started by"
   },
   "search_page": {
     "title": "Search Runs",
