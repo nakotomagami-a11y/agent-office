@@ -1,5 +1,7 @@
 // Pure presentation helpers for the analytics page.
 
+import { MODEL_CATALOG, type ModelId } from "@agent-office/domain/config/models";
+
 /** Money. Drops cents once the number is big enough that they're noise. */
 export function usd(n: number): string {
   if (n === 0) return "$0";
@@ -65,18 +67,8 @@ export const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
  * work in the stacked spend bar.
  */
 export function modelFillClass(family: string): string {
-  switch (family) {
-    case "opus":
-      return "an-fill-opus";
-    case "sonnet":
-      return "an-fill-sonnet";
-    case "haiku":
-      return "an-fill-haiku";
-    case "fable":
-      return "an-fill-fable";
-    default:
-      return "an-fill-other";
-  }
+  const info = MODEL_CATALOG[family as ModelId];
+  return info ? info.fillClass : "an-fill-other";
 }
 
 /**

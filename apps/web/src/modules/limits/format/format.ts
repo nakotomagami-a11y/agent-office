@@ -1,18 +1,21 @@
 // Pure presentation helpers for the Claude limits modal.
 
+import { resolveModelAlias, familyOf } from "@agent-office/domain/config/models";
+
 export const fmtUSD = (n: number, dec = 2): string => `$${n.toFixed(dec)}`;
 export const fmtTok = (n: number): string => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
+const GENERIC_GRADIENT = "linear-gradient(90deg, color-mix(in oklab, var(--ao-accent) 80%, white), var(--ao-accent))";
+
 export function modelLabel(raw: string): { name: string; sub: string } {
-  const exact: Record<string, { name: string; sub: string }> = {
-    "sonnet":              { name: "Sonnet",       sub: "claude-sonnet-4" },
-    "opus":                { name: "Opus",          sub: "claude-opus-4" },
-    "haiku":               { name: "Haiku",         sub: "claude-haiku-4" },
-    "default":             { name: "Unknown",       sub: "model not captured" },
-    "unknown":             { name: "Unknown",       sub: "model not captured" },
-  };
-  if (exact[raw]) return exact[raw];
+  if (raw === "default" || raw === "unknown") return { name: "Unknown", sub: "model not captured" };
+  // Bare alias ("sonnet"/"opus"/"haiku"/"fable") → the catalog's deliberately
+  // vague generic sub (we don't know which exact version ran from this alone).
+  const exact = resolveModelAlias(raw);
+  if (exact) return { name: exact.label, sub: exact.genericSub };
   // claude-{family}-{version} full IDs → e.g. "claude-opus-4-7" → "Opus 4.7"
+  // (a precise version the catalog may not even know about yet, e.g. a
+  // deprecated release — this regex fallback stays generic on purpose).
   const m = raw.match(/^claude-([a-z]+)-([\d]+)(?:-([\d]+))?/i);
   if (m) {
     const family = m[1]!.charAt(0).toUpperCase() + m[1]!.slice(1);
@@ -23,9 +26,5 @@ export function modelLabel(raw: string): { name: string; sub: string } {
 }
 
 export function modelBarGradient(modelId: string): string {
-  const id = modelId.toLowerCase();
-  if (id.includes("sonnet")) return "linear-gradient(90deg, #b6b3ff, #7a76e0)";
-  if (id.includes("haiku"))  return "linear-gradient(90deg, #80e1c5, #2e8f73)";
-  if (id.includes("opus"))   return "linear-gradient(90deg, #ffd591, #f0a548)";
-  return "linear-gradient(90deg, color-mix(in oklab, var(--ao-accent) 80%, white), var(--ao-accent))";
+  return familyOf(modelId)?.gradient ?? GENERIC_GRADIENT;
 }

@@ -13,6 +13,7 @@
  */
 
 import { getDb } from "../db";
+import { familyOf } from "../../config/models";
 import type {
   AnalyticsTotals, ModelFamilyRow, ToolRow, ActivityCell, SeriesPoint,
   AnalyticsPage, PageRange,
@@ -43,10 +44,8 @@ function normalizeEnd(end: number): number {
  */
 export function modelFamily(raw: string): { key: string; label: string } {
   const id = (raw || "unknown").toLowerCase();
-  if (id.includes("opus")) return { key: "opus", label: "Opus" };
-  if (id.includes("sonnet")) return { key: "sonnet", label: "Sonnet" };
-  if (id.includes("haiku")) return { key: "haiku", label: "Haiku" };
-  if (id.includes("fable")) return { key: "fable", label: "Fable" };
+  const info = familyOf(id);
+  if (info) return { key: info.id, label: info.label };
   if (id === "" || id === "default" || id === "unknown") {
     return { key: "unknown", label: "Unrecorded" };
   }
