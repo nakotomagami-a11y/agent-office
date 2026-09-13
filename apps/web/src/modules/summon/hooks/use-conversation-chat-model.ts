@@ -16,6 +16,7 @@ import {
   useClearConversationQueue,
 } from "./use-conversation";
 import { turnsToThreadItems, turnToThreadItems } from "../format/conversation-to-thread";
+import { findLatestBackgroundTask } from "../components/background-task-indicator";
 import { transcriptKey } from "../format/transcript-store";
 import { clearDraft } from "../format/draft-store";
 import { formatDateTime } from "@/lib/format-date";
@@ -38,6 +39,11 @@ type UseConversationChatModelInput = {
   instanceId: string | undefined;
   newThreadSignal: number | undefined;
   onActiveRunChange: ((id: string | null) => void) | undefined;
+  /** Same "report state up" pattern as `onActiveRunChange` — the primary
+   *  "Agent: X" modal renders its own header instead of `ChatHead`'s (see
+   *  `background-task-indicator.tsx`'s file header comment), so it needs this
+   *  reported up rather than reading it off a `ChatHead`-scoped component. */
+  onBackgroundTaskChange?: (task: { id: string; command: string } | null) => void;
 };
 
 /**
@@ -195,6 +201,11 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
     input.onActiveRunChange?.(view?.activeRunId ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view?.activeRunId]);
+
+  useEffect(() => {
+    input.onBackgroundTaskChange?.(findLatestBackgroundTask(thread));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread]);
 
   // ── actions ────────────────────────────────────────────────────────────
   const onSubmit = async (text: string) => {
