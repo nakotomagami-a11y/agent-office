@@ -72,3 +72,10 @@
   0% { transform: scale(0.6); opacity: 0.6; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+/* Quick-view "live" alert boxes (roster + project tab hover cards) — a thin
+   highlight sweeps across the top edge while a box reads as active/needs
+   attention (green or amber tone only; red/grey render still). */
+@keyframes quick-view-sweep {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(420%); }
+}

@@ -7,9 +7,10 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { RosterInstanceRow } from "./roster-instance-row";
-import { LIVE_STATUSES, RosterActionButton, RosterSessionRow } from "./roster-row-controls";
+import { aggregateStatus, LIVE_STATUSES, RosterActionButton, RosterSessionRow } from "./roster-row-controls";
+import { AgentQuickView, type QuickViewTrigger } from "./agent-quick-view";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
-import type { AgentInstance } from "@agent-office/domain/types";
+import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
 import {
   AGENT_DRAG_MIME,
@@ -27,10 +28,6 @@ function agentLedClass(status: AgentStatusInfo["status"]) {
   );
 }
 
-const STATUS_PRIORITY: AgentStatusInfo["status"][] = [
-  "idle", "done", "queued", "thinking", "working", "error",
-];
-
 function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (e: React.MouseEvent) => void }) {
   const t = useTranslations();
   return (
@@ -47,14 +44,6 @@ function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (e: React.
   );
 }
 
-function aggregateStatus(statuses: AgentStatusInfo["status"][]): AgentStatusInfo["status"] {
-  let best: AgentStatusInfo["status"] = "idle";
-  for (const s of statuses) {
-    if (STATUS_PRIORITY.indexOf(s) > STATUS_PRIORITY.indexOf(best)) best = s;
-  }
-  return best;
-}
-
 export interface RosterGroupData {
   agentId: string;
   agent: OfficeAgent;
@@ -66,6 +55,9 @@ export interface RosterGroupData {
 export interface RosterGroupProps {
   group: RosterGroupData;
   projectId: string;
+  /** Recent runs across the whole app — used only to derive the quick-view
+   *  hover card's "last activity" text per instance (see `agent-quick-view.tsx`). */
+  runs: PersistedRun[];
   selectedInstanceId: string | null;
   renamingInstanceId: string | null;
   onSelect: (instanceId: string) => void;
@@ -83,6 +75,7 @@ export interface RosterGroupProps {
 export function RosterGroup({
   group,
   projectId: _projectId,
+  runs,
   selectedInstanceId,
   renamingInstanceId,
   onSelect,
@@ -112,10 +105,17 @@ export function RosterGroup({
 
   const isSelected = !isMulti && inst ? selectedInstanceId === inst.instanceId : false;
 
-  return (
-    <div>
-      {/* Agent row */}
+  const quickViewSubject = isMulti
+    ? { kind: "group" as const, group, runs }
+    : inst
+      ? { kind: "single" as const, agent, instance: inst, index: 0, headerMode: "agent" as const }
+      : null;
+
+  const renderAgentRow = (trigger?: QuickViewTrigger) => (
       <div
+        ref={trigger?.ref}
+        onMouseEnter={trigger?.onMouseEnter}
+        onMouseLeave={trigger?.onMouseLeave}
         className={cn(
           "flex items-center gap-[10px] p-[6px] rounded-[8px] cursor-pointer hover:bg-bg-3 group relative",
           isSelected && "bg-acc-faint",
@@ -221,6 +221,23 @@ export function RosterGroup({
           </>
         )}
       </div>
+  );
+
+  return (
+    <div>
+      {/* Agent row */}
+      {quickViewSubject ? (
+        <AgentQuickView
+          subject={quickViewSubject}
+          spendByInstance={spendByInstance}
+          onSelect={onSelect}
+          onSpawn={onSpawn}
+        >
+          {renderAgentRow}
+        </AgentQuickView>
+      ) : (
+        renderAgentRow()
+      )}
 
       {/* Expanded sessions tree */}
       {isMulti && expanded && (
@@ -231,12 +248,15 @@ export function RosterGroup({
             return (
               <RosterInstanceRow
                 key={inst.instanceId}
+                agent={agent}
+                instance={inst}
                 instanceId={inst.instanceId}
                 instanceNumber={idx + 1}
                 label={inst.label}
                 status={instanceStatuses[idx] ?? "idle"}
                 isSelected={selectedInstanceId === inst.instanceId}
                 onSelect={() => onSelect(inst.instanceId)}
+                onSpawn={onSpawn}
                 onRemove={() => onRemove(inst.instanceId)}
                 onRename={() => onRenameStart(inst.instanceId)}
                 isRenaming={renamingInstanceId === inst.instanceId}

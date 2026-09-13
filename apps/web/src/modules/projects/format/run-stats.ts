@@ -3,7 +3,7 @@
 // `useRuns()` so these stay trivially testable and reusable across the stat
 // cards, the live-runs panel, and the recent-runs table.
 
-import type { PersistedRun } from "@agent-office/domain/types";
+import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 import { looksLikeQuestion } from "@/modules/summon/format/thread-rows";
 
 const DAY_MS = 86_400_000;
@@ -103,8 +103,19 @@ export function runningRuns(runs: PersistedRun[]): PersistedRun[] {
  * final output reads as a question, the human hasn't answered it yet — any
  * later run for that instance would itself be the newest and would replace
  * it here, so "latest run is a question" already means "no reply since".
+ *
+ * `roster` scopes this to instances that still exist in the project today.
+ * An instance removed from the roster has no reachable chat surface left to
+ * show a reply prompt in — surfacing one for it here anyway is exactly the
+ * false "still waiting" card this function must not produce (that instance
+ * may be from a long-abandoned thread the human simply moved on from without
+ * ever formally "replying", which the raw "ends in a question mark" text
+ * heuristic can't tell apart from a genuinely fresh, unanswered one). Runs
+ * that predate per-instance tracking (`instanceId` unset) have no instance
+ * to check and are kept as-is.
  */
-export function runsAwaitingReply(runs: PersistedRun[]): PersistedRun[] {
+export function runsAwaitingReply(runs: PersistedRun[], roster: AgentInstance[]): PersistedRun[] {
+  const currentInstanceIds = new Set(roster.map((i) => i.instanceId));
   const latestByThread = new Map<string, PersistedRun>();
   for (const run of runs) {
     const key = run.instanceId ?? run.agentId;
@@ -113,5 +124,6 @@ export function runsAwaitingReply(runs: PersistedRun[]): PersistedRun[] {
   }
   return Array.from(latestByThread.values())
     .filter((r) => r.status === "done" && looksLikeQuestion(r.output))
+    .filter((r) => !r.instanceId || currentInstanceIds.has(r.instanceId))
     .sort((a, b) => b.ts - a.ts);
 }
