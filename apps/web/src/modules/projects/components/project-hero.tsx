@@ -3,9 +3,9 @@
 import { useState } from "react";
 import type { Project } from "@agent-office/domain/types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
-import { UnitSprite } from "@/components/ui/unit-sprite";
 import { planetTag } from "@/lib/planet-seed";
 import { ProjectRuntimeBar, ProjectShortcutsBar } from "@/modules/office/components/office-toolbar";
 
@@ -199,7 +199,7 @@ function RosterAvatarStack({ rosterAgentIds, allAgents }: { rosterAgentIds: stri
           >
             {/* Roster can reference an agent whose definition was since removed from
                 ~/.claude/agents/ — fall back to a generic glyph instead of a blank hole. */}
-            {agent ? <UnitSprite unit={agent.unitChoice} size={30} animate={false} /> : <Icon name="cpu" size={13} className="text-txt-4" />}
+            {agent ? <AgentAvatar unit={agent.unitChoice} size={30} label={agent.name} /> : <Icon name="cpu" size={13} className="text-txt-4" />}
           </span>
         );
       })}
