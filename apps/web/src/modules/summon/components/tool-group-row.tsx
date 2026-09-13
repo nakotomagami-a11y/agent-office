@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
@@ -53,11 +53,6 @@ function ToolIcon({ name, size = 13 }: { name: string; size?: number }) {
  */
 function ToolCallRow({ name, arg, running = false }: { name: string; arg?: string; running?: boolean }) {
   const [showIn, setShowIn] = useState(false);
-  // Pretty-print + highlight lazily — only the rows a user actually expands
-  // pay for JSON.parse and the highlighter's regex passes. Reuses the same
-  // `highlight()`/`.hl-*` tokenizer as every other code surface in the app
-  // (CodeBlock, the memory/docs editor) instead of a bespoke one, so tool
-  // args get the same VS-Code-ish coloring for free.
   const pretty = useMemo(() => {
     if (!arg) return "";
     const { text, json } = prettyPrintToolArg(arg);
@@ -102,22 +97,22 @@ function ToolCallRow({ name, arg, running = false }: { name: string; arg?: strin
  *  matching the reference exactly (it never shows a group toggle). */
 const COLLAPSE_THRESHOLD = 8;
 
-export function ToolGroupRow({
-  id,
-  tools,
-  agent,
-  running = false,
-  hideAvatar = false,
-}: {
+type ToolGroupRowProps = {
   id: string;
   tools: Array<{ id: string; name: string; arg?: string }>;
   agent: OfficeAgent;
   running?: boolean;
   hideAvatar?: boolean;
-}) {
+};
+
+function ToolGroupRowImpl({
+  id,
+  tools,
+  agent,
+  running = false,
+  hideAvatar = false,
+}: ToolGroupRowProps) {
   const longChain = tools.length > COLLAPSE_THRESHOLD;
-  // Long chains default collapsed (a scalability valve the reference never
-  // has to demo); short ones — the common case — skip the toggle entirely.
   const [open, toggle] = useExpandedState(id, !longChain);
   return (
     <div className="flex items-start gap-[12px] relative group/msg">
@@ -145,6 +140,29 @@ export function ToolGroupRow({
     </div>
   );
 }
+
+/**
+ * Memoized like MessageBubble so a streaming re-render doesn't re-render every
+ * completed tool chain. ChatThread rebuilds the `tools` array on every render
+ * (`row.tools.map(...)`), so the default shallow compare would never hit —
+ * hence a custom comparator that compares the tools element-wise (id/name/arg)
+ * plus the scalar props. `agent` is referentially stable (a ChatThread prop),
+ * so a reference check is enough for it.
+ */
+function toolGroupRowsEqual(a: ToolGroupRowProps, b: ToolGroupRowProps): boolean {
+  if (a.id !== b.id || a.running !== b.running || a.hideAvatar !== b.hideAvatar || a.agent !== b.agent) {
+    return false;
+  }
+  if (a.tools.length !== b.tools.length) return false;
+  for (let i = 0; i < a.tools.length; i++) {
+    const ta = a.tools[i]!;
+    const tb = b.tools[i]!;
+    if (ta.id !== tb.id || ta.name !== tb.name || ta.arg !== tb.arg) return false;
+  }
+  return true;
+}
+
+export const ToolGroupRow = memo(ToolGroupRowImpl, toolGroupRowsEqual);
 
 // Re-export the icon helper so `message-bubble.tsx` doesn't need its own
 // duplicate — same `TOOL_ICONS` table, same `<Icon>` mapping.
