@@ -120,6 +120,8 @@ export interface PersistedRun {
   cacheCreationTokens?: number;
   /** See {@link SseUsageEvent.cacheReadTokens}. */
   cacheReadTokens?: number;
+  backgroundTaskCommand?: string;
+  backgroundTaskStartedAt?: number;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ──────

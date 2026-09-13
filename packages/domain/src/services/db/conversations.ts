@@ -223,12 +223,50 @@ function rowToRun(row: RunRow): PersistedRun {
   };
 }
 
+/**
+ * The first `run_in_background: true` Bash command per run, for the given
+ * run ids — one extra indexed query (`idx_tool_calls_run`), not N+1. A
+ * turn's live tool-call trail is otherwise NOT reconstructed once it's
+ * historical (see `PersistedRun.backgroundTaskCommand`'s doc comment), so
+ * this is the only way a chat can still show "this turn started something
+ * backgrounded" after the turn itself has finished.
+ */
+function backgroundTaskCommandsByRun(runIds: string[]): Map<string, { command: string; startedAt: number }> {
+  const out = new Map<string, { command: string; startedAt: number }>();
+  if (runIds.length === 0) return out;
+  const placeholders = runIds.map(() => "?").join(",");
+  const rows = getDb()
+    .prepare(
+      `SELECT run_id, input, ts FROM tool_calls
+       WHERE run_id IN (${placeholders}) AND name = 'Bash' AND input LIKE '%"run_in_background":true%'
+       ORDER BY ts ASC`,
+    )
+    .all(...runIds) as Array<{ run_id: string; input: string; ts: number }>;
+  for (const row of rows) {
+    if (out.has(row.run_id)) continue; // first match per run wins
+    try {
+      const parsed = JSON.parse(row.input) as { command?: unknown };
+      if (typeof parsed.command === "string") out.set(row.run_id, { command: parsed.command, startedAt: row.ts });
+    } catch { /* malformed input JSON — skip */ }
+  }
+  return out;
+}
+
 /** Top-level turns (runs) of a conversation, oldest → newest. */
 export function listConversationTurns(conversationId: string): PersistedRun[] {
   const rows = getDb()
     .prepare("SELECT * FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC")
     .all(conversationId) as RunRow[];
-  return rows.map(rowToRun);
+  const bgCommands = backgroundTaskCommandsByRun(rows.map((r) => r.id));
+  return rows.map((row) => {
+    const run = rowToRun(row);
+    const bg = bgCommands.get(row.id);
+    if (bg) {
+      run.backgroundTaskCommand = bg.command;
+      run.backgroundTaskStartedAt = bg.startedAt;
+    }
+    return run;
+  });
 }
 
 /** The most recent top-level turn of a conversation (used to derive the prompt

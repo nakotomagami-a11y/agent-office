@@ -9,7 +9,11 @@ export type SubAgentStatus = "queued" | "running" | "cancelling" | "done" | "err
 export type ThreadItem =
   | { kind: "you"; id: string; text: string }
   | { kind: "agent-text"; id: string; text: string; streaming: boolean }
-  | { kind: "agent-tool"; id: string; name: string; arg?: string }
+  // `ts` is only ever set for a `run_in_background` Bash call — see
+  // `BackgroundTaskPill`'s auto-expiry, the one consumer that needs it. Live
+  // tool calls get `Date.now()` at SSE-arrival time; historical ones get the
+  // real persisted `tool_calls.ts` (see `PersistedRun.backgroundTaskStartedAt`).
+  | { kind: "agent-tool"; id: string; name: string; arg?: string; ts?: number }
   | { kind: "agent-thinking"; id: string; text: string }
   | { kind: "agent-subagent"; id: string; name: string; prompt: string; status: SubAgentStatus; startTs: number; durationMs?: number; subRunId?: string; currentTool?: string; tokensIn?: number; tokensOut?: number; cost?: number; lastOutputLine?: string }
   | { kind: "system-error"; id: string; code: RunErrorCode; detail?: string; interrupted?: boolean }

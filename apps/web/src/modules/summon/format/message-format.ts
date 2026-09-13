@@ -22,6 +22,41 @@ export function fmtTok(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
+/**
+ * True for a Bash tool call the agent explicitly backgrounded
+ * (`run_in_background: true`) — the shell is meant to keep running after
+ * this tool call returns. `arg` is the tool input's raw JSON (see
+ * `formatToolArg` in parse-sse-event.ts) — parsed defensively since a
+ * non-Bash tool's `arg` is a different shape or a plain string.
+ *
+ * NOTE on liveness: this only tells you the agent *started* a background
+ * task, not whether it's still alive right now. The CLI's own background-task
+ * runner doesn't reliably surface completion back through the run's SSE
+ * stream (see `execution/runs/background-shell.ts`'s doc comment) — so
+ * nothing client-side can currently prove liveness. Treat any UI built on
+ * this as "started, unknown duration" rather than a live status.
+ */
+export function isBackgroundBash(name: string, arg: string | undefined): boolean {
+  if (name !== "Bash" || !arg) return false;
+  try {
+    const parsed: unknown = JSON.parse(arg);
+    return !!parsed && typeof parsed === "object" && (parsed as { run_in_background?: unknown }).run_in_background === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Best-effort one-line command preview for a backgrounded Bash call's `arg`
+ *  JSON — falls back to the raw string if parsing fails so the indicator
+ *  never renders blank. */
+export function extractBashCommand(arg: string): string {
+  try {
+    const parsed = JSON.parse(arg) as { command?: unknown };
+    if (typeof parsed.command === "string") return parsed.command;
+  } catch { /* fall through */ }
+  return arg;
+}
+
 export function fmtDuration(ms: number): string {
   const sec = Math.round(ms / 1000);
   if (sec < 60) return `${sec}s`;

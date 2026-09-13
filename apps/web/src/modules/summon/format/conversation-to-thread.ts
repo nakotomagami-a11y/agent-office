@@ -14,6 +14,22 @@ import type { ThreadItem } from "./thread-types";
 
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
   const items: ThreadItem[] = [{ kind: "you", id: `${turn.id}_you`, text: turn.prompt }];
+  // The one deliberately-persisted exception to the "no tool trail survives
+  // history" rule above: `listConversationTurns` looks this up from
+  // `tool_calls` (permanent) rather than the live event log (ephemeral), so
+  // a backgrounded command started mid-turn is still visible to
+  // `BackgroundTaskIndicator` after the turn itself finishes. Same `arg`
+  // shape a live "tool" SSE event would have produced, so it renders
+  // identically either way.
+  if (turn.backgroundTaskCommand) {
+    items.push({
+      kind: "agent-tool",
+      id: `${turn.id}_bg`,
+      name: "Bash",
+      arg: JSON.stringify({ command: turn.backgroundTaskCommand, run_in_background: true }),
+      ts: turn.backgroundTaskStartedAt,
+    });
+  }
   if (turn.output && turn.output.trim().length > 0) {
     items.push({ kind: "agent-text", id: `${turn.id}_out`, text: turn.output, streaming: false });
   }
