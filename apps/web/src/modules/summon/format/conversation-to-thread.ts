@@ -27,7 +27,7 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
       id: `${turn.id}_bg`,
       name: "Bash",
       arg: JSON.stringify({ command: turn.backgroundTaskCommand, run_in_background: true }),
-      ts: turn.backgroundTaskStartedAt,
+      runId: turn.id,
     });
   }
   if (turn.output && turn.output.trim().length > 0) {

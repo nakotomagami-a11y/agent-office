@@ -5,7 +5,7 @@ import { Portal } from "@/components/ui/portal";
 import { useOfficeAgents } from "../../hooks/use-office-agents";
 import { useOfficeStore, type AgentTab } from "../../hooks/use-office-store";
 import { ChatPanel } from "@/modules/summon/components/chat-panel";
-import { BackgroundTaskPill, useIsBackgroundTaskExpired, type BackgroundTask } from "@/modules/summon/components/background-task-indicator";
+import { BackgroundTaskPill, useIsBackgroundTaskAlive, type BackgroundTask } from "@/modules/summon/components/background-task-indicator";
 import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
@@ -125,7 +125,7 @@ export function AgentDetailsModal() {
   const stream = useRunStream(activeRunId);
   const [backgroundTask, setBackgroundTask] = useState<BackgroundTask | null>(null);
   const [dismissedBgTaskId, setDismissedBgTaskId] = useState<string | null>(null);
-  const backgroundTaskExpired = useIsBackgroundTaskExpired(backgroundTask?.startedAt);
+  const backgroundTaskAlive = useIsBackgroundTaskAlive(backgroundTask?.runId);
 
   // Runtime (model / effort) dropdowns in the header. Editing these writes the
   // agent definition, which only takes effect on the next task — hence the toast.
@@ -441,7 +441,7 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && !backgroundTaskExpired && (
+              {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive && (
                 <BackgroundTaskPill task={backgroundTask} onDismiss={() => setDismissedBgTaskId(backgroundTask.id)} />
               )}
               {/* Alt+← / Alt+→ navigator when multi-instance */}

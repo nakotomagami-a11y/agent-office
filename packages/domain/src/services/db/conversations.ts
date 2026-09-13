@@ -231,8 +231,8 @@ function rowToRun(row: RunRow): PersistedRun {
  * this is the only way a chat can still show "this turn started something
  * backgrounded" after the turn itself has finished.
  */
-function backgroundTaskCommandsByRun(runIds: string[]): Map<string, { command: string; startedAt: number }> {
-  const out = new Map<string, { command: string; startedAt: number }>();
+function backgroundTaskCommandsByRun(runIds: string[]): Map<string, string> {
+  const out = new Map<string, string>();
   if (runIds.length === 0) return out;
   const placeholders = runIds.map(() => "?").join(",");
   const rows = getDb()
@@ -246,7 +246,7 @@ function backgroundTaskCommandsByRun(runIds: string[]): Map<string, { command: s
     if (out.has(row.run_id)) continue; // first match per run wins
     try {
       const parsed = JSON.parse(row.input) as { command?: unknown };
-      if (typeof parsed.command === "string") out.set(row.run_id, { command: parsed.command, startedAt: row.ts });
+      if (typeof parsed.command === "string") out.set(row.run_id, parsed.command);
     } catch { /* malformed input JSON — skip */ }
   }
   return out;
@@ -260,11 +260,8 @@ export function listConversationTurns(conversationId: string): PersistedRun[] {
   const bgCommands = backgroundTaskCommandsByRun(rows.map((r) => r.id));
   return rows.map((row) => {
     const run = rowToRun(row);
-    const bg = bgCommands.get(row.id);
-    if (bg) {
-      run.backgroundTaskCommand = bg.command;
-      run.backgroundTaskStartedAt = bg.startedAt;
-    }
+    const command = bgCommands.get(row.id);
+    if (command) run.backgroundTaskCommand = command;
     return run;
   });
 }

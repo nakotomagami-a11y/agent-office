@@ -133,7 +133,7 @@ export function applySseEvent(
       return {
         thread: closeStreaming([
           ...prev.thread,
-          { kind: "agent-tool" as const, id: newId(), name: data.name, arg: formatToolArg(data.input), ts: Date.now() },
+          { kind: "agent-tool" as const, id: newId(), name: data.name, arg: formatToolArg(data.input), runId: data.runId },
         ]),
         usage: prev.usage,
         done: false,

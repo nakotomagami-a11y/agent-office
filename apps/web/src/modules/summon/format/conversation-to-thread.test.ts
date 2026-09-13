@@ -55,17 +55,17 @@ check("a still-running turn (caller forgot to exclude it) → just the you bubbl
 
 check("a turn with backgroundTaskCommand → you + agent-tool(Bash) + agent-text + system-done", () => {
   const items = turnToThreadItems({
-    ...baseTurn, output: "started it", backgroundTaskCommand: "sleep 240 && echo done", backgroundTaskStartedAt: 12345,
+    ...baseTurn, output: "started it", backgroundTaskCommand: "sleep 240 && echo done",
   });
   assert.deepEqual(items.map((i) => i.kind), ["you", "agent-tool", "agent-text", "system-done"]);
-  const tool = items[1] as { name: string; arg?: string; ts?: number };
+  const tool = items[1] as { name: string; arg?: string; runId?: string };
   assert.equal(tool.name, "Bash");
   const parsedArg = JSON.parse(tool.arg!);
   assert.equal(parsedArg.command, "sleep 240 && echo done");
   assert.equal(parsedArg.run_in_background, true);
-  // The pill's auto-expiry (background-task-indicator.tsx) measures elapsed
-  // time off this — it has to be the real persisted moment, not Date.now().
-  assert.equal(tool.ts, 12345);
+  // The pill checks liveness by runId — this must be the real run id, not a
+  // synthetic one, so it can be matched against /api/processes.
+  assert.equal(tool.runId, "run1");
 });
 
 check("no backgroundTaskCommand → no agent-tool item (existing turns unaffected)", () => {

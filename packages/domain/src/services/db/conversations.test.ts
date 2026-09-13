@@ -95,13 +95,7 @@ check("listConversationTurns: surfaces a run_in_background Bash command by run, 
   const t1 = turns.find((t) => t.id === "bgrun1")!;
   const t2 = turns.find((t) => t.id === "bgrun2")!;
   assert.equal(t1.backgroundTaskCommand, "sleep 240");
-  // The earlier call's own ts (1200), not the later one's (1300) — this is
-  // what the client's 20-minute pill auto-expiry (background-task-indicator.tsx)
-  // measures elapsed time against, so it has to be the real moment the shell
-  // actually started, not an arbitrary one.
-  assert.equal(t1.backgroundTaskStartedAt, 1200);
   assert.equal(t2.backgroundTaskCommand, undefined, "a turn with no run_in_background tool_call gets no field at all");
-  assert.equal(t2.backgroundTaskStartedAt, undefined);
 });
 
 check("backfill creates a conversation per legacy slot and tags its runs", () => {
