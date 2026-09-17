@@ -78,12 +78,43 @@ type Entry = {
   listeners: Set<(s: RunStreamState) => void>;
   retryCount: number;
   cleanupHandlers: () => void;
+  /** rAF handle for a coalesced streaming notify, or null when none pending. */
+  rafHandle: number | null;
 };
 
 const registry = new Map<string, Entry>();
 
-function notify(entry: Entry) {
+function emit(entry: Entry) {
   for (const listener of entry.listeners) listener(entry.state);
+}
+
+/**
+ * Flush any pending streaming notify immediately. Used for state the UI must
+ * not lag on — connection changes and terminal `done`/`error` events.
+ */
+function notify(entry: Entry) {
+  if (entry.rafHandle !== null) {
+    cancelAnimationFrame(entry.rafHandle);
+    entry.rafHandle = null;
+  }
+  emit(entry);
+}
+
+/**
+ * Coalesce high-frequency streaming updates (token chunks, usage, tool, and
+ * sub-agent events) to at most one listener notification per animation frame.
+ * Claude can emit hundreds of tokens/second; without this, each chunk drove a
+ * synchronous setState → full ChatThread re-render. rAF caps that to ~60/s and
+ * always emits the latest accumulated `entry.state`. rAF is paused in
+ * backgrounded tabs, which is fine — terminal events flush synchronously via
+ * `notify`, so the final state never depends on a frame that won't come.
+ */
+function scheduleNotify(entry: Entry) {
+  if (entry.rafHandle !== null) return;
+  entry.rafHandle = requestAnimationFrame(() => {
+    entry.rafHandle = null;
+    emit(entry);
+  });
 }
 
 function openStream(runId: string): Entry {
@@ -94,6 +125,7 @@ function openStream(runId: string): Entry {
     listeners: new Set(),
     retryCount: 0,
     cleanupHandlers: () => {},
+    rafHandle: null,
   };
   attachSource(entry);
   return entry;
@@ -146,7 +178,13 @@ function attachSource(entry: Entry) {
         sessionId: next.sessionId !== undefined ? next.sessionId : entry.state.sessionId,
         startTs: next.startTs !== undefined ? next.startTs : entry.state.startTs,
       };
-      notify(entry);
+      // Terminal + rate-limit states must render immediately; token/usage/tool
+      // streaming updates coalesce to one paint per frame.
+      if (name === "done" || name === "error" || name === "rate-limit" || next.error) {
+        notify(entry);
+      } else {
+        scheduleNotify(entry);
+      }
 
       if (name === "done") {
         // Server signalled completion — release the socket. Terminal state

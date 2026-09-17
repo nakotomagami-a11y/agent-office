@@ -4,14 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { POLL } from "@/lib/polling";
 import type { AgentBody, ApiAgent, ContextCostBreakdown } from "@agent-office/domain/types";
 
 /** "Context & Cost" tab data for one agent+instance — see
- *  `@agent-office/domain` services/agents/context-cost.ts. Polled (not a
- *  one-shot fetch): its numbers depend on the LATEST finished run (memory
- *  files can change, and native-overhead only becomes a real measurement
- *  once a run completes) — without polling, a tab left open across a run
- *  finishing would keep showing a stale snapshot from before it did. */
+ *  `@agent-office/domain` services/agents/context-cost.ts. Its numbers depend
+ *  on the LATEST finished run and on the agent's memory files, both of which
+ *  change out from under an open tab. Freshness is now SSE-driven: a finishing
+ *  run fires `runs:changed` and a memory edit invalidates this key (see
+ *  app-events.tsx and useWriteAgentMemory), so this only keeps a slow
+ *  reconnect safety-net poll — not the old 5s hammer that recomputed the whole
+ *  breakdown (memory-file reads + token estimation) twelve times a minute while
+ *  the tab sat open. */
 export function useContextCost(agentId: string | null, instanceId: string | undefined, projectId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.agents.contextCost(agentId ?? "__none", instanceId, projectId),
@@ -23,7 +27,7 @@ export function useContextCost(agentId: string | null, instanceId: string | unde
       return apiFetch<ContextCostBreakdown>(`${API_ROUTES.agentContextCost(agentId!)}${suffix ? `?${suffix}` : ""}`);
     },
     enabled: !!agentId,
-    refetchInterval: 5000,
+    refetchInterval: POLL.SAFETY_NET,
   });
 }
 
@@ -128,6 +132,7 @@ export function useWriteAgentMemory() {
       }),
     onSuccess: (_d, { id }) => {
       qc.invalidateQueries({ queryKey: queryKeys.agents.memory(id) });
+      qc.invalidateQueries({ queryKey: [...queryKeys.agents.all, "context-cost"] });
     },
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { assertNever } from "@/lib/assert-never";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
@@ -346,12 +346,7 @@ function ErrorCard({
   detail?: string;
   interrupted?: boolean;
   onRetry?: () => void;
-  /** Continue the same session as a new turn (conversation is parked
-   *  `needs_attention`). Only offered when re-running with the existing
-   *  session is plausible — the auth/subscription cards below omit it. */
   onResume?: () => void;
-  /** Discard this failed turn and advance to the next queued message (or
-   *  idle if none). Always safe/well-defined, so offered on every variant. */
   onSkip?: () => void;
   onRepair?: () => Promise<void> | void;
   onScheduleResumeAt?: (fireAtMs: number) => void;
@@ -573,7 +568,7 @@ function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string
   );
 }
 
-export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   switch (item.kind) {
     case "you": {
       const youImgs = extractImages(item.text);
@@ -703,3 +698,5 @@ export function MessageBubble({ item, agent, projectId, isQuestion, onReply, onR
       return assertNever(item);
   }
 }
+
+export const MessageBubble = memo(MessageBubbleImpl);
