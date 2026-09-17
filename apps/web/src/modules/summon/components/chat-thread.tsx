@@ -23,7 +23,10 @@ const LIVE_PHASES = new Set<ChatPhase>(["sending", "connecting", "working", "str
 /** How many turns to render at first. The transcript may hold thousands of
  *  items across hundreds of turns; rendering them all on every token would
  *  be a frame-drop nightmare. */
-const VISIBLE_TURNS = 30;
+// Turns rendered on open; older ones load on scroll ("load earlier"). Kept
+// modest because each historical turn now carries its full (persistent) tool
+// trail, so a large initial window was the chat-open lag.
+const VISIBLE_TURNS = 15;
 /** How many additional older turns to surface when the user clicks "Load
  *  earlier". */
 const LOAD_MORE_TURNS = 30;
