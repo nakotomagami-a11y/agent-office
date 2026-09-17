@@ -106,7 +106,6 @@
     "step_agents": "Crew",
     "step_project": "Project",
     "back_to_step": "Back to {step}",
-
     "requirements_title": "First, the essentials",
     "requirements_hint": "Your crew works through Claude Code running locally on this machine. It has to be installed before anyone can start.",
     "req_claude_label": "Claude Code",
@@ -120,7 +119,6 @@
     "req_block": "Claude Code must be installed before you can continue.",
     "what_runs_where_title": "What runs where",
     "what_runs_where_body": "Every agent is a local Claude Code process working in a folder on this machine. Nothing leaves it except the calls Claude Code makes itself.",
-
     "root_title": "Where does the work live?",
     "root_hint": "Point the office at the folder that holds your repos. Each subfolder can become a project.",
     "root_examples": "Examples: ~/code, ~/Documents/work, /Users/you/dev",
@@ -129,22 +127,18 @@
     "root_preview_root_tag": "root",
     "root_preview_project_tag": "→ project",
     "root_preview_ignored_tag": "ignored",
-
     "excluded_title": "What to leave alone",
     "excluded_hint": "Folder names the scanner skips when it looks for projects. Drop any you'd rather it did look at.",
     "excluded_placeholder": "Folder name to ignore…",
     "excluded_add": "Add",
     "excluded_remove": "Remove {name}",
     "excluded_note": "Ignored names are skipped anywhere under your root, at any depth. Tap a chip to drop it.",
-
     "integrations_title": "Extra rooms",
     "integrations_hint": "Optional integrations. Turn on what you need — the rest stay out of the way until you want them.",
-
     "agents_title": "Hire your first crew",
     "agents_hint": "Bundled agents, ready to work. They're plain markdown files, so you can rewrite or fire any of them later.",
     "agents_select_all": "Hire all {count}",
     "agents_selected_count": "{count} selected",
-
     "project_title": "Pick a first project",
     "project_hint": "Folders found under your root. Choose one or a few to have open on day one.",
     "project_empty": "No subfolders found under {root}. You can skip this step and create a project later.",
@@ -152,7 +146,6 @@
     "project_name_hint": "Will be created inside {root}",
     "project_skip_hint": "Nothing picked is fine too — you can open any folder from the Projects page later.",
     "project_no_git": "no git",
-
     "finish": "Open the office",
     "finishing": "Setting things up…",
     "error_root_required": "Projects root is required."
@@ -622,7 +615,11 @@
     "feature_auto_scroll_detail": "conversation follow",
     "feature_status_leds_name": "Status LEDs",
     "feature_status_leds_detail": "run state indicators",
-    "footer_note": "status LEDs keep animating in every mode — they are essential feedback"
+    "footer_note": "status LEDs keep animating in every mode — they are essential feedback",
+    "auto_title": "Match my power source",
+    "auto_sub": "Quality (Full) on AC power, performance (Lite) on battery. A manual choice below sticks until you next plug in or unplug.",
+    "auto_state_on": "On",
+    "auto_state_off": "Off"
   },
   "skills": {
     "title": "Skills",
