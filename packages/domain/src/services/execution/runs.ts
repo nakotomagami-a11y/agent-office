@@ -844,6 +844,12 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
   // used to poll.)
   emitAppEvent("runs:changed");
   emitAppEvent("spend:changed");
+  // The finished turn's persisted tool-call trail (tool_calls table, kept 48h)
+  // only shows once the conversation query refetches: the modal switches the
+  // just-finished turn from the live SSE stream to the historical DB read.
+  // Without this, an open modal keeps its stale pre-completion view and the
+  // tool calls appear to vanish the moment the run ends.
+  emitAppEvent("conversations:changed");
 
   // Release the replay buffer for successful runs. The moment a run succeeds
   // the conversation clears `activeRunId` and goes idle, so its turn becomes

@@ -10,7 +10,7 @@ export type ChatPhase =
   | "error"
   | "aborted";
 
-const dot = "w-[4px] h-[4px] bg-[var(--acc)] rounded-full shrink-0 animate-[ao-typing_1.2s_infinite]";
+const dot = "w-[4px] h-[4px] bg-[var(--acc)] rounded-full shrink-0 animate-[ao-typing_1.2s_infinite] transform-gpu [will-change:opacity]";
 
 function TypingDots() {
   return (
@@ -29,7 +29,7 @@ function TypingDots() {
 function ShimmerLabel({ children }: { children: string }) {
   return (
     <span
-      className="text-[12.5px] font-bold tracking-[-0.01em] whitespace-nowrap bg-clip-text text-transparent bg-no-repeat animate-[ao-label-shimmer_1.7s_linear_infinite]"
+      className="ao-live-shimmer text-[12.5px] font-bold tracking-[-0.01em] whitespace-nowrap bg-clip-text text-transparent bg-no-repeat animate-[ao-label-shimmer_1.7s_linear_infinite]"
       style={{
         backgroundImage: "linear-gradient(90deg,var(--txt-4) 0%,var(--txt) 45%,var(--txt-4) 90%)",
         backgroundSize: "220px 100%",

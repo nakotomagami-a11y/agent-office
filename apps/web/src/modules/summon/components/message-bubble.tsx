@@ -254,7 +254,7 @@ function ClarifyInput({
       onDrop={att.onDrop}
     >
       <div className="flex items-center gap-2 text-[11px] text-[var(--ao-warn)] uppercase tracking-[0.1em] font-mono font-bold">
-        <span className="w-[6px] h-[6px] rounded-full bg-[var(--ao-warn)] shadow-[0_0_6px_var(--ao-warn)] animate-[ao-pulse_1.5s_infinite]" aria-hidden />
+        <span className="w-[6px] h-[6px] rounded-full bg-[var(--ao-warn)] shadow-[0_0_6px_var(--ao-warn)] animate-[ao-pulse_1.5s_infinite] transform-gpu [will-change:opacity]" aria-hidden />
         Needs your reply
         <span className="font-mono ml-auto normal-case tracking-normal">↵ send</span>
       </div>
@@ -699,4 +699,43 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
   }
 }
 
-export const MessageBubble = memo(MessageBubbleImpl);
+/** ChatThread rebuilds `item` and every callback on each render (incl. every
+ *  streaming token), so the default shallow compare never skipped — historical
+ *  bubbles re-parsed their markdown on every tick. Compare `item` by value and
+ *  treat callbacks by presence (their identity never changes what's drawn). */
+function shallowThreadItemEqual(a: ThreadItem, b: ThreadItem): boolean {
+  if (a === b) return true;
+  if (a.kind !== b.kind || a.id !== b.id) return false;
+  const ak = Object.keys(a);
+  if (ak.length !== Object.keys(b).length) return false;
+  for (const k of ak) {
+    if ((a as Record<string, unknown>)[k] !== (b as Record<string, unknown>)[k]) return false;
+  }
+  return true;
+}
+
+function messageBubblePropsEqual(a: MessageBubbleProps, b: MessageBubbleProps): boolean {
+  if (
+    a.hideAvatar !== b.hideAvatar ||
+    a.isQuestion !== b.isQuestion ||
+    a.projectId !== b.projectId ||
+    a.resumeResetsAtMs !== b.resumeResetsAtMs ||
+    a.agent?.id !== b.agent?.id ||
+    !!a.onReply !== !!b.onReply ||
+    !!a.onRerun !== !!b.onRerun ||
+    !!a.onDelete !== !!b.onDelete ||
+    !!a.onRetry !== !!b.onRetry ||
+    !!a.onResume !== !!b.onResume ||
+    !!a.onSkip !== !!b.onSkip ||
+    !!a.onRepair !== !!b.onRepair ||
+    !!a.onStopRun !== !!b.onStopRun ||
+    !!a.onDismissRateLimit !== !!b.onDismissRateLimit ||
+    !!a.onScheduleRateLimit !== !!b.onScheduleRateLimit ||
+    !!a.onScheduleResumeAt !== !!b.onScheduleResumeAt
+  ) {
+    return false;
+  }
+  return shallowThreadItemEqual(a.item, b.item);
+}
+
+export const MessageBubble = memo(MessageBubbleImpl, messageBubblePropsEqual);

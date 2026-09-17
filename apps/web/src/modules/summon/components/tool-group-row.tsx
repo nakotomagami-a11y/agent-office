@@ -64,7 +64,7 @@ function ToolCallRow({ name, arg, running = false }: { name: string; arg?: strin
         className={`flex items-center gap-[10px] text-[12.5px] ${arg ? "cursor-pointer" : ""}`}
         onClick={arg ? () => setShowIn(!showIn) : undefined}
       >
-        <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite]" : "bg-ao-fg-3"}`} aria-hidden />
+        <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite] transform-gpu [will-change:opacity]" : "bg-ao-fg-3"}`} aria-hidden />
         <span className="text-ao-fg-0 font-semibold shrink-0">{name}</span>
         {arg && (
           <span className="font-mono text-ao-fg-3 truncate min-w-0">{arg}</span>
@@ -124,7 +124,7 @@ function ToolGroupRowImpl({
       <div className="flex-1 min-w-0 w-full">
         {longChain && (
           <div className="flex items-center gap-[8px] px-[2px] py-[3px] cursor-pointer select-none text-ao-fg-3 hover:text-ao-fg-1 transition-colors duration-[120ms]" onClick={toggle}>
-            <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite]" : "bg-ao-fg-3"}`} />
+            <span className={`w-[5px] h-[5px] rounded-full shrink-0 ${running ? "bg-[var(--ao-ok)] shadow-[0_0_6px_rgba(78,185,111,0.5)] animate-[ao-pulse_1.5s_infinite] transform-gpu [will-change:opacity]" : "bg-ao-fg-3"}`} />
             <span className="text-[11px] font-mono uppercase tracking-[0.06em]">{tools.length} tool calls</span>
             <Icon name="chevron" size={11} className={`transition-transform duration-[180ms] ${open ? "rotate-90 text-[var(--ao-accent)]" : ""}`} />
           </div>

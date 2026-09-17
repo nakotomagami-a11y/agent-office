@@ -108,6 +108,12 @@ html.tauri:not([data-theme="dark"]) .app-modal-backdrop {
   background: rgba(226, 228, 233, 0.97) !important;
 }
 
+/* WebKitGTK (Tauri native) repaints bg-clip-text every frame for a moving
+   gradient — disproportionately costly on the Intel iGPU. Freeze the live
+   "working…" label to a static gradient on native; the typing dots still
+   convey activity. */
+html.tauri .ao-live-shimmer { animation: none !important; }
+
 /* Off — additionally kill hover transitions + scroll smoothing */
 html[data-perf="off"] *, html[data-perf="off"] *::before, html[data-perf="off"] *::after {
   transition-duration: 0ms !important;
