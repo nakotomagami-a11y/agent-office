@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { POLL } from "@/lib/polling";
 import type { AgentInstance, Project, ProjectMeta, ProjectSummary } from "@agent-office/domain/types";
 import { getGitStatus } from "@/lib/api/dev-server";
 import type { GitStatus } from "@agent-office/domain/types";
@@ -12,7 +13,10 @@ export function useProjects() {
   return useQuery({
     queryKey: queryKeys.projects.list(),
     queryFn: () => apiFetch<ProjectSummary[]>(API_ROUTES.projects),
-    refetchInterval: 10_000,
+    // Mounted in the always-visible top bar. Project-list changes are
+    // user-driven and already invalidate on mutation, so this is only a safety
+    // net — poll lazily (60s) instead of every 10s.
+    refetchInterval: POLL.SAFETY_NET,
   });
 }
 

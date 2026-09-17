@@ -5,6 +5,7 @@ import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { AgentBody, ApiAgent, ContextCostBreakdown } from "@agent-office/domain/types";
+import { POLL } from "@/lib/polling";
 
 /** "Context & Cost" tab data for one agent+instance — see
  *  `@agent-office/domain` services/agents/context-cost.ts. Polled (not a
@@ -23,7 +24,10 @@ export function useContextCost(agentId: string | null, instanceId: string | unde
       return apiFetch<ContextCostBreakdown>(`${API_ROUTES.agentContextCost(agentId!)}${suffix ? `?${suffix}` : ""}`);
     },
     enabled: !!agentId,
-    refetchInterval: 5000,
+    // Run completions now arrive instantly via SSE (app-events.tsx invalidates
+    // the agents subtree). This slow safety-net poll only catches non-run
+    // changes (e.g. an edited memory file) while the tab stays open.
+    refetchInterval: POLL.SAFETY_NET,
   });
 }
 
