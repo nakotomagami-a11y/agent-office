@@ -80,6 +80,10 @@ type Entry = {
   cleanupHandlers: () => void;
   /** rAF handle for a coalesced streaming notify, or null when none pending. */
   rafHandle: number | null;
+  /** setTimeout handle pacing coalesced notifies to ~30fps, or null. */
+  emitTimer: ReturnType<typeof setTimeout> | null;
+  /** performance.now() of the last emit — drives the throttle interval. */
+  lastEmit: number;
 };
 
 const registry = new Map<string, Entry>();
@@ -93,28 +97,45 @@ function emit(entry: Entry) {
  * not lag on — connection changes and terminal `done`/`error` events.
  */
 function notify(entry: Entry) {
+  if (entry.emitTimer !== null) {
+    clearTimeout(entry.emitTimer);
+    entry.emitTimer = null;
+  }
   if (entry.rafHandle !== null) {
     cancelAnimationFrame(entry.rafHandle);
     entry.rafHandle = null;
   }
+  entry.lastEmit = performance.now();
   emit(entry);
 }
 
 /**
  * Coalesce high-frequency streaming updates (token chunks, usage, tool, and
- * sub-agent events) to at most one listener notification per animation frame.
- * Claude can emit hundreds of tokens/second; without this, each chunk drove a
- * synchronous setState → full ChatThread re-render. rAF caps that to ~60/s and
- * always emits the latest accumulated `entry.state`. rAF is paused in
- * backgrounded tabs, which is fine — terminal events flush synchronously via
- * `notify`, so the final state never depends on a frame that won't come.
+ * sub-agent events) to ~30fps. Claude can emit hundreds of tokens/second;
+ * without coalescing, each chunk drove a synchronous setState → full re-render.
+ *
+ * A bare rAF caps this to ~60/s, but 60fps is wasted on streaming text: each
+ * emit makes the streaming bubble re-parse its FULL accumulated markdown
+ * (splitProse/highlight), which grows with the message — the main remaining
+ * active-run cost on the WebKitGTK renderer. A setTimeout paces the interval to
+ * ~30fps (imperceptible for reading, ~2x fewer re-parses); the trailing rAF
+ * keeps updates vsync-aligned AND auto-pauses while the window is hidden (rAF
+ * never fires for a hidden window). Terminal done/error still flush instantly
+ * via `notify`, so the final state never waits on a frame.
  */
+const STREAM_EMIT_MIN_MS = 33;
+
 function scheduleNotify(entry: Entry) {
-  if (entry.rafHandle !== null) return;
-  entry.rafHandle = requestAnimationFrame(() => {
-    entry.rafHandle = null;
-    emit(entry);
-  });
+  if (entry.emitTimer !== null || entry.rafHandle !== null) return;
+  const wait = Math.max(0, STREAM_EMIT_MIN_MS - (performance.now() - entry.lastEmit));
+  entry.emitTimer = setTimeout(() => {
+    entry.emitTimer = null;
+    entry.rafHandle = requestAnimationFrame(() => {
+      entry.rafHandle = null;
+      entry.lastEmit = performance.now();
+      emit(entry);
+    });
+  }, wait);
 }
 
 function openStream(runId: string): Entry {
@@ -126,6 +147,8 @@ function openStream(runId: string): Entry {
     retryCount: 0,
     cleanupHandlers: () => {},
     rafHandle: null,
+    emitTimer: null,
+    lastEmit: 0,
   };
   attachSource(entry);
   return entry;
