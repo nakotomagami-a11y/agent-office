@@ -25,6 +25,7 @@ import { isActiveRoute } from "./sidebar-routing";
 import { BootstrapProjectModal } from "@/modules/projects/components/bootstrap-project-modal";
 import { ProjectPickerDropdown } from "./project-picker-dropdown";
 import { RefreshButton } from "./refresh-button";
+import { PerformanceToggle } from "./performance-toggle";
 import { SkillUpdatesBell } from "./skill-updates-bell";
 import { UpdateBell } from "./update-bell";
 import { DevMenu } from "@/components/dev/dev-menu";
@@ -379,6 +380,10 @@ export function MainTopBar() {
       {/* Update available — renders nothing until UpdateBell detects a
           newer build; occupies the top-bar slot the Docs button used to. */}
       <UpdateBell />
+
+      {/* Performance toggle — reflects the rendering budget and surfaces
+          auto (power-source) switches so they're never silent. */}
+      <PerformanceToggle />
 
       {/* Theme toggle */}
       <Tooltip content={t("titlebar.toggle_theme_title")} side="bottom" className="shrink-0">

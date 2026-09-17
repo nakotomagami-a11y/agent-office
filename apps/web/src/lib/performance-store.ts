@@ -63,10 +63,19 @@ type PerformanceState = {
   auto: boolean;
   /** Last known power source, for edge-triggering auto switches. */
   powerState: PowerState | null;
+  /**
+   * True from the moment auto mode changed the rendering budget on a
+   * plug/unplug transition until the user acknowledges it (opens the toggle,
+   * or picks a mode). Drives the "switched on its own" cue on the top-bar
+   * toggle so the change never happens silently.
+   */
+  autoSwitched: boolean;
   setMode: (next: PerformanceMode) => void;
   setAuto: (on: boolean) => void;
   /** Called by PowerSync when the AC/battery state is read or changes. */
   applyPowerState: (onAc: boolean) => void;
+  /** Clear the `autoSwitched` cue once the user has seen it. */
+  acknowledgeAutoSwitch: () => void;
   hydrate: () => void;
 };
 
@@ -111,6 +120,7 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => ({
   autoDetected: false,
   auto: true,
   powerState: null,
+  autoSwitched: false,
   setMode: (next) => {
     // Manual set always clears the auto-detected flag so the About You
     // hint stops showing once the user has made an explicit choice. We keep
@@ -118,10 +128,10 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => ({
     // until the next plug/unplug — respecting the user without disabling the
     // feature outright.
     applyMode(set, next, true);
-    set({ autoDetected: false });
+    set({ autoDetected: false, autoSwitched: false });
   },
   setAuto: (on) => {
-    set({ auto: on });
+    set({ auto: on, autoSwitched: false });
     patchUiSettings({ [AUTO_KEY]: on ? "true" : "false" }).catch(() => {});
     // Turning auto on: immediately reconcile with the current power source.
     const ps = get().powerState;
@@ -133,7 +143,16 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => ({
     set({ powerState: next });
     if (!get().auto) return; // just track; auto is off
     if (prev === next) return; // no transition → don't override a manual choice
-    applyMode(set, powerToMode(next), false);
+    const target = powerToMode(next);
+    const before = get().mode;
+    applyMode(set, target, false);
+    // Flag the change so the top-bar toggle can surface it — but only when it
+    // actually altered the visible budget (skip a no-op when the user was
+    // already on `target`) and never on the very first power read (prev null).
+    if (prev !== null && before !== target) set({ autoSwitched: true });
+  },
+  acknowledgeAutoSwitch: () => {
+    if (get().autoSwitched) set({ autoSwitched: false });
   },
   hydrate: () => {
     if (get().hydrated) return;

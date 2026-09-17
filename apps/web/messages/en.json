@@ -639,6 +639,14 @@
     "auto_state_on": "On",
     "auto_state_off": "Off"
   },
+  "perf_toggle": {
+    "tooltip": "Performance: {mode}",
+    "aria": "Performance mode, currently {mode}",
+    "title": "Performance",
+    "switched_badge": "Auto-switched",
+    "auto_label": "Match power source",
+    "auto_sub": "Full on AC, Lite on battery"
+  },
   "skills": {
     "title": "Skills",
     "card_sub": "{installed} installed · {total} in registry",
