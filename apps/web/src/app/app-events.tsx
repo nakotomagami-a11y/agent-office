@@ -13,8 +13,11 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 const HANDLERS: Record<string, (qc: QueryClient) => void> = {
   "runs:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: queryKeys.runs.all });
-    void qc.invalidateQueries({ queryKey: queryKeys.agents.list() });
-    void qc.invalidateQueries({ queryKey: [...queryKeys.agents.all, "context-cost"] });
+    // Office agent statuses AND the Context & Cost tab derive from runs, so
+    // invalidate the whole `agents` subtree (prefix match covers both the
+    // list and the per-agent context-cost queries) — those views then update
+    // instantly over SSE instead of via their own short refetchInterval polls.
+    void qc.invalidateQueries({ queryKey: queryKeys.agents.all });
   },
   "spend:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: ["projects", "spend"] });
