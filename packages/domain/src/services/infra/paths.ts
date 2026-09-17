@@ -15,22 +15,6 @@ export const SETTINGS_FILE = join(CLAUDE_DIR, "agent-office-settings.json");
 
 // New persistence root (only this app writes here).
 export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
-/**
- * @internal
- * Legacy path kept as a named export for backward compatibility only.
- * The one-time JSONL→SQLite migration in db.ts constructs this path locally
- * via `join(APP_STATE_DIR, "runs.log")` and does NOT import this export.
- * No active code imports this symbol.
- */
-export const RUNS_LOG = join(APP_STATE_DIR, "runs.log");
-/**
- * @internal
- * Legacy path kept as a named export for backward compatibility only.
- * The one-time JSONL→SQLite migration in db.ts constructs this path locally
- * via `join(APP_STATE_DIR, "recent-prompts.json")` and does NOT import this export.
- * No active code imports this symbol.
- */
-export const PROMPTS_FILE = join(APP_STATE_DIR, "recent-prompts.json");
 export const DB_PATH = join(APP_STATE_DIR, "db.sqlite");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
 export const DOCS_GLOBAL_OWNER = "_global";

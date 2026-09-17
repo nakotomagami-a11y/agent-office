@@ -16,6 +16,9 @@ export type ChatPanelProps = {
   newThreadSignal?: number;
   /** Called with the current active run id (null when idle). */
   onActiveRunChange?: (runId: string | null) => void;
+  /** Called with the latest backgrounded-Bash command found in the thread
+   *  (or null) — see `background-task-indicator.tsx`. */
+  onBackgroundTaskChange?: (task: { id: string; command: string } | null) => void;
 };
 
 /**
@@ -34,8 +37,9 @@ export function ChatPanel({
   noHeader,
   newThreadSignal,
   onActiveRunChange,
+  onBackgroundTaskChange,
 }: ChatPanelProps) {
-  const m = useConversationChatModel({ agent, projectId, instanceId, newThreadSignal, onActiveRunChange });
+  const m = useConversationChatModel({ agent, projectId, instanceId, newThreadSignal, onActiveRunChange, onBackgroundTaskChange });
 
   return (
     <ChatPanelBody

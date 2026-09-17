@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
+import { usePerformanceStore } from "@/lib/performance-store";
 import {
   getUnitClockFrame,
   getUnitClockServerFrame,
@@ -45,7 +46,9 @@ export type UnitSpriteProps = {
  * Animated Tiny Swords unit avatar. Uses CSS background-position to step
  * through the sheet, driven by a shared rAF clock so N sprites cost one loop.
  *
- * Respects `prefers-reduced-motion`: the animation pauses on the first frame.
+ * Pauses (snaps to the first frame) when the OS requests reduced motion OR the
+ * in-app performance mode is `off` — the latter previously only stopped CSS
+ * animations, leaving this JS-driven sprite clock spinning even in `off`.
  */
 export function UnitSprite({
   unit,
@@ -61,6 +64,11 @@ export function UnitSprite({
   // hook order on every render (rules-of-hooks). The placeholder branch
   // below just doesn't use their values.
   const reducedMotion = usePrefersReducedMotion();
+  // Performance mode `off` = "everything minimal". Pause decorative sprite
+  // animation there too (it's a JS clock, so the CSS `animation:none` rule in
+  // performance.css does not reach it). `lite`/`full` keep sprites alive
+  // (the store slows the clock's FPS in `lite` instead of stopping it).
+  const perfOff = usePerformanceStore((s) => s.mode === "off");
 
   // Defensive: a missing or malformed `unit` shouldn't crash the whole page.
   // Render a placeholder square and shout in the console so the offending
@@ -84,7 +92,7 @@ export function UnitSprite({
     else if (action === "knife"   && def.knife)   sheetPreview = def.knife;
     frames = sheetPreview.frames;
   }
-  const ticking = !!def && animate && !reducedMotion && frames > 1;
+  const ticking = !!def && animate && !reducedMotion && !perfOff && frames > 1;
   const frame = useUnitFrame(ticking) % Math.max(1, frames);
 
   if (!def) {

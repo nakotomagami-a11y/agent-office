@@ -2,7 +2,7 @@
 // Per-project metadata in ~/.claude/projects/<id>/project.md (YAML frontmatter + memory body).
 // Rosters of agent instances live in that frontmatter.
 
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectSummary, ScannedEntry } from "../../types/index";
 import { expandTilde, PROJECTS_DIR } from "../infra/paths";
@@ -96,6 +96,7 @@ function rosterToYaml(roster: AgentInstance[]): YamlValue {
     if (inst.model !== undefined) o.model = inst.model;
     if (inst.effort !== undefined) o.effort = inst.effort;
     if (inst.permissionMode !== undefined) o.permissionMode = inst.permissionMode;
+    if (inst.playwrightEnabled !== undefined) o.playwrightEnabled = inst.playwrightEnabled;
     if (inst.room !== undefined) o.room = inst.room;
     if (inst.cwd !== undefined) o.cwd = inst.cwd;
     if (inst.worktree !== undefined) {
@@ -109,15 +110,44 @@ function rosterToYaml(roster: AgentInstance[]): YamlValue {
   });
 }
 
+/**
+ * Cache of parsed project.md metadata keyed by file path, invalidated by the
+ * file's mtime. `listProjectSummaries` runs on a 10s poll and re-parses every
+ * project.md's YAML each tick; keying on mtime turns that back into one cheap
+ * `statSync` per project when nothing changed. `writeMetadata` writes via
+ * atomic rename (fresh mtime), so edits self-invalidate. `null` mtime marks a
+ * negative cache entry (file absent), so a missing project.md isn't re-stat'd
+ * into a throw on every poll.
+ */
+const metadataCache = new Map<string, { mtimeMs: number | null; parsed: ParsedMetadata | null }>();
+
 function readMetadata(id: string): ParsedMetadata | null {
   const path = metadataFile(id);
-  if (!existsSync(path)) return null;
+
+  let mtimeMs: number | null;
   try {
-    return parseMetadataFile(readFileSync(path, "utf8"));
-  } catch (e) {
-    log.warn("project.metadata_parse_failed", { id, err: String(e) });
+    mtimeMs = statSync(path).mtimeMs;
+  } catch {
+    mtimeMs = null; // absent (ENOENT) or unreadable — treated as "no metadata"
+  }
+
+  const cached = metadataCache.get(path);
+  if (cached && cached.mtimeMs === mtimeMs) return cached.parsed;
+
+  if (mtimeMs === null) {
+    metadataCache.set(path, { mtimeMs: null, parsed: null });
     return null;
   }
+
+  let parsed: ParsedMetadata | null;
+  try {
+    parsed = parseMetadataFile(readFileSync(path, "utf8"));
+  } catch (e) {
+    log.warn("project.metadata_parse_failed", { id, err: String(e) });
+    parsed = null;
+  }
+  metadataCache.set(path, { mtimeMs, parsed });
+  return parsed;
 }
 
 function normalizeRoster(raw: unknown): AgentInstance[] {
@@ -135,6 +165,7 @@ function normalizeRoster(raw: unknown): AgentInstance[] {
     if (typeof o.model === "string") inst.model = o.model;
     if (typeof o.effort === "string") inst.effort = o.effort;
     if (typeof o.permissionMode === "string") inst.permissionMode = o.permissionMode;
+    if (typeof o.playwrightEnabled === "boolean") inst.playwrightEnabled = o.playwrightEnabled;
     if (typeof o.room === "string") inst.room = o.room;
     if (typeof o.cwd === "string") inst.cwd = o.cwd;
     if (o.worktree && typeof o.worktree === "object") {
@@ -182,7 +213,9 @@ function writeMetadata(id: string, meta: Partial<ProjectMeta>, memory: string): 
   let content = "";
   if (fmStr) content += `---\n${fmStr}\n---\n\n`;
   if (body) content += `${body}\n`;
-  writeFileAtomic(metadataFile(id), content);
+  const path = metadataFile(id);
+  writeFileAtomic(path, content);
+  metadataCache.delete(path);
 }
 
 function projectFromScan(entry: ScannedEntry): Project {
@@ -259,6 +292,7 @@ export function deleteProject(id: string): boolean {
   const dir = join(PROJECTS_DIR, id);
   if (!existsSync(dir)) return false;
   rmSync(dir, { recursive: true, force: true });
+  metadataCache.delete(metadataFile(id));
   log.info("project.metadata_deleted", { id });
   return true;
 }

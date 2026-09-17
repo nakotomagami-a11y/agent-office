@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { DB_PATH, APP_STATE_DIR } from "../infra/paths";
-import { createSchema, migrateFromJsonl } from "./migrations";
+import { createSchema } from "./migrations";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -44,7 +44,6 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
   createSchema(db);
-  migrateFromJsonl(db);
   reapOrphanedRuns(db);
   globalThis.__agentOfficeDb = db;
   return db;

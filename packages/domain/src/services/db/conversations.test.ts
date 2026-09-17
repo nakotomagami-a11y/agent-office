@@ -78,6 +78,50 @@ check("listConversationTurns: top-level only, oldest-first", () => {
   assert.equal(convo.latestConversationTurn(c.id)?.prompt, "second");
 });
 
+check("listConversationTurns: surfaces a run_in_background Bash command by run, oldest tool_call wins", () => {
+  const c = convo.createConversation("dev", "bg", "p", null);
+  insertRun({ id: "bgrun1", agentId: "dev", agentName: "Dev", instanceId: "bg", status: "done", prompt: "start a server", model: "", effort: "", startedAt: 1000, conversationId: c.id });
+  insertRun({ id: "bgrun2", agentId: "dev", agentName: "Dev", instanceId: "bg", status: "done", prompt: "no background task here", model: "", effort: "", startedAt: 2000, conversationId: c.id });
+  // A normal (non-backgrounded) Bash call must not be picked up.
+  mem.prepare("INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?,?,?,?,?)")
+    .run("tc0", "bgrun1", "Bash", JSON.stringify({ command: "ls" }), 1100);
+  // Two backgrounded calls on the same run — the earlier one (by ts) wins.
+  mem.prepare("INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?,?,?,?,?)")
+    .run("tc1", "bgrun1", "Bash", JSON.stringify({ command: "sleep 240", run_in_background: true }), 1200);
+  mem.prepare("INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?,?,?,?,?)")
+    .run("tc2", "bgrun1", "Bash", JSON.stringify({ command: "sleep 300", run_in_background: true }), 1300);
+
+  const turns = convo.listConversationTurns(c.id);
+  const t1 = turns.find((t) => t.id === "bgrun1")!;
+  const t2 = turns.find((t) => t.id === "bgrun2")!;
+  assert.equal(t1.backgroundTaskCommand, "sleep 240");
+  assert.equal(t2.backgroundTaskCommand, undefined, "a turn with no run_in_background tool_call gets no field at all");
+});
+
+check("listConversationTurns: attaches the full tool-call trail, oldest-first", () => {
+  const c = convo.createConversation("dev", "tc", "p", null);
+  insertRun({ id: "tcrun1", agentId: "dev", agentName: "Dev", instanceId: "tc", status: "done", prompt: "do things", model: "", effort: "", startedAt: 1000, conversationId: c.id });
+  insertRun({ id: "tcrun2", agentId: "dev", agentName: "Dev", instanceId: "tc", status: "done", prompt: "no tools", model: "", effort: "", startedAt: 2000, conversationId: c.id });
+  // Inserted out of ts order — the read must sort them oldest-first.
+  mem.prepare("INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?,?,?,?,?)")
+    .run("t-b", "tcrun1", "Grep", JSON.stringify({ pattern: "foo" }), 1200);
+  mem.prepare("INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?,?,?,?,?)")
+    .run("t-a", "tcrun1", "Bash", JSON.stringify({ command: "ls" }), 1100);
+
+  const turns = convo.listConversationTurns(c.id);
+  const t1 = turns.find((t) => t.id === "tcrun1")!;
+  const t2 = turns.find((t) => t.id === "tcrun2")!;
+  assert.deepEqual(
+    t1.toolCalls,
+    [
+      { id: "t-a", name: "Bash", input: JSON.stringify({ command: "ls" }), ts: 1100 },
+      { id: "t-b", name: "Grep", input: JSON.stringify({ pattern: "foo" }), ts: 1200 },
+    ],
+    "full trail attached in ts order",
+  );
+  assert.equal(t2.toolCalls, undefined, "a turn with no tool_calls gets no field");
+});
+
 check("backfill creates a conversation per legacy slot and tags its runs", () => {
   mem.prepare("INSERT INTO transcripts (agent_id, instance_id, items, active_run_id, session_id, queued_messages, updated_at) VALUES (?,?,?,?,?,?,?)")
     .run("legacy", "default", "[]", null, "legacy-session", "[]", 5000);

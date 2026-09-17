@@ -257,6 +257,7 @@ function buildNativeRows(
   tools: string[],
   knownTokens: number,
   history: PersistedRun[],
+  playwrightEnabled: boolean,
 ): ContextCostRow[] {
   const exact = db.getAgentContextMeasurement(agentId);
   if (exact) {
@@ -265,20 +266,20 @@ function buildNativeRows(
       sub: "Claude Code's own system prompt + Read/Write/Edit/Bash/etc. — measured, not owned by agent-office",
       tokensEst: exact.ccBaseAndToolsTokens, est: false, locked: true,
     }];
-    if (exact.mcpServerNames.length > 0 && exact.mcpTokens > 0) {
-      // est: true (from the server's tools/list, not the probe — see
-      // context-cost-measure.ts). locked: false — unlike CC's own
-      // base+tools, MCP cost is trimmable by removing the tool.
+    const mcpEntries = Object.entries(exact.mcpTokensByServer)
+      .filter(([name]) => playwrightEnabled || name !== "playwright");
+    const mcpTokens = mcpEntries.reduce((a, [, n]) => a + n, 0);
+    if (mcpEntries.length > 0 && mcpTokens > 0) {
       rows.push({
-        key: "native-mcp", name: `MCP: ${exact.mcpServerNames.join(", ")}`,
+        key: "native-mcp", name: `MCP: ${mcpEntries.map(([name]) => name).join(", ")}`,
         sub: "tool schemas loaded on turn 2+ of every session — trimmable by removing the mcp__ tool from the agent",
-        tokensEst: exact.mcpTokens, est: true, locked: false,
+        tokensEst: mcpTokens, est: true, locked: false,
       });
     }
     return rows;
   }
 
-  const mcpServers = agentMcpServerNames(tools);
+  const mcpServers = agentMcpServerNames(tools).filter((name) => playwrightEnabled || name !== "playwright");
   const mcpNote = mcpServers.length > 0 ? ` + MCP: ${mcpServers.join(", ")}` : "";
 
   const freshStartTotal = latestFreshStartCacheCreation(history);
@@ -343,7 +344,8 @@ export function buildContextCostBreakdown(opts: {
   // Subtract the accurate total (nonNativeKnownTokens), not the sum of the
   // display rows above — keeps native honest despite their header residual.
   const knownTokens = nonNativeKnownTokens(agentId, project, cwd, addDirs);
-  const nativeRows = buildNativeRows(agentId, agent?.info.tools ?? [], knownTokens, history);
+  const playwrightEnabled = instance?.playwrightEnabled !== false;
+  const nativeRows = buildNativeRows(agentId, agent?.info.tools ?? [], knownTokens, history, playwrightEnabled);
   const priorRow = buildPriorHistoryRow(agentId, instanceId, project);
 
   // Other CLAUDE.md/AGENTS.md in the project, real but conditional on what

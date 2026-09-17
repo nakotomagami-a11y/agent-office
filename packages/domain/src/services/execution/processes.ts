@@ -166,6 +166,12 @@ export function killProcess(pid: number): KillResult {
   }
   try {
     process.kill(pid, "SIGKILL");
+    // User-initiated kill (Servers modal) — drop any background_shells row
+    // for this pid now, so the watcher never mistakes this for an
+    // unattended task finishing and nudges the agent about something the
+    // user just did on purpose.
+    const row = db.listBackgroundShells().find((r) => r.pid === pid);
+    if (row) db.deleteBackgroundShell(row.id);
     return { ok: true };
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
@@ -186,6 +192,7 @@ function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: S
     }
     const existing = byPid.get(row.pid);
     if (existing) {
+      existing.runId = row.runId;
       existing.agentId = row.agentId;
       existing.agentName = row.agentName;
       existing.instanceLabel = row.instanceLabel ?? undefined;
@@ -202,6 +209,7 @@ function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: S
       startedAt: row.startedAt,
       memMb: readProcMem(row.pid),
       source: "background-task",
+      runId: row.runId,
       agentId: row.agentId,
       agentName: row.agentName,
       instanceLabel: row.instanceLabel ?? undefined,

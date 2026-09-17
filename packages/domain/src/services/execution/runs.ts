@@ -50,6 +50,12 @@ declare global {
 }
 
 const RUN_RETENTION_MS = 4 * 60 * 60_000;
+// How long a finished turn's tool calls (Bash/Grep/Read/…) stay visible in
+// the conversation modal before being deleted for good. Unlike the in-memory
+// `liveRuns` registry above (which only survives the current server process),
+// this is the persisted `tool_calls` DB table, so it's what the chat modal
+// falls back to once a turn scrolls out of the live SSE window.
+const TOOL_CALL_RETENTION_MS = 48 * 60 * 60_000;
 
 function gc(): void {
   const now = Date.now();
@@ -65,6 +71,7 @@ function gc(): void {
       try { run.proc.kill(); } catch { /* already gone */ }
     }
   }
+  db.pruneExpiredToolCalls(now - TOOL_CALL_RETENTION_MS);
 }
 
 // Always keep the current module's killAllRuns in the global slot. HMR
@@ -837,4 +844,16 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
   // used to poll.)
   emitAppEvent("runs:changed");
   emitAppEvent("spend:changed");
+
+  // Release the replay buffer for successful runs. The moment a run succeeds
+  // the conversation clears `activeRunId` and goes idle, so its turn becomes
+  // "historical" and the chat model renders it from the persisted DB row — it
+  // never replays this run's live stream again. Holding every streamed token in
+  // memory for the full RUN_RETENTION_MS (4h) window is pure waste. A live
+  // subscriber already received the terminal `done` above; a fresh reconnect
+  // reconstructs from the DB, exactly as it does for any run older than the
+  // retention window. Failed/interrupted runs are left intact: they stay parked
+  // as the conversation's live turn until the user retries/resumes/skips, so
+  // their event log is still needed for a correct reconnect replay.
+  if (run.status === "done") run.eventLog = [];
 }

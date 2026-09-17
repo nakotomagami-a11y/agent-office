@@ -223,12 +223,60 @@ function rowToRun(row: RunRow): PersistedRun {
   };
 }
 
+interface ToolCallRow { id: string; run_id: string; name: string; input: string | null; ts: number }
+
+/**
+ * Every persisted tool_call for the given run ids, oldest first — one extra
+ * indexed query (`idx_tool_calls_run`), not N+1. Rows are pruned 48h after
+ * they're written (see `pruneExpiredToolCalls`), so a turn's `toolCalls`
+ * naturally stops appearing once its calls age out — no extra time check
+ * needed here.
+ */
+function toolCallRowsByRun(runIds: string[]): Map<string, ToolCallRow[]> {
+  const out = new Map<string, ToolCallRow[]>();
+  if (runIds.length === 0) return out;
+  const placeholders = runIds.map(() => "?").join(",");
+  const rows = getDb()
+    .prepare(`SELECT id, run_id, name, input, ts FROM tool_calls WHERE run_id IN (${placeholders}) ORDER BY ts ASC`)
+    .all(...runIds) as ToolCallRow[];
+  for (const row of rows) {
+    const list = out.get(row.run_id);
+    if (list) list.push(row);
+    else out.set(row.run_id, [row]);
+  }
+  return out;
+}
+
+/** First `run_in_background: true` Bash command in a run's tool-call rows,
+ *  oldest wins — see `PersistedRun.backgroundTaskCommand`'s doc comment. */
+function backgroundTaskCommandFromRows(rows: ToolCallRow[] | undefined): string | undefined {
+  if (!rows) return undefined;
+  for (const row of rows) {
+    if (row.name !== "Bash" || !row.input?.includes('"run_in_background":true')) continue;
+    try {
+      const parsed = JSON.parse(row.input) as { command?: unknown };
+      if (typeof parsed.command === "string") return parsed.command;
+    } catch { /* malformed input JSON — skip */ }
+  }
+  return undefined;
+}
+
 /** Top-level turns (runs) of a conversation, oldest → newest. */
 export function listConversationTurns(conversationId: string): PersistedRun[] {
   const rows = getDb()
     .prepare("SELECT * FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC")
     .all(conversationId) as RunRow[];
-  return rows.map(rowToRun);
+  const toolRows = toolCallRowsByRun(rows.map((r) => r.id));
+  return rows.map((row) => {
+    const run = rowToRun(row);
+    const trows = toolRows.get(row.id);
+    const command = backgroundTaskCommandFromRows(trows);
+    if (command) run.backgroundTaskCommand = command;
+    if (trows && trows.length > 0) {
+      run.toolCalls = trows.map((r) => ({ id: r.id, name: r.name, input: r.input ?? "", ts: r.ts }));
+    }
+    return run;
+  });
 }
 
 /** The most recent top-level turn of a conversation (used to derive the prompt

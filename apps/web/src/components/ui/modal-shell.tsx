@@ -61,7 +61,14 @@ export function ModalShell({
       'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
     const onKey = (e: KeyboardEvent) => {
+      // Capture phase + stopPropagation: the modal's own Escape/Enter handling
+      // must always win, even when focus never made it off whatever trigger
+      // opened the modal (e.g. an action button inside a bigger clickable
+      // row) — otherwise the same keypress also bubbles into that row's own
+      // key handler underneath (see the sidebar remove-instance confirm
+      // dialog, which used to open the row's conversation view on Enter).
       if (e.key === "Escape") {
+        e.stopPropagation();
         onClose();
         return;
       }
@@ -74,6 +81,7 @@ export function ModalShell({
           el?.isContentEditable === true;
         if (!isTextEntry) {
           e.preventDefault();
+          e.stopPropagation();
           onEnter();
           return;
         }
@@ -95,11 +103,11 @@ export function ModalShell({
       }
     };
 
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     const previousActive = document.activeElement as HTMLElement | null;
     dialog?.focus();
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       previousActive?.focus?.();
     };
   }, [open, onClose, onEnter]);

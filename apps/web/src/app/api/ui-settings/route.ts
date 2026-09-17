@@ -1,7 +1,7 @@
 // GET/PATCH /api/ui-settings — key/value UI state (layout, theme, active project).
 // Internal keys prefixed `_` are hidden from GET.
 import { NextResponse } from "next/server";
-import { db } from "@agent-office/domain/services";
+import { db, shellEnv } from "@agent-office/domain/services";
 import { OFFICE_SETTING_KEYS } from "@agent-office/domain/config/office";
 
 const STATIC_KEYS = new Set([
@@ -10,6 +10,8 @@ const STATIC_KEYS = new Set([
   "tabs-state",
   "claude-limits",
   "performance-mode",
+  // Auto-follow the power source (quality on AC, performance on battery).
+  "performance-auto",
   ...Object.values(OFFICE_SETTING_KEYS),
   "office-map-rev",
   // First-run wizard draft — lets a partially-filled wizard survive an app restart.
@@ -57,6 +59,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "value_too_large", key, maxBytes: MAX_VALUE_BYTES }, { status: 400 });
     }
     db.setUiSetting(key, value);
+  }
+  // Tab switches (and any other tabs-state write) drive the terminal env
+  // mirror — see shell-env.ts's header comment.
+  if ("tabs-state" in body) {
+    shellEnv.writeActiveShellEnv(shellEnv.activeProjectIdFromTabs());
   }
   return NextResponse.json({ ok: true });
 }
