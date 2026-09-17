@@ -9,11 +9,7 @@ export interface RegistrySkill {
   sha: string;
   tags: string[];
   installed: boolean;
-  /**
-   * Byte size of the skill's `SKILL.md` as reported by the GitHub tree API at
-   * scan time. Proxy for "how heavy" the skill is (context/token cost).
-   * Optional: older cached registries won't have it until the next refresh.
-   */
+  /** SKILL.md byte size at scan time. */
   size?: number;
 }
 
@@ -41,11 +37,9 @@ export interface SkillUpdate {
 }
 
 export interface ApiAgent {
-  /** Stable slug / identifier (kebab-case). Used as the ID everywhere. */
+  /** Stable slug id (kebab-case). */
   name: string;
-  /** Human-readable name shown in the UI. Editable in agent customization;
-   *  persisted as the `display-name` frontmatter field. Undefined for agents
-   *  that haven't set one — the UI falls back to prettifying the slug. */
+  /** Human-readable name; falls back to the slug if unset. */
   displayName?: string;
   description: string;
   skills: string[];
@@ -54,20 +48,14 @@ export interface ApiAgent {
   defaultEffort?: string;
   permissionMode?: string;
   room?: string;
-  /** Extra directories the agent is allowed to read/write beyond the cwd. Passed as --add-dir. */
+  /** Extra dirs the agent can access, passed as --add-dir. */
   addDirs?: string[];
-  /**
-   * Optional avatar override in the form `"<faction>/<kind>"` (e.g.
-   * `"blue/pawn"`). When unset the UI hashes the agent name to pick a
-   * deterministic Tiny Swords unit.
-   */
+  /** Avatar override "<faction>/<kind>". Unset = hashed from the name. */
   unit?: string;
 }
 
 export interface AgentBody {
-  /** Human-readable display name (persisted as `display-name` frontmatter). */
   name: string;
-  /** Stable slug / identifier — the frontmatter `name` and the filename. */
   id: string;
   desc: string;
   skills: string[];
@@ -77,7 +65,6 @@ export interface AgentBody {
   effort: string;
   body: string;
   room?: string;
-  /** Avatar override, see {@link ApiAgent.unit}. Empty string clears it. */
   unit?: string;
 }
 
@@ -88,7 +75,6 @@ export interface PersistedRun {
   ts: number;
   prompt: string;
   status: "running" | "done" | "error";
-  /** Subprocess exit code. 130 indicates SIGINT/SIGTERM (server restart). */
   exitCode?: number;
   output: string;
   tokensIn: number;
@@ -101,32 +87,16 @@ export interface PersistedRun {
   projectId?: string;
   instanceId?: string;
   instanceLabel?: string;
-  /** Claude CLI session ID - pass as --resume on the next turn. */
   sessionId?: string;
-  /** Set for sub-agent runs spawned by a Task tool call. */
   parentRunId?: string;
-  /** The conversation (server-authoritative chat thread) this run belongs to.
-   *  A top-level turn = one run with a conversationId. Sub-agent runs inherit
-   *  their parent's. Undefined for legacy rows logged before the refactor. */
   conversationId?: string;
-  /** Account whose CLAUDE_CONFIG_DIR the run spawned under (undefined → default). */
   accountId?: string;
-  /** Live-only: name of the tool call in flight right now (e.g. "Bash",
-   *  "Read", "Grep"). Only ever set while `status === "running"` — sourced
-   *  from the in-memory live-run registry, not persisted to the DB. */
   currentTool?: string;
-  /** See {@link SseUsageEvent.cacheCreationTokens}. Persisted so historical
-   *  cost breakdowns (Context & Cost tab) don't need to replay live streams. */
   cacheCreationTokens?: number;
-  /** See {@link SseUsageEvent.cacheReadTokens}. */
   cacheReadTokens?: number;
 }
 
-// ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ──────
-// Pure data shapes only (no service logic) so the CLIENT can import them
-// directly — `services/execution/conversation.ts` has real deps
-// (better-sqlite3, node:child_process) that must never reach a browser
-// bundle. That module's own `ConversationView` is defined in terms of these.
+// ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
@@ -146,16 +116,11 @@ export interface ConversationView {
   status: ConversationStatus;
   activeRunId: string | null;
   sessionId: string | null;
-  /** Top-level turns (runs), oldest → newest. */
   turns: PersistedRun[];
-  /** Pending queued messages, FIFO. */
   queue: ConversationQueuedMessage[];
 }
 
-/**
- * A node in the live spawn tree for a run. Built by walking `parentRunId` links
- * (DB) and overlaying in-flight `liveRuns` state. Powers the Workflow pill/tree.
- */
+/** Live spawn tree node, built from parentRunId links + liveRuns. */
 export interface WorkflowNode {
   runId: string;
   agentId: string;
@@ -179,18 +144,14 @@ export interface AgentInstance {
   effort?: string;
   permissionMode?: string;
   room?: string;
-  /** Absolute path to the git worktree for this instance. Falls back to project.meta.cwd when unset. */
+  /** Falls back to project.meta.cwd when unset. */
   cwd?: string;
   worktree?: {
     branch: string;   // e.g. "agent/frontend-craftsman-abc1-1716800000000"
     basePath: string; // e.g. "/path/to/project/.worktrees/frontend-craftsman-abc1"
     createdAt: number; // unix ms
   };
-  /**
-   * Transient (never persisted): set by the project read API when the instance
-   * is pinned to a git worktree whose directory is missing on disk, so the UI
-   * can surface a "needs repair" badge. Healed automatically on next run/boot.
-   */
+  /** Transient: worktree dir missing on disk, shows a "needs repair" badge. */
   worktreeMissing?: boolean;
 }
 
@@ -213,34 +174,15 @@ export interface ProjectMeta {
   cwd?: string;
   roster: AgentInstance[];
   planet?: PlanetConfig;
-  /**
-   * Multi-account: which Claude account (from the `accounts` service) runs
-   * `claude` for this project. `undefined` (or `"default"`) → use the shared
-   * `~/.claude`. Set via the project detail account picker (slice 4).
-   */
+  /** Claude account for this project; undefined/"default" = shared ~/.claude. */
   accountId?: string;
-  /**
-   * Per-project GitHub account: which registered github account's `GH_CONFIG_DIR`
-   * is injected for every git/gh command the agent runs in this project.
-   * `undefined` (or `"default"`) → no injection; inherit the system gh auth.
-   * Set via the project detail github account picker.
-   */
+  /** GitHub account whose GH_CONFIG_DIR is injected; undefined/"default" = system gh auth. */
   githubAccountId?: string;
-  /**
-   * Shelved projects are hidden from the default project picker view (they
-   * move to the "Shelved" filter). Absent/false → active. Set by the user via
-   * the project picker's shelve toggle.
-   */
+  /** Hidden from the default project picker when true. */
   shelved?: boolean;
 }
 
-/**
- * A Claude Code account registered with agent-office. Every account has its
- * own `CLAUDE_CONFIG_DIR` (see `accountConfigDir(id)` in paths.ts). The
- * `default` account is auto-inserted on boot and points at `~/.claude`; all
- * others live under `~/.claude/agent-office/accounts/<id>/` with a real
- * `.credentials.json` plus symlinks to `~/.claude/agents`, `skills`, etc.
- */
+/** A registered Claude Code account; each has its own CLAUDE_CONFIG_DIR. */
 export interface Account {
   id: string;
   label: string;
@@ -253,17 +195,11 @@ export type ClaudePlan = "free" | "pro" | "max" | "api" | "custom";
 export interface AccountWithStatus extends Account {
   plan: ClaudePlan;
   email?: string;
-  /** True when `<configDir>/.credentials.json` exists and parses. */
+  /** True when <configDir>/.credentials.json exists and parses. */
   ready: boolean;
 }
 
-/**
- * A GitHub account registered with agent-office. Every non-default account has
- * its own `GH_CONFIG_DIR` (see `githubAccountConfigDir(id)` in paths.ts) that
- * `gh` and git-over-HTTPS read auth from. The `default` account maps to the
- * system gh config (`~/.config/gh`) and is never injected — projects on it
- * inherit whatever gh auth the machine has active.
- */
+/** A registered GitHub account; each has its own GH_CONFIG_DIR. */
 export interface GithubAccount {
   id: string;
   label: string;
@@ -272,43 +208,35 @@ export interface GithubAccount {
 }
 
 export interface GithubAccountWithStatus extends GithubAccount {
-  /** Logged-in GitHub username reported by `gh api user`, when available. */
+  /** Username reported by `gh api user`, when available. */
   username?: string;
   /** True when `gh` reports an authenticated user for this config dir. */
   ready: boolean;
 }
 
-/**
- * A reusable secret: a free-form named env var (`name` is injected verbatim
- * into a run's environment as `env[name] = value`) with optional expiry and a
- * shell test command for live validity checks. Stored once and linked to any
- * number of projects via the `project_secrets` join. Never scoped per-agent.
- * The raw `value` is only ever returned by the write path (create/update) — the
- * list/status endpoints return `SecretWithStatus`, which omits it.
- */
+/** A reusable secret env var, linked to projects via project_secrets. */
 export interface Secret {
   id: string;
-  /** Exact env var name injected into the run, e.g. `VERCEL_TOKEN`. */
+  /** Env var name injected into the run. */
   name: string;
   label: string;
   value: string;
-  /** Epoch ms the token expires; null = never / unknown. */
+  /** Epoch ms; null = never/unknown. */
   expiresAt: number | null;
-  /** Optional shell command run (with the secret in env) to prove validity. */
+  /** Shell command to verify validity (optional). */
   testCmd: string | null;
-  /** When true + testCmd set, a failed live test blocks a run using this key. */
+  /** Failed live test blocks the run when true + testCmd set. */
   verifyBeforeRun: boolean;
   lastTestedAt: number | null;
-  /** null = never tested / unknown, true = last test passed, false = failed. */
+  /** null = untested, true = passed, false = failed. */
   lastTestOk: boolean | null;
   createdAt: number;
 }
 
-/** Secret without its raw `value` — the read-path shape for lists/pickers. */
+/** Secret without its raw value. */
 export type SecretWithStatus = Omit<Secret, "value"> & {
-  /** True when expiresAt is set and in the past. */
+  /** True when past expiresAt. */
   expired: boolean;
-  /** Count of projects this secret is attached to. */
   projectCount: number;
 };
 
@@ -319,8 +247,7 @@ export interface AppSettings {
   features?: {
     multiInstance?: boolean;
   };
-  /** Per-integration on/off state (keys from the integration registry). Absent
-   *  keys fall back to the registry's defaultEnabled — see isIntegrationEnabled. */
+  /** Per-integration toggle; absent key = registry default. */
   integrations?: Record<string, boolean>;
 }
 
@@ -356,7 +283,7 @@ export interface FlutterDevice {
 /** A tracked dev/build server process — GET /api/processes. */
 export interface ProcessInfo {
   pid: number;
-  /** 0 for a `source: "background-task"` entry — it never listens on a port. */
+  /** 0 for a background-task entry — it never listens on a port. */
   port: number;
   address: string;
   name: string;
@@ -366,9 +293,7 @@ export interface ProcessInfo {
   memMb: number;
   projectId?: string;
   projectName?: string;
-  /** Set when this entry came from an agent's `run_in_background` Bash call
-   *  (tracked in `background_shells`) rather than the port scan — the UI uses
-   *  this to skip the "open in browser" action and show which agent started it. */
+  /** Set for a run_in_background Bash-spawned process. */
   source?: "background-task";
   agentId?: string;
   agentName?: string;
@@ -400,9 +325,7 @@ export interface ScannedEntry {
   name: string;
   fullPath: string;
   excluded: boolean;
-  /** Whether the folder has a `.git` directory. */
   hasGit: boolean;
-  /** Directory mtime, ms since epoch — used as an "last touched" hint. */
   mtimeMs: number;
 }
 
@@ -431,17 +354,12 @@ export interface HealthInfo {
   error?: string;
 }
 
-/**
- * A reusable multi-step prompt in the workflow library. Under the hood the
- * DB table is still `saved_prompts` (rename would risk live data) but every
- * surface — API paths, types, UI — talks about workflows.
- */
+/** A saved multi-step prompt in the workflow library (DB table: saved_prompts). */
 export interface Workflow {
   id: string;
   title: string;
   body: string;
-  /** Category slug. Starter workflows use `"starter"`; user-authored can use
-   *  any string. Used for the picker's tab filter. */
+  /** Category slug; "starter" for built-ins. */
   category: string;
   createdAt: number;
   useCount: number;
@@ -456,14 +374,11 @@ export interface SummonRequest {
   cwd?: string;
   projectId?: string;
   instanceId?: string;
-  /** Session ID from the previous turn - passed as --resume to continue the conversation. */
+  /** Session ID from the previous turn, passed as --resume. */
   resumeSessionId?: string;
-  /** How much prior-conversation context to inject. Defaults to "balanced". */
+  /** Defaults to "balanced". */
   contextProfile?: ContextProfile;
-  /** The server-authoritative conversation this turn belongs to (see
-   *  execution/conversation.ts). Undefined for callers not yet migrated onto
-   *  conversations (legacy /api/summon direct calls, some scheduled jobs) —
-   *  those runs simply aren't tracked by the queue/auto-advance driver. */
+  /** Conversation this turn belongs to; undefined for legacy callers. */
   conversationId?: string;
 }
 
@@ -475,19 +390,16 @@ export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceed
 /** A unit of scheduled work: a serialized summon plus the time to fire it. */
 export interface ScheduledJob {
   id: string;
-  /** Unix ms. Job fires on the first tick at or after this time. */
+  /** Unix ms. Fires on the first tick at or after this time. */
   fireAt: number;
   summonRequest: SummonRequest;
-  /** How the job was created. */
   reason: "manual" | "rate-limit";
-  /** Human label for the schedules list (agent + prompt snippet). */
   label: string;
   status: ScheduledJobStatus;
-  /** Why a job needs the user's attention (only set when status is needs-attention). */
+  /** Set only when status is needs-attention. */
   attention?: ScheduledJobAttention;
-  /** Consecutive rate-limit re-schedules of this job. */
+  /** Consecutive rate-limit re-schedules. */
   attempts: number;
-  /** Run started by the most recent fire (used to detect a repeat rate-limit). */
   firedRunId?: string;
   createdAt: number;
   updatedAt: number;
@@ -502,22 +414,14 @@ export interface SseUsageEvent {
   tokensIn: number;
   tokensOut: number;
   cost: number;
-  /** Tokens newly written to the prompt cache this turn (first time this
-   *  content — system prompt, tools, prior turns — appears in a session). */
+  /** New tokens written to the prompt cache this turn. */
   cacheCreationTokens?: number;
-  /** Tokens served from the prompt cache this turn (content unchanged since
-   *  a prior turn wrote it) — billed at a steep discount vs. a fresh token. */
+  /** Tokens served from cache this turn (discounted rate). */
   cacheReadTokens?: number;
 }
 export interface SseDoneEvent { runId: string; exitCode: number; sessionId?: string; durationMs?: number; tokensIn?: number; tokensOut?: number; cost?: number }
-// Run-error codes are the shared FE/BE vocabulary. The runtime values
-// (`RUN_ERROR_CODES`, `isRunErrorCode`) live in `../config/run-errors` — the
-// `RunErrorCode` type is re-exported here so type-only consumers keep importing
-// from `@agent-office/domain/types` and this module stays type-only.
 export type { RunErrorCode } from "../config/run-errors";
 import type { RunErrorCode } from "../config/run-errors";
-// Catalog-derived types (runtime const + guard live in ../config/*); re-exported
-// so type-only consumers keep importing from `@agent-office/domain/types`.
 export type { DocCategory } from "../config/doc-categories";
 export type { SkillIconClass } from "../config/skill-icons";
 export type { CleanupKind } from "../config/cleanup";
@@ -569,18 +473,18 @@ export type RunStreamEvent =
   | { name: "subagent"; data: SseSubAgentEvent }
   | { name: "subagent-update"; data: SseSubAgentUpdateEvent };
 
-// ─── Pipeline types ──────────────────────────────────────────────────────────
+// ─── Pipeline types ───────────────────────────────────────────────────────────
 
 export interface PipelineStep {
   agentId: string;
   instanceId?: string;
-  /** May contain {{output}} which is replaced by the previous step's finalised output. */
+  /** May contain {{output}}, replaced by the previous step's output. */
   promptTemplate: string;
   model?: string;
   effort?: string;
 }
 
-/** A group of steps that run concurrently; outputs are joined for the next sequential step. */
+/** A group of steps that run concurrently; outputs join for the next step. */
 export interface ParallelPipelineStep {
   kind: "parallel";
   steps: PipelineStep[];
@@ -599,7 +503,7 @@ export interface PipelineRunStep {
   status: "pending" | "running" | "done" | "error";
   output?: string;
   exitCode?: number;
-  /** When set, this step belongs to a parallel group; steps with the same value run concurrently. */
+  /** Steps with the same value run concurrently. */
   parallelGroup?: number;
 }
 
@@ -609,25 +513,16 @@ export interface PipelineRun {
   steps: PipelineRunStep[];
   status: "running" | "done" | "error";
   createdAt: number;
-  /** True when the server restarted while this pipeline was running. */
+  /** True when the server restarted mid-run. */
   interrupted?: boolean;
 }
 
-/**
- * A project tab in the Chrome-style tab strip. One tab per project (MVP);
- * opening an already-tabbed project focuses the existing tab. Each tab
- * remembers its last-known route so switching tabs restores where the user
- * was inside that project (agent details modal, memory view, docs sub-route,
- * etc.). Persisted server-side under `ui_settings.tabs-state` as a JSON blob
- * of the full `TabsState`.
- */
+/** A project tab in the Chrome-style tab strip; persisted under ui_settings.tabs-state. */
 export interface Tab {
-  /** Stable id (uuid). Distinct from `projectId` because a project can be
-   * closed and re-opened as a different tab instance in future iterations. */
+  /** Stable id (uuid), distinct from projectId. */
   id: string;
   projectId: string;
-  /** Last-known route within this tab, e.g. `/projects/inwhite`. Updated
-   * whenever the user navigates inside the active tab. */
+  /** Last-known route within this tab. */
   currentPath: string;
   createdAt: number;
   lastActiveAt: number;
@@ -638,8 +533,7 @@ export interface TabsState {
   activeTabId: string | null;
 }
 
-// ─── Docs contracts ──────────────────────────────────────────────────────────
-// Produced by the docs service, consumed by the /docs + memory UIs.
+// ─── Docs contracts ───────────────────────────────────────────────────────────
 
 export interface DocFrontmatter {
   title: string;
@@ -649,83 +543,56 @@ export interface DocFrontmatter {
 }
 
 export interface DocMeta extends DocFrontmatter {
-  /** Owner slug — either an agent-id or `_global`. */
+  /** Agent-id or `_global`. */
   owner: string;
-  /** Filename without extension. Stable, URL-safe id. */
+  /** Filename without extension. */
   slug: string;
 }
 
 export interface Doc extends DocMeta {
-  /** Markdown body (frontmatter stripped). */
+  /** Markdown body, frontmatter stripped. */
   body: string;
 }
 
-// ─── Prompt composition ──────────────────────────────────────────────────────
-// What agent-office appends to an agent's system prompt. `composeAppendedPrompt`
-// (agents.ts) is the one source of truth: the real spawn joins `segment.text`,
-// and the Context & Cost tab measures the same segments, so the two can't drift.
+// ─── Prompt composition ───────────────────────────────────────────────────────
+// See composeAppendedPrompt (agents.ts) — the one source of truth these mirror.
 
 export interface PromptSegmentChild {
-  /** Stable id, unique within the parent (e.g. a skill name). */
   key: string;
   name: string;
-  /** Display sub-line for the cost tab. */
   sub: string;
-  /** Characters this child contributes to the parent segment's text. */
   chars: number;
 }
 
 export interface PromptSegment {
-  /** Stable id (e.g. "identity", "global-memory", "skills"). */
   key: string;
-  /** Display name for the cost tab (e.g. "Identity", "Global memory"). */
   name: string;
-  /** Exact text this segment contributes, heading included. Segments join
-   *  with "\n\n" to form the real appended prompt. */
+  /** Segments join with "\n\n" to form the real appended prompt. */
   text: string;
-  /** `text` without its "## " heading — what a cost row sizes. Empty for the
-   *  skills segment, which is itemized via `children` instead. */
+  /** `text` without its "## " heading. Empty when itemized via `children`. */
   body: string;
-  /** Display sub-line for the cost tab (path · line count, etc.). */
   sub: string;
-  /** True for content whose size agent-office doesn't own / the user can't
-   *  trim (project info, the history-note pointer). */
+  /** True for content agent-office doesn't own / the user can't trim. */
   locked: boolean;
-  /** When it's paid for — see ContextCostRow.phase. Appended segments are
-   *  always "always" (resident system prompt); first-turn injection is sourced
-   *  separately (not composed here). */
   phase: "always" | "first-turn";
-  /** Set on the skills segment so the cost tab can group its children. */
   group?: "skills";
-  /** Segments the cost tab itemizes further (skills → one row per skill) while
-   *  the prompt contributes a single grouped section. */
   children?: PromptSegmentChild[];
 }
 
-// ─── Context & Cost ──────────────────────────────────────────────────────────
-// What actually goes into an agent's system prompt on every run, and what it
-// costs — see `services/agents/context-cost.ts` for how this is computed.
+// ─── Context & Cost ───────────────────────────────────────────────────────────
+// See services/agents/context-cost.ts for how this is computed.
 
 export interface ContextCostRow {
   key: string;
   name: string;
-  /** Short descriptive line — file path + line count, skill usage mode, etc. */
   sub: string;
   tokensEst: number;
-  /** Always true today: every row here is a local char-count approximation
-   *  (see `estimateTokens`), never a number Anthropic has confirmed. Kept as
-   *  a field (not dropped) so a future exact source (`count_tokens` API) can
-   *  flip specific rows to `false` without changing the shape. */
+  /** Always true today — a local char-count approximation, never exact. */
   est: boolean;
-  /** True for content agent-office doesn't own the size of (Claude Code's own
-   *  base prompt + CLAUDE.md/AGENTS.md discovery) — nothing to trim here. */
+  /** True for content agent-office doesn't own the size of. */
   locked: boolean;
-  /** Set on skill rows so the UI can group them under one "Skills" umbrella. */
   group?: "skills";
-  /** When this is paid for. "always" (default): resident system prompt,
-   *  written to cache once, read every turn — the headline total. "first-turn":
-   *  prior-history injection, prepended to the first message of a new thread
-   *  only; kept out of the headline so it doesn't inflate the per-run cost. */
+  /** "always" (default) = resident system prompt. "first-turn" = prior-history injection. */
   phase?: "always" | "first-turn";
 }
 
@@ -734,35 +601,23 @@ export interface ContextCostBreakdown {
   instanceId: string;
   model: string;
   rows: ContextCostRow[];
-  /** Sum of the `phase: "always"` rows only — the resident system-prompt
-   *  overhead. The headline "per run" number. */
+  /** Sum of the "always" rows — the headline per-run number. */
   totalTokensEst: number;
-  /** Sum of `phase: "first-turn"` rows — extra tokens the FIRST message of a
-   *  new thread pays on top of `totalTokensEst` (prior-history injection).
-   *  0 for a fresh instance with no history. Shown separately, never folded
-   *  into the per-run headline. */
+  /** Sum of "first-turn" rows; 0 for a fresh instance. */
   firstTurnTokensEst: number;
-  /** Modeled as: write this content to cache once, read it back on every
-   *  subsequent turn of the session (`avgTurnsPerSession`) — the same shape
-   *  Anthropic actually bills a `--resume`'d session at. */
   costPerRunEst: number;
   costPerWeekEst: number;
   runsPerWeek: number;
   avgTurnsPerSession: number;
-  /** Published per-token cache write/read rates for `model` (USD) — real
-   *  Anthropic pricing, not derived/guessed from this agent's own history. */
   writeRatePerTokUsd: number;
   readRatePerTokUsd: number;
   contextWindowTokens: number;
   windowPct: number;
-  /** Other CLAUDE.md/AGENTS.md elsewhere in the project, not ancestors of this
-   *  instance's cwd — only loaded if the agent's task touches that subtree.
-   *  Informational only, never added to `totalTokensEst`. */
+  /** Other CLAUDE.md/AGENTS.md in the project, informational only. */
   conditionalFiles: Array<{ path: string; tokens: number; lines: number }>;
 }
 
-// ─── Skill contracts ─────────────────────────────────────────────────────────
-// Manifest / compatibility / customization shapes exchanged with the skills UI.
+// ─── Skill contracts ──────────────────────────────────────────────────────────
 
 export interface SkillManifestEntry {
   slug: string;
@@ -807,46 +662,36 @@ export type SkillCustomizationMap = Record<string, SkillCustomization>;
 export interface SkillSection {
   /** Stable id derived from the heading text (deduped). */
   slug: string;
-  /** Display text of the `##` heading. */
   heading: string;
 }
 
 export interface SkillIconConfig {
   seed: string;
   iconClass: SkillIconClass;
-  /**
-   * Optional explicit "build it yourself" overrides, e.g.
-   * `{ blades: { profile: "katana", guard: "swept" } }`. Opaque to the
-   * domain layer — persisted as-is; `@agent-office/pixel-icons` interprets
-   * the shape (see its `WeaponParts` type, kept in sync by hand since domain
-   * doesn't depend on the generator package).
-   */
+  /** Opaque "build it yourself" overrides — see @agent-office/pixel-icons WeaponParts. */
   parts?: Record<string, Record<string, string | boolean>>;
 }
 export type SkillIconMap = Record<string, SkillIconConfig>;
 
-// ─── Analytics contracts ─────────────────────────────────────────────────────
-// SQL rollups produced by the analytics services, rendered by the analytics UI.
+// ─── Analytics contracts ──────────────────────────────────────────────────────
 
 export interface AnalyticsTotals {
   runs: number;
   tokensIn: number;
   tokensOut: number;
   cost: number;
-  /** Wall-clock agent runtime, ms. */
   runtimeMs: number;
   done: number;
   errors: number;
 }
 
 export interface ModelFamilyRow {
-  /** Consolidated family key: `opus` | `sonnet` | `haiku` | raw id. */
+  /** Consolidated family key: opus | sonnet | haiku | raw id. */
   family: string;
   label: string;
   runs: number;
   tokens: number;
   cost: number;
-  /** Raw model ids folded into this family, for the tooltip. */
   variants: string[];
 }
 
@@ -883,7 +728,7 @@ export interface ActivityCell {
 }
 
 export interface SeriesPoint {
-  /** Bucket key — `YYYY-MM-DD` for day granularity, `YYYY-MM-DD` (week start) for week. */
+  /** YYYY-MM-DD, or week-start date for week granularity. */
   key: string;
   cost: number;
   runs: number;
@@ -892,9 +737,7 @@ export interface SeriesPoint {
 
 export interface AnalyticsPage {
   totals: AnalyticsTotals;
-  /** Same-length window immediately before `start`. Drives the deltas. */
   previous: AnalyticsTotals;
-  /** Null when the window has no meaningful "previous" (all-time). */
   hasPrevious: boolean;
   byModel: ModelFamilyRow[];
   byAgent: AnalyticsAgentRow[];
@@ -917,20 +760,19 @@ export interface AnalyticsSummary {
   totalCost: number;
   byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
   byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
-  /** Present only when trailing per-day spend was requested (merged by the API). */
   dailySpend?: Array<{ day: string; spend: number }>;
 }
 
 export interface SummaryRange {
-  /** Inclusive lower bound (epoch ms). `0` for all-time. */
+  /** Epoch ms, inclusive. 0 = all-time. */
   start: number;
-  /** Exclusive upper bound (epoch ms). `Number.POSITIVE_INFINITY` for all-time. */
+  /** Epoch ms, exclusive. Number.POSITIVE_INFINITY = all-time. */
   end: number;
   projectId?: string;
 }
 
 export interface AccountStats {
-  /** `null` = rows written before account_id existed; folded into `default`. */
+  /** null = rows written before account_id existed; folded into "default". */
   accountId: string | null;
   runs24h: number;
   runs7d: number;
