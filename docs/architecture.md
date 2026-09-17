@@ -8,10 +8,12 @@
 
 | Package | Description |
 |---------|-------------|
-| `apps/web` | Next.js app — UI, API routes, SSE runner. Design-system primitives live in `src/components/ui/` |
+| `apps/web` | Next.js app — UI, API routes, SSE runner. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
 | `packages/domain` | `@agent-office/domain` — types, DB layer, services, route config |
-| `packages/pixel-planets` | `@agent-office/pixel-planets` — WebGL2 procedural pixel-art planet renderer; one shared GL context for N planets; 11 planet types; deterministic from integer seed |
-| `packages/pixel-icons` | `@agent-office/pixel-icons` — procedural pixel-art icon set (agent avatars, weapons, tools) |
+
+The workspace globs `apps/*` and `packages/*`, but today only `apps/web` and
+`packages/domain` exist. (Earlier `@agent-office/pixel-planets` / `pixel-icons`
+packages were removed — the office moved to PixiJS inside `apps/web`.)
 
 ---
 
@@ -274,7 +276,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at v17. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at v18. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned. Pipelines with no still-live run → `status='error', interrupted=1`.
 
 ### Tables
@@ -307,7 +309,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ### Indexes
 
-`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_saved_prompts_category`, `idx_saved_prompts_created`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`
+`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_saved_prompts_category`, `idx_saved_prompts_created`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`
 
 ---
 

@@ -1,9 +1,8 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { APP_STATE_DIR, AGENTS_DIR, CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
-import type { PersistedRun } from "../../types/index";
+import { CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 import { STARTER_WORKFLOWS, STARTER_WORKFLOW_CATEGORY } from "../execution/workflow-seed";
 
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
@@ -381,7 +380,19 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
-  // v17 → v18: per-server MCP token breakdown (was one combined total), so the
+  // v17 → v18: composite index for the per-run message read. Loading a
+  // conversation runs `SELECT ... FROM messages WHERE run_id = ? ORDER BY ts`,
+  // which under the old run_id-only index still needed a temp B-tree to sort.
+  // `(run_id, ts)` satisfies both the filter and the order, so the sort is
+  // free. The old single-column `idx_messages_run` becomes redundant (the
+  // composite's leading column covers every run_id lookup), so drop it.
+  (db) => {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_messages_run_ts ON messages(run_id, ts);
+      DROP INDEX IF EXISTS idx_messages_run;
+    `);
+  },
+  // v18 → v19: per-server MCP token breakdown (was one combined total), so the
   // Context & Cost tab can exclude a specific disabled server (e.g. Playwright
   // toggled off) instead of all-or-nothing. Cache table, safe to rebuild.
   (db) => {
@@ -477,111 +488,7 @@ export function createSchema(db: Database.Database): void {
     if (v < 15) { MIGRATIONS[14]!(db); v = 15; db.pragma("user_version = 15"); }
     if (v < 16) { MIGRATIONS[15]!(db); v = 16; db.pragma("user_version = 16"); }
     if (v < 17) { MIGRATIONS[16]!(db); v = 17; db.pragma("user_version = 17"); }
+    if (v < 18) { MIGRATIONS[17]!(db); v = 18; db.pragma("user_version = 18"); }
+    if (v < 19) { MIGRATIONS[18]!(db); v = 19; db.pragma("user_version = 19"); }
   })();
-}
-
-// ─── One-time JSONL → SQLite migration ───────────────────────────────────────
-
-export function migrateFromJsonl(db: Database.Database): void {
-  const already = db.prepare("SELECT value FROM ui_settings WHERE key = '_migrated'").get() as { value: string } | undefined;
-  if (already) return;
-
-  // Migrate runs.log
-  const RUNS_LOG = join(APP_STATE_DIR, "runs.log");
-  const LEGACY_RUNS_LOG = join(AGENTS_DIR, "_runs.log");
-  const insertRun = db.prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at)
-    VALUES (@id, @agent_id, @agent_name, @instance_id, @instance_label, @project_id, @session_id, @status, @exit_code, @prompt, @output, @tokens_in, @tokens_out, @cost_usd, @dur_ms, @model, @effort, @cwd, @started_at, @ended_at)
-  `);
-
-  const migrateRunsFile = db.transaction((path: string) => {
-    if (!existsSync(path)) return;
-    try {
-      const raw = readFileSync(path, "utf8");
-      for (const line of raw.split("\n")) {
-        if (!line.trim()) continue;
-        try {
-          const r = JSON.parse(line) as PersistedRun;
-          insertRun.run({
-            id: r.id, agent_id: r.agentId, agent_name: r.agentName,
-            instance_id: r.instanceId ?? "default", instance_label: r.instanceLabel ?? null,
-            project_id: r.projectId ?? null, session_id: r.sessionId ?? null,
-            status: r.status, exit_code: r.exitCode ?? null,
-            prompt: r.prompt, output: r.output,
-            tokens_in: r.tokensIn, tokens_out: r.tokensOut, cost_usd: r.cost,
-            dur_ms: r.durMs, model: r.model, effort: r.effort,
-            cwd: r.cwd ?? null, started_at: r.ts, ended_at: r.ts + r.durMs,
-          });
-        } catch { /* skip malformed */ }
-      }
-    } catch { /* skip unreadable */ }
-  });
-
-  migrateRunsFile(RUNS_LOG);
-  migrateRunsFile(LEGACY_RUNS_LOG);
-
-  // Migrate history JSONL files
-  const HISTORY_DIR = join(APP_STATE_DIR, "history");
-  const insertMsg = db.prepare(`
-    INSERT OR IGNORE INTO messages (id, run_id, agent_id, instance_id, role, content, ts)
-    VALUES (@id, @run_id, @agent_id, @instance_id, @role, @content, @ts)
-  `);
-  // Ensure the run exists for the FK (history messages may reference runs not in the log)
-  const ensureRun = db.prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, prompt, status, output, started_at)
-    VALUES (@id, @agent_id, @agent_name, '', 'done', '', @started_at)
-  `);
-
-  if (existsSync(HISTORY_DIR)) {
-    try {
-      const files = readdirSync(HISTORY_DIR).filter(f => f.endsWith(".jsonl"));
-      const migrateHistory = db.transaction(() => {
-        for (const file of files) {
-          const key = file.replace(/\.jsonl$/, "");
-          const parts = key.split("::");
-          const agentId = parts[0] ?? key;
-          const instanceId = parts.slice(1).join("::") || "default";
-          try {
-            const raw = readFileSync(join(HISTORY_DIR, file), "utf8");
-            for (const line of raw.split("\n")) {
-              if (!line.trim()) continue;
-              try {
-                const m = JSON.parse(line) as { role: string; content: string; runId: string; ts: number };
-                ensureRun.run({ id: m.runId, agent_id: agentId, agent_name: agentId, started_at: m.ts });
-                insertMsg.run({
-                  id: randomUUID(), run_id: m.runId,
-                  agent_id: agentId, instance_id: instanceId,
-                  role: m.role, content: m.content, ts: m.ts,
-                });
-              } catch { /* skip */ }
-            }
-          } catch { /* skip */ }
-        }
-      });
-      migrateHistory();
-    } catch { /* skip */ }
-  }
-
-  // Migrate recent prompts JSON
-  const PROMPTS_FILE = join(APP_STATE_DIR, "recent-prompts.json");
-  const LEGACY_PROMPTS = join(AGENTS_DIR, "_recent_prompts.json");
-  const insertPrompt = db.prepare(`
-    INSERT INTO recent_prompts (agent_id, prompt, used_at) VALUES (?, ?, ?)
-  `);
-  const migratePrompts = db.transaction((path: string) => {
-    if (!existsSync(path)) return;
-    try {
-      const data = JSON.parse(readFileSync(path, "utf8")) as Record<string, string[]>;
-      for (const [agentId, prompts] of Object.entries(data)) {
-        for (const prompt of prompts) {
-          try { insertPrompt.run(agentId, prompt, Date.now()); } catch { /* skip dup */ }
-        }
-      }
-    } catch { /* skip */ }
-  });
-  migratePrompts(PROMPTS_FILE);
-  migratePrompts(LEGACY_PROMPTS);
-
-  // Mark migration done
-  db.prepare("INSERT OR REPLACE INTO ui_settings (key, value, updated_at) VALUES ('_migrated', '1', ?)").run(Date.now());
 }

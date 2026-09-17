@@ -13,8 +13,8 @@ import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 const HANDLERS: Record<string, (qc: QueryClient) => void> = {
   "runs:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: queryKeys.runs.all });
-    // Office agent statuses derive from the runs list.
     void qc.invalidateQueries({ queryKey: queryKeys.agents.list() });
+    void qc.invalidateQueries({ queryKey: [...queryKeys.agents.all, "context-cost"] });
   },
   "spend:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: ["projects", "spend"] });

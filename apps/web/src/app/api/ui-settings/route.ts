@@ -10,6 +10,8 @@ const STATIC_KEYS = new Set([
   "tabs-state",
   "claude-limits",
   "performance-mode",
+  // Auto-follow the power source (quality on AC, performance on battery).
+  "performance-auto",
   ...Object.values(OFFICE_SETTING_KEYS),
   "office-map-rev",
   // First-run wizard draft — lets a partially-filled wizard survive an app restart.
