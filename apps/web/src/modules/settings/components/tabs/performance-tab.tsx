@@ -10,9 +10,11 @@ import {
 
 /**
  * Performance tab of the Settings page. 3-card mode picker + a feature x mode
- * support matrix, both derived from the same MODES/FEATURES tables below.
- * Persisted to `ui_settings.performance-mode`; takes effect immediately via
- * the `[data-perf]` attribute the store writes on `<html>`.
+ * support matrix, both derived from the same MODES/FEATURES tables below, plus
+ * an auto power-source toggle (quality on AC, performance on battery).
+ * Persisted to `ui_settings.performance-mode` / `performance-auto`; takes
+ * effect immediately via the `[data-perf]` attribute the store writes on
+ * `<html>`.
  *
  * `label`/`note`/`name`/`detail` are i18n key stems (see `performance_tab.*`
  * in messages/en.json), not display strings — translated at render time.
@@ -50,6 +52,8 @@ export function PerformanceTab() {
   const mode = usePerformanceStore((s) => s.mode);
   const setMode = usePerformanceStore((s) => s.setMode);
   const autoDetected = usePerformanceStore((s) => s.autoDetected);
+  const auto = usePerformanceStore((s) => s.auto);
+  const setAuto = usePerformanceStore((s) => s.setAuto);
 
   const modeIdx = MODES.findIndex((m) => m.id === mode);
   const onCount = FEATURES.filter((f) => f.supported[modeIdx]).length;
@@ -81,6 +85,35 @@ export function PerformanceTab() {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={auto}
+        onClick={() => setAuto(!auto)}
+        className="flex items-center gap-[14px] text-left rounded-[18px] surface-sheen shadow-[var(--lift)] px-[18px] py-[14px] cursor-pointer transition-transform duration-150 hover:-translate-y-px"
+      >
+        <span className="w-[34px] h-[34px] shrink-0 rounded-[11px] flex items-center justify-center bg-card-2 text-acc">
+          <Icon name="zap" size={16} />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[13.5px] font-bold tracking-[-0.01em]">{t("auto_title")}</span>
+          <span className="block text-[11.5px] leading-[1.5] text-txt-3 mt-[3px] text-pretty">{t("auto_sub")}</span>
+        </span>
+        <span className="flex items-center gap-[9px] shrink-0">
+          <span className="text-[10px] font-bold tracking-[0.06em] uppercase text-txt-4 whitespace-nowrap">
+            {auto ? t("auto_state_on") : t("auto_state_off")}
+          </span>
+          <span className={cn("relative w-[42px] h-[24px] rounded-full transition-colors duration-150", auto ? "bg-acc" : "bg-edge-2")}>
+            <span
+              className={cn(
+                "absolute top-[3px] w-[18px] h-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-150",
+                auto ? "translate-x-[21px]" : "translate-x-[3px]",
+              )}
+            />
+          </span>
+        </span>
+      </button>
 
       {autoDetected && (
         <div className="flex items-start gap-[10px] px-[16px] py-[12px] rounded-[14px] surface-sheen shadow-[var(--lift)] text-[12px] text-txt-2 leading-[1.55]">

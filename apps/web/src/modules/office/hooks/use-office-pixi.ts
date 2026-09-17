@@ -163,6 +163,13 @@ export function useOfficePixi({
         // the canvas always fills its parent regardless of subsequent resizes.
         canvas.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%";
 
+        // Cap the iso render loop. The office floor is near-static (subtle
+        // foam + hover glow only), so 30 FPS is visually identical to the
+        // display refresh rate while roughly halving GPU present/compositor
+        // work — a real battery win on the Intel iGPU. (Iso only mounts in
+        // `full` perf mode, so this never runs on battery/perf modes.)
+        app.ticker.maxFPS = 30;
+
         const world = new Container();
         app.stage.addChild(world);
 
