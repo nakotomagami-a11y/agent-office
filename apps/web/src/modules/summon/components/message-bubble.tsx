@@ -110,7 +110,7 @@ function copyText(text: string) {
 
 
 // ── Code block ────────────────────────────────────────────────────────────────
-function CodeBlock({ lang, body }: { lang: string; body: string }) {
+function CodeBlock({ lang, body, streaming }: { lang: string; body: string; streaming?: boolean }) {
   const lines = body.split("\n").length;
   return (
     <div className="ao-codeblock">
@@ -128,7 +128,15 @@ function CodeBlock({ lang, body }: { lang: string; body: string }) {
           </button>
         </div>
       </div>
-      <pre dangerouslySetInnerHTML={{ __html: highlightTS(body) }} />
+      {streaming ? (
+        // Skip syntax highlighting while the message streams: highlightTS runs
+        // on every coalesced frame over a growing code block (≈O(n^2) on the
+        // WebKitGTK renderer). Show plain mono text now; the block re-renders
+        // highlighted once the turn finalizes (streaming=false).
+        <pre>{body}</pre>
+      ) : (
+        <pre dangerouslySetInnerHTML={{ __html: highlightTS(body) }} />
+      )}
     </div>
   );
 }
@@ -158,7 +166,7 @@ function ProseBlock({ items, streaming }: { items: ProseItem[]; streaming?: bool
     const k = `n${idx}`;
     if (typeof item === "object" && item.type === "code") {
       flushPara(`p${k}`); flushList(`l${k}`);
-      out.push(<CodeBlock key={k} lang={item.lang} body={item.body} />);
+      out.push(<CodeBlock key={k} lang={item.lang} body={item.body} streaming={streaming} />);
       return;
     }
     if (typeof item === "object" && item.type === "table") {
