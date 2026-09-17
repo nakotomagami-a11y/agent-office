@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react";
 import { usePerformanceStore } from "@/lib/performance-store";
 
 const POWER_ENDPOINT = "/api/power";
-const POLL_MS = 30_000;
+// WebKitGTK (the Tauri Linux webview) has no Battery Status API, so there is
+// no instant charging event to trigger a re-poll — fall back to a faster
+// interval there so AC/battery transitions engage within seconds, not up to 30s.
+const HAS_BATTERY_API = typeof navigator !== "undefined" && "getBattery" in navigator;
+const POLL_MS = HAS_BATTERY_API ? 30_000 : 8_000;
 
 /**
  * Drives auto performance-mode switching from the machine's power source.
