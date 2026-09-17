@@ -53,11 +53,15 @@ function ToolIcon({ name, size = 13 }: { name: string; size?: number }) {
  */
 function ToolCallRow({ name, arg, running = false }: { name: string; arg?: string; running?: boolean }) {
   const [showIn, setShowIn] = useState(false);
+  // Compute the highlighted arg ONLY when the row is actually expanded. It is
+  // only rendered under `showIn` below, but historical tool trails are now
+  // persistent (48h), so eagerly highlighting every collapsed row's arg on
+  // mount was a big chunk of the chat-open lag. Lazy = zero cost until clicked.
   const pretty = useMemo(() => {
-    if (!arg) return "";
+    if (!arg || !showIn) return "";
     const { text, json } = prettyPrintToolArg(arg);
     return highlight(text, json ? "json" : "");
-  }, [arg]);
+  }, [arg, showIn]);
   return (
     <div className="px-[14px] py-[7px]">
       <div
