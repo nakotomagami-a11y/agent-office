@@ -120,6 +120,9 @@ export interface PersistedRun {
   cacheCreationTokens?: number;
   /** See {@link SseUsageEvent.cacheReadTokens}. */
   cacheReadTokens?: number;
+  /** Set from the run's own tool_calls when it started a `run_in_background`
+   *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
+  backgroundTaskCommand?: string;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ──────
@@ -372,6 +375,8 @@ export interface ProcessInfo {
    *  (tracked in `background_shells`) rather than the port scan — the UI uses
    *  this to skip the "open in browser" action and show which agent started it. */
   source?: "background-task";
+  /** The run that started this shell (only set for "background-task" entries). */
+  runId?: string;
   agentId?: string;
   agentName?: string;
   instanceLabel?: string;

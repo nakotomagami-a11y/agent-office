@@ -5,6 +5,7 @@ import { WorkflowPill } from "./workflow-pill";
 import { ChatThread } from "./chat-thread";
 import { Composer } from "./composer";
 import { ChatBanners } from "./chat-banners";
+import { BackgroundTaskIndicator } from "./background-task-indicator";
 import { phaseHint } from "../format/phase-format";
 import { repairWorktree } from "@/lib/api/roster";
 import type { LiveStats } from "../format/derive-live-stats";
@@ -72,7 +73,12 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
         <ChatHead
           agent={props.agent}
           onNew={props.onNewThread}
-          actions={props.activeRunId ? <WorkflowPill runId={props.activeRunId} active={props.isStreaming} /> : null}
+          actions={
+            <>
+              <BackgroundTaskIndicator thread={props.thread} resetKey={props.tKey} />
+              {props.activeRunId ? <WorkflowPill runId={props.activeRunId} active={props.isStreaming} /> : null}
+            </>
+          }
         />
       )}
 

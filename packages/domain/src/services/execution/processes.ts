@@ -186,6 +186,7 @@ function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: S
     }
     const existing = byPid.get(row.pid);
     if (existing) {
+      existing.runId = row.runId;
       existing.agentId = row.agentId;
       existing.agentName = row.agentName;
       existing.instanceLabel = row.instanceLabel ?? undefined;
@@ -202,6 +203,7 @@ function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: S
       startedAt: row.startedAt,
       memMb: readProcMem(row.pid),
       source: "background-task",
+      runId: row.runId,
       agentId: row.agentId,
       agentName: row.agentName,
       instanceLabel: row.instanceLabel ?? undefined,
