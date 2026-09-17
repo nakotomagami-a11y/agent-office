@@ -1,6 +1,6 @@
 {
   "name": "agent-office",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "private": true,
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@11.0.9",
@@ -10,7 +10,8 @@
     "start": "pnpm --filter @agent-office/web start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "install:local": "bash scripts/install-local.sh"
+    "install:local": "bash scripts/install-local.sh",
+    "set-version": "node scripts/set-version.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
