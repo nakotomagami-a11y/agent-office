@@ -223,33 +223,42 @@ function rowToRun(row: RunRow): PersistedRun {
   };
 }
 
+interface ToolCallRow { id: string; run_id: string; name: string; input: string | null; ts: number }
+
 /**
- * The first `run_in_background: true` Bash command per run, for the given
- * run ids — one extra indexed query (`idx_tool_calls_run`), not N+1. A
- * turn's live tool-call trail is otherwise NOT reconstructed once it's
- * historical (see `PersistedRun.backgroundTaskCommand`'s doc comment), so
- * this is the only way a chat can still show "this turn started something
- * backgrounded" after the turn itself has finished.
+ * Every persisted tool_call for the given run ids, oldest first — one extra
+ * indexed query (`idx_tool_calls_run`), not N+1. Rows are pruned 48h after
+ * they're written (see `pruneExpiredToolCalls`), so a turn's `toolCalls`
+ * naturally stops appearing once its calls age out — no extra time check
+ * needed here.
  */
-function backgroundTaskCommandsByRun(runIds: string[]): Map<string, string> {
-  const out = new Map<string, string>();
+function toolCallRowsByRun(runIds: string[]): Map<string, ToolCallRow[]> {
+  const out = new Map<string, ToolCallRow[]>();
   if (runIds.length === 0) return out;
   const placeholders = runIds.map(() => "?").join(",");
   const rows = getDb()
-    .prepare(
-      `SELECT run_id, input, ts FROM tool_calls
-       WHERE run_id IN (${placeholders}) AND name = 'Bash' AND input LIKE '%"run_in_background":true%'
-       ORDER BY ts ASC`,
-    )
-    .all(...runIds) as Array<{ run_id: string; input: string; ts: number }>;
+    .prepare(`SELECT id, run_id, name, input, ts FROM tool_calls WHERE run_id IN (${placeholders}) ORDER BY ts ASC`)
+    .all(...runIds) as ToolCallRow[];
   for (const row of rows) {
-    if (out.has(row.run_id)) continue; // first match per run wins
-    try {
-      const parsed = JSON.parse(row.input) as { command?: unknown };
-      if (typeof parsed.command === "string") out.set(row.run_id, parsed.command);
-    } catch { /* malformed input JSON — skip */ }
+    const list = out.get(row.run_id);
+    if (list) list.push(row);
+    else out.set(row.run_id, [row]);
   }
   return out;
+}
+
+/** First `run_in_background: true` Bash command in a run's tool-call rows,
+ *  oldest wins — see `PersistedRun.backgroundTaskCommand`'s doc comment. */
+function backgroundTaskCommandFromRows(rows: ToolCallRow[] | undefined): string | undefined {
+  if (!rows) return undefined;
+  for (const row of rows) {
+    if (row.name !== "Bash" || !row.input?.includes('"run_in_background":true')) continue;
+    try {
+      const parsed = JSON.parse(row.input) as { command?: unknown };
+      if (typeof parsed.command === "string") return parsed.command;
+    } catch { /* malformed input JSON — skip */ }
+  }
+  return undefined;
 }
 
 /** Top-level turns (runs) of a conversation, oldest → newest. */
@@ -257,11 +266,15 @@ export function listConversationTurns(conversationId: string): PersistedRun[] {
   const rows = getDb()
     .prepare("SELECT * FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC")
     .all(conversationId) as RunRow[];
-  const bgCommands = backgroundTaskCommandsByRun(rows.map((r) => r.id));
+  const toolRows = toolCallRowsByRun(rows.map((r) => r.id));
   return rows.map((row) => {
     const run = rowToRun(row);
-    const command = bgCommands.get(row.id);
+    const trows = toolRows.get(row.id);
+    const command = backgroundTaskCommandFromRows(trows);
     if (command) run.backgroundTaskCommand = command;
+    if (trows && trows.length > 0) {
+      run.toolCalls = trows.map((r) => ({ id: r.id, name: r.name, input: r.input ?? "", ts: r.ts }));
+    }
     return run;
   });
 }

@@ -97,6 +97,13 @@ export interface PersistedRun {
   /** Set from the run's own tool_calls when it started a `run_in_background`
    *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
   backgroundTaskCommand?: string;
+  /** This turn's tool-call trail (Bash/Grep/Read/…), read back from the
+   *  permanent `tool_calls` table so historical turns can still render their
+   *  full tool timeline — not just the live-streamed one. Rows are pruned
+   *  after `TOOL_CALL_RETENTION_MS` (48h, see execution/runs.ts's `gc()`), so
+   *  this simply stops appearing once a call ages out — no separate
+   *  client-side expiry check needed. */
+  toolCalls?: Array<{ id: string; name: string; input: string; ts: number }>;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────

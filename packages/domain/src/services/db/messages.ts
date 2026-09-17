@@ -86,6 +86,17 @@ export function insertToolCall(runId: string, name: string, input: unknown, ts: 
   } catch { /* best-effort */ }
 }
 
+/** Deletes tool_calls rows older than `olderThanTs` — the 48h retention
+ *  timer for the historical tool-call trail (see PersistedRun.toolCalls'
+ *  doc comment). Called from execution/runs.ts's existing minutely `gc()`. */
+export function pruneExpiredToolCalls(olderThanTs: number): number {
+  try {
+    return getDb().prepare("DELETE FROM tool_calls WHERE ts < ?").run(olderThanTs).changes;
+  } catch {
+    return 0;
+  }
+}
+
 // ─── Recent prompts ────────────────────────────────────────────────────────────
 
 const MAX_RECENT_PROMPTS = 10;

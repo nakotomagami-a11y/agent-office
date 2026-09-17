@@ -17,6 +17,7 @@ export * as conversationRunner from "./execution/conversation-runner";
 // process loads; this barrel is it (every API route imports from it).
 import "./execution/conversation-wiring";
 export * as scheduler from "./execution/scheduler";
+export * as backgroundShellWatcher from "./execution/background-shell-watcher";
 export * as templates from "./projects/templates";
 export * as health from "./infra/health";
 export * as settings from "./settings";
@@ -33,6 +34,7 @@ export * as accounts from "./accounts/accounts";
 export * as accountLogin from "./accounts/account-login";
 export * as githubAccounts from "./accounts/github-accounts";
 export * as secrets from "./accounts/secrets";
+export * as shellEnv from "./accounts/shell-env";
 export * as analytics from "./analytics/analytics";
 export * as analyticsSummary from "./analytics/analytics-summary";
 export * as analyticsPage from "./analytics/analytics-page";
