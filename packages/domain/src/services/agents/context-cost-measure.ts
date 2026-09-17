@@ -147,17 +147,17 @@ function probeMcpSchemaTokens(command: string, args: string[]): Promise<number> 
   });
 }
 
-async function measureMcpTokens(serverNames: string[]): Promise<number> {
+async function measureMcpTokens(serverNames: string[]): Promise<Record<string, number>> {
   const configs = readMcpServerConfigs(serverNames);
-  let total = 0;
+  const out: Record<string, number> = {};
   for (const [name, cfg] of configs) {
     try {
-      total += await probeMcpSchemaTokens(cfg.command, cfg.args);
+      out[name] = await probeMcpSchemaTokens(cfg.command, cfg.args);
     } catch (err) {
       log.warn("context_cost.mcp_schema_probe_failed", { server: name, err: String(err) });
     }
   }
-  return total;
+  return out;
 }
 
 export async function measureAgentContextCost(
@@ -203,10 +203,10 @@ export async function measureAgentContextCost(
     const ccBaseAndToolsTokens = Math.max(0, probe.promptTokens - knownTokens);
 
     const mcpServerNames = agentMcpServerNames(agent.info.tools ?? []);
-    const mcpTokens = mcpServerNames.length > 0 ? await measureMcpTokens(mcpServerNames) : 0;
+    const mcpTokensByServer = mcpServerNames.length > 0 ? await measureMcpTokens(mcpServerNames) : {};
 
     const measurement: db.AgentContextMeasurement = {
-      agentId, ccBaseAndToolsTokens, mcpTokens, mcpServerNames, measuredAt: Date.now(),
+      agentId, ccBaseAndToolsTokens, mcpTokensByServer, measuredAt: Date.now(),
     };
     db.saveAgentContextMeasurement(measurement);
     return measurement;

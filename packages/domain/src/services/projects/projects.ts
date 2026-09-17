@@ -96,6 +96,7 @@ function rosterToYaml(roster: AgentInstance[]): YamlValue {
     if (inst.model !== undefined) o.model = inst.model;
     if (inst.effort !== undefined) o.effort = inst.effort;
     if (inst.permissionMode !== undefined) o.permissionMode = inst.permissionMode;
+    if (inst.playwrightEnabled !== undefined) o.playwrightEnabled = inst.playwrightEnabled;
     if (inst.room !== undefined) o.room = inst.room;
     if (inst.cwd !== undefined) o.cwd = inst.cwd;
     if (inst.worktree !== undefined) {
@@ -164,6 +165,7 @@ function normalizeRoster(raw: unknown): AgentInstance[] {
     if (typeof o.model === "string") inst.model = o.model;
     if (typeof o.effort === "string") inst.effort = o.effort;
     if (typeof o.permissionMode === "string") inst.permissionMode = o.permissionMode;
+    if (typeof o.playwrightEnabled === "boolean") inst.playwrightEnabled = o.playwrightEnabled;
     if (typeof o.room === "string") inst.room = o.room;
     if (typeof o.cwd === "string") inst.cwd = o.cwd;
     if (o.worktree && typeof o.worktree === "object") {

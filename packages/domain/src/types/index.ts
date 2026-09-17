@@ -94,6 +94,9 @@ export interface PersistedRun {
   currentTool?: string;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /** Set from the run's own tool_calls when it started a `run_in_background`
+   *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
+  backgroundTaskCommand?: string;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────
@@ -144,6 +147,8 @@ export interface AgentInstance {
   effort?: string;
   permissionMode?: string;
   room?: string;
+  /** Undefined/true = Playwright MCP loaded; false = excluded from the spawn. */
+  playwrightEnabled?: boolean;
   /** Falls back to project.meta.cwd when unset. */
   cwd?: string;
   worktree?: {
@@ -295,6 +300,8 @@ export interface ProcessInfo {
   projectName?: string;
   /** Set for a run_in_background Bash-spawned process. */
   source?: "background-task";
+  /** The run that started this shell (only set for "background-task" entries). */
+  runId?: string;
   agentId?: string;
   agentName?: string;
   instanceLabel?: string;
