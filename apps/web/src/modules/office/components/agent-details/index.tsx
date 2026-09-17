@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Portal } from "@/components/ui/portal";
 import { useOfficeAgents } from "../../hooks/use-office-agents";
 import { useOfficeStore, type AgentTab } from "../../hooks/use-office-store";
@@ -50,6 +51,7 @@ function runtimeItemLabel(value: string, selected: boolean) {
 // ── Main modal ─────────────────────────────────────────────────────────────
 
 export function AgentDetailsModal() {
+  const t = useTranslations("agent_details");
   const selectedId = useOfficeStore((s) => s.selectedId);
   const selectedInstanceId = useOfficeStore((s) => s.selectedInstanceId);
   const inspectorOpen = useOfficeStore((s) => s.inspectorOpen);
@@ -170,8 +172,8 @@ export function AgentDetailsModal() {
         onSuccess: () =>
           toast(
             next
-              ? "Playwright enabled for this session — applies on next task"
-              : "Playwright disabled for this session — applies on next task",
+              ? t("playwright_enabled_toast")
+              : t("playwright_disabled_toast"),
           ),
       },
     );
@@ -321,7 +323,7 @@ export function AgentDetailsModal() {
               </button>
             ))}
             <div className="flex-1" />
-            <Tooltip content="Close (Esc)" side="bottom" delayMs={600}>
+            <Tooltip content={t("close_esc")} side="bottom" delayMs={600}>
               <button
                 className="inline-flex items-center justify-center w-8 h-8 my-auto mr-1 rounded-lg text-ao-fg-2 hover:text-ao-fg-0 hover:bg-ao-bg-3"
                 aria-label="Close"
@@ -404,8 +406,8 @@ export function AgentDetailsModal() {
                   <Tooltip
                     content={
                       playwrightEnabled
-                        ? "Playwright is available to this session. Click to turn it off — its browser tools won't load into context and sub-agents can't use it either."
-                        : "Playwright is off for this session. Click to turn it back on."
+                        ? t("playwright_on_tooltip")
+                        : t("playwright_off_tooltip")
                     }
                     side="bottom"
                     delayMs={400}
@@ -429,7 +431,7 @@ export function AgentDetailsModal() {
                         )}
                         aria-hidden
                       />
-                      <span>playwright {playwrightEnabled ? "on" : "off"}</span>
+                      <span>{playwrightEnabled ? t("playwright_on_label") : t("playwright_off_label")}</span>
                     </button>
                   </Tooltip>
                 )}
@@ -526,7 +528,7 @@ export function AgentDetailsModal() {
                     </button>
                   </span>
                 ) : (
-                  <Tooltip content="Delete this instance" side="bottom" delayMs={400}>
+                  <Tooltip content={t("delete_instance_tooltip")} side="bottom" delayMs={400}>
                     <button
                       type="button"
                       aria-label="Delete this agent instance"

@@ -139,7 +139,7 @@ export function Composer(props: ComposerProps) {
             placeholder={t("composer.input_placeholder")}
             aria-label={t("composer.input_aria")}
             rows={1}
-            className="border-none bg-transparent resize-none text-txt w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[220px] placeholder:text-txt-4"
+            className="border-none bg-transparent resize-none text-txt w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[520px] overflow-y-auto placeholder:text-txt-4"
           />
           <ComposerToolbar
             cwdChip={props.cwdChip}

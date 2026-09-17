@@ -189,19 +189,19 @@ function ProjectCard({ tab, isActive, projectName, projectPlanet, onDone, maxHei
       </div>
 
       {gitQ.data?.isGit && (
-        <div className="flex items-center gap-[6px]">
+        <div className="flex items-center gap-[6px] min-w-0">
           {gitQ.data.branch && (
-            <span className="inline-flex items-center gap-[5px] px-[8px] h-[20px] rounded-[6px] bg-bg-3 border border-line text-txt-3 font-[var(--font-mono)] text-[10.5px]">
-              <Icon name="branch-ao" size={10} />
-              {gitQ.data.branch}
+            <span className="inline-flex items-center gap-[5px] px-[8px] h-[20px] rounded-[6px] bg-bg-3 border border-line text-txt-3 font-[var(--font-mono)] text-[10.5px] min-w-0 shrink">
+              <Icon name="branch-ao" size={10} className="shrink-0" />
+              <span className="truncate">{gitQ.data.branch}</span>
             </span>
           )}
           {gitQ.data.filesChanged === 0 ? (
-            <span className="inline-flex items-center px-[8px] h-[20px] rounded-[6px] bg-bg-3 border border-line text-txt-3 font-[var(--font-mono)] text-[10.5px]">
+            <span className="inline-flex items-center px-[8px] h-[20px] rounded-[6px] bg-bg-3 border border-line text-txt-3 font-[var(--font-mono)] text-[10.5px] shrink-0 whitespace-nowrap">
               {t("tabs.quick_view.git_clean")}
             </span>
           ) : (
-            <span className="inline-flex items-center px-[8px] h-[20px] rounded-[6px] bg-amber-soft text-amber font-[var(--font-mono)] text-[10.5px] font-semibold">
+            <span className="inline-flex items-center px-[8px] h-[20px] rounded-[6px] bg-amber-soft text-amber font-[var(--font-mono)] text-[10.5px] font-semibold shrink-0 whitespace-nowrap">
               {t("tabs.quick_view.git_changed", { count: gitQ.data.filesChanged, added: gitQ.data.added, removed: gitQ.data.removed })}
             </span>
           )}

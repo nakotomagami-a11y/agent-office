@@ -398,6 +398,9 @@
     "preview_aria": "{faction} {kind} avatar"
   },
   "agent_details": {
+    "tab_conversation": "Conversation",
+    "tab_context_cost": "Context & Cost",
+    "tab_customization": "Customization",
     "tab_memory": "Memory",
     "tab_prompt": "System prompt",
     "tab_runs": "Recent runs",
@@ -409,7 +412,22 @@
     "tag_default": "default",
     "memory_card_title": "Memory",
     "prompt_card_title": "System prompt",
-    "memory_placeholder": "# Notes for this agent that compose into its system prompt at summon time."
+    "memory_placeholder": "# Notes for this agent that compose into its system prompt at summon time.",
+    "playwright_enabled_toast": "Playwright enabled for this session — applies on next task",
+    "playwright_disabled_toast": "Playwright disabled for this session — applies on next task",
+    "playwright_on_tooltip": "Playwright is available to this session. Click to turn it off — its browser tools won't load into context and sub-agents can't use it either.",
+    "playwright_off_tooltip": "Playwright is off for this session. Click to turn it back on.",
+    "playwright_on_label": "playwright on",
+    "playwright_off_label": "playwright off",
+    "delete_instance_tooltip": "Delete this instance",
+    "close_esc": "Close (Esc)",
+    "back_button": "Back",
+    "new_conversation_button": "New",
+    "edit_agent_button": "Edit",
+    "session_count_label": "Session {number}",
+    "all_instances_title": "All instances of {name}",
+    "last_activity_label": "last activity",
+    "no_activity_label": "no activity"
   },
   "projects": {
     "title": "Projects",

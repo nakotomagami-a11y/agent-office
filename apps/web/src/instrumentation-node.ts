@@ -109,7 +109,17 @@ void (async () => {
     console.warn("[domain-services] failed to load:", err);
     return;
   }
-  const { projects, scheduler, settings } = domainServices;
+  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher } = domainServices;
+
+  // Prime the terminal env mirror (~/.claude/agent-office/shell-env.sh) from
+  // whatever project tab was active last session, so a shell opened before
+  // the user touches a tab in the UI still gets the right account/secrets.
+  try {
+    shellEnv.writeActiveShellEnv(shellEnv.activeProjectIdFromTabs());
+  } catch (err) {
+
+    console.warn("[shell-env] failed to prime:", err);
+  }
 
   // Boot-time worktree reconciliation — removes orphan .worktrees/
   // directories for projects whose roster no longer contains the
@@ -130,5 +140,16 @@ void (async () => {
   } catch (err) {
 
     console.warn("[scheduler] failed to start:", err);
+  }
+
+  // Start the background-shell watcher — closes the loop on `run_in_background`
+  // Bash calls whose owning agent turn already ended: nudges the agent back
+  // into the conversation the moment the shell itself actually exits.
+  // Idempotent, same as the scheduler above.
+  try {
+    backgroundShellWatcher.startBackgroundShellWatcher();
+  } catch (err) {
+
+    console.warn("[background-shell-watcher] failed to start:", err);
   }
 })();

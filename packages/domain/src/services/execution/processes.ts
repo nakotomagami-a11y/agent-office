@@ -166,6 +166,12 @@ export function killProcess(pid: number): KillResult {
   }
   try {
     process.kill(pid, "SIGKILL");
+    // User-initiated kill (Servers modal) — drop any background_shells row
+    // for this pid now, so the watcher never mistakes this for an
+    // unattended task finishing and nudges the agent about something the
+    // user just did on purpose.
+    const row = db.listBackgroundShells().find((r) => r.pid === pid);
+    if (row) db.deleteBackgroundShell(row.id);
     return { ok: true };
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
