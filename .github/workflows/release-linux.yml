@@ -189,7 +189,7 @@ jobs:
           # code. Retry once before giving up so a transient hiccup doesn't
           # fail the whole release.
           for attempt in 1 2; do
-            if pnpm tauri build -v; then
+            if pnpm tauri build -v --bundles appimage; then
               exit 0
             fi
             echo "::warning::Linux Tauri build attempt $attempt failed."
@@ -267,7 +267,6 @@ jobs:
           # latest.json. This Tauri version signs the AppImage directly — no
           # .tar.gz wrapping despite what older Tauri docs describe.
           files: |
-            apps/web/src-tauri/target/release/bundle/deb/*.deb
             apps/web/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/web/src-tauri/target/release/bundle/appimage/*.AppImage.sig
         env:
@@ -279,7 +278,6 @@ jobs:
         with:
           name: linux-installer
           path: |
-            apps/web/src-tauri/target/release/bundle/deb/*.deb
             apps/web/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/web/src-tauri/target/release/bundle/appimage/*.AppImage.sig
           if-no-files-found: error
