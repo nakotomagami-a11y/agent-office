@@ -234,13 +234,24 @@ jobs:
           # 1. Drop the RUNPATH that forces the bundled ../lib copies.
           patchelf --remove-rpath squashfs-root/usr/bin/app
 
-          # 2. Replace AppRun: no bundled LD_LIBRARY_PATH, keep the X11 backend
-          #    (Wayland-native GTK has a known Tauri crash, so the GTK plugin's
-          #    AppRun hook forces X11 — preserve that here).
+          # 2. Replace AppRun: no bundled LD_LIBRARY_PATH, run native Wayland.
+          #    We used to force GDK_BACKEND=x11 to dodge a "known" WebKitGTK-on-
+          #    Wayland crash, but that routes the whole WebView through XWayland —
+          #    on the target host (Lunar Lake iGPU, Mesa 26, xe) WebKitWebProcess
+          #    then pins ~60% CPU compositing every frame, which is the app's
+          #    single biggest idle cost and the source of the reported jank.
+          #    Verified empirically on that exact host: native Wayland spawns the
+          #    WebView (WebKitWebProcess stays up, no EGL/DMABUF abort) and the
+          #    XWayland tax disappears. Native Wayland also keeps DMABUF zero-copy
+          #    for the PIXI/WebGL canvas, which the X11 path did not. GDK falls
+          #    back to X11 automatically on an X11-only session (backend list).
+          #    Fallback if a future driver update reintroduces the crash: add
+          #    `export WEBKIT_DISABLE_DMABUF_RENDERER=1` below (also tested-good,
+          #    at the cost of an SHM buffer copy for the canvas).
           cat > squashfs-root/AppRun <<'SH'
           #!/bin/bash
           HERE="$(dirname "$(readlink -f "$0")")"
-          export GDK_BACKEND=x11
+          export GDK_BACKEND=wayland,x11
           exec "$HERE/usr/bin/app" "$@"
           SH
           chmod +x squashfs-root/AppRun
