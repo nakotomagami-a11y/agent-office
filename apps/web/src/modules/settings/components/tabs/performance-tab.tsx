@@ -37,11 +37,18 @@ interface FeatureRow {
   supported: readonly [boolean, boolean, boolean];
 }
 
+// High / Balanced / Efficiency (internal keys full / lite / off). Balanced is
+// deliberately "High minus the two heaviest things": the WebGL iso office and
+// backdrop-blur. Everything else (shadows, animations, framer-motion, planet
+// icons, sprites, hover) stays on in Balanced and only stops in Efficiency.
 const FEATURES: FeatureRow[] = [
   { key: "office_renderer", supported: [true, false, false] },
-  { key: "framer_motion", supported: [true, false, false] },
   { key: "backdrop_blur", supported: [true, false, false] },
+  { key: "framer_motion", supported: [true, true, false] },
+  { key: "css_animations", supported: [true, true, false] },
+  { key: "drop_shadows", supported: [true, true, false] },
   { key: "planet_icons", supported: [true, true, false] },
+  { key: "sprite_animation", supported: [true, true, false] },
   { key: "hover_transitions", supported: [true, true, false] },
   { key: "auto_scroll", supported: [true, true, false] },
   { key: "status_leds", supported: [true, true, true] },
@@ -75,7 +82,7 @@ export function PerformanceTab() {
           </div>
           <div className="flex items-center gap-[22px] shrink-0">
             <div className="text-right leading-[1.25]">
-              <div className="font-mono text-[15px] font-bold text-acc whitespace-nowrap">{mode}</div>
+              <div className="font-mono text-[15px] font-bold text-acc whitespace-nowrap">{t(`mode_${mode}_label`)}</div>
               <div className="text-[8.5px] font-bold tracking-[0.08em] uppercase text-txt-4 whitespace-nowrap">{t("stat_mode")}</div>
             </div>
             <div className="text-right leading-[1.25]">

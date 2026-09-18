@@ -6,6 +6,7 @@ import { MotionConfig } from "framer-motion";
 import { useState } from "react";
 import { AppEvents } from "./app-events";
 import { PowerSync } from "./power-sync";
+import { usePerformanceStore } from "@/lib/performance-store";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,6 +22,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
+  // Framer-motion is JS-driven, so the CSS `animation:none` rules in
+  // performance.css never reach it. Gate it on the performance tier here:
+  //   • Efficiency ("off") → "always": every motion.*/AnimatePresence collapses
+  //     to instant. This is what makes "everything stops" actually stop.
+  //   • High / Balanced   → "user": respect the OS prefers-reduced-motion only,
+  //     so panel/route transitions stay in both (Balanced is the generous middle).
+  const efficiency = usePerformanceStore((s) => s.mode === "off");
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* One app-wide SSE listener → React Query invalidations (replaces most
@@ -29,12 +38,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {/* Auto performance-mode switching from the AC/battery power source.
           Renders nothing. See performance-store.ts's `applyPowerState`. */}
       <PowerSync />
-      {/* `reducedMotion="user"` makes every `motion.*`/`AnimatePresence` in the
-          tree respect the OS-level prefers-reduced-motion setting automatically
-          (collapsing transforms/opacity transitions to instant) — CSS's own
-          prefers-reduced-motion rule (performance.css) doesn't reach these
-          JS-driven animations at all, so this was a real gap. See Phase 10.4. */}
-      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+      <MotionConfig reducedMotion={efficiency ? "always" : "user"}>{children}</MotionConfig>
       {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );

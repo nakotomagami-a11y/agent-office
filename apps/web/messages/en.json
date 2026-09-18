@@ -611,12 +611,12 @@
     "stat_effects_on": "effects on",
     "auto_detected_before": "We auto-picked",
     "auto_detected_after": "because your OS is set to reduced motion. Change it below and this notice disappears.",
-    "mode_full_label": "Full",
-    "mode_full_note": "Everything on. Best-looking interface, heaviest per frame.",
-    "mode_lite_label": "Lite",
-    "mode_lite_note": "Flat surfaces, no PixiJS. Fast on older or throttled machines.",
-    "mode_off_label": "Off",
-    "mode_off_note": "Minimal render load. Utilitarian, no motion beyond status.",
+    "mode_full_label": "High",
+    "mode_full_note": "Everything on — the isometric office, backdrop-blur, shadows and motion. Best-looking, heaviest per frame.",
+    "mode_lite_label": "Balanced",
+    "mode_lite_note": "A generous middle. Keeps shadows, animations, planet icons and sprites; drops only the WebGL office and backdrop-blur.",
+    "mode_off_label": "Efficiency",
+    "mode_off_note": "Everything static — no office, motion, blur, shadows or hover. The lightest the app gets.",
     "matrix_title": "What each mode does",
     "matrix_sub": "override any single row without leaving your mode",
     "feature_office_renderer_name": "Isometric office renderer",
@@ -637,7 +637,13 @@
     "auto_title": "Match my power source",
     "auto_sub": "Quality (Full) on AC power, performance (Lite) on battery. A manual choice below sticks until you next plug in or unplug.",
     "auto_state_on": "On",
-    "auto_state_off": "Off"
+    "auto_state_off": "Off",
+    "feature_css_animations_name": "CSS animations",
+    "feature_css_animations_detail": "pulses, shimmers, transitions",
+    "feature_drop_shadows_name": "Depth & shadows",
+    "feature_drop_shadows_detail": "elevation, soft borders",
+    "feature_sprite_animation_name": "Agent sprite animation",
+    "feature_sprite_animation_detail": "8fps High · 6fps Balanced · paused"
   },
   "perf_toggle": {
     "tooltip": "Performance: {mode}",
@@ -645,7 +651,7 @@
     "title": "Performance",
     "switched_badge": "Auto-switched",
     "auto_label": "Match power source",
-    "auto_sub": "Full on AC, Lite on battery"
+    "auto_sub": "High on AC, Balanced on battery"
   },
   "skills": {
     "title": "Skills",
