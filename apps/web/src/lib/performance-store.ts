@@ -39,10 +39,11 @@ const DOC_ATTR = "data-perf";
 const STORAGE_KEY = "performance-mode";
 const AUTO_KEY = "performance-auto";
 
-/** Sprite animation FPS per mode. `off` pauses sprites entirely (see
- *  UnitSprite), so its value here is moot; `lite` runs slower to save power. */
+/** Sprite animation FPS per mode. High = native 8fps; Balanced (`lite`) = a
+ *  gentle 6fps (still lively, a touch cheaper); Efficiency (`off`) pauses
+ *  sprites entirely (see UnitSprite's perfOff gate), so its value is moot. */
 function modeToClockFps(mode: PerformanceMode): number {
-  return mode === "lite" ? 4 : 8;
+  return mode === "lite" ? 6 : 8;
 }
 
 /** Which mode a power source maps to under auto: AC = quality, battery = perf. */

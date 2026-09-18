@@ -34,12 +34,18 @@
 
 /* ─── Performance mode ───────────────────────────────────────────
    Gated by the [data-perf] attribute on <html>, written by the
-   performance-store. Two levels stack: "lite" strips the expensive
-   visual layer; "off" additionally kills every animation + hover
-   transition. See docs Interface tab → Performance mode. */
+   performance-store. Three tiers:
+     • (no attr) High     — everything: iso office, blur, shadows, motion.
+     • lite      Balanced — generous middle: drops ONLY the two heaviest
+                            things (WebGL office is gated in JS + backdrop-blur
+                            below); keeps shadows, CSS animations, planet
+                            icons, hover, framer-motion.
+     • off       Efficiency — everything static: also strips shadows, all
+                            non-essential animations, planet icons, hover
+                            transitions, scroll smoothing.
+   See docs Interface tab → Performance mode. */
 
 /* Lite — drop expensive filters, keep essential motion */
-html[data-perf="lite"] .planet-icon-canvas,
 html[data-perf="off"]  .planet-icon-canvas {
   /* Procedural planet icons hide their canvas; a colored fallback is
      rendered underneath so the icon slot isn't empty. */
@@ -47,7 +53,8 @@ html[data-perf="off"]  .planet-icon-canvas {
 }
 html[data-perf="lite"] *,
 html[data-perf="off"]  * {
-  /* Backdrop blur is disproportionately expensive on Intel iGPUs. */
+  /* Backdrop blur is disproportionately expensive on Intel iGPUs — the one
+     heavy effect dropped even in Balanced (kept only in High). */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -76,13 +83,11 @@ html[data-perf="off"]:not([data-theme="dark"])  .app-modal-backdrop {
     background: rgba(226, 228, 233, 0.97) !important;
   }
 }
-html[data-perf="lite"] *,
 html[data-perf="off"]  * {
-  /* Complex box-shadow filters take a full paint pass; strip the
-     nested / offset variants and keep only a single hairline outline. */
+  /* Complex box-shadow filters take a full paint pass. Kept in Balanced
+     (generous middle); stripped only in Efficiency. */
   box-shadow: none !important;
 }
-html[data-perf="lite"] *:not(.of-status-led):not([data-essential-anim]),
 html[data-perf="off"]  *:not(.of-status-led):not([data-essential-anim]) {
   animation: none !important;
 }
