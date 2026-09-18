@@ -4,12 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import { ACCENT_BTN } from "@/components/ui/button";
 import { getDbStats, runSeed, type DbStats, type SeedAction } from "@/lib/api/dev-seed";
-import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
-import { useFpsMeterStore } from "@/lib/fps-meter-store";
 import { dumpStores, appStateSnapshot } from "./dev-instruments";
 import { isTauri } from "@/lib/tauri-window";
 import { requestUpdateCheck } from "@/lib/updater";
@@ -28,48 +25,16 @@ function fmtUptime(ms: number): string {
   return `${sec}s`;
 }
 
-/** Live frame-rate readout pinned to the corner. Persists while enabled even
- *  after the dev modal closes, so you can watch FPS during interaction. */
-function FpsMeter() {
-  const [fps, setFps] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    let frames = 0;
-    let last = performance.now();
-    const loop = () => {
-      frames++;
-      const now = performance.now();
-      if (now - last >= 500) {
-        setFps(Math.round((frames * 1000) / (now - last)));
-        frames = 0;
-        last = now;
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return (
-    <div className="fixed bottom-3 right-3 z-[300] pointer-events-none select-none font-[var(--font-mono)] text-[11px] px-2 py-1 rounded-md bg-bg-2 border border-line-2 text-txt-2 shadow-[var(--shadow-2)]">
-      <span className={cn(fps < 30 ? "text-[var(--error)]" : fps < 50 ? "text-[var(--queued)]" : "text-[var(--working)]")}>
-        {fps}
-      </span>{" "}
-      fps
-    </div>
-  );
-}
-
 /**
  * Dev console — an internal instrument panel for seeding data, inspecting the
- * DB, flipping interface modes, and (soon) simulating agent states.
+ * DB, and (soon) simulating agent states.
  *
- * Wired: interface toggles (isometric view, rendering budget), demo-data
- * seeding, DB stats + maintenance, reload. Panels/rows tagged `soon` are UI
- * only — they get wired once the layout is signed off.
+ * Wired: demo-data seeding, DB stats + maintenance, reload. Panels/rows tagged
+ * `soon` are UI only — they get wired once the layout is signed off.
  */
 
 type BtnState = "idle" | "loading" | "done" | "error";
-type DevCat = "interface" | "data" | "database" | "inspect" | "environment" | "utilities";
+type DevCat = "data" | "database" | "inspect" | "environment" | "utilities";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
 
@@ -97,43 +62,6 @@ function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: st
       </span>
       {hint ? <span className="font-[var(--font-mono)] text-[10px] text-txt-4">{hint}</span> : null}
       <span className="flex-1 h-px bg-line" />
-    </div>
-  );
-}
-
-function ToggleRow({
-  icon,
-  label,
-  desc,
-  checked,
-  onChange,
-  disabled,
-  hint,
-  planned,
-}: {
-  icon: IconName;
-  label: string;
-  desc?: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  disabled?: boolean;
-  hint?: string;
-  planned?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bg-2 border border-line">
-      <span className="text-txt-3 shrink-0 mt-[1px]"><Icon name={icon} size={15} /></span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center text-[12.5px] font-medium text-txt">
-          {label}
-          {planned ? <SoonBadge /> : null}
-        </div>
-        {desc ? <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">{desc}</div> : null}
-        {hint ? (
-          <div className="text-[10.5px] text-[var(--queued)] mt-[4px] font-[var(--font-mono)] leading-[1.4]">{hint}</div>
-        ) : null}
-      </div>
-      <Switch checked={checked} onChange={onChange} label={label} disabled={disabled} />
     </div>
   );
 }
@@ -180,34 +108,6 @@ function DevButton({
   );
 }
 
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (next: T) => void;
-}) {
-  return (
-    <div className="flex bg-bg-2 border border-line rounded-lg p-[3px] gap-[3px]">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "flex-1 h-[26px] rounded-md text-[11.5px] font-[var(--font-mono)] transition-colors cursor-pointer",
-            value === o.value ? "bg-acc text-[var(--acc-ink)]" : "text-txt-3 hover:text-txt hover:bg-bg-3",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function Field({
   label,
   value,
@@ -250,7 +150,6 @@ function Field({
 // ── Category rail ────────────────────────────────────────────────────────────
 
 const CATS: { id: DevCat; label: string; icon: IconName }[] = [
-  { id: "interface", label: "Interface", icon: "monitor" },
   { id: "data", label: "Demo data", icon: "sparkle" },
   { id: "database", label: "Database", icon: "server" },
   { id: "inspect", label: "Inspect", icon: "search" },
@@ -262,7 +161,7 @@ const CATS: { id: DevCat; label: string; icon: IconName }[] = [
 
 export function DevMenu() {
   const [open, setOpen] = useState(false);
-  const [cat, setCat] = useState<DevCat>("interface");
+  const [cat, setCat] = useState<DevCat>("data");
   const [stats, setStats] = useState<DbStats | null>(null);
   const [states, setStates] = useState<Record<SeedAction, BtnState>>({
     "clear-all-runs": "idle", "fix-orphans": "idle",
@@ -271,14 +170,6 @@ export function DevMenu() {
   const [messages, setMessages] = useState<Partial<Record<SeedAction, string>>>({});
   const queryClient = useQueryClient();
 
-  // Wired interface state.
-  const perfMode = usePerformanceStore((s) => s.mode);
-  const setPerfMode = usePerformanceStore((s) => s.setMode);
-  const fpsEnabled = useFpsMeterStore((s) => s.enabled);
-  const setFpsEnabled = useFpsMeterStore((s) => s.setEnabled);
-
-  // Wired interface instruments (ephemeral — reset on reload, which is fine for dev).
-  const [instruments, setInstruments] = useState({ reduceMotion: false, outlines: false });
   // Transient state for one-shot client actions (dump / snapshot / etc.).
   const [clientState, setClientState] = useState<Record<string, BtnState>>({});
   const [uptimeNow, setUptimeNow] = useState(() => Date.now());
@@ -291,14 +182,6 @@ export function DevMenu() {
   useEffect(() => {
     if (open) void loadStats();
   }, [open, loadStats]);
-
-  // Reflect instrument toggles onto <html> so CSS in globals.css can gate.
-  useEffect(() => {
-    document.documentElement.toggleAttribute("data-reduce-motion", instruments.reduceMotion);
-  }, [instruments.reduceMotion]);
-  useEffect(() => {
-    document.documentElement.toggleAttribute("data-dev-outlines", instruments.outlines);
-  }, [instruments.outlines]);
 
   // Tick the uptime readout while the Environment panel is on screen.
   useEffect(() => {
@@ -375,8 +258,6 @@ export function DevMenu() {
         Dev
       </button>
 
-      {fpsEnabled ? <FpsMeter /> : null}
-
       <ModalShell open={open} onClose={() => setOpen(false)} maxWidth={660} bareContent>
         {/* Header */}
         <div className="flex items-center gap-[10px] px-4 py-[11px] border-b border-line shrink-0">
@@ -432,31 +313,6 @@ export function DevMenu() {
 
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-auto p-4 flex flex-col gap-6">
-            {cat === "interface" && (
-              <div>
-                <SectionLabel>Interface</SectionLabel>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bg-2 border border-line">
-                    <span className="text-txt-3 shrink-0"><Icon name="gauge" size={15} /></span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12.5px] font-medium text-txt">Rendering budget</div>
-                      <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">How much the UI renders. Lite/Off flatten the office to cards.</div>
-                    </div>
-                    <div className="w-[168px] shrink-0">
-                      <Segmented<PerformanceMode>
-                        value={perfMode}
-                        onChange={setPerfMode}
-                        options={[{ value: "full", label: "Full" }, { value: "lite", label: "Lite" }, { value: "off", label: "Off" }]}
-                      />
-                    </div>
-                  </div>
-                  <ToggleRow icon="zap" label="Reduce motion" desc="Collapse animations and transitions across the app." checked={instruments.reduceMotion} onChange={(v) => setInstruments((p) => ({ ...p, reduceMotion: v }))} />
-                  <ToggleRow icon="activity" label="FPS meter" desc="Pin a live frame-rate readout to the corner." checked={fpsEnabled} onChange={setFpsEnabled} />
-                  <ToggleRow icon="crosshair" label="Component outlines" desc="Outline every element boundary to spot layout bugs." checked={instruments.outlines} onChange={(v) => setInstruments((p) => ({ ...p, outlines: v }))} />
-                </div>
-              </div>
-            )}
-
             {cat === "data" && (
               <div>
                 <SectionLabel>Demo data</SectionLabel>

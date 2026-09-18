@@ -11,27 +11,6 @@
   .chat-jump-latest { animation: none; transition: none; }
 }
 
-/* ─── Dev console instruments ─────────────────────────────────────
-   Toggled from the Dev Console → Interface panel via attributes on
-   <html>. Dev-only; no effect unless the flag is set. */
-
-/* "Reduce motion" — same treatment as the OS media query, opt-in. */
-[data-reduce-motion] *,
-[data-reduce-motion] *::before,
-[data-reduce-motion] *::after {
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.001ms !important;
-  scroll-behavior: auto !important;
-}
-
-/* "Component outlines" — outline every element to spot layout bugs. */
-[data-dev-outlines] * {
-  outline: 1px solid color-mix(in oklab, var(--acc) 45%, transparent) !important;
-  outline-offset: -1px;
-}
-
-
 /* ─── Performance mode ───────────────────────────────────────────
    Gated by the [data-perf] attribute on <html>, written by the
    performance-store. Two levels stack: "lite" strips the expensive
