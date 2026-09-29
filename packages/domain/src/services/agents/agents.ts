@@ -17,11 +17,13 @@ import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, Project, PromptSegment
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatter, stringifyYaml, type YamlValue } from "../infra/yaml";
-import { buildSkillsBreakdown, buildSkillsPrompt } from "../skills/skills";
+import { buildSkillsBundle } from "../skills/skills";
+import { unknownTools } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
 import { historyNote } from "../projects/history";
+import { log } from "../infra/log";
 
 function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
@@ -288,7 +290,8 @@ export function composeAppendedPrompt(
   opts?: { instanceId?: string; hasMessages?: boolean },
 ): PromptSegment[] {
   const agent = readAgent(agentName);
-  const skillFragment = agent ? buildSkillsPrompt(agent.info.skills).trim() : "";
+  const skills = buildSkillsBundle(agent?.info.skills ?? []);
+  const skillFragment = skills.prompt.trim();
   const identity = readAgentIdentity(agentName).trim();
   const global = readGlobalMemory().trim();
   const projectMemory = project?.memory.trim() ?? "";
@@ -297,17 +300,35 @@ export function composeAppendedPrompt(
 
   const segments: PromptSegment[] = [];
 
-  if (skillFragment) {
-    const children: PromptSegmentChild[] = buildSkillsBreakdown(agent?.info.skills ?? []).map((s) => ({
+  // Render whenever skills are DECLARED, not only when they resolve. Gating on
+  // `skillFragment` hid the segment entirely when every skill was missing —
+  // the failure looked identical to an agent that declares no skills at all.
+  const badTools = unknownTools(agent?.info.tools ?? []);
+  if (badTools.length > 0) {
+    log.warn("agent.unknown_tools", { agent: agentName, tools: badTools });
+  }
+
+  const declaredSkills = agent?.info.skills ?? [];
+  if (declaredSkills.length > 0) {
+    const breakdown = skills.breakdown;
+    const missing = breakdown.filter((b) => b.mode === "missing").length;
+    const children: PromptSegmentChild[] = breakdown.map((s) => ({
       key: `skill-${s.name}`,
       name: s.name,
-      sub: s.mode === "inline" ? "skill · loaded in full" : "skill · read on demand",
+      sub:
+        s.mode === "inline" ? "skill · loaded in full"
+        : s.mode === "reference" ? "skill · read on demand"
+        : "skill · NOT INSTALLED — contributes nothing",
       chars: s.chars,
     }));
+    const resolved = breakdown.length - missing;
     segments.push({
       key: "skills", name: "Skills", group: "skills",
-      text: "## Capabilities (from selected skills)\n\n" + skillFragment, body: "",
-      sub: `${children.length} skill${children.length === 1 ? "" : "s"}`,
+      text: skillFragment ? "## Capabilities (from selected skills)\n\n" + skillFragment : "",
+      body: "",
+      sub: missing > 0
+        ? `${resolved}/${breakdown.length} resolved · ${missing} MISSING`
+        : `${breakdown.length} skill${breakdown.length === 1 ? "" : "s"}`,
       locked: false, phase: "always", children,
     });
   }

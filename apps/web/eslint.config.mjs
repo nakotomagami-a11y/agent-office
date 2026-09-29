@@ -128,4 +128,11 @@ export default [
     files: ["src/instrumentation-node.ts"],
     rules: { "no-console": "off" },
   },
+  {
+    // Hand-run test scripts report via console by design — same exemption
+    // packages/domain already grants. Without it `lint` can never exit clean,
+    // so nobody runs it and it stops being a gate.
+    files: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    rules: { "no-console": "off" },
+  },
 ];

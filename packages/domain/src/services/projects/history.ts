@@ -1,4 +1,3 @@
-import { homedir } from "node:os";
 import { DB_PATH } from "../infra/paths";
 import * as db from "../db";
 import type { ContextProfile } from "../../types/index";
@@ -127,9 +126,20 @@ export function formatPriorContext(
   return `[Prior conversation - ${messages.length} most recent messages]\n${body}\n[End prior context]\n\n`;
 }
 
+/**
+ * A runnable pointer to this instance's own past runs.
+ *
+ * The path is emitted ABSOLUTE and unquoted-safe: a `~` inside double quotes is
+ * not expanded by any shell, so the previously-displayed `sqlite3 "~/..."` form
+ * failed with "unable to open database" on every invocation. Anything handed to
+ * an agent as a command must be executable verbatim.
+ */
 export function historyNote(agentId: string, instanceId: string): string {
-  const dbPath = DB_PATH.replace(homedir(), "~");
   const safeAgentId = agentId.replace(/'/g, "''");
   const safeInstanceId = instanceId.replace(/'/g, "''");
-  return `${dbPath} - query: sqlite3 "${dbPath}" "SELECT role, content FROM messages WHERE agent_id='${safeAgentId}' AND instance_id='${safeInstanceId}' ORDER BY ts DESC LIMIT 20"`;
+  const query =
+    `SELECT role, content FROM messages ` +
+    `WHERE agent_id='${safeAgentId}' AND instance_id='${safeInstanceId}' ` +
+    `ORDER BY ts DESC LIMIT 20`;
+  return `${DB_PATH} - query: sqlite3 "${DB_PATH}" "${query}"`;
 }
