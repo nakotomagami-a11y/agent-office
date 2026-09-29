@@ -37,3 +37,10 @@ jobs:
 
       - name: Comment-ratio ratchet
         run: node scripts/check-comment-ratio.mjs
+
+      # Last because it is the slowest — but it is the ONLY step that catches
+      # bundle-time failures. `REPO_SCRIPTS_DIR` shipped a `new URL(<specifier>,
+      # import.meta.url)` that the bundler resolves as a module; it broke every
+      # route on main while typecheck, lint and all tests passed (#140).
+      - name: Build
+        run: pnpm build
