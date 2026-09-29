@@ -23,6 +23,7 @@ import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
 import { historyNote } from "../projects/history";
+import { buildProjectMap } from "../projects/project-map";
 import { log } from "../infra/log";
 
 function lineCount(text: string): number {
@@ -290,6 +291,10 @@ export function composeAppendedPrompt(
   opts?: { instanceId?: string; hasMessages?: boolean },
 ): PromptSegment[] {
   const agent = readAgent(agentName);
+  const resolvedInstance =
+    opts?.instanceId && project
+      ? (project.meta.roster.find((r) => r.instanceId === opts.instanceId) ?? null)
+      : null;
   const skills = buildSkillsBundle(agent?.info.skills ?? []);
   const skillFragment = skills.prompt.trim();
   const identity = readAgentIdentity(agentName).trim();
@@ -368,6 +373,18 @@ export function composeAppendedPrompt(
       sub: "name, working directory, description",
       locked: true, phase: "always",
     });
+
+    // Live, derived facts: layout, commands, git state, worktree, gh identity.
+    // Everything here used to be hand-typed into agent bodies, where it rotted.
+    const mapBlock = buildProjectMap({ project, instance: resolvedInstance });
+    if (mapBlock) {
+      segments.push({
+        key: "project-map", name: "Project map",
+        text: "## Project map\n" + mapBlock, body: mapBlock,
+        sub: "layout, commands, git state, worktree, identity — derived live",
+        locked: true, phase: "always",
+      });
+    }
 
     const envBlock = buildProjectEnvironmentBlock(project);
     if (envBlock) {
