@@ -18,7 +18,7 @@ import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatter, stringifyYaml, type YamlValue } from "../infra/yaml";
 import { buildSkillsBundle } from "../skills/skills";
-import { unknownTools } from "../../config/tools";
+import { unknownTools, retiredToolHints } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
@@ -303,9 +303,15 @@ export function composeAppendedPrompt(
   // Render whenever skills are DECLARED, not only when they resolve. Gating on
   // `skillFragment` hid the segment entirely when every skill was missing —
   // the failure looked identical to an agent that declares no skills at all.
-  const badTools = unknownTools(agent?.info.tools ?? []);
+  const declaredTools = agent?.info.tools ?? [];
+  const badTools = unknownTools(declaredTools);
   if (badTools.length > 0) {
     log.warn("agent.unknown_tools", { agent: agentName, tools: badTools });
+  }
+  // Retired names are the common case: they read as valid but the CLI drops
+  // them, so the agent silently never gets the capability.
+  for (const { tool, hint } of retiredToolHints(declaredTools)) {
+    log.warn("agent.retired_tool", { agent: agentName, tool, use: hint });
   }
 
   const declaredSkills = agent?.info.skills ?? [];

@@ -22,7 +22,7 @@ function hasSqlite3(): boolean {
 
 import { historyNote } from "../projects/history";
 import { composeAppendedPrompt, listAgents } from "./agents";
-import { unknownTools } from "../../config/tools";
+import { unknownTools, retiredToolHints } from "../../config/tools";
 import { unresolvedSkills } from "../skills/skills";
 import { DB_PATH } from "../infra/paths";
 
@@ -105,4 +105,18 @@ test("unresolvedSkills matches the skills segment's MISSING children", () => {
   const children = segs.find((s) => s.key === "skills")?.children ?? [];
   const flagged = children.filter((c) => c.sub.includes("NOT INSTALLED")).map((c) => c.name);
   assert.deepEqual([...missing].sort(), [...flagged].sort(), "the two views of the same fact must agree");
+});
+
+// ─── Retired tool names grant nothing — they must never ship silently ───────
+
+test("no bundled agent declares a retired tool name", () => {
+  const offenders: string[] = [];
+  for (const a of listAgents()) {
+    const retired = retiredToolHints(a.tools ?? []);
+    if (retired.length > 0) {
+      offenders.push(`${a.name}: ${retired.map((r) => `${r.tool} (${r.hint})`).join(", ")}`);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    `these names look valid but the CLI drops them, so the capability is never granted:\n  ${offenders.join("\n  ")}`);
 });

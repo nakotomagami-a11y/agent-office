@@ -39,6 +39,9 @@ apps/web/src-tauri/binaries/
 
 # Internal per-session handoff + planning notes — not for public repo
 NEXT_SESSION.md
+PROGRESS.md
+ROADMAP.md
+docs/agent-experience-audit.md
 .specs/
 .design/
 
