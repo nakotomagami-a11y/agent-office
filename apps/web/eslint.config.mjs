@@ -95,18 +95,15 @@ export default [
           message:
             "RULE ui.flexbox-only (docs/conventions.md): CSS Grid is not used in this codebase — use Flexbox (flex + flex-wrap + basis-* / w-* / flex-1).",
         },
-      ],
-      // RULE arch.parse-dont-cast (docs/conventions.md) — same rule the domain
-      // package enforces; external input is narrowed, never asserted.
-      "no-restricted-syntax": [
-        "error",
         {
-          selector: "TSAsExpression > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
+          // Same rule the domain package enforces. `as unknown` is EXEMPT — the
+          // message prescribes it, so the selector must not punish it.
+          selector:
+            "TSAsExpression:not([typeAnnotation.type='TSUnknownKeyword']) > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
           message:
-            "RULE arch.parse-dont-cast (docs/conventions.md): never cast JSON.parse() straight to a type — `as SomeShape` is a lie the runtime can break. Take it as `unknown` and narrow it with a Zod schema (validateBody for request bodies) before use.",
+            "RULE arch.parse-dont-cast (docs/conventions.md): never cast JSON.parse() straight to a type — `as SomeShape` is a lie the runtime can break. Take it as `unknown` and narrow it with a Zod schema (or a type guard) before use.",
         },
       ],
-
       "no-restricted-imports": [
         "warn",
         {

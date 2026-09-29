@@ -162,12 +162,77 @@ test("allowOneMore raises the ceiling only when the user asks", () => {
   assert.deepEqual(reduceLoop(s, fix, c, T0).effects, []);
 });
 
+// ─── out-of-phase actions must not dispatch work ────────────────────────────
+
+test("an out-of-phase action dispatches nothing", () => {
+  // The bug this catches: 1000 stale fixFinished dispatched 1000 review runs
+  // while round stayed at 1. The ceiling was bypassable and every other test
+  // still passed, because none of them sent an action out of phase.
+  let s = initialLoopState(T0);
+  let dispatches = 0;
+  for (let i = 0; i < 50; i++) {
+    const r = reduceLoop(s, { type: "fixFinished", ok: true, costUsd: 0 }, cfg({ maxRounds: 2 }), T0);
+    dispatches += r.effects.length;
+    s = r.state;
+  }
+  assert.equal(dispatches, 0, "fixFinished while authoring must be ignored");
+  assert.equal(s.phase, "authoring");
+});
+
+test("total dispatched work is bounded by maxRounds under action spam", () => {
+  const c = cfg({ maxRounds: 3 });
+  const every: Parameters<typeof reduceLoop>[1][] = [
+    { type: "authorFinished", ok: true, costUsd: 0 },
+    { type: "fixFinished", ok: true, costUsd: 0 },
+    { type: "reviewFinished", ok: true, costUsd: 0, findings: [mustFix()] },
+  ];
+  let s = initialLoopState(T0);
+  let dispatches = 0;
+  for (let i = 0; i < 200; i++) {
+    for (const a of every) {
+      const r = reduceLoop(s, a, c, T0);
+      dispatches += r.effects.filter((e) => e.type !== "finish").length;
+      s = r.state;
+    }
+  }
+  assert.ok(dispatches <= c.maxRounds * 2, `dispatched ${dispatches} runs with maxRounds=${c.maxRounds}`);
+  assert.ok(s.phase === "done" || s.phase === "escalated", `must terminate, ended ${s.phase}`);
+});
+
+test("user stop and a failed fix are reported distinctly, not as review_failed", () => {
+  let s = initialLoopState(T0);
+  assert.equal(reduceLoop(s, { type: "stop" }, cfg(), T0).state.binding, "user_stopped");
+  s = reduceLoop(s, { type: "authorFinished", ok: true, costUsd: 0 }, cfg(), T0).state;
+  s = reduceLoop(s, { type: "reviewFinished", ok: true, costUsd: 0, findings: [mustFix()] }, cfg(), T0).state;
+  assert.equal(reduceLoop(s, { type: "fixFinished", ok: false, costUsd: 0 }, cfg(), T0).state.binding, "fix_failed");
+});
+
+test("allowOneMore actually resumes past a round ceiling", () => {
+  const c = cfg({ maxRounds: 1 });
+  let s = initialLoopState(T0);
+  s = reduceLoop(s, { type: "authorFinished", ok: true, costUsd: 0 }, c, T0).state;
+  s = reduceLoop(s, { type: "reviewFinished", ok: true, costUsd: 0, findings: [mustFix()] }, c, T0).state;
+  assert.equal(s.binding, "max_rounds");
+  const r = reduceLoop(s, { type: "allowOneMore" }, c, T0);
+  assert.equal(r.state.phase, "fixing", "allowOneMore was dead code before this");
+  assert.equal(r.effects[0]?.type, "startFix");
+});
+
+test("allowOneMore still refuses to spend past the budget", () => {
+  const c = cfg({ maxRounds: 1, budgetUsd: 1 });
+  let s = initialLoopState(T0);
+  s = reduceLoop(s, { type: "authorFinished", ok: true, costUsd: 0.4 }, c, T0).state;
+  s = reduceLoop(s, { type: "reviewFinished", ok: true, costUsd: 0.7, findings: [mustFix()] }, c, T0).state;
+  const r = reduceLoop(s, { type: "allowOneMore" }, c, T0);
+  assert.equal(r.state.binding, "budget", "raising the round ceiling must not raise the budget");
+});
+
 // ─── the binding constraint is always reportable ────────────────────────────
 
 test("every termination produces a distinct human sentence", () => {
   const bindings: LoopState["binding"][] = [
     "converged", "max_rounds", "budget", "wall_clock",
-    "review_failed", "author_failed", "invalid_findings",
+    "review_failed", "author_failed", "fix_failed", "user_stopped", "invalid_findings",
   ];
   const seen = new Set<string>();
   for (const b of bindings) {
