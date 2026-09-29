@@ -226,9 +226,8 @@ function ThinkingRow({ id, text, agent, hideAvatar = false }: { id: string; text
 /**
  * Was a bare `<input>` with no paste handling at all — Ctrl+V for an image
  * silently did nothing here while the main `Composer` (composer.tsx) fully
- * supports it via `useComposerAttachments` (including the Wayland/WebKit2GTK
- * fallback that polls `wl-paste`, since clipboardData is stripped there in
- * the Tauri build). Reuses that same hook + `ComposerAttachmentChips` +
+ * supports it via `useComposerAttachments` (native clipboard first, with a
+ * `wl-paste` fallback only for WebKit2GTK). Reuses that same hook + `ComposerAttachmentChips` +
  * `buildComposedText` instead of re-implementing paste/drag-drop here.
  */
 function ClarifyInput({

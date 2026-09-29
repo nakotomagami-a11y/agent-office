@@ -45,7 +45,7 @@ export function useComposerAttachments(input: UseComposerAttachmentsInput): UseC
     onDragOver: dragHandlers.onDragOver,
     onDragLeave: dragHandlers.onDragLeave,
     onDrop: dragHandlers.onDrop,
-    onPaste: (e) => (isTauri() ? handlePasteInTauri(e, uploadOne) : handlePasteInBrowser(e, uploadOne)),
+    onPaste: (e) => handlePaste(e, uploadOne),
     removeAttachment: (localId: string) => setAttachments((prev) => prev.filter((a) => a.localId !== localId)),
     clearAll: () => setAttachments([]),
     hasPending: attachments.some((a) => a.pending),
@@ -89,11 +89,28 @@ function makeDragHandlers(setDragOver: (v: boolean) => void, uploadOne: (file: F
   };
 }
 
-/** Tauri paste path: WebKit2GTK strips clipboardData, so poll wl-paste. */
-function handlePasteInTauri(e: ClipboardEvent<HTMLElement>, uploadOne: (file: File) => Promise<void>): void {
+/** Native clipboard first (works in Chrome/Firefox/WebView2/WKWebView); the
+ *  `wl-paste` fallback exists only because WebKit2GTK strips image entries. */
+function handlePaste(e: ClipboardEvent<HTMLElement>, uploadOne: (file: File) => Promise<void>): void {
   const items = Array.from(e.clipboardData.items);
-  const hasText = items.some((item) => item.kind === "string");
-  if (hasText) return; // let default textarea behaviour handle the text
+
+  const files: File[] = [];
+  for (const item of items) {
+    if (item.kind !== "file") continue;
+    const f = item.getAsFile();
+    if (!f) continue;
+    const ext = f.type.split("/")[1] ?? "png";
+    files.push(new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type }));
+  }
+  if (files.length > 0) {
+    e.preventDefault();
+    for (const file of files) void uploadOne(file);
+    return;
+  }
+
+  if (items.some((item) => item.kind === "string")) return;
+
+  if (!isTauri()) return;
   e.preventDefault();
   void fetchClipboardImage()
     .then((blob) => {
@@ -101,20 +118,13 @@ function handlePasteInTauri(e: ClipboardEvent<HTMLElement>, uploadOne: (file: Fi
       const ext = (blob.type || "image/png").split("/")[1] ?? "png";
       void uploadOne(new File([blob], `pasted-${Date.now()}.${ext}`, { type: blob.type || "image/png" }));
     })
-    .catch(() => { /* swallow — nothing on clipboard is a common case */ });
-}
-
-/** Browser paste path: clipboardData.items is populated normally. */
-function handlePasteInBrowser(e: ClipboardEvent<HTMLElement>, uploadOne: (file: File) => Promise<void>): void {
-  const files: File[] = [];
-  for (const item of Array.from(e.clipboardData.items)) {
-    if (item.kind !== "file") continue;
-    const f = item.getAsFile();
-    if (!f) continue;
-    const ext = f.type.split("/")[1] ?? "png";
-    files.push(new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type }));
-  }
-  if (files.length === 0) return;
-  e.preventDefault();
-  for (const file of files) void uploadOne(file);
+    .catch((err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 503) {
+        console.error(
+          "Image paste needs the `wl-clipboard` package (provides `wl-paste`) on Linux/Wayland. " +
+            "Install it and restart the app, e.g. `sudo pacman -S wl-clipboard`.",
+        );
+      }
+    });
 }
