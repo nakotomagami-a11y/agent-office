@@ -1291,7 +1291,12 @@ the §11 argument, restated with a bigger sample.
 > all tools work, how can we improve those … how can we make each agent's life
 > easier?"* — prompted by §12.2's finding that 98.4% of tool calls are Bash.
 
-## 13.1 The good news: nothing is broken
+## 13.1 ~~The good news: nothing is broken~~ — SUPERSEDED BY §18
+
+> **This section was wrong.** Tool names were validated against assumption, not
+> against the CLI. `Grep` (31 agents) and `Glob` (24 agents) **do not exist** in
+> CLI v2.1.278 and are silently dropped. See **§18**, which also corrects §12.2's
+> explanation of the Bash monoculture. The text below is kept for the record.
 
 Every tool name declared across all 32 agents is a real Claude Code tool.
 **No D2-style unresolvable references here.**
@@ -1873,6 +1878,97 @@ of the environment-block work (A19), or earlier — it is independent.
 - Use the same `readSystemGhUser()` to warn when a project's bound account and
   the system account disagree — a silent mismatch is how "pushed as the wrong
   user" happens.
+
+# 18. CORRECTION — the CLI's real tool vocabulary (and what §13 got wrong)
+
+> Found while applying Wave 1. **This invalidates part of §13 and part of what
+> Wave 0 shipped.** Verified empirically against CLI **v2.1.278** by reading the
+> `tools` array on the `init` event of
+> `claude -p --output-format stream-json --verbose`.
+
+## 18.1 Five widely-declared "tools" do not exist
+
+| name | agents declaring it | reality |
+|---|---:|---|
+| **`Grep`** | **31** | **does not exist** — silently dropped |
+| **`Glob`** | **24** | **does not exist** — silently dropped |
+| `TodoWrite` | 4 | does not exist → `TaskCreate` / `TaskUpdate` / `TaskList` |
+| `BashOutput` | 0 | does not exist → `Monitor` |
+| `KillShell` | 0 | does not exist → `TaskStop` |
+
+**This re-explains §12.2 (98.4% of tool calls are Bash).** I attributed it to
+prompt steering. That was wrong — or at best half right. **Agents have no
+structured search tool at all.** `Grep` and `Glob` were declared by nearly every
+agent and have zero recorded calls because *the CLI never granted them*. Using
+`grep` through Bash was not a preference; it was the only option.
+
+§13.1's "the good news: nothing is broken" was wrong, and for the most
+embarrassing possible reason: **I validated the names against my own
+assumptions instead of against the CLI.** The same mistake this whole audit is
+about — trusting a stated rule over an executed check.
+
+## 18.2 Twenty-two real tools that no agent uses
+
+```
+CronCreate    CronDelete    CronList      DesignSync     EnterWorktree
+ExitWorktree  ListAgents    Monitor       NotebookEdit   PushNotification
+RemoteTrigger ReportFindings ScheduleWakeup SendMessage   Skill
+TaskCreate    TaskGet       TaskList      TaskStop       TaskUpdate
+ToolSearch    Workflow
+```
+
+Several of these are things the audit proposed to **build**:
+
+| CLI tool | What we were going to build |
+|---|---|
+| **`EnterWorktree` / `ExitWorktree`** | `worktrees.ts` (339 lines) + **A18** deliver endpoint + the D3 ritual |
+| **`SendMessage`** | the Loop's agent-to-agent channel (**§10**) |
+| **`ReportFindings`** | the Loop's verdict file (**§10.4**) and the Custodian's findings (**§11.5**) |
+| **`TaskCreate/Get/List/Update/Stop`** | **A61** todos — *"agents create todos I can read"*, which the user remembered discussing |
+| **`ScheduleWakeup`** | scheduler-adjacent |
+| **`Skill`** | skill invocation (relates to **D2**) |
+| **`ListAgents`** | roster awareness (**§5.2**) |
+
+**Before building any of §10, §11 or A61, evaluate the native tool first.**
+
+## 18.3 Agent definition changes do not propagate immediately
+
+Observed while testing: after editing `~/.claude/agents/developer.md`, the CLI
+served the previous tool list for several minutes — and **still resolved
+`--agent developer` after the file was deleted**. A freshly-named agent picked
+up edits instantly, and `developer` reflected the change on a later retry.
+
+Conclusion: there is a propagation delay/cache on agent definitions.
+**Operational consequence: never verify a grant change immediately after
+writing the file.** Re-check after a delay, or use a fresh agent name.
+
+Two grants also did not appear even after propagation (`planner`'s `Write`,
+`orchestrator`'s `WebFetch`). Unexplained — **flagged, not concluded.**
+
+→ **A68 — record the CLI version the tool catalog was verified against, and
+re-verify on upgrade.** A stale snapshot produces false "unknown tool"
+warnings — visible, never silent. **S.**
+
+## 18.4 What was changed in response
+
+- `config/tools.ts` **rewritten** to the 29 verified names, with the verification
+  command in the docstring.
+- `RETIRED_TOOLS` added: names that *look* valid but are dropped, each with its
+  replacement, warned separately from "unknown".
+- `agent-surface.test.ts`: a test that fails if any agent declares a retired
+  name. Verified it catches a reintroduced `Grep`.
+- **All 31 agents cleaned** — `Grep`, `Glob`, `TodoWrite` removed from
+  `~/.claude/agents/*.md` (user data; backed up first).
+
+## 18.5 Lesson
+
+Wave 0 shipped a hand-written tool catalog that had never been checked against
+the thing it described — the exact defect class (D4: rules citing a document
+that does not exist; D5: an invariant stated but unenforced) that the wave was
+built to eliminate.
+
+**Every catalog of an external system must carry the command that regenerates
+it.** `config/tools.ts` now does.
 
 # 14. THE PLAN
 
