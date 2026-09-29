@@ -45,8 +45,6 @@ export type ChatPanelBodyProps = {
   phase: ChatPhase;
   isStreaming: boolean;
   liveStats: LiveStats | undefined;
-  isStale: boolean;
-  sinceLastEventMs: number | null;
   stream: StreamState;
   onScheduleRateLimit: (resetsAtSeconds: number) => Promise<void>;
   onScheduleResumeAt: (fireAtMs: number) => Promise<void>;
@@ -69,8 +67,7 @@ export type ChatPanelBodyProps = {
  * focused on state wiring and hook composition.
  */
 export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
-  // Parked approval requests block the run, so they render between the thread
-  // and the composer — directly above where the user is about to type.
+  // Parked approvals block the run — render them above the composer.
   const { pending, decide } = usePendingPermissions(props.activeRunId, props.isStreaming);
   return (
     <div className="flex flex-col min-h-0 h-full flex-1 bg-[var(--bg-1)]" role="region" aria-label={`Chat with ${props.agent.name}`}>
@@ -89,8 +86,6 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
 
       <ChatBanners
         stream={props.stream}
-        isStale={props.isStale}
-        sinceLastEventMs={props.sinceLastEventMs}
         quotaWarning={props.quotaWarning}
         setQuotaWarning={props.setQuotaWarning}
       />

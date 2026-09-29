@@ -62,8 +62,6 @@ export function ChatPanel({
       phase={m.phase}
       isStreaming={m.isStreaming}
       liveStats={m.liveStats}
-      isStale={m.isStale}
-      sinceLastEventMs={m.sinceLastEventMs}
       stream={m.stream}
       onScheduleRateLimit={m.onScheduleRateLimit}
       onScheduleResumeAt={m.onScheduleResumeAt}
