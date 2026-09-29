@@ -1,23 +1,26 @@
 "use client";
 
 import { StreamBanner } from "./stream-banner";
-import { formatTime } from "@/lib/format-date";
 import type { useRunStream } from "../hooks/use-run-stream";
 
 type StreamState = ReturnType<typeof useRunStream>;
 
 export type ChatBannersProps = {
   stream: StreamState;
-  isStale: boolean;
-  sinceLastEventMs: number | null;
   quotaWarning: string | null;
   setQuotaWarning: (v: string | null) => void;
 };
 
 /**
  * Renders exactly one diagnostic banner between the chat head and the
- * thread (stream connection lost > retrying > stale), then a separate quota
- * warning banner underneath.
+ * thread (stream connection lost > retrying), then a separate quota warning
+ * banner underneath.
+ *
+ * The "quiet for Ns — still connected" stale banner is GONE. Its own comment
+ * conceded a quiet stream "is almost always the agent thinking or running a
+ * long tool, not a fault" — so it fired on every long task and told the user
+ * nothing they could act on. A banner that is usually wrong trains people to
+ * ignore all banners. Genuine faults (connection lost / retrying) still show.
  *
  * The old "recovered partial output" / "run isn't on the server anymore"
  * banners are GONE, not just hidden: they existed to patch over the
@@ -48,10 +51,9 @@ export function ChatBanners(props: ChatBannersProps): React.ReactElement | null 
 }
 
 function pickPrimaryBanner(props: ChatBannersProps): React.ReactElement | null {
-  const { stream, isStale, sinceLastEventMs } = props;
+  const { stream } = props;
   if (stream.connection === "lost") return renderConnectionLostBanner(stream);
   if (stream.connection === "retrying") return renderConnectionRetryingBanner(stream);
-  if (isStale && sinceLastEventMs !== null) return renderStaleStreamBanner(stream, sinceLastEventMs);
   return null;
 }
 
@@ -73,23 +75,6 @@ function renderConnectionRetryingBanner(stream: StreamState): React.ReactElement
       title="Stream connection interrupted - reconnecting…"
       detail="Browser is retrying automatically. Click Reconnect if it doesn't recover."
       primary={{ label: "Reconnect now", onClick: stream.reconnect }}
-    />
-  );
-}
-
-function renderStaleStreamBanner(stream: StreamState, sinceLastEventMs: number): React.ReactElement {
-  // A quiet stream is almost always the agent thinking or running a long tool,
-  // not a fault — so keep this calm and low-key, with Reconnect available if the
-  // stream really is stuck.
-  const detail = stream.lastEventAt
-    ? `Last event at ${formatTime(stream.lastEventAt)}. This is usually the agent thinking or running a long step.`
-    : "No events received yet.";
-  return (
-    <StreamBanner
-      kind="muted"
-      title={`Quiet for ${Math.floor(sinceLastEventMs / 1000)}s — still connected.`}
-      detail={detail}
-      primary={{ label: "Reconnect", onClick: stream.reconnect }}
     />
   );
 }
