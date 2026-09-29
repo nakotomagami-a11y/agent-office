@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 /** `wl-paste` is missing from PATH, as opposed to present-but-empty-clipboard. */
 class WlPasteMissing extends Error {}
 
+/** Clipboard payload exceeded the read cap. */
+class ClipboardTooLarge extends Error {}
+
 function wlPasteAsync(): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawn("wl-paste", ["--no-newline", "-t", "image/png"], {
@@ -17,8 +20,20 @@ function wlPasteAsync(): Promise<Buffer> {
       env: process.env,
     });
 
+    // Cap the read: a large clipboard image (or a compositor offering a huge
+    // image/png) otherwise buffers unbounded, and Buffer.concat doubles peak.
+    const MAX_BYTES = 32 * 1024 * 1024;
     const chunks: Buffer[] = [];
-    child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    let total = 0;
+    child.stdout.on("data", (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > MAX_BYTES) {
+        child.kill();
+        reject(new ClipboardTooLarge());
+        return;
+      }
+      chunks.push(chunk);
+    });
 
     child.on("error", (err: NodeJS.ErrnoException) => {
       reject(err.code === "ENOENT" ? new WlPasteMissing() : err);
@@ -38,6 +53,9 @@ export async function POST(): Promise<NextResponse> {
   try {
     buf = await wlPasteAsync();
   } catch (err) {
+    if (err instanceof ClipboardTooLarge) {
+      return NextResponse.json({ error: "clipboard_image_too_large" }, { status: 413 });
+    }
     if (err instanceof WlPasteMissing) {
       return NextResponse.json(
         {

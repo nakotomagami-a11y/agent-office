@@ -45,14 +45,14 @@ export async function POST(request: Request, { params }: Params) {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { error: idError } = validateIdParam((await params).id);
+  const { value: runId, error: idError } = validateIdParam((await params).id);
   if (idError) return idError;
 
   const raw: unknown = await request.json();
   const { data, error } = validateBody(permissionDecisionSchema, raw);
   if (error) return error;
 
-  if (!permissions.resolvePermission(data.id, data.decision)) {
+  if (!permissions.resolvePermission(runId, data.id, data.decision)) {
     // Already answered, timed out, or never existed. Not an error — a double
     // click must not 500.
     return badRequest("permission_not_pending");

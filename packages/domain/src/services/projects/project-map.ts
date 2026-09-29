@@ -10,16 +10,33 @@ import type { AgentInstance, Project } from "../../types/index";
 import { SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 import { detectBuildCommand, detectDevCommands, detectPackageManager } from "./project-runtime";
 
+/** Git with the REPO'S OWN CONFIG NEUTRALISED. `git status` executes
+ *  `core.fsmonitor` from `.git/config`, and this runs on every prompt
+ *  composition inside the app server — so a hostile repo (or an `acceptEdits`
+ *  agent writing `.git/config`) was RCE. Verified on git 2.55.0. */
 function git(args: string[], cwd: string): string | null {
   try {
-    return execFileSync("git", args, {
+    return execFileSync("git", ["-c", "core.fsmonitor=", "-c", "core.hooksPath=/dev/null", ...args], {
       cwd,
       timeout: 3000,
       stdio: ["ignore", "pipe", "ignore"],
+      env: {
+        ...process.env,
+        GIT_CONFIG_NOSYSTEM: "1",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_OPTIONAL_LOCKS: "0",
+      },
     }).toString().trim();
   } catch {
     return null; // not a repo, or git unavailable — the caller omits the line
   }
+}
+
+/** Repo-controlled text is DATA. Directory names may contain newlines, and this
+ *  block lands in every agent's system prompt — so a crafted name could forge a
+ *  prompt section. */
+function clean(s: string, max = 80): string {
+  return s.replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, max).trim();
 }
 
 /** The login `gh`/`git push` will use. Reads only the `user:` key — no network,
@@ -41,7 +58,7 @@ function topLevelEntries(cwd: string): string[] {
   ]);
   try {
     return readdirSync(cwd, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !SKIP.has(e.name) && !e.name.startsWith("."))
+      .filter((e) => e.isDirectory() && !SKIP.has(e.name) && !e.name.startsWith(".") && /^[\w.@-]+$/.test(e.name))
       .map((e) => e.name)
       .sort()
       .slice(0, 12);
@@ -87,7 +104,7 @@ export function buildProjectMap({ project, instance }: ProjectMapInput): string 
     const key = argv.join(" ");
     if (seen.has(key) || cmds.length >= 5) return;
     seen.add(key);
-    cmds.push(`${label}: \`${key}\``);
+    cmds.push(`${clean(label, 24)}: \`${clean(key, 120)}\``);
   };
   if (build) push("build", build);
   for (const d of detectDevCommands(cwd)) push(d.name.split("·").pop()!.trim().toLowerCase(), d.argv);
@@ -98,7 +115,7 @@ export function buildProjectMap({ project, instance }: ProjectMapInput): string 
   if (branch) {
     const dirty = git(["status", "--porcelain"], cwd);
     const changed = dirty ? dirty.split("\n").filter(Boolean).length : 0;
-    lines.push(`- Git: on \`${branch}\`, ${changed} uncommitted file${changed === 1 ? "" : "s"}`);
+    lines.push(`- Git: on \`${clean(branch)}\`, ${changed} uncommitted file${changed === 1 ? "" : "s"}`);
   }
 
   if (instance?.worktree) {

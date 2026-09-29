@@ -1,15 +1,10 @@
 /**
  * The Loop governor — PURE. No DB, no spawn, no `Date.now`, no `Math.random`.
  *
- * Split, per the hybrid shape: the AGENT drives the content of each round (does
- * the work, calls the reviewer, reports findings); this owns the ceilings and
- * the escalation. If the agent owned the loop nothing could stop it, and an
- * agent that decides on twelve rounds will do twelve rounds.
- *
- * Every termination names its BINDING CONSTRAINT. "stopped at round 3 of 5 —
- * converged" and "stopped at round 5 of 5 — 2 must-fix open" are different
- * messages to someone deciding whether to intervene, and a loop that cannot
- * say which is a loop that gets switched off.
+ * The agent drives each round's content; this owns the ceilings and escalation.
+ * If the agent owned the loop nothing could stop it. Every termination names its
+ * BINDING CONSTRAINT — "converged at 3 of 5" and "stopped at 5 of 5, 2 must-fix
+ * open" are different decisions for the user.
  */
 
 export type Severity = "must-fix" | "should-fix" | "nit";
