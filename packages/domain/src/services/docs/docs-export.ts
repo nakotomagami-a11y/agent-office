@@ -352,19 +352,6 @@ const API: DocsExport["api"] = [
   },
   {
     method: "POST",
-    path: "/api/pipeline",
-    description: "Create and start a multi-agent pipeline",
-    request_type: "createPipelineRequestSchema",
-    response_type: "{ pipelineId: string; steps: PipelineStep[] }",
-  },
-  {
-    method: "GET",
-    path: "/api/pipeline/[id]",
-    description: "Poll pipeline status and step results",
-    response_type: "PipelineRun",
-  },
-  {
-    method: "POST",
     path: "/api/broadcast",
     description: "Fan-out a prompt to all roster instances on a project",
     request_type: "broadcastRequestSchema",

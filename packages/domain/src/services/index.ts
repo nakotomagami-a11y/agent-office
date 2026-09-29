@@ -28,7 +28,6 @@ export * as processes from "./execution/processes";
 export * as gitStatus from "./projects/git-status";
 export * as paths from "./infra/paths";
 export * as events from "./infra/events";
-export * as pipeline from "./execution/pipeline";
 export * as docs from "./docs/docs";
 export * as cleanup from "./projects/cleanup";
 export * as accounts from "./accounts/accounts";

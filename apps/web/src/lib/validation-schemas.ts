@@ -295,30 +295,6 @@ export const healthQuerySchema = z.object({
     .transform((v) => v === "1" || v === "true"),
 });
 
-export const pipelineStepSchema = z.object({
-  agentId: z.string().min(1, "agentId is required"),
-  instanceId: z.string().optional(),
-  promptTemplate: z.string().min(1, "promptTemplate is required"),
-  model: z.string().optional(),
-  effort: z.string().optional(),
-});
-
-export const parallelPipelineStepSchema = z.object({
-  kind: z.literal("parallel"),
-  steps: z.array(pipelineStepSchema).min(2).max(8),
-});
-
-export const pipelineStepGroupSchema = z.union([pipelineStepSchema, parallelPipelineStepSchema]);
-
-export const createPipelineRequestSchema = z.object({
-  steps: z
-    .array(pipelineStepGroupSchema)
-    .min(2, "pipeline requires at least 2 step groups")
-    .max(10, "pipeline allows at most 10 step groups"),
-  projectId: z.string().optional(),
-  cwd: z.string().optional(),
-});
-
 export const broadcastRequestSchema = z.object({
   projectId: z.string().min(1),
   prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
