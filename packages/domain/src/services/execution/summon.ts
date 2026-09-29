@@ -79,6 +79,14 @@ function mcpArgs(opts: { excludePlaywright: boolean; withPermissionServer: boole
   const servers: Record<string, unknown> = { ...readGlobalMcpServers() };
   if (opts.excludePlaywright) delete servers.playwright;
   if (opts.withPermissionServer) {
+    // An absent bridge yields a server that never answers: every prompt
+    // denies with no visible cause. That shipped — so fail loudly instead.
+    if (!existsSync(PERMISSION_SERVER_PATH)) {
+      throw new Error(
+        `permission bridge missing at ${PERMISSION_SERVER_PATH} — ` +
+        `prompts would silently deny. Check prepare-bundle copied scripts/.`,
+      );
+    }
     // AO_RUN_ID / AO_BASE_URL come from the spawn env.
     servers["agent-office"] = { command: process.execPath, args: [PERMISSION_SERVER_PATH] };
   }
