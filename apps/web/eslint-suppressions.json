@@ -34,11 +34,6 @@
       "count": 1
     }
   },
-  "src/lib/server/project-runtime.ts": {
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
   "src/lib/server/starter-data.ts": {
     "no-restricted-syntax": {
       "count": 2
