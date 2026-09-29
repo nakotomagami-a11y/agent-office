@@ -34,3 +34,6 @@ jobs:
 
       - name: Test (domain)
         run: pnpm --filter @agent-office/domain test
+
+      - name: Comment-ratio ratchet
+        run: node scripts/check-comment-ratio.mjs

@@ -13,7 +13,7 @@ export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
  * reliably lets an agent finish unattended work today, which is why all
  * bundled agents ship with it. `default` still denies unattended prompts
  * (no live approval channel exists yet — tracked in
- * docs/redesign-v3/REDESIGN_V3_PLAN.md); `plan` is a real read-only mode
+ * ROADMAP.md Wave 4.5 — the permission channel); `plan` is a real read-only mode
  * that never needs a prompt at all, so it works headless by construction.
  */
 export const PERMISSION_MODE_OPTS = ["bypassPermissions", "default", "plan"] as const;

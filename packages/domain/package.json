@@ -25,7 +25,8 @@
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test $(find src -name \"*.test.ts\" ! -name \"*e2e*\")",
+    "test:e2e": "tsx --test $(find src -name \"*e2e*.test.ts\")"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
