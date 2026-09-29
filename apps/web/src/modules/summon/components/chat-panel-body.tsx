@@ -2,6 +2,8 @@
 
 import { ChatHead } from "./chat-head";
 import { WorkflowPill } from "./workflow-pill";
+import { PermissionCard } from "./permission-card";
+import { usePendingPermissions } from "../hooks/use-pending-permissions";
 import { ChatThread } from "./chat-thread";
 import { Composer } from "./composer";
 import { ChatBanners } from "./chat-banners";
@@ -67,6 +69,9 @@ export type ChatPanelBodyProps = {
  * focused on state wiring and hook composition.
  */
 export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
+  // Parked approval requests block the run, so they render between the thread
+  // and the composer — directly above where the user is about to type.
+  const { pending, decide } = usePendingPermissions(props.activeRunId, props.isStreaming);
   return (
     <div className="flex flex-col min-h-0 h-full flex-1 bg-[var(--bg-1)]" role="region" aria-label={`Chat with ${props.agent.name}`}>
       {!props.noHeader && (
@@ -118,6 +123,13 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
         queuedMessages={props.queuedMessages}
         onCancelQueuedMessage={props.onCancelQueuedMessage}
       />
+      {pending.length > 0 && (
+        <div className="flex flex-col gap-2 px-4 pb-2 shrink-0">
+          {pending.map((req) => (
+            <PermissionCard key={req.id} request={req} onDecide={decide} />
+          ))}
+        </div>
+      )}
       {/* key=tKey forces a fresh Composer mount whenever the agent or
           instance changes, ensuring useState re-initialises from the correct
           draft slot rather than showing the previous agent's text. */}
