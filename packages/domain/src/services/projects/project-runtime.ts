@@ -8,6 +8,40 @@ import type { DetectedCommand } from "../../types/index";
 /** Subfolders the project bootstrapper emits / common monorepo layouts. Only
  *  a fallback for projects that don't declare a real workspace config — see
  *  `resolveWorkspacePackageDirs` for the general case (pnpm/npm/yarn/bun). */
+/**
+ * Read a JSON file as `unknown`. RULE arch.parse-dont-cast: these files are
+ * user-editable (`package.json`, `.ao.json`) and have no obligation to match a
+ * shape, so callers narrow with the guards below instead of asserting.
+ */
+function readJson(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function obj(v: unknown): Record<string, unknown> | undefined {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v : undefined;
+}
+
+/** `{ [name]: script }` entries whose values are strings; anything else dropped. */
+function stringMap(v: unknown): Record<string, string> {
+  const o = obj(v);
+  if (!o) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(o)) if (typeof val === "string") out[k] = val;
+  return out;
+}
+
+function strArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
 const SUBFOLDERS = ["frontend", "backend", "web", "client", "server", "api"] as const;
 
 /** Extract the `packages:` block-list from a pnpm-workspace.yaml body. */
@@ -39,9 +73,11 @@ function readWorkspaceGlobs(cwd: string): string[] {
   const pkgPath = join(cwd, "package.json");
   try {
     if (existsSync(pkgPath)) {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { workspaces?: string[] | { packages?: string[] } };
-      if (Array.isArray(pkg.workspaces)) return pkg.workspaces;
-      if (pkg.workspaces?.packages) return pkg.workspaces.packages;
+      const w = obj(readJson(pkgPath))?.workspaces;
+      const direct = strArray(w);
+      if (direct.length > 0) return direct;
+      const nested = strArray(obj(w)?.packages);
+      if (nested.length > 0) return nested;
     }
   } catch { /* ignore */ }
 
@@ -89,16 +125,15 @@ export function detectBuildCommand(cwd: string, pm: string): string[] | null {
   const aoPath = join(cwd, ".ao.json");
   if (existsSync(aoPath)) {
     try {
-      const cfg = JSON.parse(readFileSync(aoPath, "utf8")) as { buildCommand?: string };
-      if (typeof cfg.buildCommand === "string") return cfg.buildCommand.trim().split(/\s+/);
+      const build = str(obj(readJson(aoPath))?.buildCommand);
+      if (build) return build.trim().split(/\s+/);
     } catch { /* ignore */ }
   }
 
   const pkgPath = join(cwd, "package.json");
   if (existsSync(pkgPath)) {
     try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { scripts?: Record<string, string> };
-      const scripts = pkg.scripts ?? {};
+      const scripts = stringMap(obj(readJson(pkgPath))?.scripts);
       for (const key of BUILD_SCRIPT_PRIORITY) {
         if (scripts[key]) return [pm, "run", key];
       }
@@ -156,14 +191,10 @@ function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix:
   if (!existsSync(pkgPath)) return [];
   const out: DetectedCommand[] = [];
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-      scripts?: Record<string, string>;
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
-    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+    const pkg = obj(readJson(pkgPath));
+    const allDeps = { ...stringMap(pkg?.dependencies), ...stringMap(pkg?.devDependencies) };
     const isNextJs = "next" in allDeps;
-    const scripts = pkg.scripts ?? {};
+    const scripts = stringMap(pkg?.scripts);
     const pm = opts?.pmOverride ?? detectPackageManager(dir);
 
     // Bare "dev"/"start" before "dev:*".
@@ -196,17 +227,21 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
   const aoPath = join(cwd, ".ao.json");
   if (existsSync(aoPath)) {
     try {
-      const cfg = JSON.parse(readFileSync(aoPath, "utf8")) as { devCommands?: Array<{ name: string; cmd: string }> };
-      if (Array.isArray(cfg.devCommands) && cfg.devCommands.length > 0) {
-        return cfg.devCommands
-          .filter((c) => typeof c.name === "string" && typeof c.cmd === "string")
-          .map((c) => ({
-            key: c.name.toLowerCase().replace(/\s+/g, "-"),
-            name: c.name,
-            argv: c.cmd.trim().split(/\s+/),
-            portMode: "env" as const,
-          }));
-      }
+      const raw = obj(readJson(aoPath))?.devCommands;
+      const declared = Array.isArray(raw) ? raw : [];
+      const commands = declared.flatMap((entry): DetectedCommand[] => {
+        const e = obj(entry);
+        const name = str(e?.name);
+        const cmd = str(e?.cmd);
+        if (!name || !cmd) return [];
+        return [{
+          key: name.toLowerCase().replace(/\s+/g, "-"),
+          name,
+          argv: cmd.trim().split(/\s+/),
+          portMode: "env" as const,
+        }];
+      });
+      if (commands.length > 0) return commands;
     } catch { /* ignore */ }
   }
 

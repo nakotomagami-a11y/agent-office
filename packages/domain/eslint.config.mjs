@@ -63,7 +63,8 @@ export default [
       "no-restricted-syntax": [
         "error",
         {
-          selector: "TSAsExpression > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
+          selector:
+            "TSAsExpression:not([typeAnnotation.type='TSUnknownKeyword']) > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
           message:
             "RULE arch.parse-dont-cast (docs/conventions.md): never cast JSON.parse() straight to a type — `as SomeShape` is a lie the runtime can break. Take it as `unknown` and narrow it with a Zod schema (or a type guard) before use.",
         },

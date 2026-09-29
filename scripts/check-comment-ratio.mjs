@@ -35,7 +35,7 @@ function measure(file) {
     if (s.startsWith("//") || s.startsWith("*")) { comment++; continue; }
     code++;
   }
-  return { ratio: code === 0 ? 0 : comment / code, code };
+  return { ratio: code === 0 ? 0 : comment / code, code, comment };
 }
 
 const ratio = (f) => measure(f).ratio;
@@ -64,7 +64,7 @@ if (process.argv.includes("--update")) {
   const next = {};
   for (const f of files) {
     const m = measure(f);
-    next[f] = { ratio: Number(m.ratio.toFixed(4)), code: m.code };
+    next[f] = { ratio: Number(m.ratio.toFixed(4)), code: m.code, comment: m.comment };
   }
   writeFileSync(BASELINE, JSON.stringify(next, null, 2) + "\n");
   console.log(`baselined ${files.length} files`);
@@ -79,11 +79,17 @@ for (const f of files) {
   // Old baselines stored a bare number.
   const was = typeof prev === "number" ? prev : prev?.ratio;
   const wasCode = typeof prev === "number" ? undefined : prev?.code;
+  const wasComment = typeof prev === "number" ? undefined : prev?.comment;
 
-  // Deleting code raises the ratio arithmetically without adding a single
-  // comment. Punishing that would make the rule discourage removing code,
-  // which is the opposite of the point.
-  if (was !== undefined && wasCode !== undefined && m.code < wasCode) continue;
+  // Deleting code raises the ratio arithmetically, so a shrinking file is
+  // compared on ABSOLUTE comment count instead. Exempting it outright — the
+  // first version of this — let one deleted line buy unlimited comments.
+  if (was !== undefined && wasCode !== undefined && m.code < wasCode) {
+    if (wasComment !== undefined && m.comment > wasComment) {
+      failures.push(`${f}: code shrank but comments grew ${wasComment} -> ${m.comment}`);
+    }
+    continue;
+  }
 
   if (was === undefined) {
     if (now > NEW_FILE_CEILING && m.code >= MIN_CODE_LINES_FOR_CEILING) {

@@ -44,6 +44,8 @@ export type BindingConstraint =
   | "wall_clock"
   | "review_failed"
   | "author_failed"
+  | "fix_failed"
+  | "user_stopped"
   | "invalid_findings";
 
 export interface LoopState {
@@ -80,6 +82,15 @@ export interface LoopReduction {
 }
 
 const DEFAULT_BLOCKING: Severity[] = ["must-fix"];
+
+/** Which actions each phase will accept. Anything else is ignored. */
+const ACCEPTS: Record<LoopPhase, LoopAction["type"][]> = {
+  authoring: ["authorFinished", "stop"],
+  reviewing: ["reviewFinished", "stop", "acceptAsIs"],
+  fixing: ["fixFinished", "stop", "acceptAsIs"],
+  done: [],
+  escalated: ["allowOneMore", "acceptAsIs"],
+};
 
 export function initialLoopState(startedAt: number): LoopState {
   return { phase: "authoring", round: 1, spentUsd: 0, startedAt, open: [], history: [] };
@@ -119,21 +130,35 @@ export function reduceLoop(
   now: number,
   ruleExists: (id: string) => boolean = () => true,
 ): LoopReduction {
-  // A terminated loop ignores everything. Late finishes must not revive it.
-  if (state.phase === "done" || state.phase === "escalated") return { state, effects: [] };
+  // A finished loop is final. An ESCALATED one still accepts the two user
+  // actions that exist to resolve it — otherwise `allowOneMore` is dead code,
+  // which is exactly what it was.
+  if (state.phase === "done") return { state, effects: [] };
+  if (state.phase === "escalated" && action.type !== "allowOneMore" && action.type !== "acceptAsIs") {
+    return { state, effects: [] };
+  }
+
+  // An action from the wrong phase is ignored. Without this, a duplicated or
+  // out-of-order `fixFinished` dispatched review work without bound — the
+  // ceiling was bypassable and every test passed, because none of them sent an
+  // action out of phase.
+  if (!ACCEPTS[state.phase].includes(action.type)) return { state, effects: [] };
 
   switch (action.type) {
     case "stop":
-      return done({ ...state }, "review_failed");
+      return done({ ...state }, "user_stopped");
 
     case "acceptAsIs":
       return done({ ...state, open: [] }, "converged");
 
     case "allowOneMore": {
-      // Only meaningful once a ceiling already stopped dispatch. Raising the
-      // ceiling is the user's call, never the loop's.
-      if (state.open.length === 0) return { state, effects: [] };
-      const next = { ...state, round: state.round + 1, phase: "fixing" as LoopPhase };
+      // Raising the ROUND ceiling is the user's call. Budget and wall clock are
+      // not negotiable here — re-check them so "one more" cannot spend past them.
+      if (state.binding !== "max_rounds" || state.open.length === 0) return { state, effects: [] };
+      const relaxed = { ...state, phase: "fixing" as LoopPhase, binding: undefined };
+      if (cfg.budgetUsd !== undefined && relaxed.spentUsd >= cfg.budgetUsd) return done(state, "budget");
+      if (cfg.wallClockMs !== undefined && now - relaxed.startedAt >= cfg.wallClockMs) return done(state, "wall_clock");
+      const next = { ...relaxed, round: relaxed.round + 1 };
       return { state: next, effects: [{ type: "startFix", round: next.round, findings: state.open }] };
     }
 
@@ -141,7 +166,7 @@ export function reduceLoop(
     case "fixFinished": {
       const spent = state.spentUsd + action.costUsd;
       if (!action.ok) {
-        return done({ ...state, spentUsd: spent }, action.type === "authorFinished" ? "author_failed" : "review_failed");
+        return done({ ...state, spentUsd: spent }, action.type === "authorFinished" ? "author_failed" : "fix_failed");
       }
       const s = { ...state, spentUsd: spent };
       const hit = ceilingHit(s, cfg, now);
@@ -188,6 +213,10 @@ export function describeTermination(state: LoopState, cfg: LoopConfig): string {
       return `Stopped on the time limit at round ${state.round}.`;
     case "review_failed":
       return `Stopped — the review did not complete at round ${state.round}.`;
+    case "fix_failed":
+      return `Stopped — the fix run failed at round ${state.round}.`;
+    case "user_stopped":
+      return `Stopped by you at round ${state.round}.`;
     case "author_failed":
       return `Stopped — the authoring run failed at round ${state.round}.`;
     case "invalid_findings":

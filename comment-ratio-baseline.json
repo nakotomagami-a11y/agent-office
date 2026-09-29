@@ -1,2482 +1,3122 @@
 {
   "apps/web/src/app/(app)/activity/page.tsx": {
     "ratio": 0,
-    "code": 10
+    "code": 10,
+    "comment": 0
   },
   "apps/web/src/app/(app)/agents/[id]/edit/page.tsx": {
     "ratio": 0,
-    "code": 12
+    "code": 12,
+    "comment": 0
   },
   "apps/web/src/app/(app)/agents/[id]/page.tsx": {
     "ratio": 0,
-    "code": 16
+    "code": 16,
+    "comment": 0
   },
   "apps/web/src/app/(app)/agents/new/page.tsx": {
     "ratio": 0,
-    "code": 5
+    "code": 5,
+    "comment": 0
   },
   "apps/web/src/app/(app)/agents/page.tsx": {
     "ratio": 0,
-    "code": 27
+    "code": 27,
+    "comment": 0
   },
   "apps/web/src/app/(app)/analytics/page.tsx": {
     "ratio": 0.2,
-    "code": 5
+    "code": 5,
+    "comment": 1
   },
   "apps/web/src/app/(app)/docs/page.tsx": {
     "ratio": 0,
-    "code": 1
+    "code": 1,
+    "comment": 0
   },
   "apps/web/src/app/(app)/layout.tsx": {
     "ratio": 0.2381,
-    "code": 42
+    "code": 42,
+    "comment": 10
   },
   "apps/web/src/app/(app)/memory/page.tsx": {
     "ratio": 0,
-    "code": 90
+    "code": 90,
+    "comment": 0
   },
   "apps/web/src/app/(app)/page.tsx": {
     "ratio": 0.6,
-    "code": 30
+    "code": 30,
+    "comment": 18
   },
   "apps/web/src/app/(app)/projects/[id]/page.tsx": {
     "ratio": 0,
-    "code": 6
+    "code": 6,
+    "comment": 0
   },
   "apps/web/src/app/(app)/projects/page.tsx": {
     "ratio": 0,
-    "code": 4
+    "code": 4,
+    "comment": 0
   },
   "apps/web/src/app/(app)/schedules/page.tsx": {
     "ratio": 0,
-    "code": 4
+    "code": 4,
+    "comment": 0
   },
   "apps/web/src/app/(app)/search/page.tsx": {
     "ratio": 0,
-    "code": 18
+    "code": 18,
+    "comment": 0
   },
   "apps/web/src/app/(app)/settings/page.tsx": {
     "ratio": 0,
-    "code": 21
+    "code": 21,
+    "comment": 0
   },
   "apps/web/src/app/(app)/skills/page.tsx": {
     "ratio": 0,
-    "code": 12
+    "code": 12,
+    "comment": 0
   },
   "apps/web/src/app/api/account/route.ts": {
     "ratio": 0.2647,
-    "code": 34
+    "code": 34,
+    "comment": 9
   },
   "apps/web/src/app/api/accounts/[id]/login/code/route.ts": {
     "ratio": 0.087,
-    "code": 23
+    "code": 23,
+    "comment": 2
   },
   "apps/web/src/app/api/accounts/[id]/login/route.ts": {
     "ratio": 0.24,
-    "code": 25
+    "code": 25,
+    "comment": 6
   },
   "apps/web/src/app/api/accounts/[id]/route.ts": {
     "ratio": 0.0606,
-    "code": 33
+    "code": 33,
+    "comment": 2
   },
   "apps/web/src/app/api/accounts/[id]/status/route.ts": {
     "ratio": 0.4545,
-    "code": 11
+    "code": 11,
+    "comment": 5
   },
   "apps/web/src/app/api/accounts/route.ts": {
     "ratio": 0.4444,
-    "code": 18
+    "code": 18,
+    "comment": 8
   },
   "apps/web/src/app/api/agent-docs/[owner]/[slug]/route.ts": {
     "ratio": 0.0968,
-    "code": 31
+    "code": 31,
+    "comment": 3
   },
   "apps/web/src/app/api/agent-docs/route.ts": {
     "ratio": 0.4,
-    "code": 5
+    "code": 5,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/[id]/body/history/[filename]/route.ts": {
     "ratio": 0.2727,
-    "code": 11
+    "code": 11,
+    "comment": 3
   },
   "apps/web/src/app/api/agents/[id]/body/history/route.ts": {
     "ratio": 0.2222,
-    "code": 9
+    "code": 9,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/[id]/body/route.ts": {
     "ratio": 0.1818,
-    "code": 33
+    "code": 33,
+    "comment": 6
   },
   "apps/web/src/app/api/agents/[id]/context-cost/measure/route.ts": {
     "ratio": 0.375,
-    "code": 16
+    "code": 16,
+    "comment": 6
   },
   "apps/web/src/app/api/agents/[id]/context-cost/route.ts": {
     "ratio": 0.45,
-    "code": 20
+    "code": 20,
+    "comment": 9
   },
   "apps/web/src/app/api/agents/[id]/memory/route.ts": {
     "ratio": 0.1111,
-    "code": 18
+    "code": 18,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/[id]/prompt-preview/route.ts": {
     "ratio": 0.3784,
-    "code": 37
+    "code": 37,
+    "comment": 14
   },
   "apps/web/src/app/api/agents/[id]/prompts/route.ts": {
     "ratio": 0.1,
-    "code": 20
+    "code": 20,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/[id]/route.ts": {
     "ratio": 0.0968,
-    "code": 31
+    "code": 31,
+    "comment": 3
   },
   "apps/web/src/app/api/agents/[id]/uploads/[filename]/route.ts": {
     "ratio": 0.1333,
-    "code": 15
+    "code": 15,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/[id]/uploads/route.ts": {
     "ratio": 0.1429,
-    "code": 14
+    "code": 14,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/bulk/route.ts": {
     "ratio": 0.0909,
-    "code": 22
+    "code": 22,
+    "comment": 2
   },
   "apps/web/src/app/api/agents/route.ts": {
     "ratio": 0.1429,
-    "code": 14
+    "code": 14,
+    "comment": 2
   },
   "apps/web/src/app/api/analytics/page/route.ts": {
     "ratio": 0.2667,
-    "code": 15
+    "code": 15,
+    "comment": 4
   },
   "apps/web/src/app/api/analytics/per-account/route.ts": {
     "ratio": 0.4,
-    "code": 5
+    "code": 5,
+    "comment": 2
   },
   "apps/web/src/app/api/analytics/summary/route.ts": {
     "ratio": 0.16,
-    "code": 25
+    "code": 25,
+    "comment": 4
   },
   "apps/web/src/app/api/broadcast/route.ts": {
     "ratio": 0.0317,
-    "code": 63
+    "code": 63,
+    "comment": 2
   },
   "apps/web/src/app/api/cleanup/[kind]/route.ts": {
     "ratio": 0.1818,
-    "code": 11
+    "code": 11,
+    "comment": 2
   },
   "apps/web/src/app/api/clipboard-image/route.ts": {
-    "ratio": 0.1389,
-    "code": 36
+    "ratio": 0.098,
+    "code": 51,
+    "comment": 5
   },
   "apps/web/src/app/api/conversations/[id]/messages/route.ts": {
     "ratio": 0.2667,
-    "code": 15
+    "code": 15,
+    "comment": 4
   },
   "apps/web/src/app/api/conversations/[id]/new/route.ts": {
     "ratio": 0.375,
-    "code": 8
+    "code": 8,
+    "comment": 3
   },
   "apps/web/src/app/api/conversations/[id]/queue/[messageId]/route.ts": {
     "ratio": 0.0909,
-    "code": 11
+    "code": 11,
+    "comment": 1
   },
   "apps/web/src/app/api/conversations/[id]/queue/route.ts": {
     "ratio": 0.375,
-    "code": 8
+    "code": 8,
+    "comment": 3
   },
   "apps/web/src/app/api/conversations/[id]/resume/route.ts": {
     "ratio": 0.25,
-    "code": 8
+    "code": 8,
+    "comment": 2
   },
   "apps/web/src/app/api/conversations/[id]/retry/route.ts": {
     "ratio": 0.25,
-    "code": 8
+    "code": 8,
+    "comment": 2
   },
   "apps/web/src/app/api/conversations/[id]/route.ts": {
     "ratio": 0.375,
-    "code": 8
+    "code": 8,
+    "comment": 3
   },
   "apps/web/src/app/api/conversations/[id]/skip/route.ts": {
     "ratio": 0.375,
-    "code": 8
+    "code": 8,
+    "comment": 3
   },
   "apps/web/src/app/api/conversations/route.ts": {
     "ratio": 0.1852,
-    "code": 27
+    "code": 27,
+    "comment": 5
   },
   "apps/web/src/app/api/dev/backfill-planets/route.ts": {
     "ratio": 0.0746,
-    "code": 67
+    "code": 67,
+    "comment": 5
   },
   "apps/web/src/app/api/dev/planet-gallery/route.ts": {
     "ratio": 0.0938,
-    "code": 32
+    "code": 32,
+    "comment": 3
   },
   "apps/web/src/app/api/dev/seed/route.ts": {
     "ratio": 0.0556,
-    "code": 54
+    "code": 54,
+    "comment": 3
   },
   "apps/web/src/app/api/dev/seed/showcase.ts": {
     "ratio": 0.123,
-    "code": 309
+    "code": 309,
+    "comment": 38
   },
   "apps/web/src/app/api/docs/content/route.ts": {
     "ratio": 0.2222,
-    "code": 63
+    "code": 63,
+    "comment": 14
   },
   "apps/web/src/app/api/docs/export/route.ts": {
     "ratio": 0.2,
-    "code": 5
+    "code": 5,
+    "comment": 1
   },
   "apps/web/src/app/api/drafts/route.ts": {
     "ratio": 0.0313,
-    "code": 32
+    "code": 32,
+    "comment": 1
   },
   "apps/web/src/app/api/events/route.ts": {
     "ratio": 0.2857,
-    "code": 21
+    "code": 21,
+    "comment": 6
   },
   "apps/web/src/app/api/flutter/devices/route.ts": {
     "ratio": 0.25,
-    "code": 8
+    "code": 8,
+    "comment": 2
   },
   "apps/web/src/app/api/flutter/mirror/route.ts": {
     "ratio": 0.125,
-    "code": 16
+    "code": 16,
+    "comment": 2
   },
   "apps/web/src/app/api/flutter/run/route.ts": {
     "ratio": 0.069,
-    "code": 29
+    "code": 29,
+    "comment": 2
   },
   "apps/web/src/app/api/flutter/screenshot/route.ts": {
     "ratio": 0.1538,
-    "code": 13
+    "code": 13,
+    "comment": 2
   },
   "apps/web/src/app/api/github-accounts/[id]/route.ts": {
     "ratio": 0.0556,
-    "code": 36
+    "code": 36,
+    "comment": 2
   },
   "apps/web/src/app/api/github-accounts/[id]/status/route.ts": {
     "ratio": 0.3846,
-    "code": 13
+    "code": 13,
+    "comment": 5
   },
   "apps/web/src/app/api/github-accounts/route.ts": {
     "ratio": 0.3043,
-    "code": 23
+    "code": 23,
+    "comment": 7
   },
   "apps/web/src/app/api/health/route.ts": {
     "ratio": 0.1,
-    "code": 10
+    "code": 10,
+    "comment": 1
   },
   "apps/web/src/app/api/memory/global/route.ts": {
     "ratio": 0.0714,
-    "code": 14
+    "code": 14,
+    "comment": 1
   },
   "apps/web/src/app/api/power/route.ts": {
     "ratio": 0.2308,
-    "code": 39
+    "code": 39,
+    "comment": 9
   },
   "apps/web/src/app/api/processes/[pid]/logs/route.ts": {
     "ratio": 0.0667,
-    "code": 15
+    "code": 15,
+    "comment": 1
   },
   "apps/web/src/app/api/processes/[pid]/route.ts": {
     "ratio": 0.0556,
-    "code": 18
+    "code": 18,
+    "comment": 1
   },
   "apps/web/src/app/api/processes/[pid]/stdin/route.ts": {
     "ratio": 0.0556,
-    "code": 18
+    "code": 18,
+    "comment": 1
   },
   "apps/web/src/app/api/processes/route.ts": {
     "ratio": 0.4,
-    "code": 5
+    "code": 5,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/build/route.ts": {
     "ratio": 0.1034,
-    "code": 29
+    "code": 29,
+    "comment": 3
   },
   "apps/web/src/app/api/projects/[id]/clear-cache/route.ts": {
     "ratio": 0.0833,
-    "code": 24
+    "code": 24,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/dev/route.ts": {
     "ratio": 0.1373,
-    "code": 51
+    "code": 51,
+    "comment": 7
   },
   "apps/web/src/app/api/projects/[id]/folder/route.ts": {
     "ratio": 0.3333,
-    "code": 12
+    "code": 12,
+    "comment": 4
   },
   "apps/web/src/app/api/projects/[id]/git-status/route.ts": {
     "ratio": 0.2727,
-    "code": 11
+    "code": 11,
+    "comment": 3
   },
   "apps/web/src/app/api/projects/[id]/install/route.ts": {
     "ratio": 0.1429,
-    "code": 56
+    "code": 56,
+    "comment": 8
   },
   "apps/web/src/app/api/projects/[id]/memory/route.ts": {
     "ratio": 0.08,
-    "code": 25
+    "code": 25,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/open-folder/route.ts": {
     "ratio": 0.0952,
-    "code": 21
+    "code": 21,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/roster/[instanceId]/repair-worktree/route.ts": {
     "ratio": 0.2222,
-    "code": 18
+    "code": 18,
+    "comment": 4
   },
   "apps/web/src/app/api/projects/[id]/roster/[instanceId]/route.ts": {
     "ratio": 0.0526,
-    "code": 38
+    "code": 38,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/roster/route.ts": {
     "ratio": 0.1786,
-    "code": 28
+    "code": 28,
+    "comment": 5
   },
   "apps/web/src/app/api/projects/[id]/route.ts": {
     "ratio": 0.1277,
-    "code": 47
+    "code": 47,
+    "comment": 6
   },
   "apps/web/src/app/api/projects/[id]/secrets/[secretId]/route.ts": {
     "ratio": 0.4,
-    "code": 10
+    "code": 10,
+    "comment": 4
   },
   "apps/web/src/app/api/projects/[id]/secrets/route.ts": {
     "ratio": 0.25,
-    "code": 20
+    "code": 20,
+    "comment": 5
   },
   "apps/web/src/app/api/projects/[id]/spend/route.ts": {
     "ratio": 0.1818,
-    "code": 11
+    "code": 11,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/uploads/[filename]/route.ts": {
     "ratio": 0.1333,
-    "code": 15
+    "code": 15,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/[id]/uploads/route.ts": {
     "ratio": 0.1429,
-    "code": 14
+    "code": 14,
+    "comment": 2
   },
   "apps/web/src/app/api/projects/bootstrap/route.ts": {
     "ratio": 0.1923,
-    "code": 52
+    "code": 52,
+    "comment": 10
   },
   "apps/web/src/app/api/projects/route.ts": {
     "ratio": 0.1429,
-    "code": 14
+    "code": 14,
+    "comment": 2
   },
   "apps/web/src/app/api/prompts/route.ts": {
     "ratio": 0.2,
-    "code": 5
+    "code": 5,
+    "comment": 1
   },
   "apps/web/src/app/api/runs/[id]/abort/route.ts": {
     "ratio": 0.1,
-    "code": 10
+    "code": 10,
+    "comment": 1
   },
   "apps/web/src/app/api/runs/[id]/children/route.ts": {
     "ratio": 0.1,
-    "code": 10
+    "code": 10,
+    "comment": 1
   },
   "apps/web/src/app/api/runs/[id]/permission/route.ts": {
     "ratio": 0.2439,
-    "code": 41
+    "code": 41,
+    "comment": 10
   },
   "apps/web/src/app/api/runs/[id]/route.ts": {
     "ratio": 0.2308,
-    "code": 13
+    "code": 13,
+    "comment": 3
   },
   "apps/web/src/app/api/runs/[id]/stream/route.ts": {
     "ratio": 0.0606,
-    "code": 33
+    "code": 33,
+    "comment": 2
   },
   "apps/web/src/app/api/runs/[id]/tree/route.ts": {
     "ratio": 0.0909,
-    "code": 11
+    "code": 11,
+    "comment": 1
   },
   "apps/web/src/app/api/runs/abort-all/route.ts": {
     "ratio": 0.0714,
-    "code": 14
+    "code": 14,
+    "comment": 1
   },
   "apps/web/src/app/api/runs/route.ts": {
     "ratio": 0.2895,
-    "code": 38
+    "code": 38,
+    "comment": 11
   },
   "apps/web/src/app/api/save/export/route.ts": {
     "ratio": 0.1111,
-    "code": 18
+    "code": 18,
+    "comment": 2
   },
   "apps/web/src/app/api/save/import/route.ts": {
     "ratio": 0.0385,
-    "code": 26
+    "code": 26,
+    "comment": 1
   },
   "apps/web/src/app/api/schedules/[id]/route.ts": {
     "ratio": 0.05,
-    "code": 20
+    "code": 20,
+    "comment": 1
   },
   "apps/web/src/app/api/schedules/[id]/run/route.ts": {
     "ratio": 0.2,
-    "code": 10
+    "code": 10,
+    "comment": 2
   },
   "apps/web/src/app/api/schedules/route.ts": {
     "ratio": 0.0714,
-    "code": 14
+    "code": 14,
+    "comment": 1
   },
   "apps/web/src/app/api/secrets/[id]/route.ts": {
     "ratio": 0.04,
-    "code": 25
+    "code": 25,
+    "comment": 1
   },
   "apps/web/src/app/api/secrets/[id]/test/route.ts": {
     "ratio": 0.1818,
-    "code": 11
+    "code": 11,
+    "comment": 2
   },
   "apps/web/src/app/api/secrets/route.ts": {
     "ratio": 0.2778,
-    "code": 18
+    "code": 18,
+    "comment": 5
   },
   "apps/web/src/app/api/settings/route.ts": {
     "ratio": 0.129,
-    "code": 31
+    "code": 31,
+    "comment": 4
   },
   "apps/web/src/app/api/settings/scan/route.ts": {
     "ratio": 0.1429,
-    "code": 21
+    "code": 21,
+    "comment": 3
   },
   "apps/web/src/app/api/skills/[name]/customization/route.ts": {
     "ratio": 0.0968,
-    "code": 31
+    "code": 31,
+    "comment": 3
   },
   "apps/web/src/app/api/skills/[name]/route.ts": {
     "ratio": 0.0625,
-    "code": 16
+    "code": 16,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/[name]/update/route.ts": {
     "ratio": 0.0625,
-    "code": 16
+    "code": 16,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/compatibility/route.ts": {
     "ratio": 0.0625,
-    "code": 16
+    "code": 16,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/create/route.ts": {
     "ratio": 0.0455,
-    "code": 22
+    "code": 22,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/icons/route.ts": {
     "ratio": 0.0667,
-    "code": 30
+    "code": 30,
+    "comment": 2
   },
   "apps/web/src/app/api/skills/import/route.ts": {
     "ratio": 0.0588,
-    "code": 17
+    "code": 17,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/install/route.ts": {
     "ratio": 0.0556,
-    "code": 18
+    "code": 18,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/installed/route.ts": {
     "ratio": 0.0833,
-    "code": 12
+    "code": 12,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/manifest/route.ts": {
     "ratio": 0.0625,
-    "code": 16
+    "code": 16,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/registry/route.ts": {
     "ratio": 0.0556,
-    "code": 18
+    "code": 18,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/sources/route.ts": {
     "ratio": 0.027,
-    "code": 37
+    "code": 37,
+    "comment": 1
   },
   "apps/web/src/app/api/skills/updates/route.ts": {
     "ratio": 0.0833,
-    "code": 12
+    "code": 12,
+    "comment": 1
   },
   "apps/web/src/app/api/starter/agent-diff/route.ts": {
     "ratio": 0.3182,
-    "code": 22
+    "code": 22,
+    "comment": 7
   },
   "apps/web/src/app/api/starter/agents/route.ts": {
     "ratio": 0.25,
-    "code": 20
+    "code": 20,
+    "comment": 5
   },
   "apps/web/src/app/api/summon/route.ts": {
     "ratio": 0.16,
-    "code": 25
+    "code": 25,
+    "comment": 4
   },
   "apps/web/src/app/api/templates/route.ts": {
     "ratio": 0.2,
-    "code": 5
+    "code": 5,
+    "comment": 1
   },
   "apps/web/src/app/api/transcripts/route.ts": {
     "ratio": 0.0127,
-    "code": 79
+    "code": 79,
+    "comment": 1
   },
   "apps/web/src/app/api/ui-settings/route.ts": {
     "ratio": 0.1887,
-    "code": 53
+    "code": 53,
+    "comment": 10
   },
   "apps/web/src/app/api/user-analysis/route.ts": {
     "ratio": 0.2059,
-    "code": 68
+    "code": 68,
+    "comment": 14
   },
   "apps/web/src/app/api/workflows/[id]/route.ts": {
     "ratio": 0.0909,
-    "code": 11
+    "code": 11,
+    "comment": 1
   },
   "apps/web/src/app/api/workflows/[id]/use/route.ts": {
     "ratio": 0.125,
-    "code": 8
+    "code": 8,
+    "comment": 1
   },
   "apps/web/src/app/api/workflows/bulk/route.ts": {
     "ratio": 0.0909,
-    "code": 11
+    "code": 11,
+    "comment": 1
   },
   "apps/web/src/app/api/workflows/route.ts": {
     "ratio": 0.0588,
-    "code": 17
+    "code": 17,
+    "comment": 1
   },
   "apps/web/src/app/app-events.tsx": {
     "ratio": 0.2432,
-    "code": 37
+    "code": 37,
+    "comment": 9
   },
   "apps/web/src/app/dev/planet-gallery/page.tsx": {
     "ratio": 0.2222,
-    "code": 9
+    "code": 9,
+    "comment": 2
   },
   "apps/web/src/app/dev/planet-gallery/planet-gallery-card.tsx": {
     "ratio": 0.0166,
-    "code": 181
+    "code": 181,
+    "comment": 3
   },
   "apps/web/src/app/dev/planet-gallery/planet-gallery-view.tsx": {
     "ratio": 0.0956,
-    "code": 136
+    "code": 136,
+    "comment": 13
   },
   "apps/web/src/app/error.tsx": {
     "ratio": 0.1563,
-    "code": 32
+    "code": 32,
+    "comment": 5
   },
   "apps/web/src/app/global-error.tsx": {
     "ratio": 0.3103,
-    "code": 29
+    "code": 29,
+    "comment": 9
   },
   "apps/web/src/app/layout.tsx": {
     "ratio": 0.2558,
-    "code": 43
+    "code": 43,
+    "comment": 11
   },
   "apps/web/src/app/not-found.tsx": {
     "ratio": 0.3125,
-    "code": 16
+    "code": 16,
+    "comment": 5
   },
   "apps/web/src/app/power-sync.tsx": {
     "ratio": 0.3725,
-    "code": 51
+    "code": 51,
+    "comment": 19
   },
   "apps/web/src/app/providers.tsx": {
     "ratio": 0,
-    "code": 38
+    "code": 38,
+    "comment": 0
   },
   "apps/web/src/components/dev/dev-instruments.ts": {
     "ratio": 0.0968,
-    "code": 62
+    "code": 62,
+    "comment": 6
   },
   "apps/web/src/components/dev/dev-menu.tsx": {
     "ratio": 0.0383,
-    "code": 496
+    "code": 496,
+    "comment": 19
   },
   "apps/web/src/components/layout/agent-quick-view.tsx": {
     "ratio": 0.0633,
-    "code": 490
+    "code": 490,
+    "comment": 31
   },
   "apps/web/src/components/layout/gnome-window.tsx": {
     "ratio": 0.4839,
-    "code": 31
+    "code": 31,
+    "comment": 15
   },
   "apps/web/src/components/layout/main-shell.tsx": {
     "ratio": 0.3939,
-    "code": 33
+    "code": 33,
+    "comment": 13
   },
   "apps/web/src/components/layout/main-top-bar.tsx": {
     "ratio": 0.0769,
-    "code": 507
+    "code": 507,
+    "comment": 39
   },
   "apps/web/src/components/layout/mobile-bottom-nav.tsx": {
     "ratio": 0.0132,
-    "code": 76
+    "code": 76,
+    "comment": 1
   },
   "apps/web/src/components/layout/page-transition.tsx": {
     "ratio": 0.2857,
-    "code": 14
+    "code": 14,
+    "comment": 4
   },
   "apps/web/src/components/layout/performance-toggle.tsx": {
     "ratio": 0.0753,
-    "code": 186
+    "code": 186,
+    "comment": 14
   },
   "apps/web/src/components/layout/project-picker-dropdown.tsx": {
     "ratio": 0.0954,
-    "code": 409
+    "code": 409,
+    "comment": 39
   },
   "apps/web/src/components/layout/project-quick-view.tsx": {
     "ratio": 0.0542,
-    "code": 277
+    "code": 277,
+    "comment": 15
   },
   "apps/web/src/components/layout/quick-view-format.ts": {
     "ratio": 0.25,
-    "code": 28
+    "code": 28,
+    "comment": 7
   },
   "apps/web/src/components/layout/refresh-button.tsx": {
     "ratio": 0.3333,
-    "code": 27
+    "code": 27,
+    "comment": 9
   },
   "apps/web/src/components/layout/resize-handles.tsx": {
     "ratio": 0,
-    "code": 34
+    "code": 34,
+    "comment": 0
   },
   "apps/web/src/components/layout/roster-group.tsx": {
     "ratio": 0.0076,
-    "code": 263
+    "code": 263,
+    "comment": 2
   },
   "apps/web/src/components/layout/roster-instance-row.tsx": {
     "ratio": 0.0219,
-    "code": 137
+    "code": 137,
+    "comment": 3
   },
   "apps/web/src/components/layout/roster-row-controls.tsx": {
     "ratio": 0.3204,
-    "code": 103
+    "code": 103,
+    "comment": 33
   },
   "apps/web/src/components/layout/scroll-reset.tsx": {
     "ratio": 0.4,
-    "code": 10
+    "code": 10,
+    "comment": 4
   },
   "apps/web/src/components/layout/sidebar-routing.ts": {
     "ratio": 0.4,
-    "code": 10
+    "code": 10,
+    "comment": 4
   },
   "apps/web/src/components/layout/sidebar.tsx": {
     "ratio": 0.0457,
-    "code": 394
+    "code": 394,
+    "comment": 18
   },
   "apps/web/src/components/layout/skill-updates-bell.tsx": {
     "ratio": 0.0698,
-    "code": 86
+    "code": 86,
+    "comment": 6
   },
   "apps/web/src/components/layout/tabs-keyboard.tsx": {
     "ratio": 0.2297,
-    "code": 74
+    "code": 74,
+    "comment": 17
   },
   "apps/web/src/components/layout/tabs-router-sync.tsx": {
     "ratio": 0.6122,
-    "code": 49
+    "code": 49,
+    "comment": 30
   },
   "apps/web/src/components/layout/update-bell.tsx": {
     "ratio": 0.0737,
-    "code": 353
+    "code": 353,
+    "comment": 26
   },
   "apps/web/src/components/modal-url-sync.tsx": {
     "ratio": 0.1309,
-    "code": 191
+    "code": 191,
+    "comment": 25
   },
   "apps/web/src/components/ui/action-bar.tsx": {
     "ratio": 0.1741,
-    "code": 270
+    "code": 270,
+    "comment": 47
   },
   "apps/web/src/components/ui/agent-avatar.tsx": {
     "ratio": 0.45,
-    "code": 40
+    "code": 40,
+    "comment": 18
   },
   "apps/web/src/components/ui/button.tsx": {
     "ratio": 0.1818,
-    "code": 55
+    "code": 55,
+    "comment": 10
   },
   "apps/web/src/components/ui/card-header.tsx": {
     "ratio": 0.2273,
-    "code": 22
+    "code": 22,
+    "comment": 5
   },
   "apps/web/src/components/ui/card.tsx": {
     "ratio": 0.5,
-    "code": 12
+    "code": 12,
+    "comment": 6
   },
   "apps/web/src/components/ui/checkbox.tsx": {
     "ratio": 0,
-    "code": 53
+    "code": 53,
+    "comment": 0
   },
   "apps/web/src/components/ui/code-block.tsx": {
     "ratio": 0.0167,
-    "code": 60
+    "code": 60,
+    "comment": 1
   },
   "apps/web/src/components/ui/code-editor.tsx": {
     "ratio": 0.3189,
-    "code": 185
+    "code": 185,
+    "comment": 59
   },
   "apps/web/src/components/ui/date-time-picker.tsx": {
     "ratio": 0.0644,
-    "code": 295
+    "code": 295,
+    "comment": 19
   },
   "apps/web/src/components/ui/dropdown-menu.tsx": {
     "ratio": 0.1933,
-    "code": 150
+    "code": 150,
+    "comment": 29
   },
   "apps/web/src/components/ui/empty-state.tsx": {
     "ratio": 0,
-    "code": 22
+    "code": 22,
+    "comment": 0
   },
   "apps/web/src/components/ui/highlight.ts": {
     "ratio": 0.2202,
-    "code": 168
+    "code": 168,
+    "comment": 37
   },
   "apps/web/src/components/ui/hover-card.tsx": {
     "ratio": 0.25,
-    "code": 132
+    "code": 132,
+    "comment": 33
   },
   "apps/web/src/components/ui/icon.tsx": {
     "ratio": 0.0145,
-    "code": 758
+    "code": 758,
+    "comment": 11
   },
   "apps/web/src/components/ui/live-sweep.tsx": {
     "ratio": 1,
-    "code": 12
+    "code": 12,
+    "comment": 12
   },
   "apps/web/src/components/ui/modal-shell.tsx": {
     "ratio": 0.0946,
-    "code": 148
+    "code": 148,
+    "comment": 14
   },
   "apps/web/src/components/ui/nine-slice.ts": {
     "ratio": 0.1879,
-    "code": 149
+    "code": 149,
+    "comment": 28
   },
   "apps/web/src/components/ui/page-header.tsx": {
     "ratio": 0.5,
-    "code": 26
+    "code": 26,
+    "comment": 13
   },
   "apps/web/src/components/ui/paper-panel-painter.tsx": {
     "ratio": 0.5,
-    "code": 24
+    "code": 24,
+    "comment": 12
   },
   "apps/web/src/components/ui/pixel-sprite-atlas.ts": {
     "ratio": 0.2703,
-    "code": 37
+    "code": 37,
+    "comment": 10
   },
   "apps/web/src/components/ui/planet-canvas.tsx": {
     "ratio": 1.6667,
-    "code": 3
+    "code": 3,
+    "comment": 5
   },
   "apps/web/src/components/ui/planet-editor-modal.tsx": {
     "ratio": 0.0058,
-    "code": 342
+    "code": 342,
+    "comment": 2
   },
   "apps/web/src/components/ui/popover.tsx": {
     "ratio": 0.1061,
-    "code": 132
+    "code": 132,
+    "comment": 14
   },
   "apps/web/src/components/ui/portal.tsx": {
     "ratio": 0,
-    "code": 11
+    "code": 11,
+    "comment": 0
   },
   "apps/web/src/components/ui/prose-view.tsx": {
     "ratio": 0,
-    "code": 81
+    "code": 81,
+    "comment": 0
   },
   "apps/web/src/components/ui/query-state.tsx": {
     "ratio": 0.5918,
-    "code": 49
+    "code": 49,
+    "comment": 29
   },
   "apps/web/src/components/ui/segmented-control.tsx": {
     "ratio": 0.1525,
-    "code": 59
+    "code": 59,
+    "comment": 9
   },
   "apps/web/src/components/ui/select.tsx": {
     "ratio": 0.1071,
-    "code": 28
+    "code": 28,
+    "comment": 3
   },
   "apps/web/src/components/ui/sparkline.tsx": {
     "ratio": 0.1538,
-    "code": 52
+    "code": 52,
+    "comment": 8
   },
   "apps/web/src/components/ui/stat-tile.tsx": {
     "ratio": 0.2432,
-    "code": 37
+    "code": 37,
+    "comment": 9
   },
   "apps/web/src/components/ui/status-dot-colors.ts": {
     "ratio": 0.2105,
-    "code": 19
+    "code": 19,
+    "comment": 4
   },
   "apps/web/src/components/ui/status-dot.tsx": {
     "ratio": 0.1905,
-    "code": 42
+    "code": 42,
+    "comment": 8
   },
   "apps/web/src/components/ui/switch.tsx": {
     "ratio": 0.0278,
-    "code": 36
+    "code": 36,
+    "comment": 1
   },
   "apps/web/src/components/ui/table-block.tsx": {
     "ratio": 0.0889,
-    "code": 45
+    "code": 45,
+    "comment": 4
   },
   "apps/web/src/components/ui/tabs.tsx": {
     "ratio": 0,
-    "code": 41
+    "code": 41,
+    "comment": 0
   },
   "apps/web/src/components/ui/tag.tsx": {
     "ratio": 0,
-    "code": 26
+    "code": 26,
+    "comment": 0
   },
   "apps/web/src/components/ui/text-input.tsx": {
     "ratio": 0.0435,
-    "code": 23
+    "code": 23,
+    "comment": 1
   },
   "apps/web/src/components/ui/textarea.tsx": {
     "ratio": 0,
-    "code": 19
+    "code": 19,
+    "comment": 0
   },
   "apps/web/src/components/ui/toaster.tsx": {
     "ratio": 0,
-    "code": 34
+    "code": 34,
+    "comment": 0
   },
   "apps/web/src/components/ui/tooltip.tsx": {
     "ratio": 0.3176,
-    "code": 85
+    "code": 85,
+    "comment": 27
   },
   "apps/web/src/components/ui/unit-picker.tsx": {
     "ratio": 0.0081,
-    "code": 124
+    "code": 124,
+    "comment": 1
   },
   "apps/web/src/components/ui/unit-sprite-registry.ts": {
     "ratio": 0.4463,
-    "code": 121
+    "code": 121,
+    "comment": 54
   },
   "apps/web/src/components/ui/unit-sprite.clock.ts": {
     "ratio": 0.5,
-    "code": 66
+    "code": 66,
+    "comment": 33
   },
   "apps/web/src/components/ui/unit-sprite.tsx": {
     "ratio": 0.4305,
-    "code": 151
+    "code": 151,
+    "comment": 65
   },
   "apps/web/src/components/ui/user-avatar.tsx": {
     "ratio": 0.3684,
-    "code": 19
+    "code": 19,
+    "comment": 7
   },
   "apps/web/src/components/ui/weapon-icon.tsx": {
     "ratio": 1.6667,
-    "code": 3
+    "code": 3,
+    "comment": 5
   },
   "apps/web/src/hooks/use-filter.ts": {
     "ratio": 0.1538,
-    "code": 13
+    "code": 13,
+    "comment": 2
   },
   "apps/web/src/hooks/use-refresh.ts": {
     "ratio": 0.7188,
-    "code": 32
+    "code": 32,
+    "comment": 23
   },
   "apps/web/src/i18n/request.ts": {
     "ratio": 0,
-    "code": 12
+    "code": 12,
+    "comment": 0
   },
   "apps/web/src/instrumentation-node.ts": {
     "ratio": 0.4021,
-    "code": 97
+    "code": 97,
+    "comment": 39
   },
   "apps/web/src/instrumentation.ts": {
     "ratio": 2,
-    "code": 5
+    "code": 5,
+    "comment": 10
   },
   "apps/web/src/lib/active-project-store.ts": {
     "ratio": 0,
-    "code": 33
+    "code": 33,
+    "comment": 0
   },
   "apps/web/src/lib/agent-display-name.ts": {
     "ratio": 0.7308,
-    "code": 26
+    "code": 26,
+    "comment": 19
   },
   "apps/web/src/lib/api-client.ts": {
     "ratio": 0.3784,
-    "code": 37
+    "code": 37,
+    "comment": 14
   },
   "apps/web/src/lib/api-helpers.ts": {
     "ratio": 0.0857,
-    "code": 140
+    "code": 140,
+    "comment": 12
   },
   "apps/web/src/lib/api/account.ts": {
     "ratio": 0.4,
-    "code": 10
+    "code": 10,
+    "comment": 4
   },
   "apps/web/src/lib/api/dev-seed.ts": {
     "ratio": 0.2105,
-    "code": 19
+    "code": 19,
+    "comment": 4
   },
   "apps/web/src/lib/api/dev-server.ts": {
     "ratio": 0.102,
-    "code": 49
+    "code": 49,
+    "comment": 5
   },
   "apps/web/src/lib/api/flutter.ts": {
     "ratio": 0.1923,
-    "code": 26
+    "code": 26,
+    "comment": 5
   },
   "apps/web/src/lib/api/processes.ts": {
     "ratio": 0.1481,
-    "code": 27
+    "code": 27,
+    "comment": 4
   },
   "apps/web/src/lib/api/roster.ts": {
     "ratio": 0.3333,
-    "code": 15
+    "code": 15,
+    "comment": 5
   },
   "apps/web/src/lib/api/runs-ops.ts": {
     "ratio": 0.2353,
-    "code": 17
+    "code": 17,
+    "comment": 4
   },
   "apps/web/src/lib/api/save.ts": {
     "ratio": 0.2222,
-    "code": 18
+    "code": 18,
+    "comment": 4
   },
   "apps/web/src/lib/api/ui-settings.ts": {
     "ratio": 0.6364,
-    "code": 11
+    "code": 11,
+    "comment": 7
   },
   "apps/web/src/lib/api/uploads.ts": {
     "ratio": 0.4762,
-    "code": 21
+    "code": 21,
+    "comment": 10
   },
   "apps/web/src/lib/assert-never.ts": {
     "ratio": 2.3333,
-    "code": 3
+    "code": 3,
+    "comment": 7
   },
   "apps/web/src/lib/branch-store.ts": {
     "ratio": 0.0435,
-    "code": 23
+    "code": 23,
+    "comment": 1
   },
   "apps/web/src/lib/chrome.ts": {
     "ratio": 10.5,
-    "code": 2
+    "code": 2,
+    "comment": 21
   },
   "apps/web/src/lib/claude-limits-store.ts": {
     "ratio": 0.075,
-    "code": 80
+    "code": 80,
+    "comment": 6
   },
   "apps/web/src/lib/claude-limits.ts": {
     "ratio": 0.1429,
-    "code": 49
+    "code": 49,
+    "comment": 7
   },
   "apps/web/src/lib/cn.ts": {
     "ratio": 0,
-    "code": 5
+    "code": 5,
+    "comment": 0
   },
   "apps/web/src/lib/compare-store.ts": {
     "ratio": 0,
-    "code": 13
+    "code": 13,
+    "comment": 0
   },
   "apps/web/src/lib/dev-server-store.ts": {
     "ratio": 0.08,
-    "code": 25
+    "code": 25,
+    "comment": 2
   },
   "apps/web/src/lib/env.ts": {
     "ratio": 0.9767,
-    "code": 43
+    "code": 43,
+    "comment": 42
   },
   "apps/web/src/lib/flutter-store.ts": {
     "ratio": 0,
-    "code": 13
+    "code": 13,
+    "comment": 0
   },
   "apps/web/src/lib/format-date.ts": {
     "ratio": 0.2826,
-    "code": 46
+    "code": 46,
+    "comment": 13
   },
   "apps/web/src/lib/fps-meter-store.ts": {
     "ratio": 0.6667,
-    "code": 9
+    "code": 9,
+    "comment": 6
   },
   "apps/web/src/lib/markdown.ts": {
     "ratio": 0.0685,
-    "code": 73
+    "code": 73,
+    "comment": 5
   },
   "apps/web/src/lib/modal-manager.ts": {
     "ratio": 0.375,
-    "code": 40
+    "code": 40,
+    "comment": 15
   },
   "apps/web/src/lib/performance-store.ts": {
     "ratio": 0.6228,
-    "code": 114
+    "code": 114,
+    "comment": 71
   },
   "apps/web/src/lib/planet-seed.ts": {
     "ratio": 0.9,
-    "code": 10
+    "code": 10,
+    "comment": 9
   },
   "apps/web/src/lib/polling.ts": {
     "ratio": 0.4615,
-    "code": 13
+    "code": 13,
+    "comment": 6
   },
   "apps/web/src/lib/processes-store.ts": {
     "ratio": 0,
-    "code": 9
+    "code": 9,
+    "comment": 0
   },
   "apps/web/src/lib/server-process-store.ts": {
     "ratio": 0,
-    "code": 62
+    "code": 62,
+    "comment": 0
   },
   "apps/web/src/lib/server/flutter.ts": {
     "ratio": 0.0699,
-    "code": 186
+    "code": 186,
+    "comment": 13
   },
   "apps/web/src/lib/server/project-runtime.ts": {
     "ratio": 0.2424,
-    "code": 33
+    "code": 33,
+    "comment": 8
   },
   "apps/web/src/lib/server/starter-data.ts": {
     "ratio": 0.1164,
-    "code": 292
+    "code": 292,
+    "comment": 34
   },
   "apps/web/src/lib/server/terminal.ts": {
     "ratio": 0.1695,
-    "code": 59
+    "code": 59,
+    "comment": 10
   },
   "apps/web/src/lib/sign-in-modal-store.ts": {
     "ratio": 0.3125,
-    "code": 16
+    "code": 16,
+    "comment": 5
   },
   "apps/web/src/lib/sse.ts": {
     "ratio": 0.0208,
-    "code": 48
+    "code": 48,
+    "comment": 1
   },
   "apps/web/src/lib/tabs-store.ts": {
     "ratio": 0.163,
-    "code": 227
+    "code": 227,
+    "comment": 37
   },
   "apps/web/src/lib/tauri-window.ts": {
     "ratio": 0.15,
-    "code": 80
+    "code": 80,
+    "comment": 12
   },
   "apps/web/src/lib/theme-store.ts": {
     "ratio": 0.3158,
-    "code": 57
+    "code": 57,
+    "comment": 18
   },
   "apps/web/src/lib/toast-store.ts": {
     "ratio": 0.0476,
-    "code": 21
+    "code": 21,
+    "comment": 1
   },
   "apps/web/src/lib/updater.ts": {
     "ratio": 0.1678,
-    "code": 143
+    "code": 143,
+    "comment": 24
   },
   "apps/web/src/lib/use-is-maximized.ts": {
     "ratio": 0.3333,
-    "code": 21
+    "code": 21,
+    "comment": 7
   },
   "apps/web/src/lib/validation-schemas.ts": {
     "ratio": 0.0714,
-    "code": 308
+    "code": 308,
+    "comment": 22
   },
   "apps/web/src/lib/validation.ts": {
     "ratio": 0,
-    "code": 31
+    "code": 31,
+    "comment": 0
   },
   "apps/web/src/middleware.ts": {
     "ratio": 0,
-    "code": 24
+    "code": 24,
+    "comment": 0
   },
   "apps/web/src/modules/accounts/components/accounts-stats-panel.tsx": {
     "ratio": 0.0508,
-    "code": 118
+    "code": 118,
+    "comment": 6
   },
   "apps/web/src/modules/accounts/components/add-account-modal.tsx": {
     "ratio": 0.0248,
-    "code": 161
+    "code": 161,
+    "comment": 4
   },
   "apps/web/src/modules/accounts/components/delete-account-modal.tsx": {
     "ratio": 0,
-    "code": 86
+    "code": 86,
+    "comment": 0
   },
   "apps/web/src/modules/accounts/components/plan-badge.tsx": {
     "ratio": 0,
-    "code": 30
+    "code": 30,
+    "comment": 0
   },
   "apps/web/src/modules/accounts/components/root-sign-in-modal.tsx": {
     "ratio": 0.3333,
-    "code": 15
+    "code": 15,
+    "comment": 5
   },
   "apps/web/src/modules/accounts/components/sign-in-modal.tsx": {
     "ratio": 0.1489,
-    "code": 47
+    "code": 47,
+    "comment": 7
   },
   "apps/web/src/modules/accounts/components/sign-in-panel.tsx": {
     "ratio": 0.1271,
-    "code": 118
+    "code": 118,
+    "comment": 15
   },
   "apps/web/src/modules/accounts/hooks/use-account-login.ts": {
     "ratio": 0.027,
-    "code": 37
+    "code": 37,
+    "comment": 1
   },
   "apps/web/src/modules/accounts/hooks/use-accounts.ts": {
     "ratio": 0.0893,
-    "code": 56
+    "code": 56,
+    "comment": 5
   },
   "apps/web/src/modules/agents/components/agent-detail.tsx": {
     "ratio": 0,
-    "code": 112
+    "code": 112,
+    "comment": 0
   },
   "apps/web/src/modules/agents/components/agent-editor-form.tsx": {
     "ratio": 0.0564,
-    "code": 834
+    "code": 834,
+    "comment": 47
   },
   "apps/web/src/modules/agents/components/agent-list.tsx": {
     "ratio": 0.0685,
-    "code": 292
+    "code": 292,
+    "comment": 20
   },
   "apps/web/src/modules/agents/components/agent-migration-modal.tsx": {
     "ratio": 0.101,
-    "code": 297
+    "code": 297,
+    "comment": 30
   },
   "apps/web/src/modules/agents/components/agent-migration-trigger.tsx": {
     "ratio": 0.4884,
-    "code": 43
+    "code": 43,
+    "comment": 21
   },
   "apps/web/src/modules/agents/form/agent-form.ts": {
     "ratio": 0.0575,
-    "code": 87
+    "code": 87,
+    "comment": 5
   },
   "apps/web/src/modules/agents/form/categorize.ts": {
     "ratio": 0.2439,
-    "code": 41
+    "code": 41,
+    "comment": 10
   },
   "apps/web/src/modules/agents/hooks/use-agent-migration.ts": {
     "ratio": 0.6667,
-    "code": 54
+    "code": 54,
+    "comment": 36
   },
   "apps/web/src/modules/agents/hooks/use-agents.ts": {
     "ratio": 0.1607,
-    "code": 112
+    "code": 112,
+    "comment": 18
   },
   "apps/web/src/modules/analytics/components/activity-heatmap.tsx": {
     "ratio": 0.1909,
-    "code": 110
+    "code": 110,
+    "comment": 21
   },
   "apps/web/src/modules/analytics/components/agent-table.tsx": {
     "ratio": 0.169,
-    "code": 71
+    "code": 71,
+    "comment": 12
   },
   "apps/web/src/modules/analytics/components/analytics-page.tsx": {
     "ratio": 0.0684,
-    "code": 190
+    "code": 190,
+    "comment": 13
   },
   "apps/web/src/modules/analytics/components/hero-band.tsx": {
     "ratio": 0.09,
-    "code": 100
+    "code": 100,
+    "comment": 9
   },
   "apps/web/src/modules/analytics/components/model-split.tsx": {
     "ratio": 0.1412,
-    "code": 85
+    "code": 85,
+    "comment": 12
   },
   "apps/web/src/modules/analytics/components/panel.tsx": {
     "ratio": 0.36,
-    "code": 25
+    "code": 25,
+    "comment": 9
   },
   "apps/web/src/modules/analytics/components/rank-bars.tsx": {
     "ratio": 0.2222,
-    "code": 54
+    "code": 54,
+    "comment": 12
   },
   "apps/web/src/modules/analytics/components/spend-trend.tsx": {
     "ratio": 0.1132,
-    "code": 159
+    "code": 159,
+    "comment": 18
   },
   "apps/web/src/modules/analytics/format/format.ts": {
     "ratio": 0.3585,
-    "code": 53
+    "code": 53,
+    "comment": 19
   },
   "apps/web/src/modules/analytics/hooks/use-analytics-page.ts": {
     "ratio": 0.125,
-    "code": 40
+    "code": 40,
+    "comment": 5
   },
   "apps/web/src/modules/docs/docs-render.tsx": {
     "ratio": 0.3131,
-    "code": 198
+    "code": 198,
+    "comment": 62
   },
   "apps/web/src/modules/docs/docs.tsx": {
     "ratio": 0.1322,
-    "code": 242
+    "code": 242,
+    "comment": 32
   },
   "apps/web/src/modules/flutter/components/flutter-modal.tsx": {
     "ratio": 0.0402,
-    "code": 547
+    "code": 547,
+    "comment": 22
   },
   "apps/web/src/modules/flutter/hooks/use-flutter-devices.ts": {
     "ratio": 0,
-    "code": 17
+    "code": 17,
+    "comment": 0
   },
   "apps/web/src/modules/github-accounts/components/add-github-account-modal.tsx": {
     "ratio": 0.0244,
-    "code": 205
+    "code": 205,
+    "comment": 5
   },
   "apps/web/src/modules/github-accounts/components/delete-github-account-modal.tsx": {
     "ratio": 0,
-    "code": 86
+    "code": 86,
+    "comment": 0
   },
   "apps/web/src/modules/github-accounts/hooks/use-github-accounts.ts": {
     "ratio": 0.0893,
-    "code": 56
+    "code": 56,
+    "comment": 5
   },
   "apps/web/src/modules/limits/components/claude-limits-modal.tsx": {
     "ratio": 0.0541,
-    "code": 370
+    "code": 370,
+    "comment": 20
   },
   "apps/web/src/modules/limits/format/format.ts": {
     "ratio": 0.3158,
-    "code": 19
+    "code": 19,
+    "comment": 6
   },
   "apps/web/src/modules/limits/hooks/use-analytics-summary.ts": {
     "ratio": 0.1563,
-    "code": 32
+    "code": 32,
+    "comment": 5
   },
   "apps/web/src/modules/memory/components/docs-tab.tsx": {
     "ratio": 0.0508,
-    "code": 472
+    "code": 472,
+    "comment": 24
   },
   "apps/web/src/modules/memory/components/memory-editor.tsx": {
     "ratio": 0.0506,
-    "code": 79
+    "code": 79,
+    "comment": 4
   },
   "apps/web/src/modules/memory/components/memory-nav.tsx": {
     "ratio": 0.0391,
-    "code": 230
+    "code": 230,
+    "comment": 9
   },
   "apps/web/src/modules/memory/components/scope-editor.tsx": {
     "ratio": 0.0656,
-    "code": 61
+    "code": 61,
+    "comment": 4
   },
   "apps/web/src/modules/memory/components/skill-sections-panel.tsx": {
     "ratio": 0.2162,
-    "code": 37
+    "code": 37,
+    "comment": 8
   },
   "apps/web/src/modules/memory/hooks/use-agent-docs.ts": {
     "ratio": 0.1,
-    "code": 60
+    "code": 60,
+    "comment": 6
   },
   "apps/web/src/modules/memory/hooks/use-memory-draft.ts": {
     "ratio": 0.0333,
-    "code": 60
+    "code": 60,
+    "comment": 2
   },
   "apps/web/src/modules/memory/hooks/use-memory.ts": {
     "ratio": 0.08,
-    "code": 75
+    "code": 75,
+    "comment": 6
   },
   "apps/web/src/modules/memory/scope/scope.ts": {
     "ratio": 0.4091,
-    "code": 22
+    "code": 22,
+    "comment": 9
   },
   "apps/web/src/modules/office/components/agent-cap-modal-mount.tsx": {
     "ratio": 0.4545,
-    "code": 11
+    "code": 11,
+    "comment": 5
   },
   "apps/web/src/modules/office/components/agent-cap-modal.tsx": {
     "ratio": 0.1299,
-    "code": 77
+    "code": 77,
+    "comment": 10
   },
   "apps/web/src/modules/office/components/agent-details/context-cost-tab.tsx": {
     "ratio": 0.0409,
-    "code": 220
+    "code": 220,
+    "comment": 9
   },
   "apps/web/src/modules/office/components/agent-details/index.tsx": {
     "ratio": 0.0817,
-    "code": 514
+    "code": 514,
+    "comment": 42
   },
   "apps/web/src/modules/office/components/agent-select-menu.tsx": {
     "ratio": 0.0649,
-    "code": 77
+    "code": 77,
+    "comment": 5
   },
   "apps/web/src/modules/office/components/deco-select-menu.tsx": {
     "ratio": 0.036,
-    "code": 139
+    "code": 139,
+    "comment": 5
   },
   "apps/web/src/modules/office/components/decorations.ts": {
     "ratio": 0.3822,
-    "code": 662
+    "code": 662,
+    "comment": 253
   },
   "apps/web/src/modules/office/components/grass-colors.ts": {
     "ratio": 0.413,
-    "code": 46
+    "code": 46,
+    "comment": 19
   },
   "apps/web/src/modules/office/components/move-control.tsx": {
     "ratio": 0.1795,
-    "code": 39
+    "code": 39,
+    "comment": 7
   },
   "apps/web/src/modules/office/components/office-build-toolbar-parts.tsx": {
     "ratio": 0.0114,
-    "code": 176
+    "code": 176,
+    "comment": 2
   },
   "apps/web/src/modules/office/components/office-build-toolbar-styles.ts": {
     "ratio": 0.1765,
-    "code": 17
+    "code": 17,
+    "comment": 3
   },
   "apps/web/src/modules/office/components/office-build-toolbar-terrain.tsx": {
     "ratio": 0.0061,
-    "code": 163
+    "code": 163,
+    "comment": 1
   },
   "apps/web/src/modules/office/components/office-build-toolbar.tsx": {
     "ratio": 0.0312,
-    "code": 321
+    "code": 321,
+    "comment": 10
   },
   "apps/web/src/modules/office/components/office-hud.tsx": {
     "ratio": 0,
-    "code": 67
+    "code": 67,
+    "comment": 0
   },
   "apps/web/src/modules/office/components/office-map-overlay.tsx": {
     "ratio": 0.0916,
-    "code": 491
+    "code": 491,
+    "comment": 45
   },
   "apps/web/src/modules/office/components/office-map.tsx": {
     "ratio": 0.4265,
-    "code": 211
+    "code": 211,
+    "comment": 90
   },
   "apps/web/src/modules/office/components/office-pixi-canvas.tsx": {
     "ratio": 0.1667,
-    "code": 6
+    "code": 6,
+    "comment": 1
   },
   "apps/web/src/modules/office/components/office-scene-hud.tsx": {
     "ratio": 0.0551,
-    "code": 254
+    "code": 254,
+    "comment": 14
   },
   "apps/web/src/modules/office/components/office-scene.tsx": {
     "ratio": 0.1296,
-    "code": 540
+    "code": 540,
+    "comment": 70
   },
   "apps/web/src/modules/office/components/office-toolbar.tsx": {
     "ratio": 0.0793,
-    "code": 769
+    "code": 769,
+    "comment": 61
   },
   "apps/web/src/modules/office/components/office-view.tsx": {
     "ratio": 0.1149,
-    "code": 87
+    "code": 87,
+    "comment": 10
   },
   "apps/web/src/modules/office/components/reset-canvas-modal.tsx": {
     "ratio": 0.1522,
-    "code": 46
+    "code": 46,
+    "comment": 7
   },
   "apps/web/src/modules/office/derive/agent-action.ts": {
     "ratio": 0.3056,
-    "code": 36
+    "code": 36,
+    "comment": 11
   },
   "apps/web/src/modules/office/derive/apply-cell-click.ts": {
     "ratio": 0.2559,
-    "code": 211
+    "code": 211,
+    "comment": 54
   },
   "apps/web/src/modules/office/derive/derive-status.ts": {
     "ratio": 0.475,
-    "code": 40
+    "code": 40,
+    "comment": 19
   },
   "apps/web/src/modules/office/derive/land-generator.ts": {
     "ratio": 0.1208,
-    "code": 149
+    "code": 149,
+    "comment": 18
   },
   "apps/web/src/modules/office/derive/office-map-storage.ts": {
     "ratio": 0.2029,
-    "code": 69
+    "code": 69,
+    "comment": 14
   },
   "apps/web/src/modules/office/derive/office-scene-data.ts": {
     "ratio": 0.131,
-    "code": 168
+    "code": 168,
+    "comment": 22
   },
   "apps/web/src/modules/office/derive/sprite-palette.ts": {
     "ratio": 0.5,
-    "code": 4
+    "code": 4,
+    "comment": 2
   },
   "apps/web/src/modules/office/hooks/use-agent-cap-store.ts": {
     "ratio": 0.2778,
-    "code": 18
+    "code": 18,
+    "comment": 5
   },
   "apps/web/src/modules/office/hooks/use-build-toolbar.ts": {
     "ratio": 0.1048,
-    "code": 105
+    "code": 105,
+    "comment": 11
   },
   "apps/web/src/modules/office/hooks/use-canvas-editing.ts": {
     "ratio": 0.0594,
-    "code": 286
+    "code": 286,
+    "comment": 17
   },
   "apps/web/src/modules/office/hooks/use-office-agents.ts": {
     "ratio": 0.0274,
-    "code": 73
+    "code": 73,
+    "comment": 2
   },
   "apps/web/src/modules/office/hooks/use-office-camera.ts": {
     "ratio": 0.0595,
-    "code": 168
+    "code": 168,
+    "comment": 10
   },
   "apps/web/src/modules/office/hooks/use-office-drag.ts": {
     "ratio": 0.7778,
-    "code": 18
+    "code": 18,
+    "comment": 14
   },
   "apps/web/src/modules/office/hooks/use-office-keyboard-shortcuts.ts": {
     "ratio": 0,
-    "code": 71
+    "code": 71,
+    "comment": 0
   },
   "apps/web/src/modules/office/hooks/use-office-map-sync.ts": {
     "ratio": 0.16,
-    "code": 150
+    "code": 150,
+    "comment": 24
   },
   "apps/web/src/modules/office/hooks/use-office-painting.ts": {
     "ratio": 0.1375,
-    "code": 80
+    "code": 80,
+    "comment": 11
   },
   "apps/web/src/modules/office/hooks/use-office-pixi.ts": {
     "ratio": 0.3421,
-    "code": 228
+    "code": 228,
+    "comment": 78
   },
   "apps/web/src/modules/office/hooks/use-office-store.ts": {
     "ratio": 0.2548,
-    "code": 157
+    "code": 157,
+    "comment": 40
   },
   "apps/web/src/modules/office/hooks/use-roster-display.ts": {
     "ratio": 0,
-    "code": 82
+    "code": 82,
+    "comment": 0
   },
   "apps/web/src/modules/office/hooks/use-spawn-instance.ts": {
     "ratio": 0.0392,
-    "code": 51
+    "code": 51,
+    "comment": 2
   },
   "apps/web/src/modules/office/pixi/build-agent-layer.ts": {
     "ratio": 0.2199,
-    "code": 191
+    "code": 191,
+    "comment": 42
   },
   "apps/web/src/modules/office/pixi/build-static-layers.ts": {
     "ratio": 0.2712,
-    "code": 306
+    "code": 306,
+    "comment": 83
   },
   "apps/web/src/modules/office/pixi/constants.ts": {
     "ratio": 0.4615,
-    "code": 13
+    "code": 13,
+    "comment": 6
   },
   "apps/web/src/modules/office/pixi/elevation.ts": {
     "ratio": 0.6289,
-    "code": 97
+    "code": 97,
+    "comment": 61
   },
   "apps/web/src/modules/office/pixi/glow.ts": {
     "ratio": 0.3182,
-    "code": 22
+    "code": 22,
+    "comment": 7
   },
   "apps/web/src/modules/office/pixi/path/classify.ts": {
     "ratio": 0.292,
-    "code": 113
+    "code": 113,
+    "comment": 33
   },
   "apps/web/src/modules/office/pixi/path/materials.ts": {
     "ratio": 0.2051,
-    "code": 117
+    "code": 117,
+    "comment": 24
   },
   "apps/web/src/modules/office/pixi/path/noise.ts": {
     "ratio": 0.3478,
-    "code": 23
+    "code": 23,
+    "comment": 8
   },
   "apps/web/src/modules/office/pixi/path/path-texture.ts": {
     "ratio": 0.1563,
-    "code": 32
+    "code": 32,
+    "comment": 5
   },
   "apps/web/src/modules/onboarding/components/first-run-gate.tsx": {
     "ratio": 0.7222,
-    "code": 18
+    "code": 18,
+    "comment": 13
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/agents-step.tsx": {
     "ratio": 0.011,
-    "code": 91
+    "code": 91,
+    "comment": 1
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/excluded-step.tsx": {
     "ratio": 0.0169,
-    "code": 59
+    "code": 59,
+    "comment": 1
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/integrations-step.tsx": {
     "ratio": 0.0667,
-    "code": 30
+    "code": 30,
+    "comment": 2
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/project-step.tsx": {
     "ratio": 0.0097,
-    "code": 103
+    "code": 103,
+    "comment": 1
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/requirements-step.tsx": {
     "ratio": 0.0533,
-    "code": 75
+    "code": 75,
+    "comment": 4
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard-steps/root-step.tsx": {
     "ratio": 0.0137,
-    "code": 73
+    "code": 73,
+    "comment": 1
   },
   "apps/web/src/modules/onboarding/components/first-run-wizard.tsx": {
     "ratio": 0.0426,
-    "code": 469
+    "code": 469,
+    "comment": 20
   },
   "apps/web/src/modules/processes/components/processes-modal.tsx": {
     "ratio": 0.0234,
-    "code": 385
+    "code": 385,
+    "comment": 9
   },
   "apps/web/src/modules/processes/format/process-format.ts": {
     "ratio": 0.08,
-    "code": 100
+    "code": 100,
+    "comment": 8
   },
   "apps/web/src/modules/processes/hooks/use-mem-history.ts": {
     "ratio": 0.5217,
-    "code": 23
+    "code": 23,
+    "comment": 12
   },
   "apps/web/src/modules/processes/hooks/use-processes.ts": {
     "ratio": 0,
-    "code": 14
+    "code": 14,
+    "comment": 0
   },
   "apps/web/src/modules/projects/components/add-agent-modal.tsx": {
     "ratio": 0.037,
-    "code": 487
+    "code": 487,
+    "comment": 18
   },
   "apps/web/src/modules/projects/components/bootstrap-project-modal.tsx": {
     "ratio": 0.0195,
-    "code": 307
+    "code": 307,
+    "comment": 6
   },
   "apps/web/src/modules/projects/components/env-control.tsx": {
     "ratio": 0.3387,
-    "code": 62
+    "code": 62,
+    "comment": 21
   },
   "apps/web/src/modules/projects/components/project-account-picker.tsx": {
     "ratio": 0.1806,
-    "code": 72
+    "code": 72,
+    "comment": 13
   },
   "apps/web/src/modules/projects/components/project-backup-card.tsx": {
     "ratio": 0.0439,
-    "code": 114
+    "code": 114,
+    "comment": 5
   },
   "apps/web/src/modules/projects/components/project-chip.tsx": {
     "ratio": 0,
-    "code": 58
+    "code": 58,
+    "comment": 0
   },
   "apps/web/src/modules/projects/components/project-danger-zone.tsx": {
     "ratio": 0.035,
-    "code": 143
+    "code": 143,
+    "comment": 5
   },
   "apps/web/src/modules/projects/components/project-detail.tsx": {
     "ratio": 0.06,
-    "code": 100
+    "code": 100,
+    "comment": 6
   },
   "apps/web/src/modules/projects/components/project-environment-card.tsx": {
     "ratio": 0.1724,
-    "code": 29
+    "code": 29,
+    "comment": 5
   },
   "apps/web/src/modules/projects/components/project-github-account-picker.tsx": {
     "ratio": 0.1333,
-    "code": 75
+    "code": 75,
+    "comment": 10
   },
   "apps/web/src/modules/projects/components/project-hero.tsx": {
     "ratio": 0.0466,
-    "code": 193
+    "code": 193,
+    "comment": 9
   },
   "apps/web/src/modules/projects/components/project-live-runs.tsx": {
     "ratio": 0.1107,
-    "code": 244
+    "code": 244,
+    "comment": 27
   },
   "apps/web/src/modules/projects/components/project-memory-card.tsx": {
     "ratio": 0.1282,
-    "code": 78
+    "code": 78,
+    "comment": 10
   },
   "apps/web/src/modules/projects/components/project-recent-runs.tsx": {
     "ratio": 0.0472,
-    "code": 106
+    "code": 106,
+    "comment": 5
   },
   "apps/web/src/modules/projects/components/project-secrets-control.tsx": {
     "ratio": 0.0816,
-    "code": 98
+    "code": 98,
+    "comment": 8
   },
   "apps/web/src/modules/projects/components/project-stat-cards.tsx": {
     "ratio": 0.0541,
-    "code": 148
+    "code": 148,
+    "comment": 8
   },
   "apps/web/src/modules/projects/components/projects-list.tsx": {
     "ratio": 0.0139,
-    "code": 287
+    "code": 287,
+    "comment": 4
   },
   "apps/web/src/modules/projects/components/remove-project-modal.tsx": {
     "ratio": 0.0722,
-    "code": 97
+    "code": 97,
+    "comment": 7
   },
   "apps/web/src/modules/projects/format/format.ts": {
     "ratio": 0.125,
-    "code": 16
+    "code": 16,
+    "comment": 2
   },
   "apps/web/src/modules/projects/format/run-stats.ts": {
     "ratio": 0.6164,
-    "code": 73
+    "code": 73,
+    "comment": 45
   },
   "apps/web/src/modules/projects/hooks/use-bootstrap-project.ts": {
     "ratio": 0,
-    "code": 34
+    "code": 34,
+    "comment": 0
   },
   "apps/web/src/modules/projects/hooks/use-project-detail-actions.ts": {
     "ratio": 0.1558,
-    "code": 77
+    "code": 77,
+    "comment": 12
   },
   "apps/web/src/modules/projects/hooks/use-project-spend.ts": {
     "ratio": 0.3158,
-    "code": 19
+    "code": 19,
+    "comment": 6
   },
   "apps/web/src/modules/projects/hooks/use-projects.ts": {
     "ratio": 0.1238,
-    "code": 105
+    "code": 105,
+    "comment": 13
   },
   "apps/web/src/modules/runs/components/activity-day-group.tsx": {
     "ratio": 0,
-    "code": 47
+    "code": 47,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-day-header.tsx": {
     "ratio": 0,
-    "code": 16
+    "code": 16,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-feed-row-actions.tsx": {
     "ratio": 0,
-    "code": 21
+    "code": 21,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-feed-row-avatar.tsx": {
     "ratio": 0.1389,
-    "code": 36
+    "code": 36,
+    "comment": 5
   },
   "apps/web/src/modules/runs/components/activity-feed-row-cost.tsx": {
     "ratio": 0,
-    "code": 10
+    "code": 10,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-feed-row-detail.tsx": {
     "ratio": 0,
-    "code": 49
+    "code": 49,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-feed-row.tsx": {
     "ratio": 0,
-    "code": 85
+    "code": 85,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-feed.tsx": {
     "ratio": 0,
-    "code": 79
+    "code": 79,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-filter-bar.tsx": {
     "ratio": 0,
-    "code": 71
+    "code": 71,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-groups-list.tsx": {
     "ratio": 0,
-    "code": 52
+    "code": 52,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-haul.tsx": {
     "ratio": 0,
-    "code": 43
+    "code": 43,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-heatmap-grid.tsx": {
     "ratio": 0,
-    "code": 49
+    "code": 49,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-heatmap.tsx": {
     "ratio": 0,
-    "code": 47
+    "code": 47,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-leaderboard.tsx": {
     "ratio": 0,
-    "code": 83
+    "code": 83,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-live-run-meta.tsx": {
     "ratio": 0,
-    "code": 21
+    "code": 21,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-live-run-row.tsx": {
     "ratio": 0,
-    "code": 43
+    "code": 43,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-live-strip.tsx": {
     "ratio": 0,
-    "code": 28
+    "code": 28,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-scope-pill.tsx": {
     "ratio": 0.0769,
-    "code": 26
+    "code": 26,
+    "comment": 2
   },
   "apps/web/src/modules/runs/components/activity-scope-tabs.tsx": {
     "ratio": 0,
-    "code": 31
+    "code": 31,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-spark.tsx": {
     "ratio": 0,
-    "code": 41
+    "code": 41,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-stat-tile.tsx": {
     "ratio": 0.4444,
-    "code": 27
+    "code": 27,
+    "comment": 12
   },
   "apps/web/src/modules/runs/components/activity-stat-tiles.tsx": {
     "ratio": 0,
-    "code": 16
+    "code": 16,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/activity-view-tabs.tsx": {
     "ratio": 0,
-    "code": 36
+    "code": 36,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/compare-modal.tsx": {
     "ratio": 0.0078,
-    "code": 129
+    "code": 129,
+    "comment": 1
   },
   "apps/web/src/modules/runs/components/run-avatar.tsx": {
     "ratio": 0,
-    "code": 23
+    "code": 23,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/run-row.tsx": {
     "ratio": 0,
-    "code": 56
+    "code": 56,
+    "comment": 0
   },
   "apps/web/src/modules/runs/components/status-badge.tsx": {
     "ratio": 0.1731,
-    "code": 52
+    "code": 52,
+    "comment": 9
   },
   "apps/web/src/modules/runs/derive/activity-haul.ts": {
     "ratio": 0.2059,
-    "code": 34
+    "code": 34,
+    "comment": 7
   },
   "apps/web/src/modules/runs/derive/activity-leaderboard.ts": {
     "ratio": 0.0833,
-    "code": 24
+    "code": 24,
+    "comment": 2
   },
   "apps/web/src/modules/runs/derive/activity-tiles.ts": {
     "ratio": 0.0482,
-    "code": 83
+    "code": 83,
+    "comment": 4
   },
   "apps/web/src/modules/runs/derive/filter-runs.ts": {
     "ratio": 0,
-    "code": 28
+    "code": 28,
+    "comment": 0
   },
   "apps/web/src/modules/runs/derive/run-meta-fields.ts": {
     "ratio": 0,
-    "code": 19
+    "code": 19,
+    "comment": 0
   },
   "apps/web/src/modules/runs/format/activity-formatters.ts": {
     "ratio": 0.1282,
-    "code": 39
+    "code": 39,
+    "comment": 5
   },
   "apps/web/src/modules/runs/format/activity-stats.ts": {
     "ratio": 0,
-    "code": 97
+    "code": 97,
+    "comment": 0
   },
   "apps/web/src/modules/runs/format/format-run-meta.ts": {
     "ratio": 0.127,
-    "code": 63
+    "code": 63,
+    "comment": 8
   },
   "apps/web/src/modules/runs/format/group-batch.ts": {
     "ratio": 0.0476,
-    "code": 21
+    "code": 21,
+    "comment": 1
   },
   "apps/web/src/modules/runs/hooks/use-activity-feed.ts": {
     "ratio": 0,
-    "code": 64
+    "code": 64,
+    "comment": 0
   },
   "apps/web/src/modules/runs/hooks/use-agent-units.ts": {
     "ratio": 0.3636,
-    "code": 11
+    "code": 11,
+    "comment": 4
   },
   "apps/web/src/modules/runs/hooks/use-interval-tick.ts": {
     "ratio": 0.2222,
-    "code": 9
+    "code": 9,
+    "comment": 2
   },
   "apps/web/src/modules/runs/hooks/use-run-actions.ts": {
     "ratio": 0,
-    "code": 15
+    "code": 15,
+    "comment": 0
   },
   "apps/web/src/modules/runs/hooks/use-runs.ts": {
     "ratio": 0.0625,
-    "code": 32
+    "code": 32,
+    "comment": 2
   },
   "apps/web/src/modules/schedules/components/schedule-card.tsx": {
     "ratio": 0,
-    "code": 153
+    "code": 153,
+    "comment": 0
   },
   "apps/web/src/modules/schedules/components/schedule-reassign-row.tsx": {
     "ratio": 0.018,
-    "code": 111
+    "code": 111,
+    "comment": 2
   },
   "apps/web/src/modules/schedules/components/schedules-panel.tsx": {
     "ratio": 0.0241,
-    "code": 290
+    "code": 290,
+    "comment": 7
   },
   "apps/web/src/modules/schedules/components/schedules-summary-tiles.tsx": {
     "ratio": 0.1045,
-    "code": 67
+    "code": 67,
+    "comment": 7
   },
   "apps/web/src/modules/schedules/components/schedules-view-tabs.tsx": {
     "ratio": 0,
-    "code": 38
+    "code": 38,
+    "comment": 0
   },
   "apps/web/src/modules/schedules/format/schedule-format.ts": {
     "ratio": 0.0526,
-    "code": 19
+    "code": 19,
+    "comment": 1
   },
   "apps/web/src/modules/schedules/hooks/use-schedules.ts": {
     "ratio": 0.04,
-    "code": 50
+    "code": 50,
+    "comment": 2
   },
   "apps/web/src/modules/search/components/search-view.tsx": {
     "ratio": 0,
-    "code": 69
+    "code": 69,
+    "comment": 0
   },
   "apps/web/src/modules/search/hooks/use-search-runs.ts": {
     "ratio": 0,
-    "code": 14
+    "code": 14,
+    "comment": 0
   },
   "apps/web/src/modules/secrets/components/secret-badges.tsx": {
     "ratio": 0.0278,
-    "code": 36
+    "code": 36,
+    "comment": 1
   },
   "apps/web/src/modules/secrets/components/secret-form-modal.tsx": {
     "ratio": 0.0211,
-    "code": 142
+    "code": 142,
+    "comment": 3
   },
   "apps/web/src/modules/secrets/components/secrets-tab.tsx": {
     "ratio": 0,
-    "code": 175
+    "code": 175,
+    "comment": 0
   },
   "apps/web/src/modules/secrets/hooks/use-secrets.ts": {
     "ratio": 0,
-    "code": 86
+    "code": 86,
+    "comment": 0
   },
   "apps/web/src/modules/settings/components/integration-row.tsx": {
     "ratio": 0.05,
-    "code": 60
+    "code": 60,
+    "comment": 3
   },
   "apps/web/src/modules/settings/components/settings-nav.tsx": {
     "ratio": 0.1351,
-    "code": 111
+    "code": 111,
+    "comment": 15
   },
   "apps/web/src/modules/settings/components/settings-page.tsx": {
     "ratio": 0.0456,
-    "code": 351
+    "code": 351,
+    "comment": 16
   },
   "apps/web/src/modules/settings/components/tabs/about-you-renderer.tsx": {
     "ratio": 0.1901,
-    "code": 121
+    "code": 121,
+    "comment": 23
   },
   "apps/web/src/modules/settings/components/tabs/about-you-tab.tsx": {
     "ratio": 0.0734,
-    "code": 218
+    "code": 218,
+    "comment": 16
   },
   "apps/web/src/modules/settings/components/tabs/bundled-agents-tab.tsx": {
     "ratio": 0.0537,
-    "code": 205
+    "code": 205,
+    "comment": 11
   },
   "apps/web/src/modules/settings/components/tabs/cleanup-panel.tsx": {
     "ratio": 0.0432,
-    "code": 162
+    "code": 162,
+    "comment": 7
   },
   "apps/web/src/modules/settings/components/tabs/integrations-tab.tsx": {
     "ratio": 0.0351,
-    "code": 513
+    "code": 513,
+    "comment": 18
   },
   "apps/web/src/modules/settings/components/tabs/performance-tab.tsx": {
     "ratio": 0.0638,
-    "code": 188
+    "code": 188,
+    "comment": 12
   },
   "apps/web/src/modules/settings/hooks/use-cleanup.ts": {
     "ratio": 0.0556,
-    "code": 36
+    "code": 36,
+    "comment": 2
   },
   "apps/web/src/modules/settings/hooks/use-settings.ts": {
     "ratio": 0.0385,
-    "code": 52
+    "code": 52,
+    "comment": 2
   },
   "apps/web/src/modules/settings/hooks/use-user-analysis.ts": {
     "ratio": 0.0667,
-    "code": 30
+    "code": 30,
+    "comment": 2
   },
   "apps/web/src/modules/skills/components/import-skill-modal.tsx": {
     "ratio": 0.0403,
-    "code": 149
+    "code": 149,
+    "comment": 6
   },
   "apps/web/src/modules/skills/components/skill-card.tsx": {
     "ratio": 0.0516,
-    "code": 155
+    "code": 155,
+    "comment": 8
   },
   "apps/web/src/modules/skills/components/skill-editor-modal.tsx": {
     "ratio": 0.0559,
-    "code": 286
+    "code": 286,
+    "comment": 16
   },
   "apps/web/src/modules/skills/components/skill-sources-card.tsx": {
     "ratio": 0.0472,
-    "code": 106
+    "code": 106,
+    "comment": 5
   },
   "apps/web/src/modules/skills/components/skills-page.tsx": {
     "ratio": 0.0174,
-    "code": 461
+    "code": 461,
+    "comment": 8
   },
   "apps/web/src/modules/skills/components/weapon-icon-modal.tsx": {
     "ratio": 0.0215,
-    "code": 186
+    "code": 186,
+    "comment": 4
   },
   "apps/web/src/modules/skills/hooks/use-skill-list.ts": {
     "ratio": 0.3469,
-    "code": 49
+    "code": 49,
+    "comment": 17
   },
   "apps/web/src/modules/skills/hooks/use-skills.ts": {
     "ratio": 0.0661,
-    "code": 242
+    "code": 242,
+    "comment": 16
   },
   "apps/web/src/modules/skills/registry/filter-registry.ts": {
     "ratio": 0.1698,
-    "code": 53
+    "code": 53,
+    "comment": 9
   },
   "apps/web/src/modules/skills/registry/skill-weight.ts": {
     "ratio": 0.3571,
-    "code": 42
+    "code": 42,
+    "comment": 15
   },
   "apps/web/src/modules/summon/components/background-task-indicator.tsx": {
     "ratio": 0.0732,
-    "code": 41
+    "code": 41,
+    "comment": 3
   },
   "apps/web/src/modules/summon/components/background-task-logic.ts": {
     "ratio": 0.1176,
-    "code": 17
+    "code": 17,
+    "comment": 2
   },
   "apps/web/src/modules/summon/components/chat-banners.tsx": {
-    "ratio": 0.2429,
-    "code": 70
+    "ratio": 0.3774,
+    "code": 53,
+    "comment": 20
   },
   "apps/web/src/modules/summon/components/chat-head.tsx": {
     "ratio": 0.0208,
-    "code": 48
+    "code": 48,
+    "comment": 1
   },
   "apps/web/src/modules/summon/components/chat-panel-body.tsx": {
-    "ratio": 0.088,
-    "code": 125
+    "ratio": 0.0916,
+    "code": 131,
+    "comment": 12
   },
   "apps/web/src/modules/summon/components/chat-panel.tsx": {
-    "ratio": 0.2154,
-    "code": 65
+    "ratio": 0.2222,
+    "code": 63,
+    "comment": 14
   },
   "apps/web/src/modules/summon/components/chat-thread.tsx": {
     "ratio": 0.2035,
-    "code": 457
+    "code": 457,
+    "comment": 93
   },
   "apps/web/src/modules/summon/components/composer-attachment-chips.tsx": {
     "ratio": 0.0175,
-    "code": 57
+    "code": 57,
+    "comment": 1
   },
   "apps/web/src/modules/summon/components/composer-prompts-menu.tsx": {
     "ratio": 0.1136,
-    "code": 44
+    "code": 44,
+    "comment": 5
   },
   "apps/web/src/modules/summon/components/composer-slash-menu.tsx": {
     "ratio": 0.1026,
-    "code": 39
+    "code": 39,
+    "comment": 4
   },
   "apps/web/src/modules/summon/components/composer-toolbar.tsx": {
     "ratio": 0.058,
-    "code": 69
+    "code": 69,
+    "comment": 4
   },
   "apps/web/src/modules/summon/components/composer.tsx": {
     "ratio": 0.04,
-    "code": 250
+    "code": 250,
+    "comment": 10
   },
   "apps/web/src/modules/summon/components/expanded-state.tsx": {
     "ratio": 0.85,
-    "code": 20
+    "code": 20,
+    "comment": 17
   },
   "apps/web/src/modules/summon/components/flag-card.tsx": {
     "ratio": 0.181,
-    "code": 105
+    "code": 105,
+    "comment": 19
   },
   "apps/web/src/modules/summon/components/live-status.tsx": {
     "ratio": 0.1739,
-    "code": 69
+    "code": 69,
+    "comment": 12
   },
   "apps/web/src/modules/summon/components/message-bubble.tsx": {
-    "ratio": 0.132,
-    "code": 629
+    "ratio": 0.1304,
+    "code": 629,
+    "comment": 82
   },
   "apps/web/src/modules/summon/components/msg-actions.tsx": {
     "ratio": 0.0851,
-    "code": 94
+    "code": 94,
+    "comment": 8
+  },
+  "apps/web/src/modules/summon/components/permission-card.tsx": {
+    "ratio": 0.2353,
+    "code": 34,
+    "comment": 8
   },
   "apps/web/src/modules/summon/components/rate-limit-card.tsx": {
     "ratio": 0.2838,
-    "code": 74
+    "code": 74,
+    "comment": 21
   },
   "apps/web/src/modules/summon/components/schedule-resume-menu.tsx": {
     "ratio": 0.1034,
-    "code": 87
+    "code": 87,
+    "comment": 9
   },
   "apps/web/src/modules/summon/components/stream-banner.tsx": {
     "ratio": 0.1296,
-    "code": 54
+    "code": 54,
+    "comment": 7
   },
   "apps/web/src/modules/summon/components/sub-agent-card.tsx": {
     "ratio": 0.1158,
-    "code": 95
+    "code": 95,
+    "comment": 11
   },
   "apps/web/src/modules/summon/components/tool-group-row.tsx": {
     "ratio": 0.3729,
-    "code": 118
+    "code": 118,
+    "comment": 44
   },
   "apps/web/src/modules/summon/components/workflow-pill.tsx": {
     "ratio": 0.0459,
-    "code": 109
+    "code": 109,
+    "comment": 5
   },
   "apps/web/src/modules/summon/format/build-composed-text.ts": {
     "ratio": 0.6667,
-    "code": 12
+    "code": 12,
+    "comment": 8
   },
   "apps/web/src/modules/summon/format/composer-config.ts": {
     "ratio": 0.3333,
-    "code": 27
+    "code": 27,
+    "comment": 9
   },
   "apps/web/src/modules/summon/format/conversation-to-thread.ts": {
-    "ratio": 0.6842,
-    "code": 38
+    "ratio": 0.6098,
+    "code": 41,
+    "comment": 25
   },
   "apps/web/src/modules/summon/format/dedupe-thread.ts": {
     "ratio": 1.1667,
-    "code": 12
+    "code": 12,
+    "comment": 14
   },
   "apps/web/src/modules/summon/format/derive-chat-phase.ts": {
     "ratio": 0.4091,
-    "code": 44
+    "code": 44,
+    "comment": 18
   },
   "apps/web/src/modules/summon/format/derive-live-stats.ts": {
     "ratio": 0.6207,
-    "code": 29
+    "code": 29,
+    "comment": 18
   },
   "apps/web/src/modules/summon/format/draft-store.ts": {
     "ratio": 0.04,
-    "code": 25
+    "code": 25,
+    "comment": 1
   },
   "apps/web/src/modules/summon/format/format-countdown.ts": {
     "ratio": 0.5,
-    "code": 8
+    "code": 8,
+    "comment": 4
   },
   "apps/web/src/modules/summon/format/message-format.ts": {
     "ratio": 0.4775,
-    "code": 111
+    "code": 111,
+    "comment": 53
   },
   "apps/web/src/modules/summon/format/parse-reset-time.ts": {
     "ratio": 2,
-    "code": 1
+    "code": 1,
+    "comment": 2
   },
   "apps/web/src/modules/summon/format/parse-sse-event.ts": {
-    "ratio": 0.1073,
-    "code": 317
+    "ratio": 0.0813,
+    "code": 283,
+    "comment": 23
   },
   "apps/web/src/modules/summon/format/phase-format.ts": {
     "ratio": 0.3333,
-    "code": 30
+    "code": 30,
+    "comment": 10
   },
   "apps/web/src/modules/summon/format/textarea-autosize.ts": {
     "ratio": 0.8571,
-    "code": 7
+    "code": 7,
+    "comment": 6
   },
   "apps/web/src/modules/summon/format/thread-rows.ts": {
     "ratio": 0.197,
-    "code": 66
+    "code": 66,
+    "comment": 13
   },
   "apps/web/src/modules/summon/format/thread-types.ts": {
     "ratio": 0.2941,
-    "code": 17
+    "code": 17,
+    "comment": 5
+  },
+  "apps/web/src/modules/summon/format/tool-item.ts": {
+    "ratio": 0.3585,
+    "code": 53,
+    "comment": 19
   },
   "apps/web/src/modules/summon/format/transcript-store.ts": {
     "ratio": 2.25,
-    "code": 4
+    "code": 4,
+    "comment": 9
   },
   "apps/web/src/modules/summon/format/workflow-tree.ts": {
     "ratio": 0.1071,
-    "code": 28
+    "code": 28,
+    "comment": 3
   },
   "apps/web/src/modules/summon/hooks/use-agent-prompts.ts": {
     "ratio": 0.3333,
-    "code": 24
+    "code": 24,
+    "comment": 8
   },
   "apps/web/src/modules/summon/hooks/use-composer-attachments.ts": {
-    "ratio": 0.0777,
-    "code": 103
+    "ratio": 0.0721,
+    "code": 111,
+    "comment": 8
   },
   "apps/web/src/modules/summon/hooks/use-composer-draft.ts": {
     "ratio": 0.5625,
-    "code": 32
+    "code": 32,
+    "comment": 18
   },
   "apps/web/src/modules/summon/hooks/use-composer-keyboard.ts": {
     "ratio": 0.0602,
-    "code": 83
+    "code": 83,
+    "comment": 5
   },
   "apps/web/src/modules/summon/hooks/use-composer-menus.ts": {
     "ratio": 0.0926,
-    "code": 54
+    "code": 54,
+    "comment": 5
   },
   "apps/web/src/modules/summon/hooks/use-conversation-chat-model.ts": {
     "ratio": 0.2934,
-    "code": 242
+    "code": 242,
+    "comment": 71
   },
   "apps/web/src/modules/summon/hooks/use-conversation.ts": {
     "ratio": 0.1809,
-    "code": 94
+    "code": 94,
+    "comment": 17
+  },
+  "apps/web/src/modules/summon/hooks/use-pending-permissions.ts": {
+    "ratio": 0.2667,
+    "code": 45,
+    "comment": 12
   },
   "apps/web/src/modules/summon/hooks/use-run-stream.ts": {
     "ratio": 0.5,
-    "code": 32
+    "code": 32,
+    "comment": 16
   },
   "apps/web/src/modules/summon/hooks/use-streaming-tick.ts": {
     "ratio": 0.6429,
-    "code": 14
+    "code": 14,
+    "comment": 9
   },
   "apps/web/src/modules/summon/hooks/use-summon-store.ts": {
     "ratio": 0.0588,
-    "code": 17
+    "code": 17,
+    "comment": 1
   },
   "apps/web/src/modules/summon/hooks/use-summon.ts": {
     "ratio": 0,
-    "code": 31
+    "code": 31,
+    "comment": 0
   },
   "apps/web/src/modules/summon/hooks/use-workflow-tree.ts": {
     "ratio": 0.4667,
-    "code": 15
+    "code": 15,
+    "comment": 7
   },
   "apps/web/src/modules/summon/state/run-stream-registry.ts": {
     "ratio": 0.4715,
-    "code": 193
+    "code": 193,
+    "comment": 91
   },
   "apps/web/src/modules/workflows/components/workflow-picker-dialog.tsx": {
     "ratio": 0.0474,
-    "code": 380
+    "code": 380,
+    "comment": 18
   },
   "apps/web/src/modules/workflows/hooks/use-workflows.ts": {
     "ratio": 0,
-    "code": 47
+    "code": 47,
+    "comment": 0
   },
   "packages/domain/src/config/agent-opts.ts": {
     "ratio": 1.5,
-    "code": 10
+    "code": 10,
+    "comment": 15
   },
   "packages/domain/src/config/cleanup.ts": {
     "ratio": 0.1429,
-    "code": 14
+    "code": 14,
+    "comment": 2
   },
   "packages/domain/src/config/doc-categories.ts": {
     "ratio": 0.1667,
-    "code": 12
+    "code": 12,
+    "comment": 2
   },
   "packages/domain/src/config/integrations.ts": {
     "ratio": 0.1489,
-    "code": 47
+    "code": 47,
+    "comment": 7
   },
   "packages/domain/src/config/models.ts": {
     "ratio": 0.4157,
-    "code": 89
+    "code": 89,
+    "comment": 37
   },
   "packages/domain/src/config/office.ts": {
     "ratio": 0.4286,
-    "code": 7
+    "code": 7,
+    "comment": 3
   },
   "packages/domain/src/config/project-templates.ts": {
     "ratio": 0.1667,
-    "code": 18
+    "code": 18,
+    "comment": 3
   },
   "packages/domain/src/config/routes.ts": {
     "ratio": 0.1241,
-    "code": 145
+    "code": 145,
+    "comment": 18
   },
   "packages/domain/src/config/run-errors.ts": {
     "ratio": 0.4103,
-    "code": 39
+    "code": 39,
+    "comment": 16
   },
   "packages/domain/src/config/skill-icons.ts": {
     "ratio": 0.4,
-    "code": 5
+    "code": 5,
+    "comment": 2
   },
   "packages/domain/src/config/tools.ts": {
     "ratio": 0.5091,
-    "code": 55
+    "code": 55,
+    "comment": 28
   },
   "packages/domain/src/hooks/api.ts": {
     "ratio": 0.1304,
-    "code": 69
+    "code": 69,
+    "comment": 9
   },
   "packages/domain/src/hooks/query-keys.ts": {
     "ratio": 0.1019,
-    "code": 108
+    "code": 108,
+    "comment": 11
   },
   "packages/domain/src/index.ts": {
     "ratio": 0,
-    "code": 5
+    "code": 5,
+    "comment": 0
   },
   "packages/domain/src/services/accounts/account-login.ts": {
     "ratio": 0.1417,
-    "code": 120
+    "code": 120,
+    "comment": 17
   },
   "packages/domain/src/services/accounts/accounts.ts": {
     "ratio": 0.2462,
-    "code": 199
+    "code": 199,
+    "comment": 49
   },
   "packages/domain/src/services/accounts/github-accounts.ts": {
     "ratio": 0.3704,
-    "code": 135
+    "code": 135,
+    "comment": 50
   },
   "packages/domain/src/services/accounts/secret-crypto.ts": {
     "ratio": 0.5946,
-    "code": 37
+    "code": 37,
+    "comment": 22
   },
   "packages/domain/src/services/accounts/secrets.ts": {
     "ratio": 0.1735,
-    "code": 196
+    "code": 196,
+    "comment": 34
   },
   "packages/domain/src/services/accounts/shell-env.ts": {
     "ratio": 0.3373,
-    "code": 83
+    "code": 83,
+    "comment": 28
   },
   "packages/domain/src/services/agents/agents.ts": {
     "ratio": 0.1797,
-    "code": 345
+    "code": 345,
+    "comment": 62
   },
   "packages/domain/src/services/agents/context-cost-measure.ts": {
     "ratio": 0.225,
-    "code": 160
+    "code": 160,
+    "comment": 36
   },
   "packages/domain/src/services/agents/context-cost.ts": {
     "ratio": 0.316,
-    "code": 269
+    "code": 269,
+    "comment": 85
   },
   "packages/domain/src/services/agents/context-tier.ts": {
     "ratio": 0.2692,
-    "code": 26
+    "code": 26,
+    "comment": 7
   },
   "packages/domain/src/services/analytics/analytics-page.ts": {
     "ratio": 0.1767,
-    "code": 215
+    "code": 215,
+    "comment": 38
   },
   "packages/domain/src/services/analytics/analytics-summary.ts": {
     "ratio": 0.2651,
-    "code": 83
+    "code": 83,
+    "comment": 22
   },
   "packages/domain/src/services/analytics/analytics.ts": {
     "ratio": 0.2,
-    "code": 35
+    "code": 35,
+    "comment": 7
   },
   "packages/domain/src/services/analytics/user-analysis.ts": {
     "ratio": 0.7143,
-    "code": 21
+    "code": 21,
+    "comment": 15
   },
   "packages/domain/src/services/db/agent-context-measurements.ts": {
     "ratio": 0.0652,
-    "code": 46
+    "code": 46,
+    "comment": 3
   },
   "packages/domain/src/services/db/background-shells.ts": {
     "ratio": 0.1,
-    "code": 60
+    "code": 60,
+    "comment": 6
   },
   "packages/domain/src/services/db/connection.ts": {
     "ratio": 0.5143,
-    "code": 70
+    "code": 70,
+    "comment": 36
   },
   "packages/domain/src/services/db/conversations.ts": {
     "ratio": 0.1467,
-    "code": 225
+    "code": 225,
+    "comment": 33
   },
   "packages/domain/src/services/db/index.ts": {
     "ratio": 0.8,
-    "code": 10
+    "code": 10,
+    "comment": 8
   },
   "packages/domain/src/services/db/messages.ts": {
     "ratio": 0.0614,
-    "code": 114
+    "code": 114,
+    "comment": 7
   },
   "packages/domain/src/services/db/migrations.ts": {
     "ratio": 0.2092,
-    "code": 392
+    "code": 392,
+    "comment": 82
   },
   "packages/domain/src/services/db/runs.ts": {
     "ratio": 0.0067,
-    "code": 149
+    "code": 149,
+    "comment": 1
   },
   "packages/domain/src/services/db/scheduled-jobs.ts": {
     "ratio": 0.0313,
-    "code": 64
+    "code": 64,
+    "comment": 2
   },
   "packages/domain/src/services/db/transcripts.ts": {
     "ratio": 0.0417,
-    "code": 72
+    "code": 72,
+    "comment": 3
   },
   "packages/domain/src/services/db/ui-settings.ts": {
     "ratio": 0,
-    "code": 17
+    "code": 17,
+    "comment": 0
   },
   "packages/domain/src/services/db/workflows.ts": {
     "ratio": 0.0353,
-    "code": 85
+    "code": 85,
+    "comment": 3
   },
   "packages/domain/src/services/docs/docs-export.ts": {
     "ratio": 0.0034,
-    "code": 876
+    "code": 876,
+    "comment": 3
   },
   "packages/domain/src/services/docs/docs.ts": {
     "ratio": 0.2353,
-    "code": 153
+    "code": 153,
+    "comment": 36
   },
   "packages/domain/src/services/execution/background-shell-watcher.ts": {
     "ratio": 0.6458,
-    "code": 48
+    "code": 48,
+    "comment": 31
   },
   "packages/domain/src/services/execution/conversation-machine.ts": {
     "ratio": 0.4886,
-    "code": 88
+    "code": 88,
+    "comment": 43
   },
   "packages/domain/src/services/execution/conversation-runner.ts": {
     "ratio": 0.4583,
-    "code": 24
+    "code": 24,
+    "comment": 11
   },
   "packages/domain/src/services/execution/conversation-wiring.ts": {
     "ratio": 1.6,
-    "code": 15
+    "code": 15,
+    "comment": 24
   },
   "packages/domain/src/services/execution/conversation.ts": {
     "ratio": 0.462,
-    "code": 171
+    "code": 171,
+    "comment": 79
+  },
+  "packages/domain/src/services/execution/loop-machine.ts": {
+    "ratio": 0.2774,
+    "code": 155,
+    "comment": 43
   },
   "packages/domain/src/services/execution/permissions.ts": {
     "ratio": 0.3333,
-    "code": 69
+    "code": 69,
+    "comment": 23
   },
   "packages/domain/src/services/execution/processes.ts": {
     "ratio": 0.1182,
-    "code": 203
+    "code": 203,
+    "comment": 24
   },
   "packages/domain/src/services/execution/runs.ts": {
     "ratio": 0.2297,
-    "code": 666
+    "code": 666,
+    "comment": 153
   },
   "packages/domain/src/services/execution/runs/background-shell.ts": {
     "ratio": 0.4545,
-    "code": 44
+    "code": 44,
+    "comment": 20
   },
   "packages/domain/src/services/execution/runs/errors.ts": {
     "ratio": 0.4648,
-    "code": 71
+    "code": 71,
+    "comment": 33
   },
   "packages/domain/src/services/execution/runs/queries.ts": {
     "ratio": 0.2871,
-    "code": 101
+    "code": 101,
+    "comment": 29
   },
   "packages/domain/src/services/execution/runs/registry.ts": {
     "ratio": 0.7895,
-    "code": 19
+    "code": 19,
+    "comment": 15
   },
   "packages/domain/src/services/execution/runs/reset-time.ts": {
     "ratio": 0.2581,
-    "code": 31
+    "code": 31,
+    "comment": 8
   },
   "packages/domain/src/services/execution/runs/spawn-env.ts": {
     "ratio": 0.8511,
-    "code": 47
+    "code": 47,
+    "comment": 40
   },
   "packages/domain/src/services/execution/runs/subagent-parse.ts": {
     "ratio": 0.2597,
-    "code": 77
+    "code": 77,
+    "comment": 20
   },
   "packages/domain/src/services/execution/runs/types.ts": {
     "ratio": 0.3962,
-    "code": 106
+    "code": 106,
+    "comment": 42
   },
   "packages/domain/src/services/execution/scheduler.ts": {
     "ratio": 0.1056,
-    "code": 142
+    "code": 142,
+    "comment": 15
   },
   "packages/domain/src/services/execution/summon-run.ts": {
     "ratio": 0.252,
-    "code": 127
+    "code": 127,
+    "comment": 32
   },
   "packages/domain/src/services/execution/summon.ts": {
     "ratio": 0.2788,
-    "code": 104
+    "code": 104,
+    "comment": 29
   },
   "packages/domain/src/services/execution/workflow-seed.ts": {
     "ratio": 0.1074,
-    "code": 121
+    "code": 121,
+    "comment": 13
   },
   "packages/domain/src/services/index.ts": {
     "ratio": 0.1111,
-    "code": 36
+    "code": 36,
+    "comment": 4
   },
   "packages/domain/src/services/infra/events.ts": {
     "ratio": 0.7083,
-    "code": 24
+    "code": 24,
+    "comment": 17
   },
   "packages/domain/src/services/infra/fs-atomic.ts": {
     "ratio": 0.1538,
-    "code": 13
+    "code": 13,
+    "comment": 2
   },
   "packages/domain/src/services/infra/health.ts": {
     "ratio": 0.037,
-    "code": 54
+    "code": 54,
+    "comment": 2
   },
   "packages/domain/src/services/infra/log.ts": {
     "ratio": 0.1875,
-    "code": 32
+    "code": 32,
+    "comment": 6
   },
   "packages/domain/src/services/infra/paths.ts": {
-    "ratio": 0.473,
-    "code": 74
+    "ratio": 0.48,
+    "code": 75,
+    "comment": 36
   },
   "packages/domain/src/services/infra/sleep-inhibit.ts": {
     "ratio": 0.0476,
-    "code": 63
+    "code": 63,
+    "comment": 3
   },
   "packages/domain/src/services/infra/store.ts": {
     "ratio": 0.1045,
-    "code": 67
+    "code": 67,
+    "comment": 7
   },
   "packages/domain/src/services/infra/token-estimate.ts": {
     "ratio": 1.6667,
-    "code": 6
+    "code": 6,
+    "comment": 10
   },
   "packages/domain/src/services/infra/yaml.ts": {
     "ratio": 0.1164,
-    "code": 275
+    "code": 275,
+    "comment": 32
   },
   "packages/domain/src/services/projects/cleanup.ts": {
     "ratio": 0.2301,
-    "code": 113
+    "code": 113,
+    "comment": 26
   },
   "packages/domain/src/services/projects/git-status.ts": {
     "ratio": 0.2105,
-    "code": 38
+    "code": 38,
+    "comment": 8
   },
   "packages/domain/src/services/projects/history.ts": {
     "ratio": 0.0645,
-    "code": 124
+    "code": 124,
+    "comment": 8
   },
   "packages/domain/src/services/projects/project-bootstrap.ts": {
     "ratio": 0.2345,
-    "code": 354
+    "code": 354,
+    "comment": 83
   },
   "packages/domain/src/services/projects/project-map.ts": {
     "ratio": 0.0918,
-    "code": 98
+    "code": 98,
+    "comment": 9
   },
   "packages/domain/src/services/projects/project-runtime.ts": {
-    "ratio": 0.2421,
-    "code": 190
+    "ratio": 0.243,
+    "code": 214,
+    "comment": 52
   },
   "packages/domain/src/services/projects/projects.ts": {
     "ratio": 0.1429,
-    "code": 581
+    "code": 581,
+    "comment": 83
   },
   "packages/domain/src/services/projects/save.ts": {
     "ratio": 0.0654,
-    "code": 107
+    "code": 107,
+    "comment": 7
   },
   "packages/domain/src/services/projects/templates.ts": {
     "ratio": 0.008,
-    "code": 125
+    "code": 125,
+    "comment": 1
   },
   "packages/domain/src/services/projects/worktrees.ts": {
     "ratio": 0.2531,
-    "code": 245
+    "code": 245,
+    "comment": 62
   },
   "packages/domain/src/services/settings.ts": {
     "ratio": 0.1304,
-    "code": 92
+    "code": 92,
+    "comment": 12
   },
   "packages/domain/src/services/skills/skills.ts": {
     "ratio": 0.1626,
-    "code": 732
+    "code": 732,
+    "comment": 119
   },
   "packages/domain/src/types/index.ts": {
     "ratio": 0.1616,
-    "code": 594
+    "code": 594,
+    "comment": 96
   }
 }
