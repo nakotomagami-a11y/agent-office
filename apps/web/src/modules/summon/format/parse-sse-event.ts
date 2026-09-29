@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatToolArg, isSubAgentSpawnTool } from "./tool-item";
 import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
@@ -319,52 +320,5 @@ function closeStreaming(thread: ThreadItem[]): ThreadItem[] {
   );
 }
 
-const SPAWN_TOOL_NAMES = new Set(["Task", "Agent"]);
 
-/**
- * Client mirror of the server's `detectSubAgentSpawn` predicate. Kept local
- * because the server helper pulls in node-only deps. Matches native Task/Agent
- * tools (by name or `subagent_type` / `description`+`prompt` shape) and Bash
- * `claude -p --agent` spawns.
- */
-function isSubAgentSpawnTool(name: string, input: unknown): boolean {
-  if (SPAWN_TOOL_NAMES.has(name)) return true;
-  if (input && typeof input === "object" && !Array.isArray(input)) {
-    const obj = input as Record<string, unknown>;
-    if (typeof obj.subagent_type === "string") return true;
-    if (typeof obj.description === "string" && typeof obj.prompt === "string") return true;
-    if (name === "Bash" && typeof obj.command === "string" && isClaudeBashSpawn(obj.command)) return true;
-  }
-  return false;
-}
 
-function isClaudeBashSpawn(command: string): boolean {
-  return (
-    /(^|[\s;&|(])claude(\s|$)/.test(command) &&
-    /(^|\s)(-p|--print)(\s|=|$)/.test(command) &&
-    /--agent(\s|=)/.test(command)
-  );
-}
-
-function formatToolArg(input: unknown): string | undefined {
-  if (input === undefined || input === null) return undefined;
-  if (typeof input === "string") {
-    return input.trim().length > 0 ? input : undefined;
-  }
-  if (typeof input === "object") {
-    // Empty objects / arrays carry no information - rendering `{}` next to
-    // every tool name just adds visual noise without helping the user
-    // understand the call. Drop them here so the UI layer doesn't have to.
-    const empty = Array.isArray(input)
-      ? input.length === 0
-      : Object.keys(input as Record<string, unknown>).length === 0;
-    if (empty) return undefined;
-  }
-  try {
-    // Keep the full payload - the tool-card header truncates via CSS ellipsis,
-    // and the expanded body needs the complete value to be useful.
-    return JSON.stringify(input);
-  } catch {
-    return undefined;
-  }
-}
