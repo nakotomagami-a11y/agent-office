@@ -24,6 +24,7 @@ import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
 import { historyNote } from "../projects/history";
 import { buildProjectMap } from "../projects/project-map";
+import { tierBody } from "./context-tier";
 import { log } from "../infra/log";
 
 function lineCount(text: string): number {
@@ -354,11 +355,14 @@ export function composeAppendedPrompt(
   }
 
   if (global) {
+    const t_global = tierBody({ body: global, path: GLOBAL_MEMORY_PATH, label: "Global memory", why: "a machine-wide convention or preference might apply" });
     segments.push({
       key: "global-memory", name: "Global memory",
-      text: "## Global memory (applies to every agent)\n" + global, body: global,
-      sub: `${GLOBAL_MEMORY_PATH} · ${lineCount(global)} lines`,
-      locked: false, phase: "always",
+      text: `## Global memory (applies to every agent)\n` + t_global.text, body: t_global.text,
+      sub: t_global.tier === "pointer"
+        ? `${GLOBAL_MEMORY_PATH} · pointer — ${t_global.saved.toLocaleString()} chars kept out of context`
+        : `${GLOBAL_MEMORY_PATH} · ${lineCount(global)} lines`,
+      locked: false, phase: t_global.tier === "pointer" ? "on-demand" : "always",
     });
   }
 
@@ -407,11 +411,15 @@ export function composeAppendedPrompt(
   }
 
   if (perAgent) {
+    const memPath = memoryPathFor(agentName);
+    const t_mem = tierBody({ body: perAgent, path: memPath, label: "Your accumulated memory", why: "you need prior context for this specific agent" });
     segments.push({
       key: "agent-memory", name: "Agent memory",
-      text: `## Memory specific to ${agentName}\n` + perAgent, body: perAgent,
-      sub: `${memoryPathFor(agentName)} · ${lineCount(perAgent)} lines`,
-      locked: false, phase: "always",
+      text: `## Memory specific to ${agentName}\n` + t_mem.text, body: t_mem.text,
+      sub: t_mem.tier === "pointer"
+        ? `${memPath} · pointer — ${t_mem.saved.toLocaleString()} chars kept out of context`
+        : `${memPath} · ${lineCount(perAgent)} lines`,
+      locked: false, phase: t_mem.tier === "pointer" ? "on-demand" : "always",
     });
   }
 

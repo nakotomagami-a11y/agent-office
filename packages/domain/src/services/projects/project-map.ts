@@ -1,14 +1,7 @@
-// The project map injected into every agent's system prompt.
-//
-// A map, not a manual: what exists, where it lives, how to run it — derived from
-// live state so it cannot go stale. Before this, an agent was told only the
-// project's name, cwd and description, and everything else (build commands,
-// branch, worktree layout, git identity) was hand-typed into agent bodies where
-// it rotted — `developer.md` shipped `MAIN=/path/to/agent-office`, a placeholder
-// that was never filled in.
-//
-// Sync by design: `composeAppendedPrompt` is sync, and every lookup here is a
-// local fs read or a short `git` call.
+// The project map injected into every agent's system prompt: what exists, where
+// it lives, how to run it — derived live so it cannot go stale. Replaces facts
+// that were hand-typed into agent bodies (D3 shipped an unfilled
+// `MAIN=/path/to/agent-office`). Sync because composeAppendedPrompt is.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -29,10 +22,8 @@ function git(args: string[], cwd: string): string | null {
   }
 }
 
-/**
- * The GitHub login `gh` and `git push` will actually use, read from gh's own
- * config. No network call and no token access — only the `user:` key.
- */
+/** The login `gh`/`git push` will use. Reads only the `user:` key — no network,
+ *  no token access. */
 export function readSystemGhUser(): string | null {
   try {
     const raw = readFileSync(join(SYSTEM_GH_CONFIG_DIR, "hosts.yml"), "utf8");
@@ -43,8 +34,6 @@ export function readSystemGhUser(): string | null {
   }
 }
 
-/** Top-level layout: directories an agent should know exist, nothing deeper.
- *  Orientation without the cost of a full listing. */
 function topLevelEntries(cwd: string): string[] {
   const SKIP = new Set([
     "node_modules", ".git", ".next", "dist", "build", "target", "out",
@@ -61,7 +50,6 @@ function topLevelEntries(cwd: string): string[] {
   }
 }
 
-/** Repo-local convention/rule files worth reading before writing code. */
 function conventionDocs(cwd: string): string[] {
   const candidates = [
     "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md",
@@ -75,10 +63,7 @@ export interface ProjectMapInput {
   instance?: AgentInstance | null;
 }
 
-/**
- * Markdown block for the appended system prompt, or null when there is nothing
- * useful to say (no cwd on disk).
- */
+/** Prompt block, or null when there is no cwd on disk. */
 export function buildProjectMap({ project, instance }: ProjectMapInput): string | null {
   const cwd = instance?.cwd ?? project.meta.cwd;
   if (!cwd || !existsSync(cwd)) return null;
@@ -93,11 +78,9 @@ export function buildProjectMap({ project, instance }: ProjectMapInput): string 
     lines.push(`- Read before writing code: ${docs.join(", ")}`);
   }
 
-  // Commands, from what is actually on disk — not from prose in an agent body.
   const pm = detectPackageManager(cwd);
   const build = detectBuildCommand(cwd, pm);
-  // Dedupe by argv: monorepo detection reports the same script once per
-  // workspace package, which would fill the line with repeats.
+  // Monorepo detection reports one script per workspace package.
   const seen = new Set<string>();
   const cmds: string[] = [];
   const push = (label: string, argv: string[]) => {
@@ -110,7 +93,7 @@ export function buildProjectMap({ project, instance }: ProjectMapInput): string 
   for (const d of detectDevCommands(cwd)) push(d.name.split("·").pop()!.trim().toLowerCase(), d.argv);
   if (cmds.length > 0) lines.push(`- Commands (${pm}) — ${cmds.join(" · ")}`);
 
-  // Live git state. `branch` doubles as the "is this a repo" check.
+  // `branch` doubles as the "is this a repo" check.
   const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   if (branch) {
     const dirty = git(["status", "--porcelain"], cwd);
@@ -118,8 +101,6 @@ export function buildProjectMap({ project, instance }: ProjectMapInput): string 
     lines.push(`- Git: on \`${branch}\`, ${changed} uncommitted file${changed === 1 ? "" : "s"}`);
   }
 
-  // Worktree facts. These were hand-typed into agent bodies with an unfilled
-  // placeholder path; the app has always known them.
   if (instance?.worktree) {
     lines.push(
       `- You are in a git worktree at \`${instance.worktree.basePath}\` on branch ` +

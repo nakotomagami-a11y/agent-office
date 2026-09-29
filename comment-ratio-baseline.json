@@ -617,5 +617,6 @@
   "packages/domain/src/services/projects/worktrees.ts": 0.2531,
   "packages/domain/src/services/settings.ts": 0.1304,
   "packages/domain/src/services/skills/skills.ts": 0.1626,
-  "packages/domain/src/types/index.ts": 0.1551
+  "packages/domain/src/types/index.ts": 0.1551,
+  "packages/domain/src/services/projects/project-runtime.ts": 0.235
 }

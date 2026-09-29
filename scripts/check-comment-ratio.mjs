@@ -40,6 +40,20 @@ const files = execFileSync("bash", ["-c",
 
 const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
 
+// A moved file is not new code. Without this, relocating a module hits the
+// stricter new-file ceiling and the only way out is re-baselining everything —
+// which defeats the ratchet. Git already knows it was a rename.
+const renames = new Map();
+try {
+  const out = execFileSync("bash", ["-c",
+    "git diff --find-renames --name-status HEAD -- '*.ts' '*.tsx' 2>/dev/null || true"],
+    { encoding: "utf8" });
+  for (const line of out.split("\n")) {
+    const m = /^R\d*\s+(\S+)\s+(\S+)$/.exec(line.trim());
+    if (m) renames.set(m[2], m[1]);
+  }
+} catch { /* not a repo, or git unavailable — fall back to new-file rules */ }
+
 if (process.argv.includes("--update")) {
   const next = {};
   for (const f of files) next[f] = Number(ratio(f).toFixed(4));
@@ -51,7 +65,7 @@ if (process.argv.includes("--update")) {
 const failures = [];
 for (const f of files) {
   const now = ratio(f);
-  const was = base[f];
+  const was = base[f] ?? base[renames.get(f)];
   if (was === undefined) {
     if (now > NEW_FILE_CEILING) {
       failures.push(`${f}: new file at ${(now * 100).toFixed(0)}% comments (ceiling ${NEW_FILE_CEILING * 100}%)`);

@@ -1,13 +1,5 @@
-// Project runtime detection — how a project is built and run, derived from
-// what is actually on disk.
-//
-// Lives in `packages/domain` because agents need these facts, not just the UI:
-// it previously sat in `apps/web/src/lib/server/`, and `docs/architecture.md`
-// forbids domain importing app code, so the prompt assembler could not reach
-// it. A project knew its planet's rotation in radians and not its test command.
-//
-// Pure fs reads, no web runtime. Port allocation and terminal PATH setup stay
-// in apps/web — those genuinely need the server process.
+// How a project is built and run, from what is on disk. In domain so the prompt
+// assembler can reach it (RULE arch.domain-no-app-imports).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";

@@ -588,7 +588,9 @@ export interface PromptSegment {
   sub: string;
   /** True for content agent-office doesn't own / the user can't trim. */
   locked: boolean;
-  phase: "always" | "first-turn";
+  /** `on-demand` = a pointer, not a body: the agent reads the file when the
+   *  task calls for it. See services/agents/context-tier.ts. */
+  phase: "always" | "first-turn" | "on-demand";
   group?: "skills";
   children?: PromptSegmentChild[];
 }
@@ -606,8 +608,9 @@ export interface ContextCostRow {
   /** True for content agent-office doesn't own the size of. */
   locked: boolean;
   group?: "skills";
-  /** "always" (default) = resident system prompt. "first-turn" = prior-history injection. */
-  phase?: "always" | "first-turn";
+  /** "always" (default) = resident system prompt. "first-turn" = prior-history
+   *  injection. "on-demand" = a pointer the agent may choose to read. */
+  phase?: "always" | "first-turn" | "on-demand";
 }
 
 export interface ContextCostBreakdown {
