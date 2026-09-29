@@ -6,14 +6,14 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import {
-  requestPermission, resolvePermission, denyAllForRun, listPending,
+  requestPermission, resolvePermission, denyAllForRun, listPending, MAX_PENDING_PER_RUN,
 } from "./permissions";
 
 test("a request resolves with the decision it is given", async () => {
   let id = "";
   const p = requestPermission({ runId: "r1", tool: "Bash", input: { command: "ls" }, onCreated: (r) => { id = r.id; } });
   assert.ok(id, "onCreated must fire synchronously so the caller can broadcast before awaiting");
-  assert.equal(resolvePermission(id, "allow"), true);
+  assert.equal(resolvePermission("r1", id, "allow"), true);
   assert.equal(await p, "allow");
 });
 
@@ -25,10 +25,10 @@ test("an unanswered request DENIES, never allows", async () => {
 test("a late or duplicate answer is ignored, not thrown", async () => {
   let id = "";
   const p = requestPermission({ runId: "r3", tool: "Write", input: {}, onCreated: (r) => { id = r.id; } });
-  resolvePermission(id, "deny");
+  resolvePermission("r3", id, "deny");
   await p;
-  assert.equal(resolvePermission(id, "allow"), false, "must not resolve a second time");
-  assert.equal(resolvePermission("no-such-id", "allow"), false);
+  assert.equal(resolvePermission("r1", id, "allow"), false, "must not resolve a second time");
+  assert.equal(resolvePermission("r3", "no-such-id", "allow"), false);
 });
 
 test("ending a run denies everything still parked for it", async () => {
@@ -50,4 +50,23 @@ test("listPending never leaks the resolver or timer", () => {
   assert.ok(p);
   assert.deepEqual(Object.keys(p).sort(), ["createdAt", "id", "input", "runId", "tool"]);
   denyAllForRun("r6");
+});
+
+test("a decision for the WRONG run is rejected", () => {
+  let id = "";
+  const p = requestPermission({ runId: "owner", tool: "Bash", input: {}, onCreated: (r) => { id = r.id; } });
+  assert.equal(resolvePermission("someone-else", id, "allow"), false, "the runId in the URL must not be decorative");
+  assert.equal(resolvePermission("owner", id, "deny"), true);
+  void p;
+});
+
+test("parked requests are capped per run, and the overflow denies", async () => {
+  const pending = [];
+  for (let i = 0; i < MAX_PENDING_PER_RUN; i++) {
+    pending.push(requestPermission({ runId: "flood", tool: "Bash", input: {} }));
+  }
+  assert.equal(await requestPermission({ runId: "flood", tool: "Bash", input: {} }), "deny",
+    "beyond the cap must fail closed, not park unboundedly");
+  denyAllForRun("flood");
+  await Promise.all(pending);
 });

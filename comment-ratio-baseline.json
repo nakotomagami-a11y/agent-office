@@ -210,9 +210,9 @@
     "comment": 2
   },
   "apps/web/src/app/api/clipboard-image/route.ts": {
-    "ratio": 0.098,
-    "code": 51,
-    "comment": 5
+    "ratio": 0.1231,
+    "code": 65,
+    "comment": 8
   },
   "apps/web/src/app/api/conversations/[id]/messages/route.ts": {
     "ratio": 0.2667,
@@ -2930,9 +2930,9 @@
     "comment": 43
   },
   "packages/domain/src/services/execution/permissions.ts": {
-    "ratio": 0.3333,
-    "code": 69,
-    "comment": 23
+    "ratio": 0.3514,
+    "code": 74,
+    "comment": 26
   },
   "packages/domain/src/services/execution/processes.ts": {
     "ratio": 0.1182,
@@ -3075,9 +3075,9 @@
     "comment": 83
   },
   "packages/domain/src/services/projects/project-map.ts": {
-    "ratio": 0.0918,
-    "code": 98,
-    "comment": 9
+    "ratio": 0.1495,
+    "code": 107,
+    "comment": 16
   },
   "packages/domain/src/services/projects/project-runtime.ts": {
     "ratio": 0.243,

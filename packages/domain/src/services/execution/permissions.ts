@@ -54,6 +54,11 @@ export function requestPermission(opts: {
   timeoutMs?: number;
   onCreated?: (req: PermissionRequest) => void;
 }): Promise<PermissionDecision> {
+  // Fail closed rather than parking unboundedly.
+  if (listPending(opts.runId).length >= MAX_PENDING_PER_RUN) {
+    log.warn("permission.too_many_pending", { runId: opts.runId, tool: opts.tool });
+    return Promise.resolve("deny");
+  }
   const req: PermissionRequest = {
     id: randomUUID(),
     runId: opts.runId,
@@ -75,11 +80,15 @@ export function requestPermission(opts: {
   });
 }
 
-/** Answer a pending request. False when the id is unknown — a late or duplicate
- *  answer must not throw, and must not resolve a different request. */
-export function resolvePermission(id: string, decision: PermissionDecision): boolean {
+/** Each parked entry holds its `input` for the full timeout — uncapped, a loop
+ *  of POSTs is a memory DoS. */
+export const MAX_PENDING_PER_RUN = 16;
+
+/** False when the id is unknown OR belongs to another run: a late answer must
+ *  not throw, and the runId in the URL must not be decorative. */
+export function resolvePermission(runId: string, id: string, decision: PermissionDecision): boolean {
   const p = pending.get(id);
-  if (!p) return false;
+  if (!p || p.runId !== runId) return false;
   pending.delete(id);
   clearTimeout(p.timer);
   log.info("permission.resolved", { runId: p.runId, tool: p.tool, decision });
