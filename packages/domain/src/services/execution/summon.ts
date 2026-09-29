@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { AgentInstance, ApiAgent, SummonRequest } from "../../types/index";
-import { APP_STATE_DIR } from "../infra/paths";
+import { APP_STATE_DIR, REPO_SCRIPTS_DIR } from "../infra/paths";
 
 export interface BuiltCommand {
   args: string[];
@@ -62,22 +62,37 @@ function writeSystemPromptFile(content: string): string {
 // exclusion automatically. (Servers configured per-project via .mcp.json are
 // also dropped by strict mode — acceptable here since agents rely on the
 // global config; revisit if project-scoped MCP servers become common.)
-function mcpArgsWithoutPlaywright(): string[] {
-  let servers: Record<string, unknown> = {};
+function readGlobalMcpServers(): Record<string, unknown> {
   try {
-    const raw = JSON.parse(readFileSync(join(homedir(), ".claude.json"), "utf8")) as {
-      mcpServers?: Record<string, unknown>;
-    };
-    servers = raw.mcpServers ?? {};
+    const raw: unknown = JSON.parse(readFileSync(join(homedir(), ".claude.json"), "utf8"));
+    const servers = (raw as { mcpServers?: unknown }).mcpServers;
+    return servers && typeof servers === "object" ? (servers as Record<string, unknown>) : {};
   } catch {
-    // No global config / unreadable — strict mode with an empty set still
-    // guarantees Playwright can't connect, which is the whole point.
+    // No global config / unreadable — an empty set under strict mode still
+    // guarantees the exclusions below, which is the point.
+    return {};
   }
-  const filtered = Object.fromEntries(
-    Object.entries(servers).filter(([name]) => name !== "playwright"),
-  );
-  return ["--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers: filtered })];
 }
+
+/** `--strict-mcp-config` means ONLY what we pass, so globals are forwarded. */
+function mcpArgs(opts: { excludePlaywright: boolean; withPermissionServer: boolean }): string[] {
+  const servers: Record<string, unknown> = { ...readGlobalMcpServers() };
+  if (opts.excludePlaywright) delete servers.playwright;
+  if (opts.withPermissionServer) {
+    // AO_RUN_ID / AO_BASE_URL come from the spawn env.
+    servers["agent-office"] = { command: process.execPath, args: [PERMISSION_SERVER_PATH] };
+  }
+  return ["--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers: servers })];
+}
+
+/** Fully-qualified name of the tool the CLI calls to ask for approval. */
+export const PERMISSION_TOOL = "mcp__agent-office__permission_prompt";
+
+/** Stdio MCP bridge that forwards approval requests to the running app. */
+export const PERMISSION_SERVER_PATH = join(
+  REPO_SCRIPTS_DIR,
+  "mcp-permission-server.mjs",
+);
 
 export function buildClaudeArgs(opts: {
   request: SummonRequest;
@@ -108,7 +123,15 @@ export function buildClaudeArgs(opts: {
     args.push("--max-budget-usd", String(request.maxBudgetUsd));
   }
   if (permissionMode) args.push("--permission-mode", permissionMode);
-  if (instance?.playwrightEnabled === false) args.push(...mcpArgsWithoutPlaywright());
+  // `-p` has no TTY, so a prompting mode needs a host to ask.
+  if (permissionMode && permissionMode !== "bypassPermissions") {
+    args.push("--permission-prompt-tool", PERMISSION_TOOL);
+  }
+  const needsPermissionServer = !!permissionMode && permissionMode !== "bypassPermissions";
+  const excludePlaywright = instance?.playwrightEnabled === false;
+  if (excludePlaywright || needsPermissionServer) {
+    args.push(...mcpArgs({ excludePlaywright, withPermissionServer: needsPermissionServer }));
+  }
   for (const dir of agent.addDirs ?? []) {
     args.push("--add-dir", dir.replace(/^~/, homedir()));
   }

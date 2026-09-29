@@ -419,7 +419,17 @@ export interface ScheduledJob {
   updatedAt: number;
 }
 
-export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit";
+export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
+
+/** A tool call parked awaiting the operator's approval. Unanswered ones are
+ *  denied by the server after a timeout — the client never has to. */
+export interface SsePermissionRequestEvent {
+  runId: string;
+  id: string;
+  tool: string;
+  input?: unknown;
+  createdAt: number;
+}
 
 export interface SseChunkEvent { runId: string; text: string }
 export interface SseToolEvent { runId: string; name: string; input?: unknown }
@@ -478,6 +488,7 @@ export interface SseSubAgentUpdateEvent {
 
 export type RunStreamEvent =
   | { name: "attached"; data: SseAttachedEvent }
+  | { name: "permission-request"; data: SsePermissionRequestEvent }
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
   | { name: "usage"; data: SseUsageEvent }

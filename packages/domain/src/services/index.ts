@@ -2,6 +2,7 @@ export * as agents from "./agents/agents";
 export * as contextCost from "./agents/context-cost";
 export * as db from "./db";
 export * as history from "./projects/history";
+export * as permissions from "./execution/permissions";
 export * as projects from "./projects/projects";
 export * as projectBootstrap from "./projects/project-bootstrap";
 export * as skills from "./skills/skills";

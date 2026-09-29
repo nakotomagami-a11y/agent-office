@@ -6,14 +6,22 @@ export { MODEL_FULL, MODEL_OPTS } from "./models";
 export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 /**
- * Real `claude --permission-mode` values. Every agent is summoned headless
- * via `claude -p` (see `services/execution/summon.ts`) with no interactive
- * TTY, so a tool call that would need a live prompt has nothing to prompt —
- * the CLI denies it outright. `bypassPermissions` is the only mode that
- * reliably lets an agent finish unattended work today, which is why all
- * bundled agents ship with it. `default` still denies unattended prompts
- * (no live approval channel exists yet — tracked in
- * ROADMAP.md Wave 4.5 — the permission channel); `plan` is a real read-only mode
- * that never needs a prompt at all, so it works headless by construction.
+ * Real `claude --permission-mode` values, verified against CLI v2.1.278.
+ *
+ * All six are offered now that a live approval channel exists
+ * (services/execution/permissions.ts + the MCP permission server): a mode that
+ * can prompt is handed `--permission-prompt-tool`, so a headless `-p` run no
+ * longer has to deny by default. Before that channel, `bypassPermissions` was
+ * the only mode that let an agent finish unattended work — which was the
+ * absence of a channel, not a security posture.
+ *
+ * `plan` is read-only and never needs a prompt at all.
  */
-export const PERMISSION_MODE_OPTS = ["bypassPermissions", "default", "plan"] as const;
+export const PERMISSION_MODE_OPTS = [
+  "bypassPermissions",
+  "acceptEdits",
+  "auto",
+  "manual",
+  "dontAsk",
+  "plan",
+] as const;

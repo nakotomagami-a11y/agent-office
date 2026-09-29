@@ -6,6 +6,7 @@ import type { ChildProcessByStdio } from "node:child_process";
 import type { Readable } from "node:stream";
 import type {
   SseAttachedEvent,
+  SsePermissionRequestEvent,
   SseChunkEvent,
   SseDoneEvent,
   SseErrorEvent,
@@ -19,6 +20,7 @@ import type {
 
 export type SseEvent =
   | { name: "attached"; data: SseAttachedEvent }
+  | { name: "permission-request"; data: SsePermissionRequestEvent }
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
   | { name: "usage"; data: SseUsageEvent }

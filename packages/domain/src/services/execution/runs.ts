@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { PersistedRun, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
+import { denyAllForRun, type PermissionRequest } from "./permissions";
 import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
@@ -93,6 +94,10 @@ if (!globalThis.__agentOfficeRunsInstalled) {
 export function startRun(opts: StartRunOpts): { runId: string } {
   const runId = randomUUID();
   const { env, accountId } = resolveSpawnEnv(opts);
+  // The MCP permission bridge is spawned by the CLI and inherits this env; it
+  // has no other way to know which run it is answering for.
+  env.AO_RUN_ID = runId;
+  env.AO_BASE_URL = process.env.AO_BASE_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
   const proc = spawn("claude", opts.args, {
     stdio: ["ignore", "pipe", "pipe"],
     cwd: opts.cwd,
@@ -316,6 +321,18 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
   }
   events.push({ name: "done", data: { runId, exitCode: exitCode ?? (failed ? 1 : 0), sessionId: persisted.sessionId } });
   return events;
+}
+
+/** True while the run is live and could still act on a decision. */
+export function isRunLive(runId: string): boolean {
+  return liveRuns.has(runId);
+}
+
+/** Push a parked permission request to whoever is watching this run. */
+export function broadcastPermissionRequest(runId: string, req: PermissionRequest): void {
+  const run = liveRuns.get(runId);
+  if (!run) return;
+  broadcast(run, { name: "permission-request", data: { ...req } });
 }
 
 export function abortRun(runId: string): boolean {
@@ -741,6 +758,8 @@ function finalizeSubAgentFromResult(
 
 
 function finalizeRun(run: LiveRun, exitCode: number): void {
+  // A finished run can never act on a decision — never leave a prompt hanging.
+  denyAllForRun(run.id);
   if (run.status !== "running") return;
 
   // Auth failures (expired/unrefreshable OAuth) make the CLI print to stderr and
