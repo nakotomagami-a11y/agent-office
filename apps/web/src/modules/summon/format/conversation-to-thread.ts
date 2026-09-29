@@ -11,19 +11,21 @@
 // this function is only used for turns that have scrolled into history.
 import type { PersistedRun } from "@agent-office/domain/types";
 import type { ThreadItem } from "./thread-types";
+import { formatToolArg, isSubAgentSpawnTool, parseStoredToolInput } from "./tool-item";
 
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
   const items: ThreadItem[] = [{ kind: "you", id: `${turn.id}_you`, text: turn.prompt }];
-  // Historical turns DO get their tool-call trail back — `listConversationTurns`
-  // reads it from the permanent `tool_calls` table (not the ephemeral live
-  // event log), so Bash/Grep/etc calls stay visible for as long as those rows
-  // exist: 48h, see `PersistedRun.toolCalls`'s doc comment. Once pruned,
-  // `toolCalls` is just empty/undefined and nothing renders here — no
-  // separate expiry check needed on the client. Same `arg` shape a live
-  // "tool" SSE event would have produced, so it renders identically either way.
+  // Historical turns get their tool-call trail back from the permanent
+  // `tool_calls` table (48h retention). Shaped through the SAME helpers the live
+  // path uses — the claim that these "render identically either way" was false:
+  // live formatted the arg and dropped sub-agent spawns, this did neither.
   if (turn.toolCalls && turn.toolCalls.length > 0) {
     for (const tc of turn.toolCalls) {
-      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: tc.input, runId: turn.id });
+      const input = parseStoredToolInput(tc.input);
+      // Sub-agent spawns render as their own card, exactly as the live path
+      // suppresses them — otherwise a finished run grows duplicate rows.
+      if (isSubAgentSpawnTool(tc.name, input)) continue;
+      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: formatToolArg(input), runId: turn.id });
     }
   } else if (turn.backgroundTaskCommand) {
     // Fallback for the rare case the tool_calls row already aged out but the
