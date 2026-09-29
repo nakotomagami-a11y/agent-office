@@ -390,3 +390,16 @@ export const saveFileSchema = z.object({
   }),
   history: z.array(z.object({ agentId: z.string(), instanceId: z.string(), transcript: z.string() })).optional(),
 });
+
+/** MCP bridge -> host: a tool call awaiting approval. */
+export const permissionRequestSchema = z.object({
+  tool: z.string().min(1).max(200),
+  input: z.unknown().optional(),
+});
+
+/** Chat UI -> host: the operator's answer. */
+export const permissionDecisionSchema = z.object({
+  id: z.string().min(1).max(100),
+  decision: z.enum(["allow", "deny"]),
+});
+

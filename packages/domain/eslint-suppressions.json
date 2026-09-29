@@ -29,11 +29,6 @@
       "count": 1
     }
   },
-  "src/services/execution/summon.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/services/settings.ts": {
     "no-restricted-syntax": {
       "count": 1

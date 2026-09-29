@@ -419,7 +419,17 @@ export interface ScheduledJob {
   updatedAt: number;
 }
 
-export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit";
+export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
+
+/** A tool call parked awaiting the operator's approval. Unanswered ones are
+ *  denied by the server after a timeout — the client never has to. */
+export interface SsePermissionRequestEvent {
+  runId: string;
+  id: string;
+  tool: string;
+  input?: unknown;
+  createdAt: number;
+}
 
 export interface SseChunkEvent { runId: string; text: string }
 export interface SseToolEvent { runId: string; name: string; input?: unknown }
@@ -478,6 +488,7 @@ export interface SseSubAgentUpdateEvent {
 
 export type RunStreamEvent =
   | { name: "attached"; data: SseAttachedEvent }
+  | { name: "permission-request"; data: SsePermissionRequestEvent }
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
   | { name: "usage"; data: SseUsageEvent }
@@ -588,7 +599,9 @@ export interface PromptSegment {
   sub: string;
   /** True for content agent-office doesn't own / the user can't trim. */
   locked: boolean;
-  phase: "always" | "first-turn";
+  /** `on-demand` = a pointer, not a body: the agent reads the file when the
+   *  task calls for it. See services/agents/context-tier.ts. */
+  phase: "always" | "first-turn" | "on-demand";
   group?: "skills";
   children?: PromptSegmentChild[];
 }
@@ -606,8 +619,9 @@ export interface ContextCostRow {
   /** True for content agent-office doesn't own the size of. */
   locked: boolean;
   group?: "skills";
-  /** "always" (default) = resident system prompt. "first-turn" = prior-history injection. */
-  phase?: "always" | "first-turn";
+  /** "always" (default) = resident system prompt. "first-turn" = prior-history
+   *  injection. "on-demand" = a pointer the agent may choose to read. */
+  phase?: "always" | "first-turn" | "on-demand";
 }
 
 export interface ContextCostBreakdown {

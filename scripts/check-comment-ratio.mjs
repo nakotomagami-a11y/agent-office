@@ -19,9 +19,13 @@ import { execFileSync } from "node:child_process";
 
 const BASELINE = "comment-ratio-baseline.json";
 const NEW_FILE_CEILING = 0.15;
+// Below this the ceiling is not enforced: in a 40-line module a single JSDoc
+// block is a large fraction, and the rule targets comment sprawl in real files,
+// not API docs on small ones. Regressions are still caught for every size.
+const MIN_CODE_LINES_FOR_CEILING = 80;
 const TOLERANCE = 0.01; // absolute, absorbs rounding on tiny files
 
-function ratio(file) {
+function measure(file) {
   let comment = 0, code = 0, inBlock = false;
   for (const raw of readFileSync(file, "utf8").split("\n")) {
     const s = raw.trim();
@@ -31,14 +35,30 @@ function ratio(file) {
     if (s.startsWith("//") || s.startsWith("*")) { comment++; continue; }
     code++;
   }
-  return code === 0 ? 0 : comment / code;
+  return { ratio: code === 0 ? 0 : comment / code, code };
 }
+
+const ratio = (f) => measure(f).ratio;
 
 const files = execFileSync("bash", ["-c",
   `git ls-files '*.ts' '*.tsx' | grep -v '\\.test\\.' || true`], { encoding: "utf8" })
   .split("\n").filter(Boolean);
 
 const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
+
+// A moved file is not new code. Without this, relocating a module hits the
+// stricter new-file ceiling and the only way out is re-baselining everything —
+// which defeats the ratchet. Git already knows it was a rename.
+const renames = new Map();
+try {
+  const out = execFileSync("bash", ["-c",
+    "git diff --find-renames --name-status HEAD -- '*.ts' '*.tsx' 2>/dev/null || true"],
+    { encoding: "utf8" });
+  for (const line of out.split("\n")) {
+    const m = /^R\d*\s+(\S+)\s+(\S+)$/.exec(line.trim());
+    if (m) renames.set(m[2], m[1]);
+  }
+} catch { /* not a repo, or git unavailable — fall back to new-file rules */ }
 
 if (process.argv.includes("--update")) {
   const next = {};
@@ -51,9 +71,9 @@ if (process.argv.includes("--update")) {
 const failures = [];
 for (const f of files) {
   const now = ratio(f);
-  const was = base[f];
+  const was = base[f] ?? base[renames.get(f)];
   if (was === undefined) {
-    if (now > NEW_FILE_CEILING) {
+    if (now > NEW_FILE_CEILING && measure(f).code >= MIN_CODE_LINES_FOR_CEILING) {
       failures.push(`${f}: new file at ${(now * 100).toFixed(0)}% comments (ceiling ${NEW_FILE_CEILING * 100}%)`);
     }
   } else if (now > was + TOLERANCE) {

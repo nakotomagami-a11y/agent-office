@@ -276,6 +276,12 @@ export function applySseEvent(
         error: null,
       };
     }
+    case "permission-request": {
+      // The approval card is rendered from the pending-permissions query, not
+      // from the thread — a prompt is transient state, not a transcript entry.
+      // Handled here so the exhaustiveness check keeps covering the union.
+      return { thread: prev.thread, usage: prev.usage, done: false, error: null };
+    }
     default:
       return assertNever(event);
   }
