@@ -498,66 +498,6 @@ export type RunStreamEvent =
   | { name: "subagent"; data: SseSubAgentEvent }
   | { name: "subagent-update"; data: SseSubAgentUpdateEvent };
 
-// ─── Pipeline types ───────────────────────────────────────────────────────────
-
-export interface PipelineStep {
-  agentId: string;
-  instanceId?: string;
-  /** May contain {{output}}, replaced by the previous step's output. */
-  promptTemplate: string;
-  model?: string;
-  effort?: string;
-}
-
-/** A group of steps that run concurrently; outputs join for the next step. */
-export interface ParallelPipelineStep {
-  kind: "parallel";
-  steps: PipelineStep[];
-}
-
-export interface CreatePipelineRequest {
-  steps: (PipelineStep | ParallelPipelineStep)[];
-  projectId?: string;
-  cwd?: string;
-}
-
-export interface PipelineRunStep {
-  stepIndex: number;
-  agentId: string;
-  runId: string;
-  status: "pending" | "running" | "done" | "error";
-  output?: string;
-  exitCode?: number;
-  /** Steps with the same value run concurrently. */
-  parallelGroup?: number;
-}
-
-export interface PipelineRun {
-  id: string;
-  projectId?: string;
-  steps: PipelineRunStep[];
-  status: "running" | "done" | "error";
-  createdAt: number;
-  /** True when the server restarted mid-run. */
-  interrupted?: boolean;
-}
-
-/** A project tab in the Chrome-style tab strip; persisted under ui_settings.tabs-state. */
-export interface Tab {
-  /** Stable id (uuid), distinct from projectId. */
-  id: string;
-  projectId: string;
-  /** Last-known route within this tab. */
-  currentPath: string;
-  createdAt: number;
-  lastActiveAt: number;
-}
-
-export interface TabsState {
-  tabs: Tab[];
-  activeTabId: string | null;
-}
-
 // ─── Docs contracts ───────────────────────────────────────────────────────────
 
 export interface DocFrontmatter {
@@ -604,6 +544,22 @@ export interface PromptSegment {
   phase: "always" | "first-turn" | "on-demand";
   group?: "skills";
   children?: PromptSegmentChild[];
+}
+
+/** A project tab in the Chrome-style tab strip; persisted under ui_settings.tabs-state. */
+export interface Tab {
+  /** Stable id (uuid), distinct from projectId. */
+  id: string;
+  projectId: string;
+  /** Last-known route within this tab. */
+  currentPath: string;
+  createdAt: number;
+  lastActiveAt: number;
+}
+
+export interface TabsState {
+  tabs: Tab[];
+  activeTabId: string | null;
 }
 
 // ─── Context & Cost ───────────────────────────────────────────────────────────

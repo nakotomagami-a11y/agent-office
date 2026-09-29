@@ -62,7 +62,10 @@ try {
 
 if (process.argv.includes("--update")) {
   const next = {};
-  for (const f of files) next[f] = Number(ratio(f).toFixed(4));
+  for (const f of files) {
+    const m = measure(f);
+    next[f] = { ratio: Number(m.ratio.toFixed(4)), code: m.code };
+  }
   writeFileSync(BASELINE, JSON.stringify(next, null, 2) + "\n");
   console.log(`baselined ${files.length} files`);
   process.exit(0);
@@ -70,10 +73,20 @@ if (process.argv.includes("--update")) {
 
 const failures = [];
 for (const f of files) {
-  const now = ratio(f);
-  const was = base[f] ?? base[renames.get(f)];
+  const m = measure(f);
+  const now = m.ratio;
+  const prev = base[f] ?? base[renames.get(f)];
+  // Old baselines stored a bare number.
+  const was = typeof prev === "number" ? prev : prev?.ratio;
+  const wasCode = typeof prev === "number" ? undefined : prev?.code;
+
+  // Deleting code raises the ratio arithmetically without adding a single
+  // comment. Punishing that would make the rule discourage removing code,
+  // which is the opposite of the point.
+  if (was !== undefined && wasCode !== undefined && m.code < wasCode) continue;
+
   if (was === undefined) {
-    if (now > NEW_FILE_CEILING && measure(f).code >= MIN_CODE_LINES_FOR_CEILING) {
+    if (now > NEW_FILE_CEILING && m.code >= MIN_CODE_LINES_FOR_CEILING) {
       failures.push(`${f}: new file at ${(now * 100).toFixed(0)}% comments (ceiling ${NEW_FILE_CEILING * 100}%)`);
     }
   } else if (now > was + TOLERANCE) {
