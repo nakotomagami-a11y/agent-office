@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const HOME = homedir();
@@ -14,10 +14,12 @@ export const PROJECTS_DIR = join(CLAUDE_DIR, "projects");
 export const SKILLS_DIR = join(AGENTS_DIR, "_skills");
 export const SETTINGS_FILE = join(CLAUDE_DIR, "agent-office-settings.json");
 
-/** Repo `scripts/` dir, resolved from this module rather than cwd — the server
- *  process may be started from anywhere (Tauri, systemd, a packaged build). */
+/** Repo `scripts/`. Hops go through `join` at runtime, never inside
+ *  `new URL(...)` — bundlers resolve that form as a module and fail the build,
+ *  which neither typecheck nor lint catches. */
 export const REPO_SCRIPTS_DIR = join(
-  fileURLToPath(new URL("../../../../..", import.meta.url)),
+  dirname(fileURLToPath(import.meta.url)),
+  "..", "..", "..", "..", "..",
   "scripts",
 );
 
