@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+/**
+ * RULE code.comments-explain-why — comment-ratio ratchet.
+ *
+ * A hard ceiling would fail a dozen existing files on day one and get switched
+ * off within a week. So: baseline every file's current ratio, fail only when a
+ * file's ratio INCREASES, and hold new files to the target.
+ *
+ * Context: the TypeScript core sits near 19% comment lines. Agents replicate the
+ * patterns already in the repo, so the density is self-sustaining — a one-off
+ * cleanup would regrow. This converts "delete 5,000 comments" into "never add
+ * the 5,001st".
+ *
+ *   node scripts/check-comment-ratio.mjs            # check (CI)
+ *   node scripts/check-comment-ratio.mjs --update   # re-baseline after a cleanup
+ */
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+
+const BASELINE = "comment-ratio-baseline.json";
+const NEW_FILE_CEILING = 0.15;
+const TOLERANCE = 0.01; // absolute, absorbs rounding on tiny files
+
+function ratio(file) {
+  let comment = 0, code = 0, inBlock = false;
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    const s = raw.trim();
+    if (!s) continue;
+    if (inBlock) { comment++; if (s.includes("*/")) inBlock = false; continue; }
+    if (s.startsWith("/*")) { comment++; if (!s.includes("*/")) inBlock = true; continue; }
+    if (s.startsWith("//") || s.startsWith("*")) { comment++; continue; }
+    code++;
+  }
+  return code === 0 ? 0 : comment / code;
+}
+
+const files = execFileSync("bash", ["-c",
+  `git ls-files '*.ts' '*.tsx' | grep -v '\\.test\\.' || true`], { encoding: "utf8" })
+  .split("\n").filter(Boolean);
+
+const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
+
+if (process.argv.includes("--update")) {
+  const next = {};
+  for (const f of files) next[f] = Number(ratio(f).toFixed(4));
+  writeFileSync(BASELINE, JSON.stringify(next, null, 2) + "\n");
+  console.log(`baselined ${files.length} files`);
+  process.exit(0);
+}
+
+const failures = [];
+for (const f of files) {
+  const now = ratio(f);
+  const was = base[f];
+  if (was === undefined) {
+    if (now > NEW_FILE_CEILING) {
+      failures.push(`${f}: new file at ${(now * 100).toFixed(0)}% comments (ceiling ${NEW_FILE_CEILING * 100}%)`);
+    }
+  } else if (now > was + TOLERANCE) {
+    failures.push(`${f}: ${(was * 100).toFixed(0)}% -> ${(now * 100).toFixed(0)}% (comments grew)`);
+  }
+}
+
+if (failures.length) {
+  console.error("RULE code.comments-explain-why (docs/conventions.md)");
+  console.error("Comments explain WHY, never WHAT. Delete restated code, or rewrite");
+  console.error("the comment to capture a constraint, gotcha or decision.\n");
+  for (const f of failures) console.error("  " + f);
+  console.error(`\n${failures.length} file(s) regressed. After a genuine cleanup: node scripts/check-comment-ratio.mjs --update`);
+  process.exit(1);
+}
+console.log(`comment ratio OK (${files.length} files)`);

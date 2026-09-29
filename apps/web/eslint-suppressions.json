@@ -1,0 +1,82 @@
+{
+  "src/app/api/dev/planet-gallery/route.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/api/dev/seed/showcase.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/api/docs/content/route.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/api/drafts/route.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/app/api/transcripts/route.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/lib/claude-limits-store.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/lib/claude-limits.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/lib/server/project-runtime.ts": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/lib/server/starter-data.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/lib/tabs-store.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/modules/office/components/office-map-overlay.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/modules/office/derive/office-scene-data.ts": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/modules/office/hooks/use-office-store.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/modules/onboarding/components/first-run-wizard.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/modules/projects/hooks/use-project-detail-actions.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/modules/summon/format/message-format.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  }
+}

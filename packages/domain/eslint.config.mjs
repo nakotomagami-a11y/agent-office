@@ -39,6 +39,36 @@ export default [
       // Services log through infra/log; bare console is dev-cruft.
       "no-console": ["error", { allow: ["warn", "error"] }],
 
+      // ── Architecture invariants (docs/conventions.md) ──────────
+      // Enforced mechanically because a rule that exists only as prose is a
+      // rule that gets violated: this one was stated in architecture.md and
+      // never checked, which is how project-runtime.ts ended up stranded in
+      // apps/web where the prompt assembler cannot reach it.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*"],
+              message:
+                "RULE arch.domain-no-app-imports (docs/conventions.md): packages/domain must not import app code. Dependencies point downward only — move the shared piece into packages/domain, or keep the logic in apps/web/src/lib/server/ if it genuinely needs the web runtime.",
+            },
+          ],
+        },
+      ],
+
+      // RULE arch.parse-dont-cast (docs/conventions.md). `JSON.parse` returns
+      // `any`; casting it to a concrete interface is a claim the runtime can
+      // break. Validate at the boundary instead.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSAsExpression > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
+          message:
+            "RULE arch.parse-dont-cast (docs/conventions.md): never cast JSON.parse() straight to a type — `as SomeShape` is a lie the runtime can break. Take it as `unknown` and narrow it with a Zod schema (or a type guard) before use.",
+        },
+      ],
+
       // ── Complexity budgets (warn-only, same as apps/web) ───────
       "max-lines": ["warn", { max: 200, skipBlankLines: true, skipComments: true }],
       "max-lines-per-function": ["warn", { max: 50, skipBlankLines: true, skipComments: true, IIFEs: true }],

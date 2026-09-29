@@ -17,7 +17,7 @@ import nextPlugin from "@next/eslint-plugin-next";
  *     `_`-prefixed intentional-unused).
  *   - `no-console: ["error", { allow: ["warn", "error"] }]` — no
  *     dev-cruft `console.log/debug/info`.
- *   - CLAUDE.md architecture rule (warn): flag CSS Grid usage in JSX
+ *   - ui.flexbox-only (warn): flag CSS Grid usage in JSX
  *     className strings and template literals. Convert to Flexbox.
  */
 export default [
@@ -63,10 +63,10 @@ export default [
       // ── Runtime hygiene ────────────────────────────────────────
       "no-console": ["error", { allow: ["warn", "error"] }],
 
-      // ── Complexity budgets (CLAUDE.md rules) ───────────────────
+      // ── Complexity budgets (docs/conventions.md) ───────────────
       // Warn only — the codebase has legacy files that go over these
       // limits. The warnings surface them without blocking dev; per-file
-      // cleanup happens in the docs/plans/architectural-cleanup.md
+      // cleanup is tracked in ROADMAP.md (Wave 7)
       // execution.
       "max-lines": [
         "warn",
@@ -79,7 +79,7 @@ export default [
       "max-depth": ["warn", 3],
       "max-params": ["warn", 5],
 
-      // ── Architecture rules (CLAUDE.md — Flexbox only + no
+      // ── Architecture rules (docs/conventions.md — Flexbox only + no
       //    generic utility drawer names) ─────────────────────────
       "no-restricted-syntax": [
         "warn",
@@ -87,21 +87,32 @@ export default [
           selector:
             "JSXAttribute[name.name='className'] Literal[value=/\\b(grid-cols-|grid-rows-|grid-template|grid-flow|grid-area)\\b/]",
           message:
-            "CSS Grid is forbidden by CLAUDE.md — use Flexbox (flex + flex-wrap + basis-* / w-* / flex-1).",
+            "RULE ui.flexbox-only (docs/conventions.md): CSS Grid is not used in this codebase — use Flexbox (flex + flex-wrap + basis-* / w-* / flex-1).",
         },
         {
           selector:
             "TemplateElement[value.raw=/\\b(grid-cols-|grid-rows-|grid-template|grid-flow|grid-area)\\b/]",
           message:
-            "CSS Grid is forbidden by CLAUDE.md — use Flexbox (flex + flex-wrap + basis-* / w-* / flex-1).",
+            "RULE ui.flexbox-only (docs/conventions.md): CSS Grid is not used in this codebase — use Flexbox (flex + flex-wrap + basis-* / w-* / flex-1).",
         },
       ],
+      // RULE arch.parse-dont-cast (docs/conventions.md) — same rule the domain
+      // package enforces; external input is narrowed, never asserted.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSAsExpression > CallExpression.expression > MemberExpression.callee[property.name='parse'][object.name='JSON']",
+          message:
+            "RULE arch.parse-dont-cast (docs/conventions.md): never cast JSON.parse() straight to a type — `as SomeShape` is a lie the runtime can break. Take it as `unknown` and narrow it with a Zod schema (validateBody for request bodies) before use.",
+        },
+      ],
+
       "no-restricted-imports": [
         "warn",
         {
           patterns: [
             {
-              // Banned generic drawer names — CLAUDE.md says "domain
+              // Banned generic drawer names — see naming.no-drawers ("domain
               // names, not utils/helpers/common/shared."
               group: [
                 "**/utils/*",
@@ -115,7 +126,7 @@ export default [
                 "!next/**",
               ],
               message:
-                "CLAUDE.md rule: no `utils`, `helpers`, `common`, `shared` names. Use a domain-specific module name that describes what the file does.",
+                "RULE naming.no-drawers (docs/conventions.md): no `utils`, `helpers`, `common`, `shared` module names. Use a domain name that says what the file does.",
             },
           ],
         },

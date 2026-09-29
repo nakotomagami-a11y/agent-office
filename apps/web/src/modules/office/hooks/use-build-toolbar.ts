@@ -14,7 +14,7 @@ import type { BuildTool, LandGenParams } from "../components/office-build-toolba
 
 /**
  * All non-JSX state, effects and derived data for the build toolbar. Keeps the
- * component file markup-only (see docs/component-conventions.md): it calls this
+ * component file markup-only (markup-only components: docs/architecture.md): it calls this
  * hook and renders the result.
  */
 export function useBuildToolbar(params: {

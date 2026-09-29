@@ -1,0 +1,47 @@
+{
+  "src/services/accounts/accounts.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/accounts/shell-env.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/agents/context-cost-measure.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/services/db/conversations.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/db/scheduled-jobs.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/execution/runs.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/execution/summon.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/settings.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/services/skills/skills.ts": {
+    "no-restricted-syntax": {
+      "count": 4
+    }
+  }
+}
