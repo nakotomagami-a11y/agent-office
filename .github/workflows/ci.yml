@@ -1,0 +1,36 @@
+# Typecheck, lint and test on every PR. Until this existed nothing ran the
+# checks automatically, which is how a broken shell command and 47 unresolvable
+# skill references stayed invisible for months.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Lint
+        run: pnpm -r lint --max-warnings=-1
+
+      - name: Test (domain)
+        run: pnpm --filter @agent-office/domain test

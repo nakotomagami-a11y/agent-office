@@ -777,9 +777,13 @@ export interface SkillBreakdownRow {
   name: string;
   /** Character count of what actually lands in the prompt for this skill —
    *  the full body when inlined, or just the short reference line (name +
-   *  description + path) when it's read-on-demand instead. */
+   *  description + path) when it's read-on-demand instead. 0 when `missing`. */
   chars: number;
-  mode: "inline" | "reference";
+  /** `missing` = the agent declares this skill but it is not installed, so it
+   *  contributes nothing to the prompt. It is surfaced rather than dropped:
+   *  a silently-skipped skill is indistinguishable from a working one, which
+   *  is how 47 unresolvable references went unnoticed across 29 agents. */
+  mode: "inline" | "reference" | "missing";
 }
 
 interface ClassifiedSkill extends SkillBreakdownRow {
@@ -795,13 +799,21 @@ function classifySkills(skills: string[]): ClassifiedSkill[] {
   const out: ClassifiedSkill[] = [];
   for (const name of skills) {
     const skill = readInstalledSkill(name);
-    if (!skill?.body) continue;
+    if (!skill?.body) {
+      log.warn("skill.unresolved", { skill: name, reason: "not installed or empty body" });
+      out.push({ name, chars: 0, mode: "missing", fragment: "" });
+      continue;
+    }
     // Inject the effective (customized) body. A customized skill is always
     // inlined — even if large — because the reference-by-path fallback points
     // at the raw SKILL.md, which would leak the sections the user turned off.
     const cfg = getSkillCustomization(name);
     const body = resolveSkillBody(name, skill.body);
-    if (!body) continue;
+    if (!body) {
+      log.warn("skill.unresolved", { skill: name, reason: "customization resolved to an empty body" });
+      out.push({ name, chars: 0, mode: "missing", fragment: "" });
+      continue;
+    }
     if (body.length <= INLINE_MAX_CHARS || isSkillCustomized(cfg)) {
       const fragment = `### Skill: ${skill.name}\n\n${body}`;
       out.push({ name: skill.name, chars: fragment.length, mode: "inline", fragment });
@@ -815,8 +827,22 @@ function classifySkills(skills: string[]): ClassifiedSkill[] {
   return out;
 }
 
-export function buildSkillsPrompt(skills: string[]): string {
+/** Prompt fragment + per-skill breakdown from ONE classification pass.
+ *  `classifySkills` reads from disk and warns on unresolved entries, so calling
+ *  it once per consumer duplicated both the I/O and the log lines on every turn. */
+export function buildSkillsBundle(skills: string[]): { prompt: string; breakdown: SkillBreakdownRow[] } {
   const classified = classifySkills(skills);
+  return {
+    prompt: promptFromClassified(classified),
+    breakdown: classified.map(({ name, chars, mode }) => ({ name, chars, mode })),
+  };
+}
+
+export function buildSkillsPrompt(skills: string[]): string {
+  return promptFromClassified(classifySkills(skills));
+}
+
+function promptFromClassified(classified: ClassifiedSkill[]): string {
   const inline = classified.filter((c) => c.mode === "inline").map((c) => c.fragment);
   const refs = classified.filter((c) => c.mode === "reference").map((c) => c.fragment);
   const sections: string[] = [];
@@ -836,6 +862,14 @@ export function buildSkillsPrompt(skills: string[]): string {
 export function buildSkillsBreakdown(skills: string[]): SkillBreakdownRow[] {
   const out: SkillBreakdownRow[] = classifySkills(skills).map(({ name, chars, mode }) => ({ name, chars, mode }));
   return out;
+}
+
+/** Declared skill names that resolve to nothing. Empty array = all resolve.
+ *  Intended for badging an agent in the UI and for blocking a save that would
+ *  silently ship a dead capability — neither is wired up yet; today this backs
+ *  the agent-surface test. */
+export function unresolvedSkills(skills: string[]): string[] {
+  return classifySkills(skills).filter((c) => c.mode === "missing").map((c) => c.name);
 }
 
 export function registrySources(): Array<{ source: string; ref: string; builtIn: boolean }> {
