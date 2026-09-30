@@ -1,10 +1,7 @@
 /**
- * The Loop dispatcher: turns the pure machine's effects into real runs, and
- * real run completions back into actions.
- *
- * The machine owns the ceilings; this owns nothing but translation. Anything
- * resembling a policy decision here is a bug — it belongs in `loop-machine.ts`
- * where it is deterministic and testable.
+ * The Loop dispatcher: effects -> real runs, run completions -> actions.
+ * Translation only. Any policy decision here is a bug: it belongs in the pure
+ * `loop-machine.ts`, where it is deterministic and testable.
  */
 import { randomUUID } from "node:crypto";
 import * as db from "../db/index";
@@ -14,8 +11,7 @@ import {
   type Finding, type LoopAction, type LoopConfig, type LoopEffect, type LoopState,
 } from "./loop-machine";
 
-/** Abstracts "spawn a run and give me its id", mirroring ConversationRunner.
- *  Injected so the dispatcher is testable without spawning a CLI. */
+/** Mirrors ConversationRunner. Injected so this is testable without a CLI. */
 export interface LoopRunner {
   startRun(input: {
     agentId: string;
@@ -26,8 +22,7 @@ export interface LoopRunner {
   }): Promise<string>;
   /** Cost of a finished run, for the budget ceiling. */
   costOf(runId: string): number;
-  /** Does this rule id resolve? A finding citing a rule that does not exist is
-   *  a miswired reviewer, and the machine treats the batch as invalid. */
+  /** A finding citing a rule that does not resolve is a miswired reviewer. */
   ruleExists(id: string): boolean;
 }
 
@@ -98,8 +93,7 @@ export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: 
   return id;
 }
 
-/** Which action a finished run represents depends on the phase that dispatched
- *  it — the machine rejects anything out of phase, so this must not guess. */
+/** The phase that dispatched the run decides the action; never guess. */
 function actionFor(state: LoopState, ok: boolean, costUsd: number, findings: Finding[]): LoopAction | null {
   switch (state.phase) {
     case "authoring": return { type: "authorFinished", ok, costUsd };
@@ -127,16 +121,16 @@ async function dispatch(loop: db.LoopRow, effects: LoopEffect[], runner: LoopRun
   return null;
 }
 
-/**
- * Advance a loop. `findings` come from the reviewer's ReportFindings output;
- * an empty array from a review that produced none is a genuine pass, which is
- * why it is not conflated with `ok: false`.
- */
+/** `findings: []` from a completed review is a genuine PASS — never conflated
+ *  with `ok: false`. */
 export async function advanceLoop(
   loopId: string,
   action: LoopAction,
   runner: LoopRunner,
   now: number,
+  /** Set when the caller already CAS-claimed the active run, so an ignored
+   *  action can put it back instead of leaving the loop stranded. */
+  claimedRunId: string | null = null,
 ): Promise<void> {
   const loop = db.getLoop(loopId);
   if (!loop) return;
@@ -147,6 +141,7 @@ export async function advanceLoop(
   // strand the loop.
   if (state === loop.state && effects.length === 0) {
     log.warn("loop.action_ignored", { loopId, action: action.type, phase: loop.state.phase });
+    if (claimedRunId) db.updateLoopState(loopId, loop.state, claimedRunId, now);
     return;
   }
 
@@ -168,7 +163,13 @@ export async function onLoopRunFinished(
 ): Promise<void> {
   const loop = db.getLoopByActiveRun(runId);
   if (!loop) return;
+  // Claim BEFORE any await: `advanceLoop` spawns the next round between
+  // reading and writing, so two listeners for one run would both dispatch.
+  if (!db.claimActiveRun(loop.id, runId)) return;
   const action = actionFor(loop.state, ok, runner.costOf(runId), findings);
-  if (!action) return;
-  await advanceLoop(loop.id, action, runner, now);
+  if (!action) {
+    db.updateLoopState(loop.id, loop.state, runId, now);
+    return;
+  }
+  await advanceLoop(loop.id, action, runner, now, runId);
 }

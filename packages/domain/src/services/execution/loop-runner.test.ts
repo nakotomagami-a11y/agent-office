@@ -144,6 +144,22 @@ test("state survives a reload — the loop is durable, not in-memory", async () 
   assert.equal(reloaded.config.maxRounds, 3);
 });
 
+test("CONCURRENT finishes for one run dispatch exactly once", async () => {
+  // Honest scope: in-process this passes WITHOUT the compare-and-swap, because
+  // better-sqlite3 is synchronous — the second call finds `active_run_id`
+  // already cleared and returns early. This guards double-dispatch, which is
+  // the behaviour that matters; it does NOT prove the CAS.
+  const { runner, dispatched, rid } = makeRunner();
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await Promise.all([
+    onLoopRunFinished(rid(1), true, runner, 1),
+    onLoopRunFinished(rid(1), true, runner, 1),
+  ]);
+  assert.equal(dispatched.length, 2, "one author run + exactly one review run");
+  assert.equal(db.getLoop(id)!.state.round, 1);
+  assert.equal(db.getLoop(id)!.state.phase, "reviewing");
+});
+
 test("a user stop is reported as user_stopped, not as a review failure", async () => {
   const { runner } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);

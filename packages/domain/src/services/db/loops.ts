@@ -164,6 +164,18 @@ export function updateLoopState(id: string, state: LoopState, activeRunId: strin
     });
 }
 
+/** Atomically take ownership of a loop's active run; false when someone else
+ *  already has it. In-process this is belt-and-braces — better-sqlite3 is
+ *  synchronous, so read-then-claim cannot interleave. It is here for a SECOND
+ *  PROCESS on the same db file (the app already guards against a stray
+ *  instance elsewhere), where read-then-write would double-spawn a round. */
+export function claimActiveRun(id: string, runId: string): boolean {
+  const r = getDb()
+    .prepare(`UPDATE loops SET active_run_id=NULL WHERE id=? AND active_run_id=?`)
+    .run(id, runId);
+  return r.changes === 1;
+}
+
 export function getLoop(id: string): LoopRow | null {
   const r = getDb().prepare(`SELECT * FROM loops WHERE id=?`).get(id) as RawLoopRow | undefined;
   return r ? toRow(r) : null;
