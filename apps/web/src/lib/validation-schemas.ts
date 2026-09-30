@@ -123,7 +123,8 @@ export const projectSecretLinkSchema = z.object({
 });
 
 export const createProjectSchema = z.object({
-  id: z.string().optional(),
+  // Reaches mkdirSync via createProject — must not contain path separators.
+  id: z.string().regex(/^[a-z0-9][a-z0-9._-]*$/i, "invalid_id").optional(),
   name: z.string().optional(),
   description: z.string().optional(),
   roster: z.array(z.unknown()).optional(),

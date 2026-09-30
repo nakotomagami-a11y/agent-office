@@ -184,3 +184,19 @@ test("omitting expectedRev keeps the previous last-write-wins behaviour", () => 
   projects.updateProject(id, { meta: { description: "no token supplied" } });
   assert.equal(projects.readProject(id)!.meta.description, "no token supplied");
 });
+
+// --- createProject must not be a second, unguarded writer -------------------
+
+test("createProject over an existing project adopts it instead of erasing it", () => {
+  // POST /api/projects with an existing id -- or any name that slugifies onto
+  // one -- used to overwrite project.md wholesale: roster, accountId, unknown
+  // keys and memory all gone. That is the literal incident symptom, reachable
+  // from an unauthenticated local POST.
+  reseed(SEED.replace("---\n\n", "---\n\nremember this\n"));
+  projects.createProject({ id, name: "Renamed By Create", description: "d" });
+  const p = projects.readProject(id)!;
+  assert.equal(p.meta.name, "Renamed By Create", "precondition: the create did apply");
+  assert.deepEqual(p.meta.roster.map((i) => i.instanceId), ["developer-aaa", "developer-bbb"]);
+  assert.equal(p.meta.accountId, "acc_keepme");
+  assert.match(readFileSync(metaPath, "utf8"), /gh_keepme/);
+});

@@ -144,3 +144,38 @@ test("importing a bundle WITH a roster still restores it", async () => {
   });
   assert.deepEqual(projects.readProject(id)!.meta.roster.map((i) => i.instanceId), ["developer-zzz"]);
 });
+
+test("unmodelled per-instance roster keys survive an unrelated write", () => {
+  reseed(SEED.replace(
+    "- instanceId: developer-aaa\n  agentId: developer",
+    "- instanceId: developer-aaa\n  agentId: developer\n  nickname: Bob",
+  ));
+  projects.updateProject(id, { meta: { shelved: true } });
+  assert.match(readFileSync(metaPath, "utf8"), /nickname: "?Bob"?/);
+  assert.deepEqual(
+    projects.readProject(id)!.meta.roster.map((i) => i.instanceId),
+    ["developer-aaa", "developer-bbb"],
+  );
+});
+
+test("a legitimate keyless frontmatter block is writable, not locked out", () => {
+  // An empty block, a comment-only block and a stray markdown `---` rule all
+  // parse to an empty MAPPING. Keying "unreadable" on "no keys" locked the
+  // user out of all three; it keys on "not a mapping" instead.
+  for (const seed of [
+    "---\n---\n\nbody\n",
+    "---\n# keys temporarily commented out\n---\n\nbody\n",
+    "---\n\nsome prose rule at the top\n\n---\n\nmore body\n",
+  ]) {
+    reseed(seed);
+    assert.doesNotThrow(
+      () => projects.updateProject(id, { meta: { shelved: true } }),
+      `locked out of: ${JSON.stringify(seed)}`,
+    );
+  }
+});
+
+test("a frontmatter block that is a sequence is still refused", () => {
+  reseed("---\n- just\n- a list\n---\n");
+  assert.throws(() => projects.updateProject(id, { meta: { shelved: true } }), /unreadable/i);
+});

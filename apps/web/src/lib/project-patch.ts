@@ -14,10 +14,12 @@ type ParsedBody = z.infer<typeof projectMetaPatchSchema>;
  * must keep `absent` and `undefined` distinct — so the mapping is pinned by
  * project-meta-patch.test.ts rather than left to inspection.
  */
-export function toProjectUpdatePatch(data: ParsedBody): {
-  meta?: ProjectMetaPatch;
-  memory?: string;
-  expectedRev?: string;
-} {
-  return { meta: data.meta, memory: data.memory, expectedRev: data.expectedRev };
+export function toProjectUpdatePatch(
+  data: ParsedBody,
+): { [K in keyof ParsedBody]: K extends "meta" ? ProjectMetaPatch | undefined : ParsedBody[K] } {
+  // Spread, not a hand-copied key list: a new top-level schema key would
+  // otherwise be silently dropped here — the same "mapping quietly disagrees
+  // with the schema" failure as the `?? undefined` this file replaced. The
+  // mapped return type makes an omission a compile error.
+  return { ...data, meta: data.meta };
 }

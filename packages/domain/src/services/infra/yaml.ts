@@ -22,17 +22,39 @@ export function isYamlMapping(v: unknown): v is YamlMapping {
  * non-mapping YAML yields an empty mapping; a document without a
  * frontmatter block yields `{ fm: {}, body: content }` unchanged.
  */
-export function parseFrontmatter(content: string): { fm: YamlMapping; body: string } {
+export interface FrontmatterSplit {
+  fm: YamlMapping;
+  body: string;
+  /** A `---` block was present. */
+  matched: boolean;
+  /**
+   * The block yielded a MAPPING. False = a sequence, or it threw. An empty,
+   * comment-only or stray-`---` block yields an empty mapping and is readable,
+   * so "unreadable" must key on this, never on "no keys".
+   */
+  mapping: boolean;
+}
+
+export function parseFrontmatterDetailed(content: string): FrontmatterSplit {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!m) return { fm: {}, body: content };
+  if (!m) return { fm: {}, body: content, matched: false, mapping: true };
   let fm: YamlMapping = {};
+  let mapping = false;
   try {
     const parsed = parseYaml(m[1]!.replace(/\r\n/g, "\n"));
-    if (isYamlMapping(parsed)) fm = parsed;
+    if (isYamlMapping(parsed)) {
+      fm = parsed;
+      mapping = true;
+    }
   } catch {
     fm = {};
   }
-  return { fm, body: m[2]! };
+  return { fm, body: m[2]!, matched: true, mapping };
+}
+
+export function parseFrontmatter(content: string): { fm: YamlMapping; body: string } {
+  const { fm, body } = parseFrontmatterDetailed(content);
+  return { fm, body };
 }
 
 const SCALAR_RE = /^[A-Za-z0-9_./@:+\-]+$/;
@@ -64,9 +86,9 @@ function parseScalar(raw: string): YamlValue {
 }
 
 /**
- * These files are hand-edited, so the recursion below must be bounded: it once
- * burned seconds of CPU and blew the stack. Past the cap the text stays a
- * scalar. Deepest real shape is planet.customPalette at 3.
+ * Bounds the recursion below: unbounded, it burned seconds of CPU on a
+ * hand-edited file and blew the stack. Past the cap the text stays a scalar.
+ * Deepest real shape is planet.customPalette at 3.
  */
 const MAX_FLOW_DEPTH = 32;
 
@@ -102,8 +124,7 @@ function parseFlowList(raw: string, nesting = 0): YamlValue[] {
     buf += ch;
   }
   if (buf.trim()) parts.push(buf);
-  // Split is depth-aware, so a nested list arrives intact -- recurse rather
-  // than flattening it to the raw string "[1, 2, 3]".
+  // Split is depth-aware, so a nested list arrives intact.
   return parts.map((p) => {
     const t = p.trim();
     return nesting < MAX_FLOW_DEPTH && t.startsWith("[") && t.endsWith("]")
@@ -306,8 +327,7 @@ function stringifyValue(v: YamlValue, indent: number, depth = 0): string {
   if (typeof v === "string") return quoteScalar(v);
   if (Array.isArray(v)) {
     if (v.length === 0) return "[]";
-    // Nested arrays must stay inline: as block items they produced
-    // `-     - [1, 2, 3]`, which is not valid YAML.
+    // Nested arrays inline: as block items they produced invalid YAML.
     const hasMapping = v.some((x) => x !== null && typeof x === "object" && !Array.isArray(x));
     if (!hasMapping) {
       return `[${v.map((x) => stringifyValue(x, 0, depth + 1)).join(", ")}]`;
@@ -336,7 +356,7 @@ function stringifyValue(v: YamlValue, indent: number, depth = 0): string {
       lines.push(stringifyValue(val, indent + 2));
     } else if (Array.isArray(val) && val.some((x) => x !== null && typeof x === "object" && !Array.isArray(x))) {
       // Mappings only: `typeof val[0] === "object"` also caught nested arrays,
-      // emitting `key:` above an unindented flow list, which parses as null.
+      // emitting `key:` above an unindented flow list (parses as null).
       lines.push(`${pad}${k}:`);
       lines.push(stringifyValue(val, indent));
     } else {

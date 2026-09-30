@@ -99,14 +99,15 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<NextRespo
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.message;
-    // Before the /not found/ sniff below, which would 404 it.
-    if (err instanceof projects.StaleProjectWriteError) {
-      // errors.machine-codes: `error` is a stable code, never prose.
-      return conflict("stale_write", {
-        detail: msg,
-        expectedRev: err.expectedRev,
-        actualRev: err.actualRev,
-      });
+    // Before the /not found/ sniff, which would 404 these. Narrow on `code`
+    // too: a module instantiated twice in the server graph fails instanceof.
+    const code = (err as { code?: string }).code;
+    if (err instanceof projects.StaleProjectWriteError || code === "stale_write") {
+      const e = err as Partial<projects.StaleProjectWriteError>;
+      return conflict("stale_write", { detail: msg, expectedRev: e.expectedRev, actualRev: e.actualRev });
+    }
+    if (err instanceof projects.UnreadableProjectMetadataError || code === "metadata_unreadable") {
+      return conflict("metadata_unreadable", { detail: msg });
     }
     if (
       (err as NodeJS.ErrnoException).code === "ENOENT" ||

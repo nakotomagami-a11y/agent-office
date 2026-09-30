@@ -8,7 +8,7 @@ import { join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
 import { expandTilde, PROJECTS_DIR } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { parseFrontmatter, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
+import { parseFrontmatterDetailed, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
 import { readSettings, scanProjects, slugify, isFeatureEnabled } from "../settings";
 import { getDb } from "../db";
@@ -44,6 +44,15 @@ function revOf(content: string): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
 
+/** Raised when project.md exists but could not be understood. */
+export class UnreadableProjectMetadataError extends Error {
+  readonly code = "metadata_unreadable";
+  constructor(readonly projectId: string) {
+    super(`project '${projectId}' metadata is present but unreadable -- refusing to overwrite it`);
+    this.name = "UnreadableProjectMetadataError";
+  }
+}
+
 /** Raised when a write's `expectedRev` no longer matches what is on disk. */
 export class StaleProjectWriteError extends Error {
   readonly code = "stale_write";
@@ -61,14 +70,15 @@ export class StaleProjectWriteError extends Error {
  * matched nothing on CRLF, so one write emptied the whole project.
  */
 function parseMetadataFile(content: string): ParsedMetadata {
-  const { fm, body } = parseFrontmatter(content);
-  const hasBlock = /^---\r?\n/.test(content);
+  const { fm, body, matched, mapping } = parseFrontmatterDetailed(content);
   return {
     meta: yamlToProjectMeta(fm),
     memory: body.trim(),
     rev: revOf(content),
     raw: fm,
-    lossy: hasBlock && Object.keys(fm).length === 0,
+    // Keying on "no keys" locked users out of an empty block, a comment-only
+    // block, and a stray `---` markdown rule.
+    lossy: matched && !mapping,
   };
 }
 
@@ -121,9 +131,27 @@ function yamlToProjectMeta(m: YamlMapping): Partial<ProjectMeta> {
   return out;
 }
 
-function rosterToYaml(roster: AgentInstance[]): YamlValue {
+/** Per-instance keys this module models; anything else is carried through. */
+const KNOWN_INSTANCE_KEYS = new Set([
+  "instanceId", "agentId", "label", "model", "effort",
+  "permissionMode", "playwrightEnabled", "room", "cwd", "worktree",
+]);
+
+/** Re-emits unmodelled per-instance keys, as `carry` does for top-level ones. */
+function rosterToYaml(roster: AgentInstance[], carried?: unknown): YamlValue {
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const r of Array.isArray(carried) ? carried : []) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    if (typeof o.instanceId === "string") byId.set(o.instanceId, o);
+  }
   return roster.map((inst) => {
-    const o: YamlMapping = { instanceId: inst.instanceId, agentId: inst.agentId };
+    const o: YamlMapping = {};
+    for (const [k, v] of Object.entries(byId.get(inst.instanceId) ?? {})) {
+      if (!KNOWN_INSTANCE_KEYS.has(k)) o[k] = v as YamlValue;
+    }
+    o.instanceId = inst.instanceId;
+    o.agentId = inst.agentId;
     if (inst.label !== undefined) o.label = inst.label;
     if (inst.model !== undefined) o.model = inst.model;
     if (inst.effort !== undefined) o.effort = inst.effort;
@@ -143,13 +171,9 @@ function rosterToYaml(roster: AgentInstance[]): YamlValue {
 }
 
 /**
- * Cache of parsed project.md metadata keyed by file path, invalidated by the
- * file's mtime. `listProjectSummaries` runs on a 10s poll and re-parses every
- * project.md's YAML each tick; keying on mtime turns that back into one cheap
- * `statSync` per project when nothing changed. `writeMetadata` writes via
- * atomic rename (fresh mtime), so edits self-invalidate. `null` mtime marks a
- * negative cache entry (file absent), so a missing project.md isn't re-stat'd
- * into a throw on every poll.
+ * Parsed project.md keyed by path, invalidated by mtime — the 10s summary poll
+ * would otherwise re-parse every project's YAML each tick. `null` mtime is a
+ * negative entry (file absent).
  */
 const metadataCache = new Map<string, { mtimeMs: number | null; parsed: ParsedMetadata | null }>();
 
@@ -218,13 +242,25 @@ function normalizeRoster(raw: unknown): AgentInstance[] {
     }
     out.push(inst);
   }
+  if (out.length < raw.length) {
+    // A dropped entry is an instance vanishing from the office. It stays
+    // dropped (unusable shape), but silence is what made the original
+    // roster loss unattributable.
+    log.warn("project.roster_entries_discarded", { seen: raw.length, kept: out.length });
+  }
   return out;
 }
 
-/** Frontmatter keys this module owns. Anything else is carried through. */
-const KNOWN_META_KEYS = new Set([
-  "name", "description", "roster", "accountId", "githubAccountId", "shelved", "planet",
-]);
+/**
+ * Frontmatter keys this module owns; anything else is carried through.
+ * `satisfies Record<keyof ProjectMeta, true>` pins it to the type: add a field
+ * to ProjectMeta and forget this set, and the compiler complains instead of
+ * silently resurrecting a cleared value out of `carry` on the next write.
+ */
+const KNOWN_META_KEYS = new Set(Object.keys({
+  name: true, description: true, cwd: true, roster: true,
+  accountId: true, githubAccountId: true, shelved: true, planet: true,
+} satisfies Record<keyof ProjectMeta, true>));
 
 /** `carry` re-emits frontmatter keys this module does not model. */
 function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: YamlMapping = {}): string {
@@ -235,7 +271,7 @@ function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: Ya
   if (meta.name) fmObj.name = meta.name;
   if (meta.description) fmObj.description = meta.description;
   if (Array.isArray(meta.roster) && meta.roster.length > 0) {
-    fmObj.roster = rosterToYaml(meta.roster);
+    fmObj.roster = rosterToYaml(meta.roster, carry.roster);
   }
   if (meta.accountId) fmObj.accountId = meta.accountId;
   if (meta.githubAccountId) fmObj.githubAccountId = meta.githubAccountId;
@@ -292,9 +328,8 @@ function writeMetadata(
 interface MetadataSnapshot { meta: ProjectMeta; memory: string; rev: string }
 
 /**
- * `apply` receives ON-DISK state and returns the next state, so a caller
- * cannot write back a blob it captured earlier. Read-apply-write is
- * synchronous; `expectedRev` covers the cross-process case.
+ * `apply` receives ON-DISK state, so a caller cannot write back a blob it
+ * captured earlier. `expectedRev` covers the cross-process case.
  */
 function mutateMetadata(
   id: string,
@@ -312,9 +347,7 @@ function mutateMetadata(
   // (the rev hashes raw bytes, which read fine).
   if (md?.lossy) {
     log.error("project.metadata_unreadable", { id, reason });
-    throw new Error(
-      `project '${id}' metadata is present but unreadable -- refusing to overwrite it`,
-    );
+    throw new UnreadableProjectMetadataError(id);
   }
   const currentRev = existing.rev ?? EMPTY_REV;
   if (expectedRev !== undefined && expectedRev !== currentRev) {
@@ -485,6 +518,58 @@ export class InstanceCapError extends Error {
   }
 }
 
+/** Gives the 2nd+ instance of an agent its own worktree, when the flag is on. */
+function attachWorktree(
+  projectId: string,
+  instance: AgentInstance,
+  cwd: string | undefined,
+  existingCount: number,
+  settings: AppSettings | null | undefined,
+): void {
+  if (existingCount < 1) return;
+  const { instanceId, agentId } = instance;
+  if (!cwd || !isGitRepo(cwd)) {
+    log.info("project.instance_shared_cwd", {
+      projectId, instanceId, agentId,
+      note: "project is not a git repo — instance shares project cwd",
+    });
+    return;
+  }
+  if (!isFeatureEnabled(settings ?? null, "multiInstance")) return;
+  try {
+    const wt = createWorktree(cwd, agentId, instanceId);
+    instance.worktree = wt;
+    instance.cwd = wt.basePath;
+  } catch (err) {
+    // Graceful fallback: the instance shares the project cwd.
+    log.warn("project.worktree_create_failed", {
+      projectId, instanceId, agentId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/** Appended against the roster on disk NOW, not the copy read before the worktree. */
+function appendInstance(projectId: string, instance: AgentInstance): Project {
+  return mutateMetadata(projectId, "addInstance", (cur) => ({
+    meta: { ...cur.meta, roster: [...cur.meta.roster, instance] },
+  }));
+}
+
+/** A refused write would otherwise leak the worktree until the next reconcile. */
+function discardWorktree(projectId: string, instance: AgentInstance, cwd: string | undefined): void {
+  if (!instance.worktree || !cwd) return;
+  try {
+    removeWorktree(cwd, instance.worktree);
+  } catch (err) {
+    log.warn("project.worktree_orphaned", {
+      projectId,
+      instanceId: instance.instanceId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export function addInstance(
   projectId: string,
   agentId: string,
@@ -509,39 +594,16 @@ export function addInstance(
   const instanceId = makeInstanceId(agentId, p.meta.roster);
   const instance: AgentInstance = { instanceId, agentId, ...init };
 
-  // Worktree creation for 2nd+ instance of the same agent, when flag is on.
-  if (
-    existingCount >= 1 &&
-    isFeatureEnabled(settings ?? null, "multiInstance") &&
-    p.meta.cwd &&
-    isGitRepo(p.meta.cwd)
-  ) {
-    try {
-      const wt = createWorktree(p.meta.cwd, agentId, instanceId);
-      instance.worktree = wt;
-      instance.cwd = wt.basePath;
-    } catch (err) {
-      log.warn("project.worktree_create_failed", {
-        projectId,
-        instanceId,
-        agentId,
-        err: err instanceof Error ? err.message : String(err),
-      });
-      // Graceful fallback: instance shares project cwd, worktree/cwd remain unset.
-    }
-  } else if (existingCount >= 1 && !isGitRepo(p.meta.cwd ?? "")) {
-    log.info("project.instance_shared_cwd", {
-      projectId,
-      instanceId,
-      agentId,
-      note: "project is not a git repo — instance shares project cwd",
-    });
-  }
+  attachWorktree(projectId, instance, p.meta.cwd, existingCount, settings);
 
   // Against the roster on disk NOW: worktree creation takes time.
-  const project = mutateMetadata(projectId, "addInstance", (cur) => ({
-    meta: { ...cur.meta, roster: [...cur.meta.roster, instance] },
-  }));
+  let project: Project;
+  try {
+    project = appendInstance(projectId, instance);
+  } catch (err) {
+    discardWorktree(projectId, instance, p.meta.cwd);
+    throw err;
+  }
   log.info("project.instance_added", { projectId, instanceId: instance.instanceId, agentId });
   return { project, instance };
 }
@@ -851,6 +913,14 @@ export function createProject(input: CreateProjectInput): Project {
     log.info("project.folder_created", { path: newPath });
     scanned = scanProjects(settings.projectsRoot, settings.excluded).find((e) => e.id === id);
     if (!scanned) throw new Error(`failed to create project folder at ${newPath}`);
+  }
+  // Never a blind overwrite: POST with an existing id erased the roster,
+  // accountId, unknown keys and memory, bypassing mutateMetadata entirely.
+  if (existsSync(metadataFile(id))) {
+    const patch: ProjectMetaPatch = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.description !== undefined) patch.description = input.description;
+    return updateProject(id, { meta: patch }, "createProject.adopt");
   }
   const meta: ProjectMeta = {
     name: input.name ?? scanned.name,

@@ -40,18 +40,23 @@ export function useUpdateProject() {
       return apiFetch<Project>(API_ROUTES.project(id), { method: "PUT", body });
     },
     onSuccess: (project, vars) => {
-      // Invalidation alone leaves an INACTIVE detail query unrefetched
-      // (default refetchType "active"), so the next write reuses a dead rev.
-      if (project?.rev) qc.setQueryData(queryKeys.projects.detail(vars.id), project);
-      else qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.id) });
+      // MERGE, never replace: PUT returns a narrower shape than GET, so
+      // replacing dropped runCount, lastRunAt and the repair badges.
+      qc.setQueryData<Project>(queryKeys.projects.detail(vars.id), (old) =>
+        old ? { ...old, ...project } : project);
+
+      qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.id) });
       qc.invalidateQueries({ queryKey: queryKeys.projects.list() });
     },
     onError: (err, vars) => {
       // type:"all" — an inactive query would otherwise keep the dead rev.
       void qc.refetchQueries({ queryKey: queryKeys.projects.detail(vars.id), type: "all" });
       // Central, so no caller can drop a refused write silently.
-      if (err instanceof Error && err.message === "stale_write") {
+      const code = err instanceof Error ? err.message : "";
+      if (code === "stale_write") {
         toast("This project changed somewhere else — reloaded it, please retry.");
+      } else if (code === "metadata_unreadable") {
+        toast("This project's project.md could not be read, so it was not overwritten. Fix the file by hand.");
       }
     },
   });
