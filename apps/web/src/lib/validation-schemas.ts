@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_PROMPT_BYTES } from "@agent-office/domain/services/infra/paths";
+import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 
 export const agentBodySchema = z.object({
   name: z.string().min(1),
@@ -63,7 +64,7 @@ export const projectMetaPatchSchema = z.object({
             label: z.string().optional(),
             model: z.string().optional(),
             effort: z.string().optional(),
-            permissionMode: z.string().optional(),
+            permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
             room: z.string().optional(),
           }),
         )
@@ -145,7 +146,7 @@ export const rosterAddSchema = z.object({
       label: z.string().optional(),
       model: z.string().optional(),
       effort: z.string().optional(),
-      permissionMode: z.string().optional(),
+      permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
       room: z.string().optional(),
     })
     .optional(),
@@ -155,7 +156,7 @@ export const rosterPatchSchema = z.object({
   label: z.string().optional(),
   model: z.string().optional(),
   effort: z.string().optional(),
-  permissionMode: z.string().optional(),
+  permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
   playwrightEnabled: z.boolean().optional(),
   room: z.string().optional(),
 });

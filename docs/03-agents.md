@@ -53,18 +53,34 @@ unit: blue/warrior
 | `default-effort` | string | `medium` | Thinking budget: low · medium · high · xhigh · max |
 | `skills` | list | `[]` | Installed skills to prepend to every summon |
 | `tools` | list | `[]` | Tools the agent may use (`--allowedTools`) |
-| `permission-mode` | string | `default` | `default` · `bypassPermissions` · `plan` |
+| `permission-mode` | string | unset | One of the six below. Unset = the CLI's own default |
 | `add-dirs` | list | `[]` | Extra directories the agent can read/write, passed as `--add-dir` flags |
 | `room` | string | `auto` | Which room on the office floor the agent's desk appears in |
 | `unit` | string | `auto` | Avatar sprite: `faction/kind` e.g. `blue/warrior` |
 
 ### permission-mode values
 
+Source of truth: `PERMISSION_MODE_OPTS` in `packages/domain/src/config/agent-opts.ts`,
+verified against CLI v2.1.278. Anything else is rejected and logged, and the
+agent falls back to unset. (`default` used to be listed here and is **not** a
+real value — one shipped agent had the whole option list pasted in as its
+value, and it was being forwarded to the CLI verbatim.)
+
 | Value | Behaviour |
 |---|---|
-| `default` | Claude Code prompts for permission on destructive actions |
 | `bypassPermissions` | All permissions auto-approved — use for trusted automation |
+| `acceptEdits` | File edits auto-approved; other tools prompt |
+| `auto` | CLI decides per tool call |
+| `manual` | Every tool call prompts |
+| `dontAsk` | Never prompts; denies what it would have asked about |
 | `plan` | Read-only planning mode — agent cannot write or execute. History note is omitted from the appended prompt. |
+
+> **The prompting modes are advisory, not a control.** The CLI child runs as the
+> same uid as the app, so it can read the app's argv and environment, and an
+> agent with file-write can set `permission-mode: bypassPermissions` in its own
+> definition for the next run. Separately, CLI v2.1.278 accepts
+> `--permission-prompt-tool` but never calls it, so a prompting mode currently
+> denies rather than asks. A real boundary needs a separate uid or a sandbox.
 
 ## How the system prompt is assembled
 

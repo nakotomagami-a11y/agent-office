@@ -26,6 +26,7 @@ import { historyNote } from "../projects/history";
 import { buildProjectMap } from "../projects/project-map";
 import { tierBody } from "./context-tier";
 import { log } from "../infra/log";
+import { PERMISSION_MODE_OPTS } from "../../config/agent-opts";
 
 function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
@@ -33,6 +34,18 @@ function lineCount(text: string): number {
 
 function hasFrontmatter(content: string): boolean {
   return /^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/.test(content);
+}
+
+/** Frontmatter is hand-edited and bypasses the API's zod schemas, so an
+ *  unknown value would reach `--permission-mode` verbatim. Drop it instead:
+ *  unset means the agent falls back to the default, never to a mode the CLI
+ *  might interpret loosely. */
+export function asPermissionMode(v: unknown): string | undefined {
+  const s = asString(v);
+  if (s === undefined) return undefined;
+  if ((PERMISSION_MODE_OPTS as readonly string[]).includes(s)) return s;
+  log.warn("agents.invalid_permission_mode", { value: s });
+  return undefined;
 }
 
 function asStringList(v: unknown): string[] {
@@ -66,7 +79,7 @@ export function readAgent(name: string): { info: ApiAgent; body: string } | null
     tools: asStringList(fm.tools ?? fm["allowed-tools"]),
     defaultModel: asString(fm["default-model"] ?? fm.model),
     defaultEffort: asString(fm["default-effort"] ?? fm.effort),
-    permissionMode: asString(fm["permission-mode"]),
+    permissionMode: asPermissionMode(fm["permission-mode"]),
     room: asString(fm.room),
     addDirs: asStringList(fm["add-dirs"] ?? fm["addDirs"]),
     unit: asString(fm.unit),

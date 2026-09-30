@@ -8,13 +8,8 @@ export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 /**
  * Real `claude --permission-mode` values, verified against CLI v2.1.278.
  *
- * All six are offered now that a live approval channel exists
- * (services/execution/permissions.ts + the MCP permission server): a mode that
- * can prompt is handed `--permission-prompt-tool`, so a headless `-p` run no
- * longer has to deny by default. Before that channel, `bypassPermissions` was
- * the only mode that let an agent finish unattended work — which was the
- * absence of a channel, not a security posture.
- *
+ * ADVISORY, NOT A CONTROL: the child shares our uid, and v2.1.278 never calls
+ * `--permission-prompt-tool`. See docs/03-agents.md for the boundary.
  * `plan` is read-only and never needs a prompt at all.
  */
 export const PERMISSION_MODE_OPTS = [
