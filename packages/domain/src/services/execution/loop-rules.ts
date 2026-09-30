@@ -3,13 +3,10 @@
 // hard-coded list would reject correct reviews.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { REPO_DOCS_DIR } from "../infra/paths";
 
-const CONVENTIONS = join(
-  dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..",
-  "docs", "conventions.md",
-);
+const CONVENTIONS = join(REPO_DOCS_DIR, "conventions.md");
 
 let cache: { mtimeMs: number; ids: Set<string> } | null = null;
 

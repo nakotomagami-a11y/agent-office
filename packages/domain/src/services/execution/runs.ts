@@ -816,12 +816,14 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     log.warn("run.persist_failed", { runId: run.id, err: String(err) });
   }
 
-  // Drive the conversation queue's auto-advance (see conversation-wiring.ts).
-  // Only top-level turns are tagged with a conversationId — sub-agent runs
-  // never fire this. Listener errors are caught + logged, never allowed to
-  // interrupt the broadcast below: a bug in the chat-queue driver must not
-  // also break the live SSE stream the user is watching.
-  if (run.conversationId) {
+  // Drive the conversation queue's auto-advance and the Loop dispatcher (see
+  // conversation-wiring.ts / loop-wiring.ts). NOT gated on `conversationId`:
+  // each listener already filters for the runs it owns, and gating here made
+  // the Loop's listener dead code — a loop's runs deliberately carry no
+  // conversationId, so that the chat machine does not also drive them.
+  // Listener errors are caught + logged, never allowed to interrupt the
+  // broadcast below: a bug in one driver must not break the live SSE stream.
+  {
     const ok = run.status === "done";
     for (const listener of runFinishedListeners) {
       try {

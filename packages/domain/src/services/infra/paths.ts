@@ -26,6 +26,17 @@ export const REPO_SCRIPTS_DIR = process.env.AO_BUNDLE_ROOT
       "scripts",
     );
 
+/** Repo `docs/`. Same trap as REPO_SCRIPTS_DIR: the module-relative hops
+ *  happen to land correctly in BOTH layouts today, which is a coincidence, not
+ *  a guarantee. The launcher-supplied root is the reliable one. */
+export const REPO_DOCS_DIR = process.env.AO_BUNDLE_ROOT
+  ? join(process.env.AO_BUNDLE_ROOT, "docs")
+  : join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..", "..", "..", "..", "..",
+      "docs",
+    );
+
 // New persistence root (only this app writes here).
 export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
 export const DB_PATH = join(APP_STATE_DIR, "db.sqlite");
