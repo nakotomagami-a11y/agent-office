@@ -425,9 +425,9 @@
     "comment": 5
   },
   "apps/web/src/app/api/projects/[id]/route.ts": {
-    "ratio": 0.1277,
-    "code": 47,
-    "comment": 6
+    "ratio": 0.175,
+    "code": 40,
+    "comment": 7
   },
   "apps/web/src/app/api/projects/[id]/secrets/[secretId]/route.ts": {
     "ratio": 0.4,
@@ -1125,9 +1125,9 @@
     "comment": 14
   },
   "apps/web/src/lib/api-helpers.ts": {
-    "ratio": 0.0857,
-    "code": 140,
-    "comment": 12
+    "ratio": 0.0993,
+    "code": 151,
+    "comment": 15
   },
   "apps/web/src/lib/api/account.ts": {
     "ratio": 0.4,
@@ -1335,9 +1335,9 @@
     "comment": 7
   },
   "apps/web/src/lib/validation-schemas.ts": {
-    "ratio": 0.0714,
-    "code": 308,
-    "comment": 22
+    "ratio": 0.0929,
+    "code": 312,
+    "comment": 29
   },
   "apps/web/src/lib/validation.ts": {
     "ratio": 0,
@@ -3050,9 +3050,9 @@
     "comment": 10
   },
   "packages/domain/src/services/infra/yaml.ts": {
-    "ratio": 0.1164,
-    "code": 275,
-    "comment": 32
+    "ratio": 0.1341,
+    "code": 276,
+    "comment": 37
   },
   "packages/domain/src/services/projects/cleanup.ts": {
     "ratio": 0.2301,
@@ -3085,14 +3085,14 @@
     "comment": 52
   },
   "packages/domain/src/services/projects/projects.ts": {
-    "ratio": 0.1429,
-    "code": 581,
-    "comment": 83
+    "ratio": 0.1699,
+    "code": 677,
+    "comment": 115
   },
   "packages/domain/src/services/projects/save.ts": {
-    "ratio": 0.0654,
-    "code": 107,
-    "comment": 7
+    "ratio": 0.0776,
+    "code": 116,
+    "comment": 9
   },
   "packages/domain/src/services/projects/templates.ts": {
     "ratio": 0.008,

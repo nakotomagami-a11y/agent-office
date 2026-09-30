@@ -32,22 +32,14 @@ interface ParsedMetadata {
   rev: string;
   /** Raw frontmatter, so keys this module does not model survive a write. */
   raw: YamlMapping;
-  /**
-   * The file has a `---` block that produced no mapping: unreadable, not
-   * empty. Writing on top of this would destroy whatever is really in there,
-   * so mutateMetadata refuses rather than "helpfully" starting fresh.
-   */
+  /** `---` block present but yielding no mapping: unreadable, not empty. */
   lossy: boolean;
 }
 
 /** Rev of a project that has no `project.md` on disk yet. */
 export const EMPTY_REV = "empty";
 
-/**
- * Content hash used as the write token. Content-based rather than mtime-based
- * on purpose: mtime granularity varies by filesystem, and restore-from-backup
- * can reset it, both of which would silently weaken the staleness check.
- */
+/** Write token. Content-hashed, not mtime: mtime granularity varies by fs. */
 function revOf(content: string): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
@@ -65,10 +57,8 @@ export class StaleProjectWriteError extends Error {
 }
 
 /**
- * Delegates to the shared CRLF-tolerant splitter. A hand-rolled `/^---\n/`
- * copy used to live here; on a CRLF file it matched nothing, so the whole
- * frontmatter was read as body and the next write emitted an empty project --
- * roster, accountId and name all gone.
+ * Shared CRLF-tolerant splitter. A hand-rolled `/^---\n/` copy lived here and
+ * matched nothing on CRLF, so one write emptied the whole project.
  */
 function parseMetadataFile(content: string): ParsedMetadata {
   const { fm, body } = parseFrontmatter(content);
@@ -185,9 +175,8 @@ function readMetadata(id: string): ParsedMetadata | null {
   try {
     parsed = parseMetadataFile(readFileSync(path, "utf8"));
   } catch (e) {
-    // The file EXISTS (we just stat'd it) but cannot be read. Returning null
-    // here would make it indistinguishable from "no metadata", which reports
-    // EMPTY_REV and lets a write blow it away. Mark it lossy instead.
+    // Exists but unreadable. null would look like "absent", report EMPTY_REV
+    // and let a write blow it away.
     log.error("project.metadata_read_failed", { id, err: String(e) });
     parsed = { meta: {}, memory: "", rev: EMPTY_REV, raw: {}, lossy: true };
   }
@@ -237,11 +226,7 @@ const KNOWN_META_KEYS = new Set([
   "name", "description", "roster", "accountId", "githubAccountId", "shelved", "planet",
 ]);
 
-/**
- * `carry` is the raw frontmatter of the file being replaced. Keys this module
- * does not model are re-emitted verbatim so a write never silently deletes
- * something a future version (or a human) put there.
- */
+/** `carry` re-emits frontmatter keys this module does not model. */
 function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: YamlMapping = {}): string {
   const fmObj: YamlMapping = {};
   for (const [k, v] of Object.entries(carry)) {
@@ -262,9 +247,7 @@ function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: Ya
     if (p.rotation !== undefined) pObj.rotation = p.rotation;
     if (p.dither !== undefined) pObj.dither = p.dither;
     if (p.params && Object.keys(p.params).length > 0) pObj.params = p.params as unknown as YamlValue;
-    // Parsed by parsePlanetConfig and authored in the planet editor, so it has
-    // to be written back too -- an asymmetric parse/serialize is exactly the
-    // bug class this file is being hardened against.
+    // Parsed and user-authored, so it must round-trip.
     if (p.customPalette && p.customPalette.length > 0) {
       pObj.customPalette = p.customPalette as unknown as YamlValue;
     }
@@ -279,10 +262,8 @@ function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: Ya
 }
 
 /**
- * The ONLY function that writes project.md. Every mutation carries a `reason`
- * so a lost field is a `grep project.metadata_written` away instead of an
- * afternoon of guessing -- the absence of any such trail is precisely why the
- * roster loss of 2026-09-30 could not be attributed.
+ * The ONLY writer. `reason` makes a lost field one grep away; the absence of
+ * such a trail is why the 2026-09-30 roster loss was never attributed.
  */
 function writeMetadata(
   id: string,
@@ -311,13 +292,9 @@ function writeMetadata(
 interface MetadataSnapshot { meta: ProjectMeta; memory: string; rev: string }
 
 /**
- * Single entry point for mutating project metadata.
- *
- * `apply` receives the state as it is ON DISK right now and returns the next
- * state, so a caller cannot write back a blob it captured earlier and silently
- * clobber fields it never touched. Read-apply-write is synchronous, so no other
- * in-process write can interleave; `expectedRev` covers the cross-process case
- * (another tab, or an agent editing project.md directly).
+ * `apply` receives ON-DISK state and returns the next state, so a caller
+ * cannot write back a blob it captured earlier. Read-apply-write is
+ * synchronous; `expectedRev` covers the cross-process case.
  */
 function mutateMetadata(
   id: string,
@@ -325,17 +302,14 @@ function mutateMetadata(
   apply: (current: MetadataSnapshot) => { meta: ProjectMeta; memory?: string },
   expectedRev?: string,
 ): Project {
-  // Read FRESH, never through the mtime cache. Two writes inside the same
-  // millisecond produce an identical mtimeMs, so a cached parse can hide an
-  // edit that just landed -- which would both merge against stale data and
-  // silently defeat the expectedRev check below.
+  // Uncached: same-millisecond writes share an mtimeMs, so a cached parse can
+  // hide an edit and defeat the expectedRev check below.
   metadataCache.delete(metadataFile(id));
   const md = readMetadata(id);
   const existing = readProject(id);
   if (!existing) throw new Error(`project '${id}' not found`);
-  // Never write on top of a file we could not understand -- the merge base
-  // would be empty, so the write would delete real data and the rev check
-  // would pass (the rev is hashed from raw bytes, which parsed fine).
+  // The merge base would be empty, and the rev check would pass anyway
+  // (the rev hashes raw bytes, which read fine).
   if (md?.lossy) {
     log.error("project.metadata_unreadable", { id, reason });
     throw new Error(
@@ -408,12 +382,7 @@ export function readProject(id: string): Project | null {
   return projectFromScan(scanned);
 }
 
-/**
- * Apply a PARTIAL metadata update. Only keys present on `patch.meta` are
- * touched; `null` clears a clearable field. The roster is not reachable from
- * here by construction -- use addInstance/patchInstance/removeInstance, or
- * `replaceRoster` for import.
- */
+/** PARTIAL update: only present keys apply, `null` clears. No roster here. */
 export function updateProject(
   id: string,
   patch: { meta?: ProjectMetaPatch; memory?: string; expectedRev?: string },
@@ -439,15 +408,9 @@ export function updateProject(
   }, patch.expectedRev);
 }
 
-/**
- * Replace the whole roster in one shot. The ONLY legitimate bulk path (bundle
- * import/restore); everything else must go through the per-instance functions
- * so a stale array can never wipe entries it did not know about.
- */
+/** The only bulk roster path (bundle import); everything else is per-instance. */
 export function replaceRoster(id: string, roster: unknown, reason = "replaceRoster"): Project {
-  // Coercing a non-array to [] would turn "this caller has no roster data"
-  // into "delete every instance" -- the exact silent-emptying this module is
-  // meant to prevent. Make the caller be explicit instead.
+  // Coercing to [] would turn "no roster data" into "delete every instance".
   if (!Array.isArray(roster)) {
     throw new Error(`replaceRoster('${id}') requires an array, received ${typeof roster}`);
   }
@@ -575,8 +538,7 @@ export function addInstance(
     });
   }
 
-  // Append against the roster as it is on disk NOW, not the copy read above:
-  // worktree creation can take long enough for another write to land.
+  // Against the roster on disk NOW: worktree creation takes time.
   const project = mutateMetadata(projectId, "addInstance", (cur) => ({
     meta: { ...cur.meta, roster: [...cur.meta.roster, instance] },
   }));
@@ -624,8 +586,7 @@ export function removeInstance(projectId: string, instanceId: string): Project {
     }
   }
 
-  // Remove by id against current on-disk state -- never write back a roster
-  // snapshot, which is how unrelated entries used to vanish.
+  // By id against current state, never a roster snapshot.
   const project = mutateMetadata(projectId, "removeInstance", (cur) => ({
     meta: { ...cur.meta, roster: cur.meta.roster.filter((i) => i.instanceId !== instanceId) },
   }));

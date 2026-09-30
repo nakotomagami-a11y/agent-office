@@ -99,12 +99,9 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<NextRespo
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.message;
-    // A stale write is the caller's problem to retry, not a server fault —
-    // must be checked before the /not found/ sniff below, which would 404 it.
-    // `instanceof` rather than a cast: the class is importable, so the fields
-    // come typed instead of asserted (arch.parse-dont-cast).
+    // Before the /not found/ sniff below, which would 404 it.
     if (err instanceof projects.StaleProjectWriteError) {
-      // errors.machine-codes: the `error` field is a stable code, never prose.
+      // errors.machine-codes: `error` is a stable code, never prose.
       return conflict("stale_write", {
         detail: msg,
         expectedRev: err.expectedRev,

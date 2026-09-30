@@ -98,8 +98,7 @@ function restoreProject(p: ImportBundle["project"]): void {
     accountId: str("accountId"),
     githubAccountId: str("githubAccountId"),
     shelved: typeof meta.shelved === "boolean" ? meta.shelved : undefined,
-    // arch.parse-dont-cast: bundle contents are untrusted input, so the planet
-    // is narrowed by the domain's own parser rather than asserted into shape.
+    // arch.parse-dont-cast: bundle contents are untrusted input.
     planet: projects.parsePlanetConfig(meta.planet),
   };
   if (!projects.readProject(p.id)) {
@@ -110,10 +109,7 @@ function restoreProject(p: ImportBundle["project"]): void {
     });
   }
   projects.updateProject(p.id, { meta: patch, memory: p.memory }, "importBundle");
-  // Only when the bundle actually carries a roster. An unconditional call
-  // would let a roster-less bundle delete every instance of an existing
-  // project -- reintroducing, through the import path, the exact silent
-  // emptying that replaceRoster exists to prevent.
+  // Unconditional would let a roster-less bundle delete every instance.
   if (Array.isArray(meta.roster)) projects.replaceRoster(p.id, meta.roster, "importBundle");
 }
 

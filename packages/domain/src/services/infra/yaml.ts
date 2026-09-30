@@ -92,8 +92,8 @@ function parseFlowList(raw: string): YamlValue[] {
     buf += ch;
   }
   if (buf.trim()) parts.push(buf);
-  // The split above is already depth-aware, so a nested flow list arrives here
-  // intact -- recurse instead of flattening it to the raw string "[1, 2, 3]".
+  // Split is depth-aware, so a nested list arrives intact -- recurse rather
+  // than flattening it to the raw string "[1, 2, 3]".
   return parts.map((p) => {
     const t = p.trim();
     return t.startsWith("[") && t.endsWith("]") ? parseFlowList(t) : parseScalar(t);
@@ -290,9 +290,8 @@ function stringifyValue(v: YamlValue, indent: number): string {
   if (typeof v === "string") return quoteScalar(v);
   if (Array.isArray(v)) {
     if (v.length === 0) return "[]";
-    // Flow style unless the array contains a mapping. Nested arrays must stay
-    // inline: emitting them as block items produced `-     - [1, 2, 3]`, which
-    // is not valid YAML and did not survive a round-trip.
+    // Nested arrays must stay inline: as block items they produced
+    // `-     - [1, 2, 3]`, which is not valid YAML.
     const hasMapping = v.some((x) => x !== null && typeof x === "object" && !Array.isArray(x));
     if (!hasMapping) {
       return `[${v.map((x) => stringifyValue(x, 0)).join(", ")}]`;
@@ -320,10 +319,8 @@ function stringifyValue(v: YamlValue, indent: number): string {
       lines.push(`${pad}${k}:`);
       lines.push(stringifyValue(val, indent + 2));
     } else if (Array.isArray(val) && val.some((x) => x !== null && typeof x === "object" && !Array.isArray(x))) {
-      // Block style only for arrays of MAPPINGS. `typeof val[0] === "object"`
-      // also caught arrays-of-arrays, which stringifyValue renders inline —
-      // emitting `key:` followed by an unindented flow list, which parses back
-      // as null.
+      // Mappings only: `typeof val[0] === "object"` also caught nested arrays,
+      // emitting `key:` above an unindented flow list, which parses as null.
       lines.push(`${pad}${k}:`);
       lines.push(stringifyValue(val, indent));
     } else {

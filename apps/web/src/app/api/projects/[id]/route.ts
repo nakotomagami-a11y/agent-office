@@ -38,11 +38,9 @@ export async function PUT(request: Request, { params }: Params) {
   const raw: unknown = await request.json();
   const { data, error } = validateBody(projectMetaPatchSchema, raw);
   if (error) return error;
-  // Pass `data.meta` straight through. Zod omits keys the client did not send,
-  // and the domain applies only PRESENT keys (`null` = clear). The previous
-  // `accountId: data.meta.accountId ?? undefined` made the key present-but-
-  // undefined on every request, so any patch — even a shelve toggle — wiped
-  // the project's account binding.
+  // Straight through: zod omits keys the client did not send, and the domain
+  // applies only PRESENT keys. A `?? undefined` here once wiped accountId on
+  // every unrelated patch.
   return tryService(() => projects.updateProject(id, toProjectUpdatePatch(data)));
 }
 

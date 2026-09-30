@@ -349,36 +349,19 @@ export interface Project {
   memory: string;
   runCount?: number;
   lastRunAt?: number;
-  /**
-   * Content hash of `project.md` as it was read. Pass it back as
-   * `expectedRev` on a write to get last-write-wins protection: a mismatch
-   * means someone else (another tab, or an agent editing the file directly)
-   * changed the file since this copy was read, and the write is refused.
-   * Absent file = `EMPTY_REV`.
-   */
+  /** Content hash as read; pass back as `expectedRev` to refuse stale writes. */
   rev?: string;
 }
 
 /**
- * A partial update to project metadata. Only keys that are PRESENT are
- * applied; `null` clears a clearable field. This is the whole contract that
- * `accountId: data.accountId ?? undefined` used to break -- it made the key
- * present-but-undefined, so a spread-merge wiped a field the caller never
- * mentioned.
- *
- * `roster` is deliberately absent: roster changes go through
- * `addInstance` / `patchInstance` / `removeInstance`, never a whole-array
- * overwrite. See `replaceRoster` for the one legitimate bulk path (import).
+ * Only PRESENT keys apply; `null` clears. `accountId: x ?? undefined` broke
+ * exactly this by making the key present-but-undefined. No `roster`: those
+ * changes go per-instance, or through `replaceRoster` for import.
  */
 export interface ProjectMetaPatch {
   name?: string;
   description?: string;
-  /**
-   * No `cwd`: it is derived from the folder scan, never persisted to
-   * project.md. Accepting it would return a value the next read discards.
-   * No `planet: null` either -- a cleared planet is immediately backfilled
-   * with a deterministic default, so "clear" is not a real state.
-   */
+  /** No `cwd` (scan-derived) and no `planet: null` (backfilled anyway). */
   planet?: PlanetConfig;
   accountId?: string | null;
   githubAccountId?: string | null;

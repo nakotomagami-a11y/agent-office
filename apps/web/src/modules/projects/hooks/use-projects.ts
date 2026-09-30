@@ -29,47 +29,27 @@ export function useProject(id: string | null) {
   });
 }
 
-/**
- * `accountId: null` clears the field back to the default account. `undefined`
- * (or omitted) means "leave unchanged" — this matches how JSON.stringify
- * strips undefined values, so callers pass explicit `null` to wipe.
- *
- * Imported from the domain rather than re-declared: the local `Omit<...>`
- * version still permitted `roster`, so a caller could pass one, typecheck,
- * get a 200, and have zod silently strip it.
- */
-
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: { meta?: ProjectMetaPatch; memory?: string } }) => {
-      // Attach the rev of the copy this client last read, so a write built on a
-      // stale view is refused (409) instead of silently winning.
-      //
-      // NOTE: only callers that have loaded the project DETAIL have a rev.
-      // List-only callers (project picker, settings page) send none and still
-      // get last-write-wins — `ProjectSummary` does not carry a rev.
+      // Only DETAIL callers have a rev; list-only callers (picker, settings)
+      // send none and still get last-write-wins.
       const cached = qc.getQueryData<Project>(queryKeys.projects.detail(id));
       const body = cached?.rev ? { ...patch, expectedRev: cached.rev } : patch;
       return apiFetch<Project>(API_ROUTES.project(id), { method: "PUT", body });
     },
     onSuccess: (project, vars) => {
-      // Seed the cache with the authoritative response so the NEXT write sends
-      // a current rev. Invalidating alone is not enough: React Query's default
-      // `refetchType: "active"` leaves an inactive detail query unrefetched,
-      // so `getQueryData` would keep returning the old rev and every
-      // subsequent write would 409 forever.
+      // Invalidation alone leaves an INACTIVE detail query unrefetched
+      // (default refetchType "active"), so the next write reuses a dead rev.
       if (project?.rev) qc.setQueryData(queryKeys.projects.detail(vars.id), project);
       else qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.id) });
       qc.invalidateQueries({ queryKey: queryKeys.projects.list() });
     },
     onError: (err, vars) => {
-      // A 409 means our copy was stale. Force a refetch even when the query is
-      // inactive, otherwise the retry reuses the same doomed rev.
+      // type:"all" — an inactive query would otherwise keep the dead rev.
       void qc.refetchQueries({ queryKey: queryKeys.projects.detail(vars.id), type: "all" });
-      // Surfaced centrally so every caller gets it: a refused write used to be
-      // unreachable on this route, but it is now a routine outcome, and a
-      // silently dropped write is just the original bug wearing a hat.
+      // Central, so no caller can drop a refused write silently.
       if (err instanceof Error && err.message === "stale_write") {
         toast("This project changed somewhere else — reloaded it, please retry.");
       }
