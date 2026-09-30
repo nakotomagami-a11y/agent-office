@@ -139,7 +139,7 @@ async function apply(
       // refusal to act.
       log.error("conversation.start_failed", {
         convId,
-        code: (e as { code?: string }).code,
+        code: e instanceof Error ? (e as Error & { code?: string }).code : undefined,
         message: e instanceof Error ? e.message : String(e),
       });
       db.updateConversation(convId, { status: "needs_attention", activeRunId: null });

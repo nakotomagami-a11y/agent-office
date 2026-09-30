@@ -32,14 +32,6 @@ function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
   env.GIT_CONFIG_COUNT = String(start + 2);
 }
 
-/**
- * Resolve the effective account for a run and return the spawn env. Explicit
- * `opts.accountId` beats the project's accountId. `default` (or missing) →
- * no CLAUDE_CONFIG_DIR is set, and the child inherits the shared ~/.claude.
- *
- * Exported for unit testing (env plumbing is the entire multi-account
- * spawn contract). `startRun` is the sole production caller.
- */
 /** `AO_*` is the app's own namespace, set by `startRun` and the Tauri launcher.
  *  Defense-in-depth: `AO_RUN_ID`/`AO_BASE_URL` are overwritten downstream
  *  anyway, so this closes no live hole — it keeps the namespace ours.
@@ -48,6 +40,14 @@ export function isReservedEnvName(name: string): boolean {
   return name.toUpperCase().startsWith("AO_");
 }
 
+/**
+ * Resolve the effective account for a run and return the spawn env. Explicit
+ * `opts.accountId` beats the project's accountId. `default` (or missing) →
+ * no CLAUDE_CONFIG_DIR is set, and the child inherits the shared ~/.claude.
+ *
+ * Exported for unit testing (env plumbing is the entire multi-account
+ * spawn contract). `startRun` is the sole production caller.
+ */
 export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.

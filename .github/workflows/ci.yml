@@ -46,14 +46,16 @@ jobs:
       # bundle-time failures. `REPO_SCRIPTS_DIR` shipped a `new URL(<specifier>,
       # import.meta.url)` that the bundler resolves as a module; it broke every
       # route on main while typecheck, lint and all tests passed (#140).
+      # `--webpack`, because that is what the AppImage ships. Next 16 defaults
+      # `next build` to Turbopack, so plain `pnpm build` gates a bundler no
+      # user ever runs — and the fold behaviour differs per bundler.
       - name: Build
-        run: pnpm build
+        run: pnpm --filter @agent-office/web build:release
 
-      # `pnpm build` proves the code bundles; it does NOT prove the packaged
-      # app has the files it spawns at runtime. The permission bridge was
-      # absent from every shipped build while this job was green (#148).
+      # Building proves the code bundles; it does NOT prove the packaged app
+      # has the files it spawns at runtime. The permission bridge was absent
+      # from every shipped build while this job was green (#148).
       - name: Verify packaged bundle
         run: |
           node apps/web/scripts/prepare-bundle.mjs
           node apps/web/scripts/verify-bundle.mjs
-        working-directory: .

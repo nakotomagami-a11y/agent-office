@@ -8,6 +8,8 @@ import { validateBody } from "@/lib/validation";
 import { broadcastRequestSchema } from "@/lib/validation-schemas";
 import { badRequest } from "@/lib/api-helpers";
 import { log } from "@agent-office/domain/services/infra/log";
+import { existsSync } from "node:fs";
+import { PERMISSION_SERVER_PATH } from "@agent-office/domain/services/execution/summon";
 
 function startRunForRosterInstance(
   inst: AgentInstance,
@@ -67,12 +69,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "roster_empty", detail: "Project has no agents on roster" }, { status: 400 });
   }
 
+  // Before ANY spawn: a mixed roster would already be running when this 500s.
+  if (!existsSync(PERMISSION_SERVER_PATH)) {
+    log.error("broadcast.permission_bridge_missing", { projectId: req.projectId, path: PERMISSION_SERVER_PATH });
+    return NextResponse.json(
+      { error: "permission_bridge_missing", detail: `Permission bridge not found at ${PERMISSION_SERVER_PATH}` },
+      { status: 500 },
+    );
+  }
+
   const broadcastId = randomUUID();
   const runIds: string[] = [];
   for (const inst of roster) {
     const outcome = startRunForRosterInstance(inst, project, req);
     if (!outcome) continue;
-    // Packaging fault: 202 with an empty list would read as success.
     if ("bridgeMissing" in outcome) {
       log.error("broadcast.permission_bridge_missing", { projectId: req.projectId, path: outcome.bridgeMissing });
       return NextResponse.json(
