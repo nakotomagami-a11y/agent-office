@@ -2,6 +2,7 @@
 // shows are testable without rendering.
 
 import type { LoopRow } from "@agent-office/domain/services/db/loops";
+import { canAcceptAsIs } from "@agent-office/domain/services/execution/loop-machine";
 import type { Finding, LoopPhase } from "@agent-office/domain/services/execution/loop-machine";
 
 const PHASE_LABEL: Record<LoopPhase, string> = {
@@ -41,12 +42,18 @@ export function sortedOpen(loop: LoopRow): Finding[] {
 /** Whether each intervention applies, mirroring the machine's ACCEPTS table.
  *  A button the machine would refuse must not be offered — the API answers 409
  *  for those, and a button that 409s is a button that lies. */
-export function availableActions(loop: LoopRow): { stop: boolean; acceptAsIs: boolean; allowOneMore: boolean } {
-  const { phase, binding, open } = loop.state;
+export function availableActions(loop: LoopRow, now: number): { stop: boolean; acceptAsIs: boolean; allowOneMore: boolean } {
+  const { phase, binding, open, startedAt } = loop.state;
+  const { wallClockMs } = loop.config;
   const live = phase === "authoring" || phase === "reviewing" || phase === "fixing";
+  // Time-dependent: the wall clock keeps running while the loop sits escalated
+  // waiting for a human, and `allowOneMore` past it does NOT refuse — it
+  // terminates the loop and reports success. Offering it would be a button
+  // that silently kills the thing it claims to extend.
+  const timeLeft = wallClockMs === undefined || now - startedAt < wallClockMs;
   return {
     stop: live,
-    acceptAsIs: phase === "reviewing" || phase === "fixing" || phase === "escalated",
-    allowOneMore: phase === "escalated" && binding === "max_rounds" && open.length > 0,
+    acceptAsIs: canAcceptAsIs(loop.state),
+    allowOneMore: phase === "escalated" && binding === "max_rounds" && open.length > 0 && timeLeft,
   };
 }

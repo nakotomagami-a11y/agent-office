@@ -83,6 +83,18 @@ export interface LoopReduction {
 
 const DEFAULT_BLOCKING: Severity[] = ["must-fix"];
 
+/** "Accept the work despite open findings" is only a coherent sentence when a
+ *  CEILING stopped an otherwise-healthy loop. Accepting a `user_stopped` loop
+ *  relabels the user's own decision as convergence, and accepting
+ *  `invalid_findings` converts a miswired reviewer into a pass — which is the
+ *  one thing that state exists to prevent. */
+const ACCEPTABLE_AS_IS: BindingConstraint[] = ["max_rounds", "budget", "wall_clock"];
+
+export function canAcceptAsIs(state: LoopState): boolean {
+  if (state.phase === "reviewing" || state.phase === "fixing") return true;
+  return state.phase === "escalated" && !!state.binding && ACCEPTABLE_AS_IS.includes(state.binding);
+}
+
 /** Which actions each phase will accept. Anything else is ignored. */
 const ACCEPTS: Record<LoopPhase, LoopAction["type"][]> = {
   authoring: ["authorFinished", "stop"],
@@ -170,6 +182,7 @@ export function reduceLoop(
       return done({ ...state }, "user_stopped");
 
     case "acceptAsIs":
+      if (!canAcceptAsIs(state)) return { state, effects: [] };
       return done({ ...state, open: [] }, "converged");
 
     case "allowOneMore": {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ApiError } from "@agent-office/domain/hooks/api";
 import { Icon } from "@/components/ui/icon";
 import { useLoop, useLoopAction, type LoopAction } from "../hooks/use-loop";
 import { availableActions, ceilingPressure, phaseLabel, sortedOpen } from "../format/loop-view";
@@ -17,20 +18,35 @@ export function LoopPill({ loopId }: { loopId: string }) {
   const [open, setOpen] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
 
+  // A refusal describes one snapshot. Once the loop moves on it is a red
+  // message about a phase that no longer exists.
+  useEffect(() => { setRefusal(null); }, [loop?.updatedAt]);
+
+  // Outside-click AND Escape. WorkflowPill only does the former; a panel a
+  // keyboard user cannot dismiss is a trap (WCAG 2.1.1).
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   if (!loop) return null;
 
   const pressure = ceilingPressure(loop);
-  const can = availableActions(loop);
+  const can = availableActions(loop, Date.now());
   const openFindings = sortedOpen(loop);
   const settled = !!loop.state.binding;
   const blocked = loop.state.phase === "escalated";
@@ -39,7 +55,16 @@ export function LoopPill({ loopId }: { loopId: string }) {
     setRefusal(null);
     act.mutate(action, {
       // A 409 means the machine refused; say so rather than appearing to work.
-      onError: (e: unknown) => setRefusal(e instanceof Error ? e.message : "That action no longer applies."),
+      // apiFetch builds `message` from the envelope's `error` key only, so the
+      // remediation lives on `.data` — without this the user sees the raw
+      // snake_case code and the whole refusalDetail table is unreachable.
+      onError: (e: unknown) => {
+        const detail = e instanceof ApiError && typeof (e.data as { detail?: unknown })?.detail === "string"
+          ? (e.data as { detail: string }).detail
+          : null;
+        setRefusal(detail ?? "That action no longer applies.");
+      },
+      onSuccess: () => setRefusal(null),
     });
   };
 
@@ -47,8 +72,10 @@ export function LoopPill({ loopId }: { loopId: string }) {
     <div className="relative" ref={ref}>
       <button
         type="button"
+        ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={panelId}
         aria-label={`Loop: ${phaseLabel(loop.state.phase)}, ${pressure.label}`}
         className="inline-flex items-center gap-[7px] h-7 px-[10px] rounded-lg bg-ao-bg-3 border border-ao-line-1 text-ao-fg-1 text-[12.5px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 hover:border-ao-line-2"
       >
@@ -61,7 +88,7 @@ export function LoopPill({ loopId }: { loopId: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-1.5 w-[420px] rounded-xl border border-ao-line-1 bg-ao-bg-2 p-3 shadow-lg">
+        <div id={panelId} className="absolute right-0 z-30 mt-1.5 w-[420px] rounded-xl border border-ao-line-1 bg-ao-bg-2 p-3 shadow-lg">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[13px] text-ao-fg-0">{loop.goal}</p>
           </div>
@@ -87,7 +114,8 @@ export function LoopPill({ loopId }: { loopId: string }) {
             </p>
           )}
 
-          <ul className="mt-2.5 flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
+          {/* tabIndex: a scroll container a keyboard user cannot reach is unusable. */}
+          <ul tabIndex={0} className="mt-2.5 flex flex-col gap-1.5 max-h-[220px] overflow-y-auto">
             {openFindings.length === 0 && (
               <li className="text-[12px] text-ao-fg-2">No blocking findings open.</li>
             )}

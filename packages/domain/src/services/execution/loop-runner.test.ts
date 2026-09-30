@@ -380,3 +380,17 @@ test("allowOneMore cannot outrun the WALL CLOCK — time passes while the user d
   assert.equal(db.getLoop(id)!.state.binding, "wall_clock", "one more round must not buy more time");
   assert.equal(dispatched.length, before, "and must not dispatch");
 });
+
+test("accept-as-is cannot relabel a stopped or miswired loop as converged", async () => {
+  // `invalid_findings` exists so a miswired reviewer is never read as a pass.
+  const { runner, rid, report } = makeRunner({ ruleExists: () => false });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  report([{ ...MUST, ruleId: "no.such.rule" }]);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "invalid_findings");
+
+  const r = await advanceLoop(id, { type: "acceptAsIs" }, runner, 3);
+  assert.equal(r.ok, false, "the machine must refuse, and the refusal must be reported");
+  assert.equal(db.getLoop(id)!.state.binding, "invalid_findings", "still named, not laundered into converged");
+});

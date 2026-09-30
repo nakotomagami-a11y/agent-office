@@ -7,6 +7,8 @@ import { test } from "node:test";
 import { availableActions, ceilingPressure, sortedOpen } from "./loop-view";
 import type { LoopRow } from "@agent-office/domain/services/db/loops";
 
+const NOW = 500;
+
 const MUST = { severity: "must-fix", ruleId: "arch.parse-dont-cast", why: "cast" } as const;
 const NIT = { severity: "nit", ruleId: "code.comments-explain-why", why: "meh" } as const;
 
@@ -19,19 +21,38 @@ const loop = (over: Partial<LoopRow["state"]>, cfg: Partial<LoopRow["config"]> =
   }) as LoopRow;
 
 test("allow-one-more is offered ONLY on an escalated round ceiling with work open", () => {
-  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds", open: [MUST] })).allowOneMore, true);
+  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds", open: [MUST] }), NOW).allowOneMore, true);
   // Every near-miss the machine would refuse:
-  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds", open: [] })).allowOneMore, false);
-  assert.equal(availableActions(loop({ phase: "escalated", binding: "budget", open: [MUST] })).allowOneMore, false);
-  assert.equal(availableActions(loop({ phase: "reviewing", open: [MUST] })).allowOneMore, false);
+  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds", open: [] }), NOW).allowOneMore, false);
+  assert.equal(availableActions(loop({ phase: "escalated", binding: "budget", open: [MUST] }), NOW).allowOneMore, false);
+  assert.equal(availableActions(loop({ phase: "reviewing", open: [MUST] }), NOW).allowOneMore, false);
+});
+
+test("allow-one-more is withdrawn once the WALL CLOCK has run out", () => {
+  // Past the wall clock the machine does NOT refuse — it terminates and
+  // reports success. Offering the button would silently kill the loop.
+  const expired = loop({ phase: "escalated", binding: "max_rounds", open: [MUST], startedAt: 0 }, { wallClockMs: 100 });
+  assert.equal(availableActions(expired, 50).allowOneMore, true, "still inside the window");
+  assert.equal(availableActions(expired, 5_000).allowOneMore, false, "past it, the button must be gone");
+});
+
+test("accept-as-is is offered for ceilings and REFUSED for everything else", () => {
+  for (const binding of ["max_rounds", "budget", "wall_clock"] as const) {
+    assert.equal(availableActions(loop({ phase: "escalated", binding, open: [MUST] }), NOW).acceptAsIs, true, binding);
+  }
+  // Accepting these would relabel them as convergence — `invalid_findings`
+  // exists precisely so a miswired reviewer is never read as a pass.
+  for (const binding of ["user_stopped", "invalid_findings", "corrupt_state", "dispatch_failed", "review_failed"] as const) {
+    assert.equal(availableActions(loop({ phase: "escalated", binding, open: [MUST] }), NOW).acceptAsIs, false, binding);
+  }
 });
 
 test("stop is offered while live and withdrawn once settled", () => {
   for (const phase of ["authoring", "reviewing", "fixing"] as const) {
-    assert.equal(availableActions(loop({ phase })).stop, true, phase);
+    assert.equal(availableActions(loop({ phase }), NOW).stop, true, phase);
   }
-  assert.equal(availableActions(loop({ phase: "done", binding: "converged" })).stop, false);
-  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds" })).stop, false);
+  assert.equal(availableActions(loop({ phase: "done", binding: "converged" }), NOW).stop, false);
+  assert.equal(availableActions(loop({ phase: "escalated", binding: "max_rounds" }), NOW).stop, false);
 });
 
 test("the bar tracks the ceiling that will actually bind", () => {

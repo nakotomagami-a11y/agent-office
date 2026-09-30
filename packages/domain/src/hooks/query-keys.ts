@@ -127,14 +127,15 @@ export const queryKeys = {
   },
 
   // Server-authoritative chat conversations (see docs/chat-refactor.md).
-  loops: {
-    all: ["loops"] as const,
-    detail: (id: string) => [...queryKeys.loops.all, "detail", id] as const,
-  },
   conversations: {
     all: ["conversations"] as const,
     /** The current conversation for one (agentId, instanceId) slot. */
     bySlot: (agentId: string, instanceId: string) => [...queryKeys.conversations.all, "slot", agentId, instanceId] as const,
     detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
+  },
+
+  loops: {
+    all: ["loops"] as const,
+    detail: (id: string) => [...queryKeys.loops.all, "detail", id] as const,
   },
 } as const;

@@ -42,9 +42,16 @@ export async function PATCH(request: Request, { params }: Params) {
   const { data, error } = validateBody(loopActionSchema, raw);
   if (error) return error;
   if (!db.getLoop(id)) return notFound("loop_not_found");
-  const result = await loopRunner.advanceLoop(
-    id, { type: data.action }, loopProductionRunner.productionLoopRunner, Date.now(),
-  );
+  // Wrapped: `reduceLoop` and the DB write sit outside advanceLoop's own catch,
+  // so a locked/full sqlite would otherwise escape as an unshaped 500.
+  let result: Awaited<ReturnType<typeof loopRunner.advanceLoop>>;
+  try {
+    result = await loopRunner.advanceLoop(
+      id, { type: data.action }, loopProductionRunner.productionLoopRunner, Date.now(),
+    );
+  } catch {
+    return NextResponse.json({ error: "loop_advance_failed", detail: "The loop could not be advanced. Reload and try again." }, { status: 500 });
+  }
   if (!result.ok) {
     // 409, not 200: a refused action returned as success is a button that
     // silently does nothing and a UI that cannot tell.
