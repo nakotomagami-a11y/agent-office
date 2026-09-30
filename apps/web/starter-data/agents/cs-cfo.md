@@ -4,7 +4,7 @@ description: "CFO advisor — unit economics, runway, burn, fundraising math, ca
 default-model: opus
 default-effort: xhigh
 skills: [alz-cfo-advisor, alz-strategic-alignment, alz-decision-logger, alz-scenario-war-room]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

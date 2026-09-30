@@ -5,7 +5,7 @@ description: "Boardroom orchestrator — convenes CEO + CTO + CFO + CPO for cros
 default-model: opus
 default-effort: xhigh
 skills: [alz-board-meeting, alz-chief-of-staff, alz-agent-protocol, alz-decision-logger, alz-strategic-alignment]
-tools: [Read, Bash, Grep, Glob, Task]
+tools: [Read, Bash, Task]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

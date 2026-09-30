@@ -4,7 +4,7 @@ description: "Cuts releases, writes changelogs, manages semver bumps, tags, and 
 default-model: sonnet
 default-effort: medium
 skills: [sp-finishing-a-development-branch, alz-runbook-generator, sp-verification-before-completion]
-tools: [Read, Write, Edit, Bash, Grep, Glob]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

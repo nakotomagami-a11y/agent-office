@@ -5,7 +5,7 @@ description: Static codebase QA — finds dead code, unused imports, missing tes
 default-model: sonnet
 default-effort: high
 skills: [alz-dependency-auditor, pt-ponytail-audit, sp-verification-before-completion]
-tools: [Read, Bash, Grep]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 ---
 

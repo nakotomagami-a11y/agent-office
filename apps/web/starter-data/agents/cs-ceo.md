@@ -4,7 +4,7 @@ description: "CEO advisor — strategic leadership, vision, board management, fu
 default-model: opus
 default-effort: xhigh
 skills: [alz-ceo-advisor, alz-board-deck-builder, alz-strategic-alignment, alz-scenario-war-room, alz-decision-logger]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

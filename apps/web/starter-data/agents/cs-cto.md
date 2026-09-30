@@ -4,7 +4,7 @@ description: "CTO advisor — architecture decisions, tech debt strategy, engine
 default-model: opus
 default-effort: xhigh
 skills: [alz-cto-advisor, alz-vpe-advisor, alz-agent-protocol, alz-strategic-alignment, ecc-agentic-engineering]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

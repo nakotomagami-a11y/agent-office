@@ -5,7 +5,7 @@ description: "Security-focused QA — probes for OWASP Top 10, prompt injection,
 default-model: sonnet
 default-effort: xhigh
 skills: [ecc-security-review, sp-verification-before-completion, ecc-search-first]
-tools: [Read, Bash, Grep, Glob, Task]
+tools: [Read, Bash, Task]
 permission-mode: bypassPermissions
 ---
 

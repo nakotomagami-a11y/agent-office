@@ -4,7 +4,7 @@ description: "COO advisor — execution, ops, hiring cadence, weekly rituals, pr
 default-model: opus
 default-effort: xhigh
 skills: [alz-coo-advisor, alz-chief-of-staff, alz-strategic-alignment, alz-decision-logger]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

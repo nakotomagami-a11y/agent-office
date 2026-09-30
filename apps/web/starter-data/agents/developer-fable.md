@@ -4,7 +4,7 @@ description: "Developer variant running on the Fable-5 model — for A/B testing
 default-model: fable
 default-effort: max
 skills: [alz-grill-me, sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 ---
 

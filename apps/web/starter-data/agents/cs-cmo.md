@@ -4,7 +4,7 @@ description: "CMO advisor — positioning, ICP, message-house, channel mix, cate
 default-model: opus
 default-effort: xhigh
 skills: [alz-cmo-advisor, alz-competitive-intel, alz-strategic-alignment, alz-decision-logger]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

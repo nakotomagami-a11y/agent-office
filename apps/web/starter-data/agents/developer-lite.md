@@ -4,7 +4,7 @@ description: "Cheaper Sonnet developer for mechanical work — dead-code sweeps,
 default-model: sonnet
 default-effort: high
 skills: [sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 ---
 

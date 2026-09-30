@@ -4,7 +4,7 @@ description: "Tactical product manager — turns vague ideas into scoped PRDs, b
 default-model: sonnet
 default-effort: high
 skills: [alz-grill-me, alz-tc-tracker, sp-verification-before-completion]
-tools: [Read, Write, Edit, Bash, Grep, Glob]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 room: Product
 ---

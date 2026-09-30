@@ -5,7 +5,7 @@ description: "Prod-fire triage — log/trace forensics, symptom-to-root-cause tr
 default-model: opus
 default-effort: high
 skills: [alz-runbook-generator, alz-performance-profiler, alz-chaos-engineering, sp-verification-before-completion]
-tools: [Read, Bash, Grep, Glob]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

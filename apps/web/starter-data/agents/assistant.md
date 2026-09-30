@@ -4,7 +4,7 @@ description: General-purpose Claude with full tool access — the escape hatch w
 default-model: sonnet
 default-effort: high
 skills: []
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 ---
 
