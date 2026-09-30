@@ -32,6 +32,11 @@ export interface LoopRunner {
 /** Worth another attempt rather than ending a loop mid-flight. */
 const RETRYABLE_DISPATCH = new Set(["claude_unavailable", "already_running", "secret_invalid"]);
 
+/** A refusal returned as success is a button that silently does nothing. */
+export type AdvanceResult =
+  | { ok: true }
+  | { ok: false; code: "loop_not_found" | "action_not_accepted" | "write_conflict" | "dispatch_failed" | "dispatch_retrying" };
+
 export interface StartLoopInput {
   agentId: string;
   reviewerAgentId: string;
@@ -122,9 +127,9 @@ export async function advanceLoop(
   /** Set when the caller already CAS-claimed the active run, so an ignored
    *  action can put it back instead of leaving the loop stranded. */
   claimedRunId: string | null = null,
-): Promise<void> {
+): Promise<AdvanceResult> {
   const loop = db.getLoop(loopId);
-  if (!loop) return;
+  if (!loop) return { ok: false, code: "loop_not_found" };
 
   const { state, effects } = reduceLoop(loop.state, action, loop.config, now, runner.ruleExists);
   if (effects.length > 1) {
@@ -134,7 +139,7 @@ export async function advanceLoop(
   if (state === loop.state && effects.length === 0) {
     log.warn("loop.action_ignored", { loopId, action: action.type, phase: loop.state.phase });
     if (claimedRunId) db.updateLoopState(loopId, loop.state, claimedRunId, now);
-    return;
+    return { ok: false, code: "action_not_accepted" };
   }
 
   let nextRunId: string | null;
@@ -147,25 +152,26 @@ export async function advanceLoop(
       // not a ceiling decision.
       log.warn("loop.dispatch_retryable", { loopId, code, round: state.round });
       if (claimedRunId) db.updateLoopState(loopId, loop.state, claimedRunId, now);
-      return;
+      return { ok: false, code: "dispatch_retrying" };
     }
     // The claim is taken; returning here strands the loop with no verdict.
     log.error("loop.dispatch_failed", { loopId, code, round: state.round, message: String(e) });
     db.updateLoopState(loopId, { ...state, phase: "escalated", binding: "dispatch_failed" }, null, now);
     emitAppEvent("loops:changed");
-    return;
+    return { ok: false, code: "dispatch_failed" };
   }
 
   // Guarded: a Stop decided while the spawn was in flight must not be lost.
   if (!db.updateLoopState(loopId, state, nextRunId, now, loop.updatedAt)) {
     log.warn("loop.write_conflict", { loopId, action: action.type, phase: state.phase });
-    return;
+    return { ok: false, code: "write_conflict" };
   }
   emitAppEvent("loops:changed");
 
   if (state.binding) {
     log.info("loop.finished", { loopId, binding: state.binding, summary: describeTermination(state, loop.config) });
   }
+  return { ok: true };
 }
 
 /** Mirrors conversation.ts's reconcileIfStale; the orphan reaper is raw SQL. */

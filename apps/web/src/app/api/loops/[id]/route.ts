@@ -2,11 +2,28 @@
 //                          like the conversation view does.
 // PATCH /api/loops/<id> — the user's three interventions.
 import { loopRunner, loopProductionRunner, db } from "@agent-office/domain/services";
+import { NextResponse } from "next/server";
 import { validateIdParam, tryService, notFound } from "@/lib/api-helpers";
 import { validateBody } from "@/lib/validation";
 import { loopActionSchema } from "@/lib/validation-schemas";
 
 type Params = { params: Promise<{ id: string }> };
+
+/** RULE errors.machine-codes: every code carries what to do about it. */
+function refusalDetail(code: string, action: string): string {
+  switch (code) {
+    case "action_not_accepted":
+      return `"${action}" does not apply in this loop's current phase. Reload to see where it is now.`;
+    case "write_conflict":
+      return "The loop changed while this was in flight. Reload and try again.";
+    case "dispatch_retrying":
+      return "The next round could not start yet and will be retried. Nothing was lost.";
+    case "dispatch_failed":
+      return "The next round could not be started. The work so far is intact.";
+    default:
+      return "This loop could not be advanced.";
+  }
+}
 
 export async function GET(_request: Request, { params }: Params) {
   const { value: id, error } = validateIdParam((await params).id);
@@ -25,8 +42,16 @@ export async function PATCH(request: Request, { params }: Params) {
   const { data, error } = validateBody(loopActionSchema, raw);
   if (error) return error;
   if (!db.getLoop(id)) return notFound("loop_not_found");
-  return tryService(async () => {
-    await loopRunner.advanceLoop(id, { type: data.action }, loopProductionRunner.productionLoopRunner, Date.now());
-    return db.getLoop(id);
-  });
+  const result = await loopRunner.advanceLoop(
+    id, { type: data.action }, loopProductionRunner.productionLoopRunner, Date.now(),
+  );
+  if (!result.ok) {
+    // 409, not 200: a refused action returned as success is a button that
+    // silently does nothing and a UI that cannot tell.
+    return NextResponse.json(
+      { error: result.code, detail: refusalDetail(result.code, data.action) },
+      { status: 409 },
+    );
+  }
+  return tryService(() => db.getLoop(id));
 }

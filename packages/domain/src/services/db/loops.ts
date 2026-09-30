@@ -231,3 +231,9 @@ export function listLoopsForConversation(conversationId: string): LoopRow[] {
     .all(conversationId) as RawLoopRow[];
   return rows.map(toRow);
 }
+
+/** Dev harness only: every recorded loop, newest first. */
+export function listAllLoopIds(): string[] {
+  const rows = getDb().prepare(`SELECT id FROM loops ORDER BY created_at DESC LIMIT 20`).all() as Array<{ id: string }>;
+  return rows.map((r) => r.id);
+}
