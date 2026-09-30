@@ -432,7 +432,10 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
         created_at        INTEGER NOT NULL,
         updated_at        INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_loops_active_run ON loops(active_run_id);
+      -- UNIQUE: the dispatcher's join key. Two rows sharing it would make the
+      -- lookup pick one arbitrarily and strand the other in silence. SQLite
+      -- allows unlimited NULLs, so idle loops are unaffected.
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_loops_active_run ON loops(active_run_id);
       CREATE INDEX IF NOT EXISTS idx_loops_conversation ON loops(conversation_id);
     `);
   },

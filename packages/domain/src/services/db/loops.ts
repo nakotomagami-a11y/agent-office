@@ -44,14 +44,33 @@ interface RawLoopRow {
 }
 
 const PHASES: LoopPhase[] = ["authoring", "reviewing", "fixing", "done", "escalated"];
+const BINDINGS: BindingConstraint[] = [
+  "converged", "max_rounds", "budget", "wall_clock", "review_failed", "author_failed",
+  "fix_failed", "user_stopped", "invalid_findings", "dispatch_failed", "corrupt_state",
+];
+
+/** A ceiling that is absent, negative, NaN or Infinity is NOT a ceiling.
+ *  `1e999` is valid JSON and parses to Infinity, which makes every comparison
+ *  in the machine permanently false — the exact "unbounded" this guards. */
+function positive(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+}
+
+/** Reviewer-authored text is interpolated into the AUTHOR's next prompt, so
+ *  it is an agent-to-agent injection channel and a cost vector. Bounded here,
+ *  at the parse boundary, rather than at each use. */
+const MAX_FIELD = 2000;
+const MAX_FINDINGS = 100;
 
 function isFinding(v: unknown): v is Finding {
   if (typeof v !== "object" || v === null) return false;
   const f = v as Record<string, unknown>;
+  const bounded = (x: unknown) => typeof x === "string" && x.length <= MAX_FIELD;
   return (
     (f.severity === "must-fix" || f.severity === "should-fix" || f.severity === "nit") &&
-    typeof f.ruleId === "string" &&
-    typeof f.why === "string"
+    bounded(f.ruleId) && (f.ruleId as string).trim().length > 0 &&
+    bounded(f.why) &&
+    (f.file === undefined || bounded(f.file))
   );
 }
 
@@ -64,7 +83,7 @@ function findings(json: string): Finding[] {
   } catch {
     return [];
   }
-  return Array.isArray(parsed) ? parsed.filter(isFinding) : [];
+  return Array.isArray(parsed) ? parsed.filter(isFinding).slice(0, MAX_FINDINGS) : [];
 }
 
 function config(json: string): LoopConfig {
@@ -77,16 +96,24 @@ function config(json: string): LoopConfig {
   if (typeof parsed !== "object" || parsed === null) return { maxRounds: 1 };
   const c = parsed as Record<string, unknown>;
   // A missing ceiling must never read as "unbounded" — 1 round is the safe floor.
+  const rounds = positive(c.maxRounds);
   return {
-    maxRounds: typeof c.maxRounds === "number" && c.maxRounds > 0 ? c.maxRounds : 1,
-    budgetUsd: typeof c.budgetUsd === "number" ? c.budgetUsd : undefined,
-    wallClockMs: typeof c.wallClockMs === "number" ? c.wallClockMs : undefined,
+    maxRounds: rounds !== undefined && Number.isInteger(rounds) ? rounds : 1,
+    budgetUsd: positive(c.budgetUsd),
+    wallClockMs: positive(c.wallClockMs),
     blockOn: Array.isArray(c.blockOn) ? (c.blockOn.filter((s) => s === "must-fix" || s === "should-fix" || s === "nit") as LoopConfig["blockOn"]) : undefined,
   };
 }
 
 function toRow(r: RawLoopRow): LoopRow {
-  const phase = PHASES.includes(r.phase as LoopPhase) ? (r.phase as LoopPhase) : "escalated";
+  const known = PHASES.includes(r.phase as LoopPhase);
+  const phase = known ? (r.phase as LoopPhase) : "escalated";
+  const storedBinding = BINDINGS.includes(r.binding as BindingConstraint)
+    ? (r.binding as BindingConstraint)
+    : undefined;
+  // An unreadable phase or binding must still NAME its termination: without
+  // this an escalated loop renders as "Running" and `allowOneMore` is inert.
+  const binding = known ? storedBinding : (storedBinding ?? "corrupt_state");
   return {
     id: r.id,
     conversationId: r.conversation_id,
@@ -107,7 +134,7 @@ function toRow(r: RawLoopRow): LoopRow {
       startedAt: r.started_at,
       open: findings(r.open_json),
       history: findings(r.history_json),
-      binding: (r.binding ?? undefined) as BindingConstraint | undefined,
+      binding,
     },
   };
 }
@@ -144,12 +171,21 @@ export function createLoop(loop: Omit<LoopRow, "createdAt" | "updatedAt">, now: 
     });
 }
 
-export function updateLoopState(id: string, state: LoopState, activeRunId: string | null, now: number): void {
-  getDb()
+/** Guarded write. A blind overwrite loses a concurrent user Stop: the writer
+ *  read the row BEFORE awaiting a spawn, so it would clobber a termination
+ *  decided while it was in flight. Returns false when the row moved on. */
+export function updateLoopState(
+  id: string,
+  state: LoopState,
+  activeRunId: string | null,
+  now: number,
+  expectedUpdatedAt?: number,
+): boolean {
+  const r = getDb()
     .prepare(
       `UPDATE loops SET phase=@phase, round=@round, spent_usd=@spentUsd, binding=@binding,
          open_json=@openJson, history_json=@historyJson, active_run_id=@activeRunId, updated_at=@now
-       WHERE id=@id`,
+       WHERE id=@id AND (@expectedUpdatedAt IS NULL OR updated_at=@expectedUpdatedAt)`,
     )
     .run({
       id,
@@ -161,7 +197,9 @@ export function updateLoopState(id: string, state: LoopState, activeRunId: strin
       historyJson: JSON.stringify(state.history),
       activeRunId,
       now,
+      expectedUpdatedAt: expectedUpdatedAt ?? null,
     });
+  return r.changes === 1;
 }
 
 /** Atomically take ownership of a loop's active run; false when someone else

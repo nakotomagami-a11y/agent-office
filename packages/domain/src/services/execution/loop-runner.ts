@@ -11,7 +11,6 @@ import {
   type Finding, type LoopAction, type LoopConfig, type LoopEffect, type LoopState,
 } from "./loop-machine";
 
-/** Mirrors ConversationRunner. Injected so this is testable without a CLI. */
 export interface LoopRunner {
   startRun(input: {
     agentId: string;
@@ -66,13 +65,7 @@ function fixPrompt(goal: string, round: number, open: Finding[]): string {
 export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: number): Promise<string> {
   const id = randomUUID();
   const state = initialLoopState(now);
-  const runId = await runner.startRun({
-    agentId: input.agentId,
-    instanceId: input.instanceId ?? null,
-    projectId: input.projectId ?? null,
-    cwd: input.cwd ?? null,
-    prompt: input.goal,
-  });
+  // Row first: a crash after spawning orphans the run.
   db.createLoop(
     {
       id,
@@ -85,15 +78,31 @@ export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: 
       goal: input.goal,
       state,
       config: input.config,
-      activeRunId: runId,
+      activeRunId: null,
     },
     now,
   );
+
+  let runId: string;
+  try {
+    runId = await runner.startRun({
+      agentId: input.agentId,
+      instanceId: input.instanceId ?? null,
+      projectId: input.projectId ?? null,
+      cwd: input.cwd ?? null,
+      prompt: input.goal,
+    });
+  } catch (e) {
+    log.error("loop.dispatch_failed", { loopId: id, round: 1, message: String(e) });
+    db.updateLoopState(id, { ...state, phase: "escalated", binding: "dispatch_failed" }, null, now);
+    return id;
+  }
+  db.updateLoopState(id, state, runId, now);
   log.info("loop.started", { loopId: id, runId, maxRounds: input.config.maxRounds });
   return id;
 }
 
-/** The phase that dispatched the run decides the action; never guess. */
+/** The dispatching phase decides the action; never guess. */
 function actionFor(state: LoopState, ok: boolean, costUsd: number, findings: Finding[]): LoopAction | null {
   switch (state.phase) {
     case "authoring": return { type: "authorFinished", ok, costUsd };
@@ -103,9 +112,9 @@ function actionFor(state: LoopState, ok: boolean, costUsd: number, findings: Fin
   }
 }
 
-async function dispatch(loop: db.LoopRow, effects: LoopEffect[], runner: LoopRunner): Promise<string | null> {
-  for (const e of effects) {
-    if (e.type === "finish") return null;
+async function dispatch(loop: db.LoopRow, e: LoopEffect | undefined, runner: LoopRunner): Promise<string | null> {
+  if (!e || e.type === "finish") return null;
+  {
     const prompt = e.type === "startReview"
       ? reviewPrompt(loop.goal, e.round)
       : fixPrompt(loop.goal, e.round, e.findings);
@@ -118,11 +127,9 @@ async function dispatch(loop: db.LoopRow, effects: LoopEffect[], runner: LoopRun
       prompt,
     });
   }
-  return null;
 }
 
-/** `findings: []` from a completed review is a genuine PASS — never conflated
- *  with `ok: false`. */
+/** `findings: []` from a completed review is a PASS, not a failure. */
 export async function advanceLoop(
   loopId: string,
   action: LoopAction,
@@ -136,6 +143,9 @@ export async function advanceLoop(
   if (!loop) return;
 
   const { state, effects } = reduceLoop(loop.state, action, loop.config, now, runner.ruleExists);
+  if (effects.length > 1) {
+    log.error("loop.multiple_effects", { loopId, count: effects.length });
+  }
   // Nothing moved: the machine rejected the action (wrong phase, or terminal).
   // Persisting anyway would let a duplicate finish clear `active_run_id` and
   // strand the loop.
@@ -145,12 +155,44 @@ export async function advanceLoop(
     return;
   }
 
-  const nextRunId = await dispatch(loop, effects, runner);
-  db.updateLoopState(loopId, state, nextRunId, now);
+  let nextRunId: string | null;
+  try {
+    nextRunId = await dispatch(loop, effects[0], runner);
+  } catch (e) {
+    // The claim is taken; returning here strands the loop with no verdict.
+    log.error("loop.dispatch_failed", { loopId, round: state.round, message: String(e) });
+    db.updateLoopState(loopId, { ...state, phase: "escalated", binding: "dispatch_failed" }, null, now);
+    return;
+  }
+
+  // Guarded: a Stop decided while the spawn was in flight must not be lost.
+  if (!db.updateLoopState(loopId, state, nextRunId, now, loop.updatedAt)) {
+    log.warn("loop.write_conflict", { loopId, action: action.type, phase: state.phase });
+    return;
+  }
 
   if (state.binding) {
     log.info("loop.finished", { loopId, binding: state.binding, summary: describeTermination(state, loop.config) });
   }
+}
+
+/** Mirrors conversation.ts's reconcileIfStale: the orphan reaper writes the
+ *  runs table directly and knows nothing about loops. */
+export async function reconcileLoopIfStale(loopId: string, runner: LoopRunner, now: number): Promise<void> {
+  const loop = db.getLoop(loopId);
+  if (!loop || loop.state.binding) return;
+
+  if (!loop.activeRunId) {
+    // Died between claim and write; the run-row check below cannot see it.
+    log.warn("loop.stranded_no_active_run", { loopId, phase: loop.state.phase });
+    db.updateLoopState(loopId, { ...loop.state, phase: "escalated", binding: "dispatch_failed" }, null, now);
+    return;
+  }
+
+  const run = db.getRun(loop.activeRunId);
+  // Genuinely live, or not persisted yet (just spawned) — both mean "wait".
+  if (!run || run.status === "running") return;
+  await onLoopRunFinished(loop.activeRunId, run.status === "done", runner, now);
 }
 
 /** Entry point from the run engine. Ignores runs that are not a loop's. */
@@ -168,7 +210,9 @@ export async function onLoopRunFinished(
   if (!db.claimActiveRun(loop.id, runId)) return;
   const action = actionFor(loop.state, ok, runner.costOf(runId), findings);
   if (!action) {
-    db.updateLoopState(loop.id, loop.state, runId, now);
+    // Clear, not re-adopt: re-adopting re-arms this no-op every replay.
+    log.warn("loop.finish_out_of_phase", { loopId: loop.id, runId, phase: loop.state.phase });
+    db.updateLoopState(loop.id, loop.state, null, now);
     return;
   }
   await advanceLoop(loop.id, action, runner, now, runId);

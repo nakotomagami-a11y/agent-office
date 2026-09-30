@@ -16,10 +16,14 @@ const sandbox = mkdtempSync(join(tmpdir(), "ao-loop-"));
 process.env.HOME = sandbox;
 mkdirSync(join(sandbox, ".claude", "agent-office"), { recursive: true });
 
-const { startLoop, advanceLoop, onLoopRunFinished } = await import("./loop-runner");
+const { startLoop, advanceLoop, onLoopRunFinished, reconcileLoopIfStale } = await import("./loop-runner");
 const db = await import("../db/index");
 import type { LoopRunner } from "./loop-runner";
 import type { Finding } from "./loop-machine";
+
+const { getDb: getRawDb } = await import("../db/connection");
+let rid2Base = 0;
+const rid2 = (k: number) => `spawnfail-${rid2Base}-run-${k}`;
 
 const MUST: Finding = { severity: "must-fix", ruleId: "arch.parse-dont-cast", why: "cast" };
 
@@ -158,6 +162,75 @@ test("CONCURRENT finishes for one run dispatch exactly once", async () => {
   assert.equal(dispatched.length, 2, "one author run + exactly one review run");
   assert.equal(db.getLoop(id)!.state.round, 1);
   assert.equal(db.getLoop(id)!.state.phase, "reviewing");
+});
+
+test("a spawn failure TERMINATES the loop instead of stranding it", async () => {
+  let n = 0;
+  const { runner } = makeRunner({
+    startRun: async () => { if (++n > 1) throw new Error("bridge missing"); return rid2(1); },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished(rid2(1), true, runner, 1);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.binding, "dispatch_failed", "a failed spawn must name itself, not vanish");
+  assert.equal(loop.state.phase, "escalated");
+  assert.notEqual(loop.state.binding, undefined, "a loop with no active run and no binding is unrecoverable");
+});
+
+test("a reaped run is reconciled rather than left reporting running", async () => {
+  const { runner, rid } = makeRunner();
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  // Simulate reapOrphanedRuns: it writes the runs table via raw SQL and knows
+  // nothing about loops.
+  db.insertRun({
+    id: rid(1), agentId: "dev", agentName: "dev", status: "error",
+    prompt: "p", model: "opus", effort: "high", startedAt: 0,
+  });
+  await reconcileLoopIfStale(id, runner, 5);
+  assert.notEqual(db.getLoop(id)!.state.binding, undefined, "a loop whose run is provably dead must not report running");
+});
+
+test("a loop stranded with no active run is recovered, not left silent", async () => {
+  const { runner } = makeRunner();
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  db.updateLoopState(id, db.getLoop(id)!.state, null, 2);
+  await reconcileLoopIfStale(id, runner, 6);
+  assert.equal(db.getLoop(id)!.state.binding, "dispatch_failed");
+});
+
+test("a ceiling of Infinity is NOT read as unbounded", async () => {
+  // JSON.stringify(Infinity) is `null`, so this can never arrive through
+  // createLoop — the read guard only matters for a row written by an older
+  // build or another process. Inject the raw column to reach it.
+  const { runner, rid } = makeRunner({ costOf: () => 1_000_000 });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  getRawDb().prepare("UPDATE loops SET config_json=? WHERE id=?")
+    .run('{"maxRounds":1e999,"budgetUsd":1e999,"wallClockMs":1e999}', id);
+
+  const loaded = db.getLoop(id)!;
+  assert.equal(loaded.config.maxRounds, 1, "a non-finite round ceiling must fall back to the safe floor");
+  assert.equal(loaded.config.budgetUsd, undefined, "a non-finite budget is not a budget");
+  assert.equal(loaded.config.wallClockMs, undefined, "a non-finite wall clock is not a limit");
+
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2, [MUST]);
+  assert.equal(db.getLoop(id)!.state.binding, "max_rounds", "every ceiling unbounded would never terminate");
+});
+
+test("an unreadable binding never renders as still-running", () => {
+  const { runner } = makeRunner();
+  void runner;
+  const id = "corrupt-" + Math.random().toString(36).slice(2);
+  db.createLoop({
+    id, conversationId: null, agentId: "d", instanceId: null, projectId: null,
+    reviewerAgentId: "q", cwd: null, goal: "g",
+    state: { phase: "authoring", round: 1, spentUsd: 0, startedAt: 0, open: [], history: [] },
+    config: cfg, activeRunId: null,
+  }, 0);
+  getRawDb().prepare("UPDATE loops SET phase=?, binding=? WHERE id=?").run("not-a-phase", "from-the-future", id);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.phase, "escalated");
+  assert.equal(loop.state.binding, "corrupt_state", "a termination must always NAME itself");
 });
 
 test("a user stop is reported as user_stopped, not as a review failure", async () => {
