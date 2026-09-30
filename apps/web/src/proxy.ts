@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (!SAFE_METHODS.has(req.method)) {
     const origin = req.headers.get("origin");
     if (origin) {
