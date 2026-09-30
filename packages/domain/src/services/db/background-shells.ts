@@ -66,9 +66,3 @@ export function deleteBackgroundShell(id: string): void {
   getDb().prepare("DELETE FROM background_shells WHERE id = ?").run(id);
 }
 
-/** Every tracked shell PID for a run, oldest first — used to avoid
- *  re-tracking a child process this run already has a row for. */
-export function listBackgroundShellPidsForRun(runId: string): number[] {
-  const rows = getDb().prepare("SELECT pid FROM background_shells WHERE run_id = ?").all(runId) as { pid: number }[];
-  return rows.map((r) => r.pid);
-}

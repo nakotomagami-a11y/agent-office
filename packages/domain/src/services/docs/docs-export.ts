@@ -482,24 +482,6 @@ const API: DocsExport["api"] = [
   },
   {
     method: "GET",
-    path: "/api/transcripts",
-    description: "Get or list conversation transcripts",
-    response_type: "TranscriptRow | TranscriptRow[]",
-  },
-  {
-    method: "PUT",
-    path: "/api/transcripts",
-    description: "Save a transcript",
-    response_type: "{ ok: boolean }",
-  },
-  {
-    method: "DELETE",
-    path: "/api/transcripts",
-    description: "Clear a transcript",
-    response_type: "{ ok: boolean }",
-  },
-  {
-    method: "GET",
     path: "/api/drafts",
     description: "Get composer draft for an agent+instance",
     response_type: "{ text: string }",

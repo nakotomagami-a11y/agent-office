@@ -708,10 +708,6 @@ export function findInstance(project: Project | null, instanceId: string | undef
   return project.meta.roster.find((i) => i.instanceId === instanceId) ?? null;
 }
 
-export function readProjectMemory(id: string): string {
-  return readProject(id)?.memory ?? "";
-}
-
 export function resolveSummonCwd(
   requested: string | undefined,
   project: Project | null,

@@ -54,10 +54,6 @@ export function getScheduledJob(id: string): ScheduledJob | null {
   return row ? rowToScheduledJob(row) : null;
 }
 
-export function deleteScheduledJob(id: string): void {
-  getDb().prepare("DELETE FROM scheduled_jobs WHERE id = ?").run(id);
-}
-
 /** All jobs the UI cares about: everything except cancelled, newest fire first. */
 export function listScheduledJobs(): ScheduledJob[] {
   const rows = getDb()
