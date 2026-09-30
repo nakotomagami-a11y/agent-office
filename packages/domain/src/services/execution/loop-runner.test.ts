@@ -321,3 +321,76 @@ test("the review prompt carries the citable rule ids", async () => {
   assert.match(dispatched[1]!.prompt, /arch\.parse-dont-cast/, "the reviewer cannot cite rules it was never given");
   assert.match(dispatched[1]!.prompt, /ReportFindings/);
 });
+
+test("a refused user action is REPORTED, not silently swallowed", async () => {
+  // `allowOneMore` is only valid once a round ceiling has escalated the loop.
+  // Returning ok for a refusal is a button that does nothing and a UI that
+  // cannot tell.
+  const { runner } = makeRunner();
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  const r = await advanceLoop(id, { type: "allowOneMore" }, runner, 1);
+  assert.equal(r.ok, false);
+  assert.equal(r.ok === false && r.code, "action_not_accepted");
+});
+
+test("an accepted user action reports ok", async () => {
+  const { runner } = makeRunner();
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  assert.equal((await advanceLoop(id, { type: "stop" }, runner, 1)).ok, true);
+});
+
+test("an action on a loop that does not exist is reported, not ignored", async () => {
+  const { runner } = makeRunner();
+  const r = await advanceLoop("no-such-loop", { type: "stop" }, runner, 1);
+  assert.equal(r.ok === false && r.code, "loop_not_found");
+});
+
+test("allowOneMore is accepted on a round ceiling and runs one more round", async () => {
+  const { runner, rid, report, dispatched } = makeRunner();
+  const id = await startLoop(
+    { agentId: "dev", reviewerAgentId: "qa", goal: "g", config: { maxRounds: 1 } }, runner, 0,
+  );
+  report([MUST]);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "max_rounds");
+
+  const before = dispatched.length;
+  assert.equal((await advanceLoop(id, { type: "allowOneMore" }, runner, 3)).ok, true);
+  assert.equal(dispatched.length, before + 1, "one more round must actually be dispatched");
+  assert.equal(db.getLoop(id)!.state.round, 2);
+});
+
+test("allowOneMore cannot outrun the WALL CLOCK — time passes while the user decides", async () => {
+  // The budget re-check in `allowOneMore` is unreachable by construction:
+  // `ceilingHit` binds budget BEFORE rounds, so a breached budget never
+  // presents as `max_rounds`. The wall clock is different — it advances while
+  // the loop sits escalated waiting for a human.
+  const { runner, rid, report, dispatched } = makeRunner();
+  const id = await startLoop(
+    { agentId: "dev", reviewerAgentId: "qa", goal: "g", config: { maxRounds: 1, wallClockMs: 1000 } }, runner, 0,
+  );
+  report([MUST]);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "max_rounds");
+
+  const before = dispatched.length;
+  await advanceLoop(id, { type: "allowOneMore" }, runner, 99_999);
+  assert.equal(db.getLoop(id)!.state.binding, "wall_clock", "one more round must not buy more time");
+  assert.equal(dispatched.length, before, "and must not dispatch");
+});
+
+test("accept-as-is cannot relabel a stopped or miswired loop as converged", async () => {
+  // `invalid_findings` exists so a miswired reviewer is never read as a pass.
+  const { runner, rid, report } = makeRunner({ ruleExists: () => false });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  report([{ ...MUST, ruleId: "no.such.rule" }]);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "invalid_findings");
+
+  const r = await advanceLoop(id, { type: "acceptAsIs" }, runner, 3);
+  assert.equal(r.ok, false, "the machine must refuse, and the refusal must be reported");
+  assert.equal(db.getLoop(id)!.state.binding, "invalid_findings", "still named, not laundered into converged");
+});
