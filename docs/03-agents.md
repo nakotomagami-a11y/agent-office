@@ -53,18 +53,40 @@ unit: blue/warrior
 | `default-effort` | string | `medium` | Thinking budget: low · medium · high · xhigh · max |
 | `skills` | list | `[]` | Installed skills to prepend to every summon |
 | `tools` | list | `[]` | Tools the agent may use (`--allowedTools`) |
-| `permission-mode` | string | `default` | `default` · `bypassPermissions` · `plan` |
+| `permission-mode` | string | unset | One of the six below (`manual` = alias for `default`). Unset = the CLI's own default |
 | `add-dirs` | list | `[]` | Extra directories the agent can read/write, passed as `--add-dir` flags |
 | `room` | string | `auto` | Which room on the office floor the agent's desk appears in |
 | `unit` | string | `auto` | Avatar sprite: `faction/kind` e.g. `blue/warrior` |
 
 ### permission-mode values
 
+Source of truth: `PERMISSION_MODE_OPTS` in `packages/domain/src/config/agent-opts.ts`,
+taken from the flag's own enum inside the CLI binary. Anything else is rejected
+and logged, and the agent falls back to unset.
+
+> `manual` is accepted as an **alias** for `default`, not a seventh mode — the
+> CLI maps it internally and renames `default` to `manual` in its "Allowed
+> choices" error text. Agent Office normalises it to `default` on read. Do not
+> read the mode list off that error string.
+
 | Value | Behaviour |
 |---|---|
-| `default` | Claude Code prompts for permission on destructive actions |
+| `default` | Prompts on destructive actions (displayed as `manual` by the CLI) |
+| `acceptEdits` | File edits auto-approved; other tools prompt |
 | `bypassPermissions` | All permissions auto-approved — use for trusted automation |
 | `plan` | Read-only planning mode — agent cannot write or execute. History note is omitted from the appended prompt. |
+| `dontAsk` | Never prompts; denies what it would have asked about |
+| `auto` | CLI decides per tool call |
+
+> **The prompting modes are advisory, not a control.** The CLI child runs as the
+> same uid as the app, so it can read the app's argv and environment, and an
+> agent with file-write can set `permission-mode: bypassPermissions` in its own
+> definition for the next run. A real boundary needs a separate uid or a sandbox.
+>
+> Separately, in one probe under `-p` the bridge received `initialize` and
+> `tools/list` but no `tools/call` before the tool ran. The cause was not
+> isolated — a pre-approved rule would look the same — so treat prompting modes
+> as unproven end-to-end rather than known-broken.
 
 ## How the system prompt is assembled
 

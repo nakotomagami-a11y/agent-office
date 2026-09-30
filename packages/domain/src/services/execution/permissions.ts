@@ -1,7 +1,7 @@
 // Pending permission decisions.
 //
 // `bypassPermissions` on every agent was never a security posture — it was the
-// absence of a channel. Runs are headless `claude -p` with stdin closed, so a
+// absence of a channel — and advisory, not a control: see config/agent-opts.ts. Runs are headless `claude -p` with stdin closed, so a
 // tool call needing approval had nothing to ask. The CLI has always been ready
 // for this: `--permission-prompts` defaults to `host`. Nothing was listening.
 //

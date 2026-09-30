@@ -6,22 +6,27 @@ export { MODEL_FULL, MODEL_OPTS } from "./models";
 export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 /**
- * Real `claude --permission-mode` values, verified against CLI v2.1.278.
+ * The oracle is the flag's own enum inside the CLI binary, NOT its help text:
+ * the "Allowed choices" error renames `default` to `manual` for display, which
+ * is why executing values alone cannot tell a mode from an alias.
+ *   strings $(which claude) | grep -o 'z.enum(\["default".*\])'
  *
- * All six are offered now that a live approval channel exists
- * (services/execution/permissions.ts + the MCP permission server): a mode that
- * can prompt is handed `--permission-prompt-tool`, so a headless `-p` run no
- * longer has to deny by default. Before that channel, `bypassPermissions` was
- * the only mode that let an agent finish unattended work — which was the
- * absence of a channel, not a security posture.
- *
- * `plan` is read-only and never needs a prompt at all.
+ * ADVISORY, NOT A CONTROL: the child shares our uid, so it reads our argv and
+ * /proc/<pid>/environ. Prompting modes are also unproven end-to-end — one
+ * probe saw no `tools/call`, cause not isolated. See docs/03-agents.md.
  */
 export const PERMISSION_MODE_OPTS = [
-  "bypassPermissions",
+  "default",
   "acceptEdits",
-  "auto",
-  "manual",
-  "dontAsk",
+  "bypassPermissions",
   "plan",
+  "dontAsk",
+  "auto",
 ] as const;
+
+/** `manual` is the CLI's DISPLAY name for `default`, not a seventh mode —
+ *  the binary maps `e === "manual" ? "default"` and its help says so. Accepted
+ *  on input so existing configs keep working. */
+export const PERMISSION_MODE_ALIASES: Record<string, (typeof PERMISSION_MODE_OPTS)[number]> = {
+  manual: "default",
+};

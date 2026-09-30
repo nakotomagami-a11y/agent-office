@@ -58,7 +58,7 @@ export function fromApi(agent: ApiAgent, body: string): AgentFormValues {
     desc: agent.description,
     skills: toCsv(agent.skills),
     tools: toCsv(agent.tools),
-    pm: agent.permissionMode ?? "bypassPermissions",
+    pm: agent.permissionMode ?? "default",
     model: agent.defaultModel ?? "sonnet",
     effort: agent.defaultEffort ?? "high",
     room: agent.room ?? "",
