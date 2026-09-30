@@ -9,7 +9,7 @@ import * as projects from "./projects";
 import { AGENTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { OFFICE_SETTING_KEYS, type OfficeSettingField } from "../../config/office";
-import type { Project } from "../../types";
+import type { Project, ProjectMetaPatch } from "../../types";
 
 const OFFICE_FIELDS = Object.keys(OFFICE_SETTING_KEYS) as OfficeSettingField[];
 
@@ -90,16 +90,31 @@ function restoreAgents(list: SaveBundleAgent[]): void {
 
 function restoreProject(p: ImportBundle["project"]): void {
   const meta = p.meta;
-  if (projects.readProject(p.id)) {
-    projects.updateProject(p.id, { meta, memory: p.memory });
-    return;
+  const str = (k: string): string | undefined =>
+    typeof meta[k] === "string" ? (meta[k] as string) : undefined;
+  const patch: ProjectMetaPatch = {
+    name: str("name"),
+    description: str("description"),
+    accountId: str("accountId"),
+    githubAccountId: str("githubAccountId"),
+    shelved: typeof meta.shelved === "boolean" ? meta.shelved : undefined,
+    // arch.parse-dont-cast: bundle contents are untrusted input, so the planet
+    // is narrowed by the domain's own parser rather than asserted into shape.
+    planet: projects.parsePlanetConfig(meta.planet),
+  };
+  if (!projects.readProject(p.id)) {
+    projects.createProject({
+      id: p.id,
+      name: patch.name ?? p.id,
+      description: patch.description ?? "",
+    });
   }
-  projects.createProject({
-    id: p.id,
-    name: typeof meta.name === "string" ? meta.name : p.id,
-    description: typeof meta.description === "string" ? meta.description : "",
-  });
-  projects.updateProject(p.id, { meta, memory: p.memory });
+  projects.updateProject(p.id, { meta: patch, memory: p.memory }, "importBundle");
+  // Only when the bundle actually carries a roster. An unconditional call
+  // would let a roster-less bundle delete every instance of an existing
+  // project -- reintroducing, through the import path, the exact silent
+  // emptying that replaceRoster exists to prevent.
+  if (Array.isArray(meta.roster)) projects.replaceRoster(p.id, meta.roster, "importBundle");
 }
 
 function restoreOffice(office: OfficeSnapshot): void {

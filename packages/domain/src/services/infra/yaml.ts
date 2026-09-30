@@ -92,7 +92,12 @@ function parseFlowList(raw: string): YamlValue[] {
     buf += ch;
   }
   if (buf.trim()) parts.push(buf);
-  return parts.map((p) => parseScalar(p));
+  // The split above is already depth-aware, so a nested flow list arrives here
+  // intact -- recurse instead of flattening it to the raw string "[1, 2, 3]".
+  return parts.map((p) => {
+    const t = p.trim();
+    return t.startsWith("[") && t.endsWith("]") ? parseFlowList(t) : parseScalar(t);
+  });
 }
 
 interface Line { indent: number; raw: string; }
@@ -285,11 +290,11 @@ function stringifyValue(v: YamlValue, indent: number): string {
   if (typeof v === "string") return quoteScalar(v);
   if (Array.isArray(v)) {
     if (v.length === 0) return "[]";
-    // Use flow style for arrays of scalars, block style for arrays of objects.
-    const allScalar = v.every(
-      (x) => x === null || ["string", "number", "boolean"].includes(typeof x),
-    );
-    if (allScalar) {
+    // Flow style unless the array contains a mapping. Nested arrays must stay
+    // inline: emitting them as block items produced `-     - [1, 2, 3]`, which
+    // is not valid YAML and did not survive a round-trip.
+    const hasMapping = v.some((x) => x !== null && typeof x === "object" && !Array.isArray(x));
+    if (!hasMapping) {
       return `[${v.map((x) => stringifyValue(x, 0)).join(", ")}]`;
     }
     return v
@@ -314,7 +319,11 @@ function stringifyValue(v: YamlValue, indent: number): string {
     if (val && typeof val === "object" && !Array.isArray(val)) {
       lines.push(`${pad}${k}:`);
       lines.push(stringifyValue(val, indent + 2));
-    } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
+    } else if (Array.isArray(val) && val.some((x) => x !== null && typeof x === "object" && !Array.isArray(x))) {
+      // Block style only for arrays of MAPPINGS. `typeof val[0] === "object"`
+      // also caught arrays-of-arrays, which stringifyValue renders inline —
+      // emitting `key:` followed by an unindented flow list, which parses back
+      // as null.
       lines.push(`${pad}${k}:`);
       lines.push(stringifyValue(val, indent));
     } else {

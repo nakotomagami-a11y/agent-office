@@ -3,11 +3,12 @@
 // Rosters of agent instances live in that frontmatter.
 
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, sep } from "node:path";
-import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectSummary, ScannedEntry } from "../../types/index";
+import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
 import { expandTilde, PROJECTS_DIR } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { isYamlMapping, parseYaml, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
 import { readSettings, scanProjects, slugify, isFeatureEnabled } from "../settings";
 import { getDb } from "../db";
@@ -25,24 +26,65 @@ function metadataFile(id: string): string {
   return join(PROJECTS_DIR, id, "project.md");
 }
 
-interface ParsedMetadata { meta: Partial<ProjectMeta>; memory: string }
+interface ParsedMetadata {
+  meta: Partial<ProjectMeta>;
+  memory: string;
+  rev: string;
+  /** Raw frontmatter, so keys this module does not model survive a write. */
+  raw: YamlMapping;
+  /**
+   * The file has a `---` block that produced no mapping: unreadable, not
+   * empty. Writing on top of this would destroy whatever is really in there,
+   * so mutateMetadata refuses rather than "helpfully" starting fresh.
+   */
+  lossy: boolean;
+}
 
-function parseMetadataFile(content: string): ParsedMetadata {
-  const m = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { meta: {}, memory: content.trim() };
-  let raw: YamlMapping = {};
-  try {
-    const parsed = parseYaml(m[1]!);
-    if (isYamlMapping(parsed)) raw = parsed;
-  } catch {
-    raw = {};
+/** Rev of a project that has no `project.md` on disk yet. */
+export const EMPTY_REV = "empty";
+
+/**
+ * Content hash used as the write token. Content-based rather than mtime-based
+ * on purpose: mtime granularity varies by filesystem, and restore-from-backup
+ * can reset it, both of which would silently weaken the staleness check.
+ */
+function revOf(content: string): string {
+  return createHash("sha256").update(content).digest("hex").slice(0, 12);
+}
+
+/** Raised when a write's `expectedRev` no longer matches what is on disk. */
+export class StaleProjectWriteError extends Error {
+  readonly code = "stale_write";
+  constructor(readonly projectId: string, readonly expectedRev: string, readonly actualRev: string) {
+    super(
+      `project '${projectId}' changed on disk since it was read ` +
+      `(expected rev ${expectedRev}, found ${actualRev}) -- refusing to overwrite`,
+    );
+    this.name = "StaleProjectWriteError";
   }
-  return { meta: yamlToProjectMeta(raw), memory: (m[2] ?? "").trim() };
+}
+
+/**
+ * Delegates to the shared CRLF-tolerant splitter. A hand-rolled `/^---\n/`
+ * copy used to live here; on a CRLF file it matched nothing, so the whole
+ * frontmatter was read as body and the next write emitted an empty project --
+ * roster, accountId and name all gone.
+ */
+function parseMetadataFile(content: string): ParsedMetadata {
+  const { fm, body } = parseFrontmatter(content);
+  const hasBlock = /^---\r?\n/.test(content);
+  return {
+    meta: yamlToProjectMeta(fm),
+    memory: body.trim(),
+    rev: revOf(content),
+    raw: fm,
+    lossy: hasBlock && Object.keys(fm).length === 0,
+  };
 }
 
 const PLANET_TYPES = new Set<PlanetType>(["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"]);
 
-function parsePlanetConfig(raw: unknown): PlanetConfig | undefined {
+export function parsePlanetConfig(raw: unknown): PlanetConfig | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
   const type = o.type as string;
@@ -143,8 +185,11 @@ function readMetadata(id: string): ParsedMetadata | null {
   try {
     parsed = parseMetadataFile(readFileSync(path, "utf8"));
   } catch (e) {
-    log.warn("project.metadata_parse_failed", { id, err: String(e) });
-    parsed = null;
+    // The file EXISTS (we just stat'd it) but cannot be read. Returning null
+    // here would make it indistinguishable from "no metadata", which reports
+    // EMPTY_REV and lets a write blow it away. Mark it lossy instead.
+    log.error("project.metadata_read_failed", { id, err: String(e) });
+    parsed = { meta: {}, memory: "", rev: EMPTY_REV, raw: {}, lossy: true };
   }
   metadataCache.set(path, { mtimeMs, parsed });
   return parsed;
@@ -187,10 +232,21 @@ function normalizeRoster(raw: unknown): AgentInstance[] {
   return out;
 }
 
-function writeMetadata(id: string, meta: Partial<ProjectMeta>, memory: string): void {
-  ensureDir(PROJECTS_DIR);
-  ensureDir(join(PROJECTS_DIR, id));
+/** Frontmatter keys this module owns. Anything else is carried through. */
+const KNOWN_META_KEYS = new Set([
+  "name", "description", "roster", "accountId", "githubAccountId", "shelved", "planet",
+]);
+
+/**
+ * `carry` is the raw frontmatter of the file being replaced. Keys this module
+ * does not model are re-emitted verbatim so a write never silently deletes
+ * something a future version (or a human) put there.
+ */
+function serializeMetadata(meta: Partial<ProjectMeta>, memory: string, carry: YamlMapping = {}): string {
   const fmObj: YamlMapping = {};
+  for (const [k, v] of Object.entries(carry)) {
+    if (!KNOWN_META_KEYS.has(k)) fmObj[k] = v;
+  }
   if (meta.name) fmObj.name = meta.name;
   if (meta.description) fmObj.description = meta.description;
   if (Array.isArray(meta.roster) && meta.roster.length > 0) {
@@ -206,6 +262,12 @@ function writeMetadata(id: string, meta: Partial<ProjectMeta>, memory: string): 
     if (p.rotation !== undefined) pObj.rotation = p.rotation;
     if (p.dither !== undefined) pObj.dither = p.dither;
     if (p.params && Object.keys(p.params).length > 0) pObj.params = p.params as unknown as YamlValue;
+    // Parsed by parsePlanetConfig and authored in the planet editor, so it has
+    // to be written back too -- an asymmetric parse/serialize is exactly the
+    // bug class this file is being hardened against.
+    if (p.customPalette && p.customPalette.length > 0) {
+      pObj.customPalette = p.customPalette as unknown as YamlValue;
+    }
     fmObj.planet = pObj as unknown as YamlValue;
   }
   const fmStr = Object.keys(fmObj).length === 0 ? "" : stringifyYaml(fmObj).trim();
@@ -213,9 +275,82 @@ function writeMetadata(id: string, meta: Partial<ProjectMeta>, memory: string): 
   let content = "";
   if (fmStr) content += `---\n${fmStr}\n---\n\n`;
   if (body) content += `${body}\n`;
+  return content;
+}
+
+/**
+ * The ONLY function that writes project.md. Every mutation carries a `reason`
+ * so a lost field is a `grep project.metadata_written` away instead of an
+ * afternoon of guessing -- the absence of any such trail is precisely why the
+ * roster loss of 2026-09-30 could not be attributed.
+ */
+function writeMetadata(
+  id: string,
+  meta: Partial<ProjectMeta>,
+  memory: string,
+  reason: string,
+  carry: YamlMapping = {},
+): string {
+  ensureDir(PROJECTS_DIR);
+  ensureDir(join(PROJECTS_DIR, id));
+  const content = serializeMetadata(meta, memory, carry);
   const path = metadataFile(id);
   writeFileAtomic(path, content);
   metadataCache.delete(path);
+  const rev = revOf(content);
+  log.info("project.metadata_written", {
+    id,
+    reason,
+    rev,
+    rosterCount: Array.isArray(meta.roster) ? meta.roster.length : 0,
+    accountId: meta.accountId ?? null,
+  });
+  return rev;
+}
+
+interface MetadataSnapshot { meta: ProjectMeta; memory: string; rev: string }
+
+/**
+ * Single entry point for mutating project metadata.
+ *
+ * `apply` receives the state as it is ON DISK right now and returns the next
+ * state, so a caller cannot write back a blob it captured earlier and silently
+ * clobber fields it never touched. Read-apply-write is synchronous, so no other
+ * in-process write can interleave; `expectedRev` covers the cross-process case
+ * (another tab, or an agent editing project.md directly).
+ */
+function mutateMetadata(
+  id: string,
+  reason: string,
+  apply: (current: MetadataSnapshot) => { meta: ProjectMeta; memory?: string },
+  expectedRev?: string,
+): Project {
+  // Read FRESH, never through the mtime cache. Two writes inside the same
+  // millisecond produce an identical mtimeMs, so a cached parse can hide an
+  // edit that just landed -- which would both merge against stale data and
+  // silently defeat the expectedRev check below.
+  metadataCache.delete(metadataFile(id));
+  const md = readMetadata(id);
+  const existing = readProject(id);
+  if (!existing) throw new Error(`project '${id}' not found`);
+  // Never write on top of a file we could not understand -- the merge base
+  // would be empty, so the write would delete real data and the rev check
+  // would pass (the rev is hashed from raw bytes, which parsed fine).
+  if (md?.lossy) {
+    log.error("project.metadata_unreadable", { id, reason });
+    throw new Error(
+      `project '${id}' metadata is present but unreadable -- refusing to overwrite it`,
+    );
+  }
+  const currentRev = existing.rev ?? EMPTY_REV;
+  if (expectedRev !== undefined && expectedRev !== currentRev) {
+    log.warn("project.stale_write_rejected", { id, reason, expectedRev, actualRev: currentRev });
+    throw new StaleProjectWriteError(id, expectedRev, currentRev);
+  }
+  const next = apply({ meta: existing.meta, memory: existing.memory, rev: currentRev });
+  const memory = next.memory ?? existing.memory;
+  const rev = writeMetadata(id, next.meta, memory, reason, md?.raw ?? {});
+  return { id, meta: next.meta, memory, rev };
 }
 
 function projectFromScan(entry: ScannedEntry): Project {
@@ -233,7 +368,7 @@ function projectFromScan(entry: ScannedEntry): Project {
   if (md?.meta.accountId) meta.accountId = md.meta.accountId;
   if (md?.meta.githubAccountId) meta.githubAccountId = md.meta.githubAccountId;
   if (md?.meta.shelved) meta.shelved = true;
-  return { id: entry.id, meta, memory: md?.memory ?? "" };
+  return { id: entry.id, meta, memory: md?.memory ?? "", rev: md?.rev ?? EMPTY_REV };
 }
 
 export function listProjectSummaries(): ProjectSummary[] {
@@ -273,19 +408,52 @@ export function readProject(id: string): Project | null {
   return projectFromScan(scanned);
 }
 
+/**
+ * Apply a PARTIAL metadata update. Only keys present on `patch.meta` are
+ * touched; `null` clears a clearable field. The roster is not reachable from
+ * here by construction -- use addInstance/patchInstance/removeInstance, or
+ * `replaceRoster` for import.
+ */
 export function updateProject(
   id: string,
-  patch: { meta?: Partial<ProjectMeta>; memory?: string },
+  patch: { meta?: ProjectMetaPatch; memory?: string; expectedRev?: string },
+  reason = "updateProject",
 ): Project {
-  const existing = readProject(id);
-  if (!existing) throw new Error(`project '${id}' not found`);
-  const meta: ProjectMeta = { ...existing.meta, ...patch.meta };
-  if (patch.meta?.roster !== undefined) {
-    meta.roster = normalizeRoster(patch.meta.roster);
+  return mutateMetadata(id, reason, (cur) => {
+    const meta: ProjectMeta = { ...cur.meta };
+    const m = patch.meta;
+    if (m) {
+      if (m.name !== undefined) meta.name = m.name;
+      if (m.description !== undefined) meta.description = m.description;
+      if (m.shelved !== undefined) meta.shelved = m.shelved;
+      if (m.planet !== undefined) meta.planet = m.planet;
+      if (m.accountId !== undefined) {
+        if (m.accountId === null) delete meta.accountId; else meta.accountId = m.accountId;
+      }
+      if (m.githubAccountId !== undefined) {
+        if (m.githubAccountId === null) delete meta.githubAccountId;
+        else meta.githubAccountId = m.githubAccountId;
+      }
+    }
+    return { meta, memory: patch.memory };
+  }, patch.expectedRev);
+}
+
+/**
+ * Replace the whole roster in one shot. The ONLY legitimate bulk path (bundle
+ * import/restore); everything else must go through the per-instance functions
+ * so a stale array can never wipe entries it did not know about.
+ */
+export function replaceRoster(id: string, roster: unknown, reason = "replaceRoster"): Project {
+  // Coercing a non-array to [] would turn "this caller has no roster data"
+  // into "delete every instance" -- the exact silent-emptying this module is
+  // meant to prevent. Make the caller be explicit instead.
+  if (!Array.isArray(roster)) {
+    throw new Error(`replaceRoster('${id}') requires an array, received ${typeof roster}`);
   }
-  const memory = patch.memory ?? existing.memory;
-  writeMetadata(id, meta, memory);
-  return { id, meta, memory };
+  return mutateMetadata(id, reason, (cur) => ({
+    meta: { ...cur.meta, roster: normalizeRoster(roster) },
+  }));
 }
 
 export function deleteProject(id: string): boolean {
@@ -407,10 +575,13 @@ export function addInstance(
     });
   }
 
-  const meta: ProjectMeta = { ...p.meta, roster: [...p.meta.roster, instance] };
-  writeMetadata(projectId, meta, p.memory);
+  // Append against the roster as it is on disk NOW, not the copy read above:
+  // worktree creation can take long enough for another write to land.
+  const project = mutateMetadata(projectId, "addInstance", (cur) => ({
+    meta: { ...cur.meta, roster: [...cur.meta.roster, instance] },
+  }));
   log.info("project.instance_added", { projectId, instanceId: instance.instanceId, agentId });
-  return { project: { id: projectId, meta, memory: p.memory }, instance };
+  return { project, instance };
 }
 
 export function patchInstance(
@@ -418,30 +589,26 @@ export function patchInstance(
   instanceId: string,
   patch: Partial<Omit<AgentInstance, "instanceId" | "agentId">>,
 ): Project {
-  const p = readProject(projectId);
-  if (!p) throw new Error(`project '${projectId}' not found`);
-  const idx = p.meta.roster.findIndex((i) => i.instanceId === instanceId);
-  if (idx === -1) throw new Error(`instance '${instanceId}' not found`);
-  const updated: AgentInstance = { ...p.meta.roster[idx]!, ...patch };
-  for (const k of ["label", "model", "effort", "permissionMode", "room"] as const) {
-    if (k in patch && patch[k] === "") delete updated[k];
-  }
-  const roster = [...p.meta.roster];
-  roster[idx] = updated;
-  const meta = { ...p.meta, roster };
-  writeMetadata(projectId, meta, p.memory);
+  const project = mutateMetadata(projectId, "patchInstance", (cur) => {
+    const idx = cur.meta.roster.findIndex((i) => i.instanceId === instanceId);
+    if (idx === -1) throw new Error(`instance '${instanceId}' not found`);
+    const updated: AgentInstance = { ...cur.meta.roster[idx]!, ...patch };
+    for (const k of ["label", "model", "effort", "permissionMode", "room"] as const) {
+      if (k in patch && patch[k] === "") delete updated[k];
+    }
+    const roster = [...cur.meta.roster];
+    roster[idx] = updated;
+    return { meta: { ...cur.meta, roster } };
+  });
   log.info("project.instance_patched", { projectId, instanceId });
-  return { id: projectId, meta, memory: p.memory };
+  return project;
 }
 
 export function removeInstance(projectId: string, instanceId: string): Project {
   const p = readProject(projectId);
   if (!p) throw new Error(`project '${projectId}' not found`);
   const instance = p.meta.roster.find((i) => i.instanceId === instanceId);
-  const roster = p.meta.roster.filter((i) => i.instanceId !== instanceId);
-  if (roster.length === p.meta.roster.length) {
-    throw new Error(`instance '${instanceId}' not found`);
-  }
+  if (!instance) throw new Error(`instance '${instanceId}' not found`);
 
   // Clean up worktree before removing from roster.
   if (instance?.worktree && p.meta.cwd) {
@@ -457,11 +624,14 @@ export function removeInstance(projectId: string, instanceId: string): Project {
     }
   }
 
-  const meta = { ...p.meta, roster };
-  writeMetadata(projectId, meta, p.memory);
+  // Remove by id against current on-disk state -- never write back a roster
+  // snapshot, which is how unrelated entries used to vanish.
+  const project = mutateMetadata(projectId, "removeInstance", (cur) => ({
+    meta: { ...cur.meta, roster: cur.meta.roster.filter((i) => i.instanceId !== instanceId) },
+  }));
   // Transcript rows (runs, messages, tool_calls) are archived, not deleted.
   log.info("project.instance_removed", { projectId, instanceId });
-  return { id: projectId, meta, memory: p.memory };
+  return project;
 }
 
 /**
@@ -541,13 +711,18 @@ function clearStaleWorktree(projectId: string, instanceId: string): void {
   if (!p) return;
   const idx = p.meta.roster.findIndex((i) => i.instanceId === instanceId);
   if (idx === -1) return;
-  const inst = { ...p.meta.roster[idx]! };
-  if (inst.cwd === undefined && inst.worktree === undefined) return;
-  delete inst.cwd;
-  delete inst.worktree;
-  const roster = [...p.meta.roster];
-  roster[idx] = inst;
-  writeMetadata(projectId, { ...p.meta, roster }, p.memory);
+  const seen = p.meta.roster[idx]!;
+  if (seen.cwd === undefined && seen.worktree === undefined) return;
+  mutateMetadata(projectId, "clearStaleWorktree", (cur) => {
+    const i = cur.meta.roster.findIndex((x) => x.instanceId === instanceId);
+    if (i === -1) return { meta: cur.meta };
+    const inst = { ...cur.meta.roster[i]! };
+    delete inst.cwd;
+    delete inst.worktree;
+    const roster = [...cur.meta.roster];
+    roster[i] = inst;
+    return { meta: { ...cur.meta, roster } };
+  });
   log.info("project.worktree_pin_cleared", { projectId, instanceId });
 }
 
@@ -723,7 +898,7 @@ export function createProject(input: CreateProjectInput): Project {
     roster: normalizeRoster(input.roster),
     planet: input.planet ?? autoRandomPlanet(),
   };
-  writeMetadata(id, meta, "");
+  const rev = writeMetadata(id, meta, "", "createProject");
   log.info("project.metadata_created", { id });
-  return { id, meta, memory: "" };
+  return { id, meta, memory: "", rev };
 }
