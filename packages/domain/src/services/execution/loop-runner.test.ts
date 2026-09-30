@@ -35,13 +35,16 @@ function makeRunner(over: Partial<LoopRunner> = {}) {
   const dispatched: Array<{ agentId: string; prompt: string }> = [];
   const tag = `t${++suite}`;
   let n = 0;
+  let verdict: Finding[] | null = [];
   const runner: LoopRunner = {
     startRun: async (i) => { dispatched.push({ agentId: i.agentId, prompt: i.prompt }); return `${tag}-run-${++n}`; },
     costOf: () => 1,
     ruleExists: () => true,
+    ruleIds: () => ["arch.parse-dont-cast"],
+    findingsFor: () => verdict,
     ...over,
   };
-  return { runner, dispatched, rid: (k: number) => `${tag}-run-${k}` };
+  return { runner, dispatched, rid: (k: number) => `${tag}-run-${k}`, report: (f: Finding[] | null) => { verdict = f; } };
 }
 
 const cfg = { maxRounds: 3 };
@@ -66,20 +69,20 @@ test("an authoring run finishing dispatches REVIEW, to the reviewer agent", asyn
 });
 
 test("a blocking finding dispatches a FIX back to the author, citing it", async () => {
-  const { runner, dispatched, rid } = makeRunner();
+  const { runner, dispatched, rid, report } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   await onLoopRunFinished(rid(1), true, runner, 1);
-  await onLoopRunFinished(rid(2), true, runner, 2, [MUST]);
+  report([MUST]); await onLoopRunFinished(rid(2), true, runner, 2);
   assert.equal(dispatched[2]!.agentId, "dev");
   assert.match(dispatched[2]!.prompt, /arch\.parse-dont-cast/, "the fix prompt must name the finding it is for");
   assert.equal(db.getLoop(id)!.state.round, 2);
 });
 
 test("a clean review converges and dispatches nothing further", async () => {
-  const { runner, dispatched, rid } = makeRunner();
+  const { runner, dispatched, rid, report } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   await onLoopRunFinished(rid(1), true, runner, 1);
-  await onLoopRunFinished(rid(2), true, runner, 2, []);
+  report([]); await onLoopRunFinished(rid(2), true, runner, 2);
   const loop = db.getLoop(id)!;
   assert.equal(loop.state.binding, "converged");
   assert.equal(loop.activeRunId, null, "a finished loop must not hold an active run");
@@ -118,10 +121,10 @@ test("an OUT-OF-PHASE action is ignored and does not strand the loop", async () 
 });
 
 test("a finding citing an unresolvable rule is treated as a miswired reviewer", async () => {
-  const { runner, rid } = makeRunner({ ruleExists: () => false });
+  const { runner, rid, report } = makeRunner({ ruleExists: () => false });
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   await onLoopRunFinished(rid(1), true, runner, 1);
-  await onLoopRunFinished(rid(2), true, runner, 2, [{ ...MUST, ruleId: "no.such.rule" }]);
+  report([{ ...MUST, ruleId: "no.such.rule" }]); await onLoopRunFinished(rid(2), true, runner, 2);
   assert.equal(db.getLoop(id)!.state.binding, "invalid_findings");
 });
 
@@ -137,10 +140,10 @@ test("the budget ceiling binds and is reported as the reason", async () => {
 });
 
 test("state survives a reload — the loop is durable, not in-memory", async () => {
-  const { runner, rid } = makeRunner();
+  const { runner, rid, report } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   await onLoopRunFinished(rid(1), true, runner, 1);
-  await onLoopRunFinished(rid(2), true, runner, 2, [MUST]);
+  report([MUST]); await onLoopRunFinished(rid(2), true, runner, 2);
   const reloaded = db.getLoop(id)!;
   assert.equal(reloaded.state.open.length, 1);
   assert.equal(reloaded.state.open[0]!.ruleId, "arch.parse-dont-cast");
@@ -202,7 +205,7 @@ test("a ceiling of Infinity is NOT read as unbounded", async () => {
   // JSON.stringify(Infinity) is `null`, so this can never arrive through
   // createLoop — the read guard only matters for a row written by an older
   // build or another process. Inject the raw column to reach it.
-  const { runner, rid } = makeRunner({ costOf: () => 1_000_000 });
+  const { runner, rid, report } = makeRunner({ costOf: () => 1_000_000 });
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   getRawDb().prepare("UPDATE loops SET config_json=? WHERE id=?")
     .run('{"maxRounds":1e999,"budgetUsd":1e999,"wallClockMs":1e999}', id);
@@ -213,7 +216,7 @@ test("a ceiling of Infinity is NOT read as unbounded", async () => {
   assert.equal(loaded.config.wallClockMs, undefined, "a non-finite wall clock is not a limit");
 
   await onLoopRunFinished(rid(1), true, runner, 1);
-  await onLoopRunFinished(rid(2), true, runner, 2, [MUST]);
+  report([MUST]); await onLoopRunFinished(rid(2), true, runner, 2);
   assert.equal(db.getLoop(id)!.state.binding, "max_rounds", "every ceiling unbounded would never terminate");
 });
 
@@ -233,9 +236,88 @@ test("an unreadable binding never renders as still-running", () => {
   assert.equal(loop.state.binding, "corrupt_state", "a termination must always NAME itself");
 });
 
+test("the DOMAIN clamps ceilings, not just the API schema", async () => {
+  const { runner } = makeRunner();
+  const id = await startLoop(
+    { agentId: "dev", reviewerAgentId: "qa", goal: "g",
+      config: { maxRounds: 1e9, budgetUsd: 1e9, wallClockMs: 1e12 } },
+    runner, 0,
+  );
+  const cfgOut = db.getLoop(id)!.config;
+  assert.ok(cfgOut.maxRounds <= 20, `maxRounds ${cfgOut.maxRounds} must be clamped in the domain`);
+  assert.ok((cfgOut.budgetUsd ?? 0) <= 1000, "budget must be clamped in the domain");
+  assert.ok((cfgOut.wallClockMs ?? 0) <= 24 * 60 * 60 * 1000, "wall clock must be clamped in the domain");
+});
+
+test("round 1's prompt is prefixed, so it cannot collide with a chat message", async () => {
+  const { runner, dispatched } = makeRunner();
+  await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "ship the thing", config: cfg }, runner, 0);
+  assert.notEqual(
+    dispatched[0]!.prompt, "ship the thing",
+    "a bare goal lets startSummonRun return the user's own chat run for the loop to adopt",
+  );
+  assert.match(dispatched[0]!.prompt, /ship the thing/);
+});
+
+test("a RETRYABLE dispatch failure does not kill a paid loop", async () => {
+  let n = 0;
+  const { runner } = makeRunner({
+    startRun: async () => {
+      if (++n > 1) throw Object.assign(new Error("busy"), { code: "already_running" });
+      return "retry-run-1";
+    },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished("retry-run-1", true, runner, 1);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.binding, undefined, "a transient failure must not terminate the loop");
+  assert.equal(loop.activeRunId, "retry-run-1", "the claim must be returned so reconcile can retry");
+});
+
+test("a NON-retryable dispatch failure still terminates", async () => {
+  let n = 0;
+  const { runner } = makeRunner({
+    startRun: async () => {
+      if (++n > 1) throw Object.assign(new Error("gone"), { code: "unknown_agent" });
+      return "fatal-run-1";
+    },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished("fatal-run-1", true, runner, 1);
+  assert.equal(db.getLoop(id)!.state.binding, "dispatch_failed");
+});
+
 test("a user stop is reported as user_stopped, not as a review failure", async () => {
   const { runner } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
   await advanceLoop(id, { type: "stop" }, runner, 5);
   assert.equal(db.getLoop(id)!.state.binding, "user_stopped");
+});
+
+test("a review that reports NO verdict is a failure, not a pass", async () => {
+  // The first dogfood run converged on every review because findings were
+  // never read: an unassessed diff read as a clean bill of health.
+  const { runner, rid, report } = makeRunner();
+  report(null);
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "review_failed", "no verdict must never read as converged");
+});
+
+test("an EMPTY verdict is a real pass, and is not confused with no verdict", async () => {
+  const { runner, rid, report } = makeRunner();
+  report([]);
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  await onLoopRunFinished(rid(2), true, runner, 2);
+  assert.equal(db.getLoop(id)!.state.binding, "converged");
+});
+
+test("the review prompt carries the citable rule ids", async () => {
+  const { runner, dispatched, rid } = makeRunner();
+  await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  assert.match(dispatched[1]!.prompt, /arch\.parse-dont-cast/, "the reviewer cannot cite rules it was never given");
+  assert.match(dispatched[1]!.prompt, /ReportFindings/);
 });

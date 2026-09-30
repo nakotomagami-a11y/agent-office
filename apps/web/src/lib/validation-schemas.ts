@@ -382,3 +382,22 @@ export const permissionDecisionSchema = z.object({
   decision: z.enum(["allow", "deny"]),
 });
 
+
+/** The app owns these: an agent that could widen its own ceiling owns the
+ *  loop. Upper bounds are deliberate — `maxRounds: 1e9` is not a ceiling. */
+export const startLoopSchema = z.object({
+  agentId: z.string().min(1),
+  reviewerAgentId: z.string().min(1),
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+  conversationId: z.string().optional(),
+  cwd: z.string().optional(),
+  goal: z.string().min(1).max(MAX_PROMPT_BYTES),
+  maxRounds: z.number().int().positive().max(20),
+  budgetUsd: z.number().positive().finite().max(1000).optional(),
+  wallClockMs: z.number().int().positive().max(24 * 60 * 60 * 1000).optional(),
+});
+
+export const loopActionSchema = z.object({
+  action: z.enum(["stop", "acceptAsIs", "allowOneMore"]),
+});

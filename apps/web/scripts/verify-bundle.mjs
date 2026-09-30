@@ -6,7 +6,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { REQUIRED_BUNDLE_SCRIPTS, BUNDLE_ROOT_ENV } from "./bundle-manifest.mjs";
+import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS, BUNDLE_ROOT_ENV } from "./bundle-manifest.mjs";
 
 const tauriDir = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri");
 const bundleRoot = join(tauriDir, "server");
@@ -18,6 +18,12 @@ for (const name of REQUIRED_BUNDLE_SCRIPTS) {
   const p = join(bundleRoot, "scripts", name);
   if (!existsSync(p)) fail(`required script missing from bundle: ${p}`);
   console.log(`verify-bundle: OK ${name}`);
+}
+
+for (const name of REQUIRED_BUNDLE_DOCS) {
+  const p = join(bundleRoot, "docs", name);
+  if (!existsSync(p)) fail(`required doc missing from bundle: ${p}`);
+  console.log(`verify-bundle: OK docs/${name}`);
 }
 
 // A live `process.env.X` read, not a folded constant. Webpack rewrites this

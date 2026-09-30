@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform, arch } from "node:os";
-import { REQUIRED_BUNDLE_SCRIPTS } from "./bundle-manifest.mjs";
+import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS } from "./bundle-manifest.mjs";
 
 console.log("prepare-bundle: starting, cwd =", process.cwd());
 console.log("prepare-bundle: platform =", platform(), arch());
@@ -333,6 +333,23 @@ try {
     }
     copyFileSync(src, join(scriptsDest, name));
     console.log(`  bundled: ${name}`);
+  }
+
+  // 5c. Docs the RUNNING APP reads. These currently arrive via Next's file
+  //     tracing as well, which is incidental — declare them so a tracing
+  //     change cannot silently drop conventions.md and make every loop
+  //     terminate at `invalid_findings`.
+  console.log("prepare-bundle: copying docs/...");
+  const docsDest = join(serverDestDir, "docs");
+  mkdirSync(docsDest, { recursive: true });
+  for (const name of REQUIRED_BUNDLE_DOCS) {
+    const src = join(workspaceRoot, "docs", name);
+    if (!existsSync(src)) {
+      console.error(`ERROR: required bundle doc missing: ${src}`);
+      process.exit(1);
+    }
+    copyFileSync(src, join(docsDest, name));
+    console.log(`  bundled: docs/${name}`);
   }
 
   // 6. Bundle the running Node.js binary as the Tauri sidecar
