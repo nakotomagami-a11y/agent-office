@@ -439,6 +439,32 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       CREATE INDEX IF NOT EXISTS idx_loops_conversation ON loops(conversation_id);
     `);
   },
+
+  // 21 — collapse the double-recorded tool_calls.
+  //
+  // Every tool call was inserted twice: once at `content_block_start` with
+  // `input: {}` and once at the `assistant` event with the real input, each
+  // under a fresh randomUUID. Counts were ~2x and 43% of rows had no input.
+  // Writes now upsert on the CLI's `toolu_...` id; this clears the history so
+  // analytics stops reporting inflated totals.
+  //
+  // Only deletes an empty-input row that HAS a non-empty sibling (same run,
+  // same tool, within 60s). A lone empty row is the only record of that call
+  // and is kept.
+  (db) => {
+    db.exec(`
+      DELETE FROM tool_calls
+      WHERE (input IS NULL OR input = '{}' OR input = '')
+        AND EXISTS (
+          SELECT 1 FROM tool_calls o
+          WHERE o.run_id = tool_calls.run_id
+            AND o.name = tool_calls.name
+            AND o.id <> tool_calls.id
+            AND o.input IS NOT NULL AND o.input <> '{}' AND o.input <> ''
+            AND o.ts BETWEEN tool_calls.ts - 60000 AND tool_calls.ts + 60000
+        )
+    `);
+  },
 ];
 
 /**
@@ -524,5 +550,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 18) { MIGRATIONS[17]!(db); v = 18; db.pragma("user_version = 18"); }
     if (v < 19) { MIGRATIONS[18]!(db); v = 19; db.pragma("user_version = 19"); }
     if (v < 20) { MIGRATIONS[19]!(db); v = 20; db.pragma("user_version = 20"); }
+    if (v < 21) { MIGRATIONS[20]!(db); v = 21; db.pragma("user_version = 21"); }
   })();
 }
