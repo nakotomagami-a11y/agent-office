@@ -11,9 +11,8 @@
  *
  * This is a tiny poll loop, same shape as `scheduler.ts`'s tick: every few
  * seconds, check every tracked `background_shells` row for a PID that has
- * died. For each one whose *owning run has also already finished* (so we
- * never interrupt a still-live turn — Claude's own in-session BashOutput
- * polling handles that case natively), send a follow-up message into that
+ * died. For each one whose *owning run has also already finished*, send a
+ * follow-up message into that
  * exact conversation via the same `conversation.sendMessage` path the chat
  * UI's "reply" box uses. That either resumes the agent immediately (if idle)
  * or queues behind whatever it's doing next — either way, a real reply shows
@@ -39,14 +38,12 @@ export function buildWakeMessage(row: db.BackgroundShellRow): string {
   ].join("\n");
 }
 
-/** True if `row`'s shell is dead AND the run that started it has already
- *  finished — the only case nothing else in the system will report on. A
- *  still-running owning run means the agent is still in-turn and Claude's
- *  own BashOutput polling is the live, better-informed path; don't race it. */
-function shouldWake(row: db.BackgroundShellRow): boolean {
-  if (db.isPidAlive(row.pid)) return false;
-  const run = db.getRun(row.runId);
-  return run?.status !== "running";
+/** Pure, so it is testable. The old rationale for the run-status half —
+ *  "Claude's own `BashOutput` polling covers the live case" — was false; that
+ *  tool does not exist. A skipped row is retried next tick, never dropped. */
+export function shouldWake(pidAlive: boolean, runStatus: string | undefined): boolean {
+  if (pidAlive) return false;
+  return runStatus !== "running";
 }
 
 let ticking = false;
@@ -55,7 +52,7 @@ async function tick(): Promise<void> {
   ticking = true;
   try {
     for (const row of db.listBackgroundShells()) {
-      if (!shouldWake(row)) continue;
+      if (!shouldWake(db.isPidAlive(row.pid), db.getRun(row.runId)?.status)) continue;
       // Consumed unconditionally (even if the send below fails) — never
       // fire twice for the same shell, same "own it or drop it" rule
       // `collectBackgroundShells` already applies to a dead PID.
