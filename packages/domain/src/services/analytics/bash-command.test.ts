@@ -26,6 +26,22 @@ test("a cd hop does not swallow the real program", () => {
   assert.equal(headCommand("cd /tmp; python3 x.py"), "python3");
 });
 
+test("a quoted or substituted assignment does NOT invent a program", () => {
+  // The first version peeled `[^\s]*`, which is quote-blind: it produced a bar
+  // called "merge-base" (not a program) and one called
+  // "Office_0.1.2_amd64.deb" (a filename) on the live dataset.
+  assert.equal(headCommand("MB=$(git merge-base origin/dev HEAD) && echo $MB"), null);
+  assert.equal(headCommand('DEB="/x/Agent Office_0.1.2_amd64.deb"; ls "$DEB"'), null);
+  assert.equal(headCommand('GIT_AUTHOR_NAME="A B" git commit -m x'), null);
+  assert.equal(headCommand("FOO=bar"), null, "an assignment with no command is not a program");
+});
+
+test("a cd hop with a redirect is still a cd hop", () => {
+  // `cd x 2>/dev/null && ls` used to label the chart "cd" — the one bucket
+  // this module exists to prevent.
+  assert.equal(headCommand("cd ~/.config/logs 2>/dev/null && ls"), "ls");
+});
+
 test("env assignments and wrappers are peeled", () => {
   assert.equal(headCommand("NODE_OPTIONS=--max-old-space-size=8192 pnpm build"), "pnpm");
   assert.equal(headCommand("sudo pacman -U pkg.tar.zst"), "pacman");

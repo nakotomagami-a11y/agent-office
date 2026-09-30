@@ -6,8 +6,8 @@
  * "what are my totals" but "where is the money and time going, and is this
  * period unusual".
  *
- * Everything is aggregated in SQL against the `runs` / `tool_calls` tables
- * so the payload stays constant-size no matter how long the history gets.
+ * Aggregated in SQL against the `runs` / `tool_calls` tables so the payload
+ * stays constant-size — except `byTool`, which scans (see its query).
  * All of it is one round trip — the page renders ~8 panels and fanning that
  * out into 8 requests would be silly.
  */
@@ -136,15 +136,15 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         )
         .all(params) as ProjectRow[]);
 
-  // Labelled in TS, not SQL: the label needs the head program out of a shell
-  // command, and SQLite has no regex. Rows are already scoped by date/project,
-  // so this is a few thousand at most.
+  // Labelled in TS (no regex in SQLite); bounded by TOOL_CALL_RETENTION_MS,
+  // not the date scope. Empty-input Bash rows are half-records (#161).
   const toolRaw = db
     .prepare(
       `SELECT tc.name AS name, tc.input AS input, tc.run_id AS runId
        FROM tool_calls tc
        JOIN runs r ON r.id = tc.run_id
-       WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}`,
+       WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}
+         AND NOT (tc.name = 'Bash' AND (tc.input IS NULL OR tc.input = '{}'))`,
     )
     .all(params) as { name: string; input: string | null; runId: string }[];
 
@@ -156,6 +156,8 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
     entry.runs.add(row.runId);
     tally.set(label, entry);
   }
+  // BEFORE the slice: the UI used to sum byTool, now a top-12 subtotal.
+  const toolCallsTotal = toolRaw.length;
   const byTool: ToolRow[] = [...tally.entries()]
     .map(([name, v]) => ({ name, calls: v.calls, runs: v.runs.size }))
     .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name))
@@ -183,6 +185,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
     byAgent,
     byProject,
     byTool,
+    toolCallsTotal,
     activity,
     series,
     seriesGranularity: granularity,

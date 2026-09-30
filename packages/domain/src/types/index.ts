@@ -744,6 +744,8 @@ export interface AnalyticsPage {
   byAgent: AnalyticsAgentRow[];
   byProject: AnalyticsProjectRow[];
   byTool: ToolRow[];
+  /** ALL calls in scope — byTool is sliced, so summing it undercounts. */
+  toolCallsTotal: number;
   activity: ActivityCell[];
   series: SeriesPoint[];
   seriesGranularity: "day" | "week";

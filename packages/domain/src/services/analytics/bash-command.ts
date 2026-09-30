@@ -34,8 +34,14 @@ export function headCommand(command: string): string | null {
   for (let i = 0; i < 8; i++) {
     const before = c;
     c = c.replace(/^\(\s*/, "");                              // ( subshell
-    c = c.replace(/^cd\s+[^\s&;|]+\s*(?:&&|;)\s*/, "");       // cd path && …
-    c = c.replace(/^\w+=[^\s]*\s+/, "");                      // FOO=bar cmd
+    // `cd x 2>/dev/null && y` is still a cd hop — tolerate redirects, or the
+    // chart grows the "cd" bucket this module exists to prevent.
+    c = c.replace(/^cd\s+[^\s&;|]+(?:\s+\d?[<>]+\S+)*\s*(?:&&|;)\s*/, "");
+    // Only an UNQUOTED, substitution-free value followed by a real command
+    // word. `[^\s]*` was quote-blind, so `DEB="…/Agent Office_0.1.2.deb"; …`
+    // labelled the chart with a filename and `MB=$(git merge-base …)` invented
+    // a program called "merge-base".
+    c = c.replace(/^[A-Za-z_]\w*=[^\s'"$`]*\s+(?=[A-Za-z_.\/])/, "");
     const m = /^([A-Za-z_][\w.-]*)\s+/.exec(c);
     if (m && PREFIX_COMMANDS.has(m[1]!)) c = c.slice(m[0].length);
     if (c === before) break;
@@ -45,6 +51,8 @@ export function headCommand(command: string): string | null {
   if (!m) return null;
   const head = m[1]!;
   if (SHELL_KEYWORDS.has(head)) return null;
+  // A bare `FOO=bar` with no command is an assignment, not a program.
+  if (c.charAt(head.length) === "=") return null;
   return head;
 }
 
