@@ -3050,9 +3050,9 @@
     "comment": 10
   },
   "packages/domain/src/services/infra/yaml.ts": {
-    "ratio": 0.1341,
-    "code": 276,
-    "comment": 37
+    "ratio": 0.1555,
+    "code": 283,
+    "comment": 44
   },
   "packages/domain/src/services/projects/cleanup.ts": {
     "ratio": 0.2301,

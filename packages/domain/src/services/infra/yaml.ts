@@ -63,7 +63,17 @@ function parseScalar(raw: string): YamlValue {
   return unquote(t);
 }
 
-function parseFlowList(raw: string): YamlValue[] {
+/**
+ * These files are hand-edited, so the recursion below must be bounded: it once
+ * burned seconds of CPU and blew the stack. Past the cap the text stays a
+ * scalar. Deepest real shape is planet.customPalette at 3.
+ */
+const MAX_FLOW_DEPTH = 32;
+
+/** STRICTLY ABOVE the parse cap: anything parsed must survive re-serialising. */
+const MAX_SERIALIZE_DEPTH = MAX_FLOW_DEPTH + 4;
+
+function parseFlowList(raw: string, nesting = 0): YamlValue[] {
   // raw includes the surrounding [ ] - strip and split on commas at depth 0.
   const inner = raw.trim().slice(1, -1).trim();
   if (!inner) return [];
@@ -96,7 +106,9 @@ function parseFlowList(raw: string): YamlValue[] {
   // than flattening it to the raw string "[1, 2, 3]".
   return parts.map((p) => {
     const t = p.trim();
-    return t.startsWith("[") && t.endsWith("]") ? parseFlowList(t) : parseScalar(t);
+    return nesting < MAX_FLOW_DEPTH && t.startsWith("[") && t.endsWith("]")
+      ? parseFlowList(t, nesting + 1)
+      : parseScalar(t);
   });
 }
 
@@ -282,7 +294,11 @@ function quoteScalar(s: string): string {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
 }
 
-function stringifyValue(v: YamlValue, indent: number): string {
+function stringifyValue(v: YamlValue, indent: number, depth = 0): string {
+  // Legible failure instead of a bare RangeError.
+  if (depth > MAX_SERIALIZE_DEPTH) {
+    throw new Error(`yaml: value nested deeper than ${MAX_SERIALIZE_DEPTH} levels`);
+  }
   const pad = " ".repeat(indent);
   if (v === null || v === undefined) return "null";
   if (typeof v === "boolean") return v ? "true" : "false";
@@ -294,7 +310,7 @@ function stringifyValue(v: YamlValue, indent: number): string {
     // `-     - [1, 2, 3]`, which is not valid YAML.
     const hasMapping = v.some((x) => x !== null && typeof x === "object" && !Array.isArray(x));
     if (!hasMapping) {
-      return `[${v.map((x) => stringifyValue(x, 0)).join(", ")}]`;
+      return `[${v.map((x) => stringifyValue(x, 0, depth + 1)).join(", ")}]`;
     }
     return v
       .map((item) => {
