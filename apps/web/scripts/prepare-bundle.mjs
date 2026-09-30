@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform, arch } from "node:os";
-import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS } from "./bundle-manifest.mjs";
+import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS, EXCLUDED_BUNDLE_PATHS } from "./bundle-manifest.mjs";
 
 console.log("prepare-bundle: starting, cwd =", process.cwd());
 console.log("prepare-bundle: platform =", platform(), arch());
@@ -192,6 +192,15 @@ try {
     }
   }
   console.log("prepare-bundle: standalone copy done");
+
+  // 1a. Drop build junk the standalone output drags along. Must happen after
+  //     the copy: the entries are nested inside `.next`, which is copied whole.
+  for (const segments of EXCLUDED_BUNDLE_PATHS) {
+    const junk = join(serverDestDir, ...segments);
+    if (!existsSync(junk)) continue;
+    rmSync(junk, { recursive: true, force: true });
+    console.log(`prepare-bundle: excluded ${segments.join("/")}`);
+  }
 
   // 1b. Fix pnpm symlinks in apps/web/node_modules (Linux/macOS only — on
   //     Windows cpSync dereferences NTFS junctions to real dirs, so no-op).
