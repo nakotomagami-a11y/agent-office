@@ -13,6 +13,7 @@
  */
 
 import { getDb } from "../db";
+import { toolCallLabel } from "./bash-command";
 import { familyOf } from "../../config/models";
 import type {
   AnalyticsTotals, ModelFamilyRow, ToolRow, ActivityCell, SeriesPoint,
@@ -135,19 +136,30 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         )
         .all(params) as ProjectRow[]);
 
-  const byTool = db
+  // Labelled in TS, not SQL: the label needs the head program out of a shell
+  // command, and SQLite has no regex. Rows are already scoped by date/project,
+  // so this is a few thousand at most.
+  const toolRaw = db
     .prepare(
-      `SELECT tc.name AS name,
-              COUNT(*) AS calls,
-              COUNT(DISTINCT tc.run_id) AS runs
+      `SELECT tc.name AS name, tc.input AS input, tc.run_id AS runId
        FROM tool_calls tc
        JOIN runs r ON r.id = tc.run_id
-       WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}
-       GROUP BY tc.name
-       ORDER BY calls DESC
-       LIMIT 12`,
+       WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}`,
     )
-    .all(params) as ToolRow[];
+    .all(params) as { name: string; input: string | null; runId: string }[];
+
+  const tally = new Map<string, { calls: number; runs: Set<string> }>();
+  for (const row of toolRaw) {
+    const label = toolCallLabel(row.name, row.input);
+    const entry = tally.get(label) ?? { calls: 0, runs: new Set<string>() };
+    entry.calls += 1;
+    entry.runs.add(row.runId);
+    tally.set(label, entry);
+  }
+  const byTool: ToolRow[] = [...tally.entries()]
+    .map(([name, v]) => ({ name, calls: v.calls, runs: v.runs.size }))
+    .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name))
+    .slice(0, 12);
 
   const activity = db
     .prepare(
