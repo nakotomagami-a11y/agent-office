@@ -347,6 +347,8 @@
     "list_sub": "every markdown file in ~/.claude/agents/"
   },
   "agent_editor": {
+    "permission_default_label": "Default",
+    "permission_default_subtitle": "The CLI's own prompting behaviour",
     "permission_bypass_label": "Auto",
     "permission_bypass_subtitle": "trust all tool calls",
     "permission_default_label": "Ask",

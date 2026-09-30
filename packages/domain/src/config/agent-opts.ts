@@ -6,13 +6,15 @@ export { MODEL_FULL, MODEL_OPTS } from "./models";
 export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 /**
- * Real `claude --permission-mode` values, verified against CLI v2.1.278.
+ * Verified by EXECUTING each value on CLI v2.1.278 — `default` is accepted
+ * even though the CLI's "Allowed choices" error text omits it. Re-verify on
+ * upgrade: `claude -p ok --permission-mode "$m"` per mode, check exit 0.
  *
  * ADVISORY, NOT A CONTROL: the child shares our uid, and v2.1.278 never calls
- * `--permission-prompt-tool`. See docs/03-agents.md for the boundary.
- * `plan` is read-only and never needs a prompt at all.
+ * `--permission-prompt-tool`. See docs/03-agents.md. `plan` is read-only.
  */
 export const PERMISSION_MODE_OPTS = [
+  "default",
   "bypassPermissions",
   "acceptEdits",
   "auto",

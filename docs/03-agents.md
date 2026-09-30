@@ -61,13 +61,16 @@ unit: blue/warrior
 ### permission-mode values
 
 Source of truth: `PERMISSION_MODE_OPTS` in `packages/domain/src/config/agent-opts.ts`,
-verified against CLI v2.1.278. Anything else is rejected and logged, and the
-agent falls back to unset. (`default` used to be listed here and is **not** a
-real value — one shipped agent had the whole option list pasted in as its
-value, and it was being forwarded to the CLI verbatim.)
+verified by executing each value against CLI v2.1.278. Anything else is
+rejected and logged, and the agent falls back to unset.
+
+> `default` is valid even though the CLI's own `--permission-mode` error text
+> omits it from "Allowed choices". It was verified by exit code, not by the
+> help string.
 
 | Value | Behaviour |
 |---|---|
+| `default` | The CLI's own prompting behaviour |
 | `bypassPermissions` | All permissions auto-approved — use for trusted automation |
 | `acceptEdits` | File edits auto-approved; other tools prompt |
 | `auto` | CLI decides per tool call |

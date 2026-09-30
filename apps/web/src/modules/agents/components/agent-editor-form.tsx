@@ -86,6 +86,7 @@ const MODELS = MODEL_IDS.map((id) => {
 const CLASS_OPTIONS = ["Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
 
 const PM_ICONS: Record<(typeof PERMISSION_MODE_OPTS)[number], IconName> = {
+  default: "help-circle",
   bypassPermissions: "play",
   acceptEdits: "check",
   auto: "zap",
@@ -96,6 +97,7 @@ const PM_ICONS: Record<(typeof PERMISSION_MODE_OPTS)[number], IconName> = {
 
 /** Row accent per permission mode — trust (green) → caution (accent) → lockdown (red). */
 const PM_COLOR: Record<(typeof PERMISSION_MODE_OPTS)[number], string> = {
+  default: "var(--acc)",
   bypassPermissions: "var(--green)",
   acceptEdits: "var(--green)",
   auto: "var(--acc)",
@@ -106,6 +108,7 @@ const PM_COLOR: Record<(typeof PERMISSION_MODE_OPTS)[number], string> = {
 
 /** i18n message-key stem per permission mode — see `agent_editor.permission_*_label/subtitle` in messages/en.json. */
 const PM_MSG_KEY: Record<(typeof PERMISSION_MODE_OPTS)[number], string> = {
+  default: "default",
   bypassPermissions: "bypass",
   acceptEdits: "accept_edits",
   auto: "auto",

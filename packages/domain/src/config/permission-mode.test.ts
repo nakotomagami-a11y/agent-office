@@ -2,10 +2,11 @@
  * `permission-mode` reaches `--permission-mode` verbatim, and frontmatter is
  * hand-edited — it bypasses every zod schema on the API.
  *
- * `default` was never a real CLI value — `docs/03-agents.md` invented it, and
- * `agent-architect`'s template propagated it into every agent that tool writes.
- * (Checked before claiming worse: that template lives in the BODY, so no
- * frontmatter ever carried it and nothing malformed reached the CLI.)
+ * The mode list must be verified by EXECUTING the CLI, not by reading its help.
+ * `claude --permission-mode default` exits 0, but the CLI's own error text for
+ * an invalid mode lists "Allowed choices" WITHOUT `default`. Trusting that
+ * string would have made this enum reject a working value that 250 stored
+ * sessions use.
  */
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
@@ -25,7 +26,7 @@ test("a pasted option list is rejected, not forwarded", () => {
 });
 
 test("invented and malformed values are dropped, never passed through", () => {
-  for (const bad of ["default", "", "BYPASSPERMISSIONS", "--dangerously-skip", 42, null]) {
+  for (const bad of ["", "BYPASSPERMISSIONS", "--dangerously-skip", 42, null]) {
     assert.equal(asPermissionMode(bad), undefined, `${String(bad)} must not reach --permission-mode`);
   }
 });
@@ -42,8 +43,4 @@ test("the docs table lists exactly the real modes", () => {
   for (const m of PERMISSION_MODE_OPTS) {
     assert.ok(section.includes(`\`${m}\``), `docs/03-agents.md omits the real mode ${m}`);
   }
-  assert.ok(
-    !/^\| `default` \|/m.test(section),
-    "docs/03-agents.md still documents `default`, which is not a CLI value — that table is what produced the malformed agent file",
-  );
 });
