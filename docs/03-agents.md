@@ -53,7 +53,7 @@ unit: blue/warrior
 | `default-effort` | string | `medium` | Thinking budget: low · medium · high · xhigh · max |
 | `skills` | list | `[]` | Installed skills to prepend to every summon |
 | `tools` | list | `[]` | Tools the agent may use (`--allowedTools`) |
-| `permission-mode` | string | unset | One of the six below. Unset = the CLI's own default |
+| `permission-mode` | string | unset | One of the six below (`manual` = alias for `default`). Unset = the CLI's own default |
 | `add-dirs` | list | `[]` | Extra directories the agent can read/write, passed as `--add-dir` flags |
 | `room` | string | `auto` | Which room on the office floor the agent's desk appears in |
 | `unit` | string | `auto` | Avatar sprite: `faction/kind` e.g. `blue/warrior` |
@@ -61,29 +61,32 @@ unit: blue/warrior
 ### permission-mode values
 
 Source of truth: `PERMISSION_MODE_OPTS` in `packages/domain/src/config/agent-opts.ts`,
-verified by executing each value against CLI v2.1.278. Anything else is
-rejected and logged, and the agent falls back to unset.
+taken from the flag's own enum inside the CLI binary. Anything else is rejected
+and logged, and the agent falls back to unset.
 
-> `default` is valid even though the CLI's own `--permission-mode` error text
-> omits it from "Allowed choices". It was verified by exit code, not by the
-> help string.
+> `manual` is accepted as an **alias** for `default`, not a seventh mode — the
+> CLI maps it internally and renames `default` to `manual` in its "Allowed
+> choices" error text. Agent Office normalises it to `default` on read. Do not
+> read the mode list off that error string.
 
 | Value | Behaviour |
 |---|---|
-| `default` | The CLI's own prompting behaviour |
-| `bypassPermissions` | All permissions auto-approved — use for trusted automation |
+| `default` | Prompts on destructive actions (displayed as `manual` by the CLI) |
 | `acceptEdits` | File edits auto-approved; other tools prompt |
-| `auto` | CLI decides per tool call |
-| `manual` | Every tool call prompts |
-| `dontAsk` | Never prompts; denies what it would have asked about |
+| `bypassPermissions` | All permissions auto-approved — use for trusted automation |
 | `plan` | Read-only planning mode — agent cannot write or execute. History note is omitted from the appended prompt. |
+| `dontAsk` | Never prompts; denies what it would have asked about |
+| `auto` | CLI decides per tool call |
 
 > **The prompting modes are advisory, not a control.** The CLI child runs as the
 > same uid as the app, so it can read the app's argv and environment, and an
 > agent with file-write can set `permission-mode: bypassPermissions` in its own
-> definition for the next run. Separately, CLI v2.1.278 accepts
-> `--permission-prompt-tool` but never calls it, so a prompting mode currently
-> denies rather than asks. A real boundary needs a separate uid or a sandbox.
+> definition for the next run. A real boundary needs a separate uid or a sandbox.
+>
+> Separately, in one probe under `-p` the bridge received `initialize` and
+> `tools/list` but no `tools/call` before the tool ran. The cause was not
+> isolated — a pre-approved rule would look the same — so treat prompting modes
+> as unproven end-to-end rather than known-broken.
 
 ## How the system prompt is assembled
 

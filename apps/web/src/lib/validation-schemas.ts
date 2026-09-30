@@ -8,7 +8,9 @@ export const agentBodySchema = z.object({
   desc: z.string().default(""),
   skills: z.array(z.string()).default([]),
   tools: z.array(z.string()).default([]),
-  pm: z.string().default("ask"),
+  // The only schema that WRITES `permission-mode` to disk. `"ask"` was never
+  // a CLI value; it round-tripped to unset via readAgent dropping it.
+  pm: z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)).default("default"),
   model: z.string().default("sonnet"),
   effort: z.string().default("medium"),
   body: z.string().default(""),
@@ -64,7 +66,7 @@ export const projectMetaPatchSchema = z.object({
             label: z.string().optional(),
             model: z.string().optional(),
             effort: z.string().optional(),
-            permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
+            permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
             room: z.string().optional(),
           }),
         )
@@ -146,7 +148,7 @@ export const rosterAddSchema = z.object({
       label: z.string().optional(),
       model: z.string().optional(),
       effort: z.string().optional(),
-      permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
+      permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
       room: z.string().optional(),
     })
     .optional(),
@@ -156,7 +158,7 @@ export const rosterPatchSchema = z.object({
   label: z.string().optional(),
   model: z.string().optional(),
   effort: z.string().optional(),
-  permissionMode: z.enum(PERMISSION_MODE_OPTS).optional(),
+  permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
   playwrightEnabled: z.boolean().optional(),
   room: z.string().optional(),
 });

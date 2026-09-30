@@ -26,7 +26,7 @@ default-model: sonnet|opus|haiku
 default-effort: low|medium|high|xhigh|max
 skills: [<skill-id>, ...]     # behavioral contracts only, see below
 tools: [Read, Write, Edit, Bash, Grep]
-permission-mode: default|plan|bypassPermissions
+permission-mode: default|acceptEdits|bypassPermissions|plan|dontAsk|auto
 add-dirs:                     # extra directories the agent can read/write beyond its cwd
   - ~/.some/path              # omit if not needed; tilde is expanded automatically
 ---
@@ -78,7 +78,7 @@ Do not start drafting until all five are answered. If an answer is vague, ask a 
 
 **Tool creep**: `bypassPermissions` on a read-only advisor is wrong. `Write` on an agent that only reviews is wrong. Tools should match the most destructive operation the agent legitimately performs — nothing more.
 
-**Directory access**: Agents run headlessly with no user to approve prompts. If an agent needs to read or write files outside its project cwd (config files, dotfiles, shared dirs), it will silently fail with `permission-mode: default`. Fix: use `add-dirs` to grant access to specific directories, or `bypassPermissions` if the agent genuinely needs broad filesystem access. Every agent that touches files outside its cwd must declare this explicitly.
+**Directory access**: Agents run headlessly with no user to approve prompts. If an agent needs to read or write files outside its project cwd (config files, dotfiles, shared dirs), it will fail under `permission-mode: default` (prompts have no one to answer them headlessly). Fix: use `add-dirs` to grant access to specific directories, or `bypassPermissions` if the agent genuinely needs broad filesystem access. Every agent that touches files outside its cwd must declare this explicitly.
 
 **Skills as knowledge**: If the user wants to attach a skill to "give it finance knowledge" or "make it understand project management" — push back. Claude already has that knowledge. Skills set behavioral contracts (output format, uncertainty framing, escalation rules), not domain knowledge. Attaching a skill to inject knowledge is wasted tokens every call.
 

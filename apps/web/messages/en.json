@@ -347,14 +347,18 @@
     "list_sub": "every markdown file in ~/.claude/agents/"
   },
   "agent_editor": {
-    "permission_default_label": "Default",
-    "permission_default_subtitle": "The CLI's own prompting behaviour",
-    "permission_bypass_label": "Auto",
-    "permission_bypass_subtitle": "trust all tool calls",
     "permission_default_label": "Ask",
     "permission_default_subtitle": "prompt on destructive ops — not yet live, denies unattended",
+    "permission_accept_edits_label": "Accept edits",
+    "permission_accept_edits_subtitle": "file edits auto-approved, other tools prompt",
+    "permission_bypass_label": "Auto",
+    "permission_bypass_subtitle": "trust all tool calls",
     "permission_plan_label": "Deny",
-    "permission_plan_subtitle": "read-only mode"
+    "permission_plan_subtitle": "read-only mode",
+    "permission_dont_ask_label": "Never ask",
+    "permission_dont_ask_subtitle": "denies anything it would have prompted for",
+    "permission_auto_label": "CLI decides",
+    "permission_auto_subtitle": "the CLI chooses per tool call"
   },
   "projects_page": {
     "sub": "· scanned from your projects root"

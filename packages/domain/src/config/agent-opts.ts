@@ -6,19 +6,27 @@ export { MODEL_FULL, MODEL_OPTS } from "./models";
 export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 /**
- * Verified by EXECUTING each value on CLI v2.1.278 — `default` is accepted
- * even though the CLI's "Allowed choices" error text omits it. Re-verify on
- * upgrade: `claude -p ok --permission-mode "$m"` per mode, check exit 0.
+ * The oracle is the flag's own enum inside the CLI binary, NOT its help text:
+ * the "Allowed choices" error renames `default` to `manual` for display, which
+ * is why executing values alone cannot tell a mode from an alias.
+ *   strings $(which claude) | grep -o 'z.enum(\["default".*\])'
  *
- * ADVISORY, NOT A CONTROL: the child shares our uid, and v2.1.278 never calls
- * `--permission-prompt-tool`. See docs/03-agents.md. `plan` is read-only.
+ * ADVISORY, NOT A CONTROL: the child shares our uid, so it reads our argv and
+ * /proc/<pid>/environ. Prompting modes are also unproven end-to-end — one
+ * probe saw no `tools/call`, cause not isolated. See docs/03-agents.md.
  */
 export const PERMISSION_MODE_OPTS = [
   "default",
-  "bypassPermissions",
   "acceptEdits",
-  "auto",
-  "manual",
-  "dontAsk",
+  "bypassPermissions",
   "plan",
+  "dontAsk",
+  "auto",
 ] as const;
+
+/** `manual` is the CLI's DISPLAY name for `default`, not a seventh mode —
+ *  the binary maps `e === "manual" ? "default"` and its help says so. Accepted
+ *  on input so existing configs keep working. */
+export const PERMISSION_MODE_ALIASES: Record<string, (typeof PERMISSION_MODE_OPTS)[number]> = {
+  manual: "default",
+};

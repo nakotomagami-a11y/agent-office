@@ -12,10 +12,10 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
-import { PERMISSION_MODE_OPTS } from "./agent-opts";
-import { asPermissionMode } from "../services/agents/agents";
+import { PERMISSION_MODE_OPTS } from "../../config/agent-opts";
+import { asPermissionMode } from "./agents";
 
-const REPO = resolve(import.meta.dirname, "../../../..");
+const REPO = resolve(import.meta.dirname, "../../../../..");
 
 test("every real mode round-trips", () => {
   for (const m of PERMISSION_MODE_OPTS) assert.equal(asPermissionMode(m), m);
@@ -37,10 +37,21 @@ test("YAML whitespace is tolerated, not rejected", () => {
   assert.equal(asPermissionMode("plan "), "plan");
 });
 
-test("the docs table lists exactly the real modes", () => {
+test("the docs table lists EXACTLY the real modes, both directions", () => {
   const doc = readFileSync(join(REPO, "docs", "03-agents.md"), "utf8");
-  const section = doc.slice(doc.indexOf("### permission-mode values"));
-  for (const m of PERMISSION_MODE_OPTS) {
-    assert.ok(section.includes(`\`${m}\``), `docs/03-agents.md omits the real mode ${m}`);
-  }
+  // Bound the slice: running to EOF let unrelated prose satisfy the check,
+  // so dropping the `default` or `plan` row still passed.
+  const start = doc.indexOf("### permission-mode values");
+  const rest = doc.slice(start);
+  const end = rest.indexOf("\n## ");
+  const section = end === -1 ? rest : rest.slice(0, end);
+
+  const rows = new Set(
+    [...section.matchAll(/^\| `([^`]+)` \|/gm)].map((r) => r[1]!),
+  );
+  assert.deepEqual(
+    [...rows].sort(),
+    [...PERMISSION_MODE_OPTS].sort(),
+    "docs/03-agents.md's table must match PERMISSION_MODE_OPTS exactly — no missing modes, no invented ones",
+  );
 });

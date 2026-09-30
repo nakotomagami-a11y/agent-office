@@ -26,7 +26,7 @@ import { historyNote } from "../projects/history";
 import { buildProjectMap } from "../projects/project-map";
 import { tierBody } from "./context-tier";
 import { log } from "../infra/log";
-import { PERMISSION_MODE_OPTS } from "../../config/agent-opts";
+import { PERMISSION_MODE_OPTS, PERMISSION_MODE_ALIASES } from "../../config/agent-opts";
 
 function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
@@ -43,7 +43,8 @@ function hasFrontmatter(content: string): boolean {
 export function asPermissionMode(v: unknown): string | undefined {
   const s = asString(v);
   if (s === undefined) return undefined;
-  if ((PERMISSION_MODE_OPTS as readonly string[]).includes(s)) return s;
+  const canonical = PERMISSION_MODE_ALIASES[s] ?? s;
+  if ((PERMISSION_MODE_OPTS as readonly string[]).includes(canonical)) return canonical;
   log.warn("agents.invalid_permission_mode", { value: s });
   return undefined;
 }

@@ -90,18 +90,17 @@ const PM_ICONS: Record<(typeof PERMISSION_MODE_OPTS)[number], IconName> = {
   bypassPermissions: "play",
   acceptEdits: "check",
   auto: "zap",
-  manual: "help-circle",
   dontAsk: "zap",
   plan: "lock",
 };
 
-/** Row accent per permission mode — trust (green) → caution (accent) → lockdown (red). */
+/** Row accent per permission mode: trust (green), caution (accent), lockdown (red).
+ *  Order follows PERMISSION_MODE_OPTS, not the colour ramp. */
 const PM_COLOR: Record<(typeof PERMISSION_MODE_OPTS)[number], string> = {
   default: "var(--acc)",
   bypassPermissions: "var(--green)",
   acceptEdits: "var(--green)",
   auto: "var(--acc)",
-  manual: "var(--acc)",
   dontAsk: "var(--acc)",
   plan: "var(--red)",
 };
@@ -112,7 +111,6 @@ const PM_MSG_KEY: Record<(typeof PERMISSION_MODE_OPTS)[number], string> = {
   bypassPermissions: "bypass",
   acceptEdits: "accept_edits",
   auto: "auto",
-  manual: "manual",
   dontAsk: "dont_ask",
   plan: "plan",
 };
