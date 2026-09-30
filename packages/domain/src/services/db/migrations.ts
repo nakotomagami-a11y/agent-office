@@ -406,6 +406,39 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
+
+  // 20. The Loop. One row per loop; `active_run_id` is how a finishing run is
+  //     traced back to its loop, so it is indexed.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS loops (
+        id                TEXT PRIMARY KEY,
+        conversation_id   TEXT,
+        agent_id          TEXT NOT NULL,
+        instance_id       TEXT,
+        project_id        TEXT,
+        reviewer_agent_id TEXT NOT NULL,
+        cwd               TEXT,
+        goal              TEXT NOT NULL,
+        phase             TEXT NOT NULL,
+        round             INTEGER NOT NULL,
+        spent_usd         REAL NOT NULL DEFAULT 0,
+        started_at        INTEGER NOT NULL,
+        binding           TEXT,
+        config_json       TEXT NOT NULL,
+        open_json         TEXT NOT NULL DEFAULT '[]',
+        history_json      TEXT NOT NULL DEFAULT '[]',
+        active_run_id     TEXT,
+        created_at        INTEGER NOT NULL,
+        updated_at        INTEGER NOT NULL
+      );
+      -- UNIQUE: the dispatcher's join key. Two rows sharing it would make the
+      -- lookup pick one arbitrarily and strand the other in silence. SQLite
+      -- allows unlimited NULLs, so idle loops are unaffected.
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_loops_active_run ON loops(active_run_id);
+      CREATE INDEX IF NOT EXISTS idx_loops_conversation ON loops(conversation_id);
+    `);
+  },
 ];
 
 /**
@@ -490,5 +523,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 17) { MIGRATIONS[16]!(db); v = 17; db.pragma("user_version = 17"); }
     if (v < 18) { MIGRATIONS[17]!(db); v = 18; db.pragma("user_version = 18"); }
     if (v < 19) { MIGRATIONS[18]!(db); v = 19; db.pragma("user_version = 19"); }
+    if (v < 20) { MIGRATIONS[19]!(db); v = 20; db.pragma("user_version = 20"); }
   })();
 }

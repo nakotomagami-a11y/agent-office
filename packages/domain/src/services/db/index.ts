@@ -9,6 +9,7 @@
 export * from "./connection";
 export * from "./runs";
 export * from "./conversations";
+export * from "./loops";
 export * from "./scheduled-jobs";
 export * from "./messages";
 export * from "./transcripts";

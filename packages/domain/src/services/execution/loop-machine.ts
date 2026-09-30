@@ -41,7 +41,12 @@ export type BindingConstraint =
   | "author_failed"
   | "fix_failed"
   | "user_stopped"
-  | "invalid_findings";
+  | "invalid_findings"
+  /** The next round could not be spawned. Terminal, and names itself rather
+   *  than leaving the loop stranded with no active run and no verdict. */
+  | "dispatch_failed"
+  /** The stored row could not be trusted. A termination must never be nameless. */
+  | "corrupt_state";
 
 export interface LoopState {
   phase: LoopPhase;
@@ -216,6 +221,10 @@ export function describeTermination(state: LoopState, cfg: LoopConfig): string {
       return `Stopped — the authoring run failed at round ${state.round}.`;
     case "invalid_findings":
       return `Stopped — the reviewer returned findings citing rules that do not exist. Treated as a miswired reviewer, not a pass.`;
+    case "dispatch_failed":
+      return `Stopped — round ${state.round} could not be started. The work so far is intact; re-run to continue.`;
+    case "corrupt_state":
+      return `Stopped — this loop's stored state could not be read. Start a new loop; nothing was left running.`;
     default:
       return `Running — round ${state.round} of ${cfg.maxRounds}.`;
   }
