@@ -75,6 +75,17 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     priorContext,
   });
 
+  // Refuse rather than run: a prompting mode with no bridge denies every tool
+  // call with no visible cause, which is indistinguishable from the agent
+  // deciding not to act.
+  if (built.permissionBridgeMissing) {
+    return { error: {
+      status: 500,
+      code: "permission_bridge_missing",
+      message: `Permission bridge not found at ${built.permissionBridgeMissing}. Runs that need approval cannot start.`,
+    } };
+  }
+
   // Verify-before-run: block the spawn if any opted-in secret fails a live test
   // (a fresh 401 is proof; an expiry date is not). Untested/unknown secrets
   // never reach here. Scoped to the interactive summon path.

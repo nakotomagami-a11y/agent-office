@@ -15,8 +15,9 @@ export function whenParts(ms: number): { abs: string; rel: string; future: boole
 }
 
 /** i18n message-key stem per attention reason — see `schedules.attention_*` in messages/en.json. */
-export const ATTENTION_MSG_KEY: Record<NonNullable<ScheduledJob["attention"]>, "stale" | "missing_instance" | "retry_exceeded"> = {
+export const ATTENTION_MSG_KEY: Record<NonNullable<ScheduledJob["attention"]>, "stale" | "missing_instance" | "retry_exceeded" | "bridge_missing"> = {
   stale: "stale",
   "missing-instance": "missing_instance",
   "retry-exceeded": "retry_exceeded",
+  "bridge-missing": "bridge_missing",
 };

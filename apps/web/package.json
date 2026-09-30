@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "unset __NEXT_PRIVATE_STANDALONE_CONFIG; next dev --turbopack",
     "build": "unset __NEXT_PRIVATE_STANDALONE_CONFIG; next build",
+    "build:release": "unset __NEXT_PRIVATE_STANDALONE_CONFIG; next build --webpack",
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

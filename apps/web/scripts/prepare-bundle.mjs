@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform, arch } from "node:os";
+import { REQUIRED_BUNDLE_SCRIPTS } from "./bundle-manifest.mjs";
 
 console.log("prepare-bundle: starting, cwd =", process.cwd());
 console.log("prepare-bundle: platform =", platform(), arch());
@@ -31,6 +32,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = join(__dirname, ".."); // apps/web/
 const tauriDir = join(appRoot, "src-tauri");
 const workspaceRoot = join(appRoot, "..", "..");
+
 
 const standaloneDir = join(appRoot, ".next", "standalone");
 if (!existsSync(standaloneDir)) {
@@ -312,6 +314,25 @@ try {
       }
     }
     removeVipsLibs(join(serverDestDir, "node_modules"));
+  }
+
+  // 5b. Repo `scripts/` — the MCP permission bridge is spawned by path at
+  //     runtime, so it must exist in the bundle. It previously did not, and
+  //     the failure mode was every permission prompt silently denying.
+  //     Named files only: copying the directory would publish whatever a
+  //     developer happens to have untracked in `scripts/` at release time.
+  console.log("prepare-bundle: copying scripts/...");
+  const scriptsSrc = join(workspaceRoot, "scripts");
+  const scriptsDest = join(serverDestDir, "scripts");
+  mkdirSync(scriptsDest, { recursive: true });
+  for (const name of REQUIRED_BUNDLE_SCRIPTS) {
+    const src = join(scriptsSrc, name);
+    if (!existsSync(src)) {
+      console.error(`ERROR: required bundle script missing: ${src}`);
+      process.exit(1);
+    }
+    copyFileSync(src, join(scriptsDest, name));
+    console.log(`  bundled: ${name}`);
   }
 
   // 6. Bundle the running Node.js binary as the Tauri sidecar

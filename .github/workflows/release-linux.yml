@@ -77,11 +77,16 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: |
           unset __NEXT_PRIVATE_STANDALONE_CONFIG
-          pnpm exec next build --webpack
+          pnpm --filter @agent-office/web build:release
 
       - name: Prepare Tauri bundle
         working-directory: apps/web
         run: node scripts/prepare-bundle.mjs
+
+      # The bridge shipped missing once. Never release an unverified bundle.
+      - name: Verify packaged bundle
+        working-directory: apps/web
+        run: node scripts/verify-bundle.mjs
 
       - name: Pre-seed patched linuxdeploy (AppImage bundling fixes)
         # 1. linuxdeploy-plugin-gtk.sh's `ln -s` at line 308 dies under `set -e`

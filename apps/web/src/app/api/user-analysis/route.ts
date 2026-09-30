@@ -70,6 +70,13 @@ export async function POST() {
     appendedSystemPrompt,
   });
 
+  if (built.permissionBridgeMissing) {
+    return Response.json(
+      { error: "permission_bridge_missing", path: built.permissionBridgeMissing },
+      { status: 500 },
+    );
+  }
+
   store.pushRecentPrompt(AGENT_ID, REGEN_PROMPT);
 
   try {

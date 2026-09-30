@@ -161,11 +161,18 @@ pub fn run() {
 
                 let port = pick_free_port();
 
+                // The server resolves sibling resources (the MCP permission
+                // bridge) from here. Relative-to-module resolution works in
+                // `next dev` and silently misses in the bundle, where the code
+                // is webpacked into .next — so the path is passed explicitly.
+                let bundle_root = resource_dir.join("server");
+
                 let mut child = Command::new(&node_bin)
                     .arg(&server_js)
                     .env("PORT", port.to_string())
                     .env("HOSTNAME", "127.0.0.1")
                     .env("NODE_ENV", "production")
+                    .env("AO_BUNDLE_ROOT", &bundle_root)
                     .spawn()
                     .expect("failed to spawn bundled server");
 

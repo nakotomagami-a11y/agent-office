@@ -7,12 +7,15 @@ import type { AgentInstance, Project } from "@agent-office/domain/types";
 import { validateBody } from "@/lib/validation";
 import { broadcastRequestSchema } from "@/lib/validation-schemas";
 import { badRequest } from "@/lib/api-helpers";
+import { log } from "@agent-office/domain/services/infra/log";
+import { existsSync } from "node:fs";
+import { PERMISSION_SERVER_PATH } from "@agent-office/domain/services/execution/summon";
 
 function startRunForRosterInstance(
   inst: AgentInstance,
   project: Project,
   req: { agentId?: string; prompt: string; model?: string; effort?: string; cwd?: string; projectId: string },
-): string | null {
+): { runId: string } | { bridgeMissing: string } | null {
   const agentResult = agents.readAgent(inst.agentId);
   if (!agentResult) return null;
 
@@ -34,6 +37,8 @@ function startRunForRosterInstance(
     appendedSystemPrompt,
   });
 
+  if (built.permissionBridgeMissing) return { bridgeMissing: built.permissionBridgeMissing };
+
   const instanceLabel = inst.label ?? agentResult.info.name;
 
   const { runId } = runs.startRun({
@@ -48,7 +53,7 @@ function startRunForRosterInstance(
     instanceLabel,
     args: built.args,
   });
-  return runId;
+  return { runId };
 }
 
 export async function POST(request: Request) {
@@ -64,11 +69,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "roster_empty", detail: "Project has no agents on roster" }, { status: 400 });
   }
 
+  // Before ANY spawn: a mixed roster would already be running when this 500s.
+  if (!existsSync(PERMISSION_SERVER_PATH)) {
+    log.error("broadcast.permission_bridge_missing", { projectId: req.projectId, path: PERMISSION_SERVER_PATH });
+    return NextResponse.json(
+      { error: "permission_bridge_missing", detail: `Permission bridge not found at ${PERMISSION_SERVER_PATH}` },
+      { status: 500 },
+    );
+  }
+
   const broadcastId = randomUUID();
   const runIds: string[] = [];
   for (const inst of roster) {
-    const runId = startRunForRosterInstance(inst, project, req);
-    if (runId) runIds.push(runId);
+    const outcome = startRunForRosterInstance(inst, project, req);
+    if (!outcome) continue;
+    if ("bridgeMissing" in outcome) {
+      log.error("broadcast.permission_bridge_missing", { projectId: req.projectId, path: outcome.bridgeMissing });
+      return NextResponse.json(
+        { error: "permission_bridge_missing", detail: `Permission bridge not found at ${outcome.bridgeMissing}` },
+        { status: 500 },
+      );
+    }
+    runIds.push(outcome.runId);
   }
 
   return NextResponse.json({ broadcastId, runIds }, { status: 202 });

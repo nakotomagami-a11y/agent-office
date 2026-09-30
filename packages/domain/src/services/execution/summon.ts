@@ -13,6 +13,9 @@ export interface BuiltCommand {
   effort: string;
   permissionMode?: string;
   systemPromptFile?: string;
+  /** Reported, never thrown: this runs in the scheduler tick, where an
+   *  exception would skip every other due job. */
+  permissionBridgeMissing?: string;
 }
 
 // Linux execve() rejects any single argv string over MAX_ARG_STRLEN (128 KiB,
@@ -144,5 +147,10 @@ export function buildClaudeArgs(opts: {
 
   args.push(priorContext ? priorContext + request.prompt : request.prompt);
 
-  return { args, model, effort, permissionMode, systemPromptFile };
+  const permissionBridgeMissing =
+    needsPermissionServer && !existsSync(PERMISSION_SERVER_PATH)
+      ? PERMISSION_SERVER_PATH
+      : undefined;
+
+  return { args, model, effort, permissionMode, systemPromptFile, permissionBridgeMissing };
 }

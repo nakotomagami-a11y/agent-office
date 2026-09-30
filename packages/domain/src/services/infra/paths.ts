@@ -14,14 +14,17 @@ export const PROJECTS_DIR = join(CLAUDE_DIR, "projects");
 export const SKILLS_DIR = join(AGENTS_DIR, "_skills");
 export const SETTINGS_FILE = join(CLAUDE_DIR, "agent-office-settings.json");
 
-/** Repo `scripts/`. Hops go through `join` at runtime, never inside
- *  `new URL(...)` — bundlers resolve that form as a module and fail the build,
- *  which neither typecheck nor lint catches. */
-export const REPO_SCRIPTS_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..", "..", "..", "..", "..",
-  "scripts",
-);
+/** Repo `scripts/`. Two traps, both already shipped as bugs: hops must go
+ *  through `join`, never `new URL(...)` (bundlers resolve that as a module),
+ *  and module-relative resolution holds only in `next dev` — the packaged app
+ *  webpacks this into `.next`, so the launcher passes the root explicitly. */
+export const REPO_SCRIPTS_DIR = process.env.AO_BUNDLE_ROOT
+  ? join(process.env.AO_BUNDLE_ROOT, "scripts")
+  : join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..", "..", "..", "..", "..",
+      "scripts",
+    );
 
 // New persistence root (only this app writes here).
 export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
