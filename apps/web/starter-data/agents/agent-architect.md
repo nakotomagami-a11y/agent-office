@@ -25,7 +25,7 @@ description: <one-liner>      # answers "when should I summon this agent?" — m
 default-model: sonnet|opus|haiku
 default-effort: low|medium|high|xhigh|max
 skills: [<skill-id>, ...]     # behavioral contracts only, see below
-tools: [Read, Write, Edit, Bash, Grep]
+tools: [Read, Write, Edit, Bash]
 permission-mode: default|acceptEdits|bypassPermissions|plan|dontAsk|auto
 add-dirs:                     # extra directories the agent can read/write beyond its cwd
   - ~/.some/path              # omit if not needed; tilde is expanded automatically
