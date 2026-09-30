@@ -4,7 +4,7 @@ description: "Technical writer for developer-facing docs — READMEs, API refere
 default-model: sonnet
 default-effort: medium
 skills: [alz-codebase-onboarding, sp-writing-plans, sp-verification-before-completion]
-tools: [Read, Write, Edit, Grep, Glob]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 room: Product
 ---

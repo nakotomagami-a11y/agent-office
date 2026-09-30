@@ -4,7 +4,7 @@ description: "SQL-native analyst for Agent Office and any local SQLite/Postgres 
 default-model: sonnet
 default-effort: high
 skills: [alz-sql-database-assistant, alz-database-schema-designer, sp-verification-before-completion]
-tools: [Read, Bash, Grep, Glob]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 room: Strategy
 add-dirs:

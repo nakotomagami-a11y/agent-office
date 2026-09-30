@@ -4,7 +4,7 @@ description: "Plan-only agent — reads the codebase, produces a numbered implem
 default-model: opus
 default-effort: high
 skills: [sp-writing-plans, sp-subagent-driven-development, alz-grill-me, sp-verification-before-completion]
-tools: [Read, Bash, Grep, Glob]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

@@ -5,7 +5,7 @@ description: "Visual QA specialist — sweeps Playwright at multiple viewports, 
 default-model: sonnet
 default-effort: high
 skills: [an-webapp-testing, alz-full-page-screenshot, sp-verification-before-completion]
-tools: [Read, Bash, Grep, mcp__playwright__*]
+tools: [Read, Bash, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 

@@ -1,0 +1,44 @@
+/**
+ * Starter-data agents are what a NEW user gets. `agent-surface.test.ts` gates
+ * `listAgents()` — the user's own `~/.claude/agents` — so the shipped copies
+ * were never checked, and 30 of them declared `Grep`/`Glob` for months. Those
+ * tools do not exist in CLI v2.1.278; a declared tool that does not exist
+ * grants nothing, silently.
+ *
+ * Regenerate the catalog after a CLI upgrade — see config/tools.ts.
+ */
+import assert from "node:assert";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { test } from "node:test";
+import { unknownTools } from "../../config/tools";
+
+const DIR = resolve(import.meta.dirname, "../../../../../apps/web/starter-data/agents");
+
+function declaredTools(file: string): string[] {
+  const m = /^tools: \[([^\]]*)\]/m.exec(readFileSync(join(DIR, file), "utf8"));
+  return m ? m[1]!.split(",").map((t) => t.trim()).filter(Boolean) : [];
+}
+
+test("the starter-data agent set is non-empty and readable", () => {
+  const files = readdirSync(DIR).filter((f) => f.endsWith(".md"));
+  assert.ok(files.length > 10, `expected the shipped agent set, found ${files.length}`);
+});
+
+test("every tool a SHIPPED agent declares actually exists", () => {
+  const offenders: string[] = [];
+  for (const f of readdirSync(DIR).filter((x) => x.endsWith(".md"))) {
+    const bad = unknownTools(declaredTools(f));
+    if (bad.length > 0) offenders.push(`${f}: ${bad.join(", ")}`);
+  }
+  assert.deepEqual(offenders, [], `shipped agents grant nothing silently:\n  ${offenders.join("\n  ")}`);
+});
+
+test("no shipped agent is left with an empty tool list", () => {
+  const empty: string[] = [];
+  for (const f of readdirSync(DIR).filter((x) => x.endsWith(".md"))) {
+    const s = readFileSync(join(DIR, f), "utf8");
+    if (/^tools: \[\s*\]/m.test(s)) empty.push(f);
+  }
+  assert.deepEqual(empty, [], "a tools: [] frontmatter disables the agent entirely");
+});

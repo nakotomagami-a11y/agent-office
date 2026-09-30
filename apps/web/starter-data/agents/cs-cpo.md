@@ -4,7 +4,7 @@ description: "CPO advisor — product vision, PMF diagnosis, roadmap prioritizat
 default-model: opus
 default-effort: xhigh
 skills: [alz-cpo-advisor, alz-strategic-alignment, alz-competitive-intel, alz-decision-logger]
-tools: [Read, Bash, Grep, Glob, WebSearch, WebFetch]
+tools: [Read, Bash, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

@@ -4,7 +4,7 @@ description: "Lead orchestrator that breaks down complex tasks, delegates to spe
 default-model: opus
 default-effort: high
 skills: [sp-dispatching-parallel-agents, ecc-agentic-engineering]
-tools: [Read, Write, Edit, Bash, Grep, Task]
+tools: [Read, Write, Edit, Bash, Task]
 permission-mode: bypassPermissions
 unit: black/pawn
 ---

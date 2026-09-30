@@ -5,7 +5,7 @@ description: "Owns CI/CD, Docker, IaC, deploy pipelines, GitHub Actions, Vercel/
 default-model: sonnet
 default-effort: high
 skills: [alz-ci-cd-pipeline-builder, alz-runbook-generator, sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, Grep, Glob]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

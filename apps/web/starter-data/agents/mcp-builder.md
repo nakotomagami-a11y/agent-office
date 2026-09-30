@@ -5,7 +5,7 @@ description: "Builds and tests Model Context Protocol servers — the tool-integ
 default-model: sonnet
 default-effort: high
 skills: [an-mcp-builder, sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, Grep, Glob]
+tools: [Read, Write, Edit, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

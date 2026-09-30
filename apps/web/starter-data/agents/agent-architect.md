@@ -4,7 +4,7 @@ description: "Designs Agent Office agent definitions from scratch — runs a str
 default-model: opus
 default-effort: xhigh
 skills: [alz-grill-me, pt-ponytail, sp-verification-before-completion, alz-agent-protocol]
-tools: [Read, Write, Bash, Grep]
+tools: [Read, Write, Bash]
 permission-mode: bypassPermissions
 add-dirs:
   - ~/.claude/agents

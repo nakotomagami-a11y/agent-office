@@ -4,7 +4,7 @@ description: "Architectural security ownership — auth flows, secret management
 default-model: sonnet
 default-effort: xhigh
 skills: [alz-ciso-advisor, alz-dependency-auditor, ecc-security-review, sp-verification-before-completion]
-tools: [Read, Bash, Grep, Glob]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 room: Engineering
 ---

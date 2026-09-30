@@ -4,7 +4,7 @@ description: Research agent — reads codebases, traces unfamiliar code paths, s
 default-model: sonnet
 default-effort: high
 skills: []
-tools: [Read, Bash, Grep, Glob]
+tools: [Read, Bash]
 permission-mode: bypassPermissions
 ---
 

@@ -4,7 +4,7 @@ description: "Generates a candid, evidence-cited portrait of the user as a PERSO
 default-model: opus
 default-effort: high
 skills: [alz-self-eval, sp-verification-before-completion, pt-ponytail-review]
-tools: [Read, Bash, Grep, Glob, Write]
+tools: [Read, Bash, Write]
 permission-mode: bypassPermissions
 room: Strategy
 ---
