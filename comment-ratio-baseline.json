@@ -1344,11 +1344,6 @@
     "code": 31,
     "comment": 0
   },
-  "apps/web/src/middleware.ts": {
-    "ratio": 0,
-    "code": 24,
-    "comment": 0
-  },
   "apps/web/src/modules/accounts/components/accounts-stats-panel.tsx": {
     "ratio": 0.0508,
     "code": 118,
@@ -3118,5 +3113,10 @@
     "ratio": 0.1616,
     "code": 594,
     "comment": 96
+  },
+  "apps/web/src/proxy.ts": {
+    "ratio": 0,
+    "code": 24,
+    "comment": 0
   }
 }
