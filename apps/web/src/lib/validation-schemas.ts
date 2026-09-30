@@ -58,19 +58,9 @@ export const projectMetaPatchSchema = z.object({
       name: z.string().optional(),
       description: z.string().optional(),
       planet: planetConfigSchema.optional(),
-      roster: z
-        .array(
-          z.object({
-            instanceId: z.string(),
-            agentId: z.string(),
-            label: z.string().optional(),
-            model: z.string().optional(),
-            effort: z.string().optional(),
-            permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
-            room: z.string().optional(),
-          }),
-        )
-        .optional(),
+      // `roster` is intentionally NOT accepted here. A whole-array write from a
+      // client holding a stale copy silently drops instances it never knew
+      // about. Roster changes go through /roster and /roster/[instanceId].
       // Multi-account: null clears back to the default account.
       accountId: z.string().min(1).nullable().optional(),
       // Per-project github account: null clears back to the default (system gh).
@@ -80,6 +70,12 @@ export const projectMetaPatchSchema = z.object({
     })
     .optional(),
   memory: z.string().optional(),
+  /**
+   * Content rev the client believes it is editing (from GET). When present, a
+   * write that no longer matches on-disk state is refused with 409 rather than
+   * silently winning.
+   */
+  expectedRev: z.string().min(1).optional(),
 });
 
 export const accountCreateSchema = z.object({

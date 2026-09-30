@@ -5,6 +5,7 @@ import { projects, db as dbService } from "@agent-office/domain/services";
 import { validateBody } from "@/lib/validation";
 import { projectMetaPatchSchema } from "@/lib/validation-schemas";
 import { notFound, tryService, validateIdParam } from "@/lib/api-helpers";
+import { toProjectUpdatePatch } from "@/lib/project-patch";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,17 +38,12 @@ export async function PUT(request: Request, { params }: Params) {
   const raw: unknown = await request.json();
   const { data, error } = validateBody(projectMetaPatchSchema, raw);
   if (error) return error;
-  // The schema allows `accountId`/`githubAccountId: null` (client's way to clear
-  // the field); the domain type is `string | undefined`. Coerce null → undefined.
-  const meta = data.meta
-    ? {
-        ...data.meta,
-        accountId: data.meta.accountId ?? undefined,
-        githubAccountId: data.meta.githubAccountId ?? undefined,
-      }
-    : undefined;
-  const normalized = { memory: data.memory, meta };
-  return tryService(() => projects.updateProject(id, normalized));
+  // Pass `data.meta` straight through. Zod omits keys the client did not send,
+  // and the domain applies only PRESENT keys (`null` = clear). The previous
+  // `accountId: data.meta.accountId ?? undefined` made the key present-but-
+  // undefined on every request, so any patch — even a shelve toggle — wiped
+  // the project's account binding.
+  return tryService(() => projects.updateProject(id, toProjectUpdatePatch(data)));
 }
 
 export async function DELETE(_request: Request, { params }: Params) {

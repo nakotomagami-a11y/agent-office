@@ -292,14 +292,13 @@ export function seedShowcase(): void {
         meta: {
           name: p.name,
           description: p.description,
-          cwd: `${CODE_ROOT}/${p.id}`,
-          roster,
           planet: MOON,
           accountId: accountIds[0],
           githubAccountId: githubIds[0],
         },
         memory: `# ${p.name}\n\n## Stack\n${p.description}\n\n## Conventions\n- Trunk-based, PRs required, CI must be green\n- Secrets via the project secrets vault, never committed\n`,
       });
+      projects.replaceRoster(p.id, roster, "seedShowcase");
     } catch { /* ignore */ }
 
     // Link a couple secrets to the storefront.

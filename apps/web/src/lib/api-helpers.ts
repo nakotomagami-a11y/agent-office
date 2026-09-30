@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { projects } from "@agent-office/domain/services";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { Buffer } from "node:buffer";
@@ -31,6 +32,11 @@ export function badRequest(message = "bad_request"): NextResponse {
 
 export function serverError(message = "internal_error"): NextResponse {
   return NextResponse.json({ error: message }, { status: 500 });
+}
+
+/** 409 — the caller's copy is stale; it must re-read before writing again. */
+export function conflict(message = "conflict", extra?: Record<string, unknown>): NextResponse {
+  return NextResponse.json({ error: message, ...extra }, { status: 409 });
 }
 
 export function payloadTooLarge(maxBytes: number): NextResponse {
@@ -93,6 +99,18 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<NextRespo
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.message;
+    // A stale write is the caller's problem to retry, not a server fault —
+    // must be checked before the /not found/ sniff below, which would 404 it.
+    // `instanceof` rather than a cast: the class is importable, so the fields
+    // come typed instead of asserted (arch.parse-dont-cast).
+    if (err instanceof projects.StaleProjectWriteError) {
+      // errors.machine-codes: the `error` field is a stable code, never prose.
+      return conflict("stale_write", {
+        detail: msg,
+        expectedRev: err.expectedRev,
+        actualRev: err.actualRev,
+      });
+    }
     if (
       (err as NodeJS.ErrnoException).code === "ENOENT" ||
       /not found/i.test(msg) ||
