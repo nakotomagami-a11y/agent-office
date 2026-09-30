@@ -7,12 +7,13 @@ import type { AgentInstance, Project } from "@agent-office/domain/types";
 import { validateBody } from "@/lib/validation";
 import { broadcastRequestSchema } from "@/lib/validation-schemas";
 import { badRequest } from "@/lib/api-helpers";
+import { log } from "@agent-office/domain/services/infra/log";
 
 function startRunForRosterInstance(
   inst: AgentInstance,
   project: Project,
   req: { agentId?: string; prompt: string; model?: string; effort?: string; cwd?: string; projectId: string },
-): string | null {
+): { runId: string } | { bridgeMissing: string } | null {
   const agentResult = agents.readAgent(inst.agentId);
   if (!agentResult) return null;
 
@@ -34,7 +35,7 @@ function startRunForRosterInstance(
     appendedSystemPrompt,
   });
 
-  if (built.permissionBridgeMissing) return null;
+  if (built.permissionBridgeMissing) return { bridgeMissing: built.permissionBridgeMissing };
 
   const instanceLabel = inst.label ?? agentResult.info.name;
 
@@ -50,7 +51,7 @@ function startRunForRosterInstance(
     instanceLabel,
     args: built.args,
   });
-  return runId;
+  return { runId };
 }
 
 export async function POST(request: Request) {
@@ -69,8 +70,17 @@ export async function POST(request: Request) {
   const broadcastId = randomUUID();
   const runIds: string[] = [];
   for (const inst of roster) {
-    const runId = startRunForRosterInstance(inst, project, req);
-    if (runId) runIds.push(runId);
+    const outcome = startRunForRosterInstance(inst, project, req);
+    if (!outcome) continue;
+    // Packaging fault: 202 with an empty list would read as success.
+    if ("bridgeMissing" in outcome) {
+      log.error("broadcast.permission_bridge_missing", { projectId: req.projectId, path: outcome.bridgeMissing });
+      return NextResponse.json(
+        { error: "permission_bridge_missing", detail: `Permission bridge not found at ${outcome.bridgeMissing}` },
+        { status: 500 },
+      );
+    }
+    runIds.push(outcome.runId);
   }
 
   return NextResponse.json({ broadcastId, runIds }, { status: 202 });

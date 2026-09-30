@@ -48,3 +48,12 @@ jobs:
       # route on main while typecheck, lint and all tests passed (#140).
       - name: Build
         run: pnpm build
+
+      # `pnpm build` proves the code bundles; it does NOT prove the packaged
+      # app has the files it spawns at runtime. The permission bridge was
+      # absent from every shipped build while this job was green (#148).
+      - name: Verify packaged bundle
+        run: |
+          node apps/web/scripts/prepare-bundle.mjs
+          node apps/web/scripts/verify-bundle.mjs
+        working-directory: .

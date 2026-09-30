@@ -12,6 +12,7 @@
  * See docs/chat-refactor.md.
  */
 import * as db from "../db";
+import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
 import {
   reduce,
@@ -130,10 +131,17 @@ async function apply(
         conversationId: convId,
         contextProfile: opts.contextProfile,
       });
-    } catch {
+    } catch (e) {
       // Couldn't spawn — park for attention, keep the queue. The failed
       // start is not a turn (no run row), so there's nothing to retry-by-run;
-      // the user can Retry (re-run lastPrompt) or Resume.
+      // the user can Retry (re-run lastPrompt) or Resume. Log the reason:
+      // discarding it made a missing permission bridge look like a silent
+      // refusal to act.
+      log.error("conversation.start_failed", {
+        convId,
+        code: (e as { code?: string }).code,
+        message: e instanceof Error ? e.message : String(e),
+      });
       db.updateConversation(convId, { status: "needs_attention", activeRunId: null });
       emitAppEvent("conversations:changed");
       return view(convId);

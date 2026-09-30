@@ -945,6 +945,7 @@
   "schedules": {
     "attention_stale": "More than 12h overdue — confirm before running.",
     "attention_missing_instance": "The target agent no longer exists. Reassign it.",
+    "attention_bridge_missing": "The app's permission bridge is missing — reinstall. Reassigning will not help.",
     "attention_retry_exceeded": "Still rate-limited after 5 retries. Run manually when ready."
   }
 }

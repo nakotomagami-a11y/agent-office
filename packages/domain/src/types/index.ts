@@ -399,7 +399,7 @@ export interface SummonRequest {
 export type ContextProfile = "tight" | "balanced" | "deep";
 
 export type ScheduledJobStatus = "pending" | "firing" | "done" | "cancelled" | "needs-attention";
-export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded";
+export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded" | "bridge-missing";
 
 /** A unit of scheduled work: a serialized summon plus the time to fire it. */
 export interface ScheduledJob {

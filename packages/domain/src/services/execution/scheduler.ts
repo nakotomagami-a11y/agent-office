@@ -52,8 +52,10 @@ async function fireDue(job: ScheduledJob, now: number, bypassStale = false): Pro
       log.info("scheduler.fire_deferred", { jobId: job.id, reason: result.error.message });
       return;
     }
-    log.warn("scheduler.fire_failed", { jobId: job.id, message: result.error.message });
-    return markAttention(job, "missing-instance");
+    log.warn("scheduler.fire_failed", { jobId: job.id, code: result.error.code, message: result.error.message });
+    // Permanent: the default copy tells the user to reassign, which cannot help.
+    return markAttention(job, result.error.code === "permission_bridge_missing"
+      ? "bridge-missing" : "missing-instance");
   }
 
   updateJob(job.id, { status: "firing", firedRunId: result.runId });

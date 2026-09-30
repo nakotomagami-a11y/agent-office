@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform, arch } from "node:os";
+import { REQUIRED_BUNDLE_SCRIPTS } from "./bundle-manifest.mjs";
 
 console.log("prepare-bundle: starting, cwd =", process.cwd());
 console.log("prepare-bundle: platform =", platform(), arch());
@@ -32,9 +33,6 @@ const appRoot = join(__dirname, ".."); // apps/web/
 const tauriDir = join(appRoot, "src-tauri");
 const workspaceRoot = join(appRoot, "..", "..");
 
-/** Files from repo `scripts/` that the RUNNING APP needs. Spawned by path at
- *  runtime, so absence is invisible until a user hits the feature. */
-const REQUIRED_BUNDLE_SCRIPTS = ["mcp-permission-server.mjs"];
 
 const standaloneDir = join(appRoot, ".next", "standalone");
 if (!existsSync(standaloneDir)) {

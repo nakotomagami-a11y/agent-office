@@ -40,6 +40,14 @@ function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
  * Exported for unit testing (env plumbing is the entire multi-account
  * spawn contract). `startRun` is the sole production caller.
  */
+/** `AO_*` is the app's own namespace, set by `startRun` and the Tauri launcher.
+ *  Defense-in-depth: `AO_RUN_ID`/`AO_BASE_URL` are overwritten downstream
+ *  anyway, so this closes no live hole — it keeps the namespace ours.
+ *  Case-insensitive because Windows env lookup is. */
+export function isReservedEnvName(name: string): boolean {
+  return name.toUpperCase().startsWith("AO_");
+}
+
 export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.
@@ -85,8 +93,10 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
   // project; a run with no projectId gets none.
   if (opts.projectId) {
     for (const secret of secrets.listRawForProject(opts.projectId)) {
-      // `AO_*` carries authority the child must not forge (base URL, bridge).
-      if (secret.name.startsWith("AO_")) continue;
+      if (isReservedEnvName(secret.name)) {
+        log.warn("run.secret_reserved_prefix", { projectId: opts.projectId, name: secret.name });
+        continue;
+      }
       env[secret.name] = secret.value;
     }
   }

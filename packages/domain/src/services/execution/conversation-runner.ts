@@ -30,7 +30,7 @@ export const productionConversationRunner: ConversationRunner = {
     const req = buildSummonRequest(input);
     const result = await startSummonRun(req);
     if ("error" in result) {
-      throw new Error(result.error.message);
+      throw Object.assign(new Error(result.error.message), { code: result.error.code });
     }
     return result.runId;
   },

@@ -2,23 +2,22 @@
  * The permission bridge is spawned BY PATH at runtime. When that path is wrong
  * nothing throws — the CLI just gets an MCP server that never answers, and
  * every prompt denies with no visible cause. That shipped: `scripts/` was
- * absent from the packaged bundle while `next dev` resolved it fine, so no
- * gate caught it.
+ * absent from the packaged bundle while `next dev` resolved it fine.
  *
- * The dev-tree checks below would ALL have passed on the broken commit — the
- * bug was bundle-only. Hence the packaging contract test, which is the one
- * that fails if the copy step is deleted.
+ * SCOPE NOTE, because the first version of this file lied about it: everything
+ * here is a DEV-TREE check and would have passed on the broken commit. The
+ * bug was bundle-only, so the real gate is `apps/web/scripts/verify-bundle.mjs`
+ * running in CI against the built artifact. A unit test in this package cannot
+ * express a packaging contract.
  */
 import assert from "node:assert";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { PERMISSION_SERVER_PATH } from "./summon";
+import { isReservedEnvName } from "./runs/spawn-env";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..");
-
-test("the bridge the summon path points at actually exists", () => {
+test("the bridge the summon path points at exists in the dev tree", () => {
   assert.ok(
     existsSync(PERMISSION_SERVER_PATH),
     `permission bridge absent at ${PERMISSION_SERVER_PATH} — every prompt would silently deny`,
@@ -42,30 +41,11 @@ test("AO_BUNDLE_ROOT overrides module-relative resolution", async () => {
   }
 });
 
-test("the bundler is required to ship the bridge", () => {
-  // The dev-tree assertions above hold on the broken commit too. This one does
-  // not: delete the copy step from prepare-bundle and it fails.
-  const prepareBundle = readFileSync(
-    join(REPO_ROOT, "apps", "web", "scripts", "prepare-bundle.mjs"), "utf8",
-  );
-  const bridge = "mcp-permission-server.mjs";
-  assert.ok(
-    prepareBundle.includes(bridge),
-    `prepare-bundle.mjs must name ${bridge} as a required artifact, or the packaged app ships without it`,
-  );
-  assert.match(
-    prepareBundle, /REQUIRED_BUNDLE_SCRIPTS/,
-    "the required-file list must stay a named manifest so this contract is checkable",
-  );
-});
-
-test("a project secret cannot forge an AO_ variable", async () => {
-  const src = readFileSync(
-    join(REPO_ROOT, "packages", "domain", "src", "services", "execution", "runs", "spawn-env.ts"),
-    "utf8",
-  );
-  assert.match(
-    src, /startsWith\("AO_"\)\s*\)\s*continue/,
-    "the secrets loop must skip AO_* — AO_BASE_URL redirects permission decisions and AO_BUNDLE_ROOT selects the bridge",
-  );
+test("AO_ is a reserved env namespace, case-insensitively", () => {
+  for (const name of ["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "ao_base_url", "Ao_Bundle_Root"]) {
+    assert.equal(isReservedEnvName(name), true, `${name} must not be settable by a project secret`);
+  }
+  for (const name of ["OPENAI_API_KEY", "AWS_SECRET", "A", "AONE", "GITHUB_TOKEN"]) {
+    assert.equal(isReservedEnvName(name), false, `${name} is a legitimate secret name`);
+  }
 });
