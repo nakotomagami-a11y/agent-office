@@ -24,6 +24,9 @@ export interface LoopRunner {
   costOf(runId: string): number;
   /** A finding citing a rule that does not resolve is a miswired reviewer. */
   ruleExists(id: string): boolean;
+  ruleIds(): readonly string[];
+  /** A review's verdict; `null` means none was reported, which is NOT a pass. */
+  findingsFor(runId: string): Finding[] | null;
 }
 
 /** Worth another attempt rather than ending a loop mid-flight. */
@@ -98,7 +101,7 @@ async function dispatch(loop: db.LoopRow, e: LoopEffect | undefined, runner: Loo
   if (!e || e.type === "finish") return null;
   {
     const prompt = e.type === "startReview"
-      ? reviewPrompt(loop.goal, e.round)
+      ? reviewPrompt(loop.goal, e.round, runner.ruleIds())
       : fixPrompt(loop.goal, e.round, e.findings);
     const agentId = e.type === "startReview" ? loop.reviewerAgentId : loop.agentId;
     return await runner.startRun({
@@ -188,13 +191,25 @@ export async function onLoopRunFinished(
   ok: boolean,
   runner: LoopRunner,
   now: number,
-  findings: Finding[] = [],
 ): Promise<void> {
   const loop = db.getLoopByActiveRun(runId);
   if (!loop) return;
   // Claim BEFORE any await: two listeners for one run would both dispatch.
   if (!db.claimActiveRun(loop.id, runId)) return;
-  const action = actionFor(loop.state, ok, runner.costOf(runId), findings);
+  let verdict: Finding[] = [];
+  let reviewOk = ok;
+  if (loop.state.phase === "reviewing") {
+    const reported = runner.findingsFor(runId);
+    if (reported === null) {
+      // No verdict is not a pass: an unassessed diff read as a clean bill of
+      // health in the first dogfood run.
+      log.warn("loop.review_without_verdict", { loopId: loop.id, runId });
+      reviewOk = false;
+    } else {
+      verdict = reported;
+    }
+  }
+  const action = actionFor(loop.state, reviewOk, runner.costOf(runId), verdict);
   if (!action) {
     // Clear, not re-adopt: re-adopting re-arms this no-op every replay.
     log.warn("loop.finish_out_of_phase", { loopId: loop.id, runId, phase: loop.state.phase });

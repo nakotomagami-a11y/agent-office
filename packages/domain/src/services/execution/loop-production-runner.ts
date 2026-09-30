@@ -3,7 +3,8 @@
 import * as db from "../db/index";
 import { log } from "../infra/log";
 import { startSummonRun } from "./summon-run";
-import { ruleExists } from "./loop-rules";
+import { ruleExists, knownRuleIds } from "./loop-rules";
+import { findingsForRun } from "./loop-findings";
 import type { LoopRunner } from "./loop-runner";
 
 export const productionLoopRunner: LoopRunner = {
@@ -36,4 +37,6 @@ export const productionLoopRunner: LoopRunner = {
   },
 
   ruleExists,
+  ruleIds: () => [...knownRuleIds()],
+  findingsFor: findingsForRun,
 };

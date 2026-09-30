@@ -5,7 +5,7 @@ description: "Adversarial code review — reads a diff (or a set of files) and r
 default-model: sonnet
 default-effort: xhigh
 skills: [alz-self-eval, sp-verification-before-completion, pt-ponytail-review]
-tools: [Read, Bash, Grep, Glob, Task]
+tools: [Read, Bash, Task, ReportFindings]
 permission-mode: bypassPermissions
 ---
 

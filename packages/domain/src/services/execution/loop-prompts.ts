@@ -7,14 +7,23 @@ export function authorPrompt(goal: string): string {
   return `Round 1. Work toward this goal:\n${goal}`;
 }
 
-export function reviewPrompt(goal: string, round: number): string {
+export function reviewPrompt(goal: string, round: number, ruleIds: readonly string[]): string {
   return [
     `Review the work just done against this goal:`,
     goal,
     ``,
-    `Round ${round}. Report findings with ReportFindings. Every finding MUST cite a`,
-    `ruleId that resolves in docs/conventions.md — a finding with no rule is an`,
-    `opinion and the whole batch will be rejected.`,
+    `Round ${round}. Report with the ReportFindings tool — NOT as prose. Call it`,
+    `once, findings ranked most-severe first, empty array if nothing survives`,
+    `verification. A review that reports no verdict is treated as a failed`,
+    `review, not as a pass.`,
+    ``,
+    // Inlined rather than pointed at a path: the loop runs in the USER's repo,
+    // which has no copy of our conventions. Simple, and it keeps the loop
+    // self-contained — revisit if rule bodies (not just ids) are ever needed.
+    `Put the rule id in each finding's \`category\` field. This list IS the`,
+    `authority — do NOT look for a conventions file in the repo, it is not`,
+    `there. A finding citing anything outside this list rejects the whole batch:`,
+    ...ruleIds.map((r) => `  - ${r}`),
   ].join("\n");
 }
 

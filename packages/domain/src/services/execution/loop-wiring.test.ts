@@ -27,6 +27,8 @@ const runner: LoopRunner = {
   startRun: async (i) => { dispatched.push(i.agentId); return `wire-run-${++n}`; },
   costOf: () => 1,
   ruleExists: () => true,
+  ruleIds: () => ["arch.parse-dont-cast"],
+  findingsFor: () => [],
 };
 
 test("a run with NO conversationId still reaches the loop listener", async () => {
