@@ -233,6 +233,57 @@ test("an unreadable binding never renders as still-running", () => {
   assert.equal(loop.state.binding, "corrupt_state", "a termination must always NAME itself");
 });
 
+test("the DOMAIN clamps ceilings, not just the API schema", async () => {
+  const { runner } = makeRunner();
+  const id = await startLoop(
+    { agentId: "dev", reviewerAgentId: "qa", goal: "g",
+      config: { maxRounds: 1e9, budgetUsd: 1e9, wallClockMs: 1e12 } },
+    runner, 0,
+  );
+  const cfgOut = db.getLoop(id)!.config;
+  assert.ok(cfgOut.maxRounds <= 20, `maxRounds ${cfgOut.maxRounds} must be clamped in the domain`);
+  assert.ok((cfgOut.budgetUsd ?? 0) <= 1000, "budget must be clamped in the domain");
+  assert.ok((cfgOut.wallClockMs ?? 0) <= 24 * 60 * 60 * 1000, "wall clock must be clamped in the domain");
+});
+
+test("round 1's prompt is prefixed, so it cannot collide with a chat message", async () => {
+  const { runner, dispatched } = makeRunner();
+  await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "ship the thing", config: cfg }, runner, 0);
+  assert.notEqual(
+    dispatched[0]!.prompt, "ship the thing",
+    "a bare goal lets startSummonRun return the user's own chat run for the loop to adopt",
+  );
+  assert.match(dispatched[0]!.prompt, /ship the thing/);
+});
+
+test("a RETRYABLE dispatch failure does not kill a paid loop", async () => {
+  let n = 0;
+  const { runner } = makeRunner({
+    startRun: async () => {
+      if (++n > 1) throw Object.assign(new Error("busy"), { code: "already_running" });
+      return "retry-run-1";
+    },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished("retry-run-1", true, runner, 1);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.binding, undefined, "a transient failure must not terminate the loop");
+  assert.equal(loop.activeRunId, "retry-run-1", "the claim must be returned so reconcile can retry");
+});
+
+test("a NON-retryable dispatch failure still terminates", async () => {
+  let n = 0;
+  const { runner } = makeRunner({
+    startRun: async () => {
+      if (++n > 1) throw Object.assign(new Error("gone"), { code: "unknown_agent" });
+      return "fatal-run-1";
+    },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished("fatal-run-1", true, runner, 1);
+  assert.equal(db.getLoop(id)!.state.binding, "dispatch_failed");
+});
+
 test("a user stop is reported as user_stopped, not as a review failure", async () => {
   const { runner } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);

@@ -92,6 +92,27 @@ const ACCEPTS: Record<LoopPhase, LoopAction["type"][]> = {
   escalated: ["allowOneMore", "acceptAsIs"],
 };
 
+/** Hard bounds, in the DOMAIN. The API schema gives a 400; this is what makes
+ *  "the app owns the ceilings" true for EVERY caller — the scheduler, an MCP
+ *  tool, anything added later. A ceiling a caller can widen is not a ceiling. */
+export const LOOP_LIMITS = { maxRounds: 20, budgetUsd: 1000, wallClockMs: 24 * 60 * 60 * 1000 } as const;
+
+function clamp(v: number | undefined, hi: number): number | undefined {
+  if (v === undefined) return undefined;
+  if (!Number.isFinite(v) || v <= 0) return undefined;
+  return Math.min(v, hi);
+}
+
+export function clampLoopConfig(cfg: LoopConfig): LoopConfig {
+  const rounds = clamp(cfg.maxRounds, LOOP_LIMITS.maxRounds);
+  return {
+    ...cfg,
+    maxRounds: rounds !== undefined && Number.isInteger(rounds) ? rounds : 1,
+    budgetUsd: clamp(cfg.budgetUsd, LOOP_LIMITS.budgetUsd),
+    wallClockMs: clamp(cfg.wallClockMs, LOOP_LIMITS.wallClockMs),
+  };
+}
+
 export function initialLoopState(startedAt: number): LoopState {
   return { phase: "authoring", round: 1, spentUsd: 0, startedAt, open: [], history: [] };
 }

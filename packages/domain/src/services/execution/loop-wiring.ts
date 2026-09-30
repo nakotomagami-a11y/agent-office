@@ -6,7 +6,6 @@
 import { registerRunFinishedListener } from "./runs";
 import { onLoopRunFinished } from "./loop-runner";
 import { productionLoopRunner } from "./loop-production-runner";
-import { emitAppEvent } from "../infra/events";
 import { log } from "../infra/log";
 
 declare global {
@@ -19,8 +18,10 @@ declare global {
 
 if (!globalThis.__agentOfficeLoopWiringInstalled) {
   registerRunFinishedListener((runId, ok) => {
+    // The event is emitted by the service on each real state change, not here:
+    // this fires for EVERY run, so emitting from the wiring would invalidate
+    // every open tab on every chat turn.
     void onLoopRunFinished(runId, ok, productionLoopRunner, Date.now())
-      .then(() => emitAppEvent("loops:changed"))
       .catch((err) => {
         log.error("loop.on_run_finished_failed", { runId, err: String(err) });
       });
