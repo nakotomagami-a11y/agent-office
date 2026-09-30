@@ -6,13 +6,23 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS, BUNDLE_ROOT_ENV } from "./bundle-manifest.mjs";
+import { REQUIRED_BUNDLE_SCRIPTS, REQUIRED_BUNDLE_DOCS, BUNDLE_ROOT_ENV, EXCLUDED_BUNDLE_PATHS } from "./bundle-manifest.mjs";
 
 const tauriDir = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri");
 const bundleRoot = join(tauriDir, "server");
 const fail = (msg) => { console.error(`verify-bundle: FATAL ${msg}`); process.exit(1); };
 
 if (!existsSync(bundleRoot)) fail(`no bundle at ${bundleRoot} — run prepare-bundle first`);
+
+// This gate only ever asserted that required files were PRESENT, which is why
+// ~2GB of build junk shipped unnoticed for weeks. Absence is a property too.
+for (const segments of EXCLUDED_BUNDLE_PATHS) {
+  const rel = segments.join("/");
+  if (existsSync(join(bundleRoot, ...segments))) {
+    fail(`build junk present in bundle: ${rel} — prepare-bundle should have removed it`);
+  }
+  console.log(`verify-bundle: OK ${rel} absent`);
+}
 
 for (const name of REQUIRED_BUNDLE_SCRIPTS) {
   const p = join(bundleRoot, "scripts", name);
