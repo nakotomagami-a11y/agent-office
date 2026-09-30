@@ -110,6 +110,10 @@ export const API_ROUTES = {
   conversationQueueItem: (id: string, messageId: string) =>
     `/api/conversations/${encodeURIComponent(id)}/queue/${encodeURIComponent(messageId)}`,
   conversationQueue: (id: string) => `/api/conversations/${encodeURIComponent(id)}/queue`,
+
+  // The Loop (docs: ROADMAP Wave 5). A loop is a property of a send.
+  loops: "/api/loops",
+  loop: (id: string) => `/api/loops/${encodeURIComponent(id)}`,
   conversationResume: (id: string) => `/api/conversations/${encodeURIComponent(id)}/resume`,
   conversationRetry: (id: string) => `/api/conversations/${encodeURIComponent(id)}/retry`,
   conversationSkip: (id: string) => `/api/conversations/${encodeURIComponent(id)}/skip`,
