@@ -452,7 +452,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
         name: "tool",
         data: { runId: run.id, name: toolName, input: ev.content_block.input },
       });
-      db.insertToolCall(run.id, toolName, ev.content_block.input, Date.now());
+      db.insertToolCall(run.id, toolName, ev.content_block.input, Date.now(), ev.content_block.id);
       // Do NOT call spawnSubAgentRecord here — input is always {} at content_block_start.
       // Sub-agent records are created in the assistant event handler where input is complete.
       return;
@@ -478,7 +478,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
           name: "tool",
           data: { runId: run.id, name: toolName, input: block.input },
         });
-        db.insertToolCall(run.id, toolName, block.input, Date.now());
+        db.insertToolCall(run.id, toolName, block.input, Date.now(), block.id);
         const spawn = detectSubAgentSpawn(toolName, block.input, run.agentId);
         if (spawn) {
           spawnSubAgentRecord(run, block.id, spawn);

@@ -66,11 +66,21 @@ export function getRecentMessagesByProject(agentId: string, instanceId: string, 
 
 // ─── Tool calls ────────────────────────────────────────────────────────────────
 
-export function insertToolCall(runId: string, name: string, input: unknown, ts: number): void {
+/** Upserts on the CLI's `toolu_...` so one call is one row — see tool-calls.test.ts. */
+export function insertToolCall(
+  runId: string,
+  name: string,
+  input: unknown,
+  ts: number,
+  toolUseId?: string,
+): void {
   try {
+    const json = JSON.stringify(input);
     getDb().prepare(
-      "INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?, ?, ?, ?, ?)"
-    ).run(randomUUID(), runId, name, JSON.stringify(input), ts);
+      `INSERT INTO tool_calls (id, run_id, name, input, ts) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET input = excluded.input, ts = excluded.ts
+       WHERE excluded.input IS NOT NULL AND excluded.input <> '{}' AND excluded.input <> ''`
+    ).run(toolUseId || randomUUID(), runId, name, json, ts);
   } catch { /* best-effort */ }
 }
 
