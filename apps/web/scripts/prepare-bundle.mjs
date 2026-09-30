@@ -32,6 +32,10 @@ const appRoot = join(__dirname, ".."); // apps/web/
 const tauriDir = join(appRoot, "src-tauri");
 const workspaceRoot = join(appRoot, "..", "..");
 
+/** Files from repo `scripts/` that the RUNNING APP needs. Spawned by path at
+ *  runtime, so absence is invisible until a user hits the feature. */
+const REQUIRED_BUNDLE_SCRIPTS = ["mcp-permission-server.mjs"];
+
 const standaloneDir = join(appRoot, ".next", "standalone");
 if (!existsSync(standaloneDir)) {
   console.error("ERROR: .next/standalone not found");
@@ -317,20 +321,21 @@ try {
   // 5b. Repo `scripts/` — the MCP permission bridge is spawned by path at
   //     runtime, so it must exist in the bundle. It previously did not, and
   //     the failure mode was every permission prompt silently denying.
+  //     Named files only: copying the directory would publish whatever a
+  //     developer happens to have untracked in `scripts/` at release time.
   console.log("prepare-bundle: copying scripts/...");
   const scriptsSrc = join(workspaceRoot, "scripts");
   const scriptsDest = join(serverDestDir, "scripts");
-  if (!existsSync(scriptsSrc)) {
-    console.error(`ERROR: ${scriptsSrc} not found — the permission bridge would be absent`);
-    process.exit(1);
+  mkdirSync(scriptsDest, { recursive: true });
+  for (const name of REQUIRED_BUNDLE_SCRIPTS) {
+    const src = join(scriptsSrc, name);
+    if (!existsSync(src)) {
+      console.error(`ERROR: required bundle script missing: ${src}`);
+      process.exit(1);
+    }
+    copyFileSync(src, join(scriptsDest, name));
+    console.log(`  bundled: ${name}`);
   }
-  cpSync(scriptsSrc, scriptsDest, { recursive: true, dereference: true });
-  const bridge = join(scriptsDest, "mcp-permission-server.mjs");
-  if (!existsSync(bridge)) {
-    console.error(`ERROR: ${bridge} missing after copy`);
-    process.exit(1);
-  }
-  console.log(`  bridge present: ${bridge}`);
 
   // 6. Bundle the running Node.js binary as the Tauri sidecar
   console.log("prepare-bundle: copying node binary...");

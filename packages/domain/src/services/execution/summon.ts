@@ -13,6 +13,9 @@ export interface BuiltCommand {
   effort: string;
   permissionMode?: string;
   systemPromptFile?: string;
+  /** Reported, never thrown: this runs in the scheduler tick, where an
+   *  exception would skip every other due job. */
+  permissionBridgeMissing?: string;
 }
 
 // Linux execve() rejects any single argv string over MAX_ARG_STRLEN (128 KiB,
@@ -79,14 +82,6 @@ function mcpArgs(opts: { excludePlaywright: boolean; withPermissionServer: boole
   const servers: Record<string, unknown> = { ...readGlobalMcpServers() };
   if (opts.excludePlaywright) delete servers.playwright;
   if (opts.withPermissionServer) {
-    // An absent bridge yields a server that never answers: every prompt
-    // denies with no visible cause. That shipped — so fail loudly instead.
-    if (!existsSync(PERMISSION_SERVER_PATH)) {
-      throw new Error(
-        `permission bridge missing at ${PERMISSION_SERVER_PATH} — ` +
-        `prompts would silently deny. Check prepare-bundle copied scripts/.`,
-      );
-    }
     // AO_RUN_ID / AO_BASE_URL come from the spawn env.
     servers["agent-office"] = { command: process.execPath, args: [PERMISSION_SERVER_PATH] };
   }
@@ -152,5 +147,10 @@ export function buildClaudeArgs(opts: {
 
   args.push(priorContext ? priorContext + request.prompt : request.prompt);
 
-  return { args, model, effort, permissionMode, systemPromptFile };
+  const permissionBridgeMissing =
+    needsPermissionServer && !existsSync(PERMISSION_SERVER_PATH)
+      ? PERMISSION_SERVER_PATH
+      : undefined;
+
+  return { args, model, effort, permissionMode, systemPromptFile, permissionBridgeMissing };
 }

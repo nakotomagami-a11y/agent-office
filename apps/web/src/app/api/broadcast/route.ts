@@ -34,6 +34,8 @@ function startRunForRosterInstance(
     appendedSystemPrompt,
   });
 
+  if (built.permissionBridgeMissing) return null;
+
   const instanceLabel = inst.label ?? agentResult.info.name;
 
   const { runId } = runs.startRun({

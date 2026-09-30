@@ -85,6 +85,8 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
   // project; a run with no projectId gets none.
   if (opts.projectId) {
     for (const secret of secrets.listRawForProject(opts.projectId)) {
+      // `AO_*` carries authority the child must not forge (base URL, bridge).
+      if (secret.name.startsWith("AO_")) continue;
       env[secret.name] = secret.value;
     }
   }
