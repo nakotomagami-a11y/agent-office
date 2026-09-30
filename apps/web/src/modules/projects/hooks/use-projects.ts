@@ -5,7 +5,8 @@ import { apiFetch } from "@agent-office/domain/hooks/api";
 import { queryKeys } from "@agent-office/domain/hooks/query-keys";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { POLL } from "@/lib/polling";
-import type { AgentInstance, Project, ProjectMeta, ProjectSummary } from "@agent-office/domain/types";
+import { toast } from "@/lib/toast-store";
+import type { AgentInstance, Project, ProjectMetaPatch, ProjectSummary } from "@agent-office/domain/types";
 import { getGitStatus } from "@/lib/api/dev-server";
 import type { GitStatus } from "@agent-office/domain/types";
 
@@ -28,24 +29,35 @@ export function useProject(id: string | null) {
   });
 }
 
-/**
- * `accountId: null` clears the field back to the default account. `undefined`
- * (or omitted) means "leave unchanged" — this matches how JSON.stringify
- * strips undefined values, so callers pass explicit `null` to wipe.
- */
-type ProjectMetaPatch = Omit<Partial<ProjectMeta>, "accountId" | "githubAccountId"> & {
-  accountId?: string | null;
-  githubAccountId?: string | null;
-};
-
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { meta?: ProjectMetaPatch; memory?: string } }) =>
-      apiFetch<Project>(API_ROUTES.project(id), { method: "PUT", body: patch }),
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: queryKeys.projects.all });
+    mutationFn: ({ id, patch }: { id: string; patch: { meta?: ProjectMetaPatch; memory?: string } }) => {
+      // Only DETAIL callers have a rev; list-only callers (picker, settings)
+      // send none and still get last-write-wins.
+      const cached = qc.getQueryData<Project>(queryKeys.projects.detail(id));
+      const body = cached?.rev ? { ...patch, expectedRev: cached.rev } : patch;
+      return apiFetch<Project>(API_ROUTES.project(id), { method: "PUT", body });
+    },
+    onSuccess: (project, vars) => {
+      // MERGE, never replace: PUT returns a narrower shape than GET, so
+      // replacing dropped runCount, lastRunAt and the repair badges.
+      qc.setQueryData<Project>(queryKeys.projects.detail(vars.id), (old) =>
+        old ? { ...old, ...project } : project);
+
       qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.id) });
+      qc.invalidateQueries({ queryKey: queryKeys.projects.list() });
+    },
+    onError: (err, vars) => {
+      // type:"all" — an inactive query would otherwise keep the dead rev.
+      void qc.refetchQueries({ queryKey: queryKeys.projects.detail(vars.id), type: "all" });
+      // Central, so no caller can drop a refused write silently.
+      const code = err instanceof Error ? err.message : "";
+      if (code === "stale_write") {
+        toast("This project changed somewhere else — reloaded it, please retry.");
+      } else if (code === "metadata_unreadable") {
+        toast("This project's project.md could not be read, so it was not overwritten. Fix the file by hand.");
+      }
     },
   });
 }

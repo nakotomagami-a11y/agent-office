@@ -349,6 +349,23 @@ export interface Project {
   memory: string;
   runCount?: number;
   lastRunAt?: number;
+  /** Content hash as read; pass back as `expectedRev` to refuse stale writes. */
+  rev?: string;
+}
+
+/**
+ * Only PRESENT keys apply; `null` clears. `accountId: x ?? undefined` broke
+ * exactly this by making the key present-but-undefined. No `roster`: those
+ * changes go per-instance, or through `replaceRoster` for import.
+ */
+export interface ProjectMetaPatch {
+  name?: string;
+  description?: string;
+  /** No `cwd` (scan-derived) and no `planet: null` (backfilled anyway). */
+  planet?: PlanetConfig;
+  accountId?: string | null;
+  githubAccountId?: string | null;
+  shelved?: boolean;
 }
 
 export interface ProjectSummary {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { projects } from "@agent-office/domain/services";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { Buffer } from "node:buffer";
@@ -31,6 +32,11 @@ export function badRequest(message = "bad_request"): NextResponse {
 
 export function serverError(message = "internal_error"): NextResponse {
   return NextResponse.json({ error: message }, { status: 500 });
+}
+
+/** 409 — the caller's copy is stale; it must re-read before writing again. */
+export function conflict(message = "conflict", extra?: Record<string, unknown>): NextResponse {
+  return NextResponse.json({ error: message, ...extra }, { status: 409 });
 }
 
 export function payloadTooLarge(maxBytes: number): NextResponse {
@@ -93,6 +99,16 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<NextRespo
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.message;
+    // Before the /not found/ sniff, which would 404 these. Narrow on `code`
+    // too: a module instantiated twice in the server graph fails instanceof.
+    const code = (err as { code?: string }).code;
+    if (err instanceof projects.StaleProjectWriteError || code === "stale_write") {
+      const e = err as Partial<projects.StaleProjectWriteError>;
+      return conflict("stale_write", { detail: msg, expectedRev: e.expectedRev, actualRev: e.actualRev });
+    }
+    if (err instanceof projects.UnreadableProjectMetadataError || code === "metadata_unreadable") {
+      return conflict("metadata_unreadable", { detail: msg });
+    }
     if (
       (err as NodeJS.ErrnoException).code === "ENOENT" ||
       /not found/i.test(msg) ||

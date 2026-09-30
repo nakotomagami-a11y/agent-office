@@ -56,7 +56,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
         open={planetEditorOpen}
         projectId={id}
         current={project.meta.planet}
-        onSave={(cfg) => void updateMut.mutateAsync({ id, patch: { meta: { planet: cfg } } })}
+        onSave={(cfg) => updateMut.mutate({ id, patch: { meta: { planet: cfg } } })}
         onClose={() => setPlanetEditorOpen(false)}
       />
 
