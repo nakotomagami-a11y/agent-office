@@ -90,13 +90,6 @@ export function listRuns(opts: ListRunsOpts = {}): PersistedRun[] {
   return rows.map(rowToRun);
 }
 
-export function getSumCostSince(sinceTimestamp: number): number {
-  const row = getDb().prepare(
-    "SELECT COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE started_at >= ?"
-  ).get(sinceTimestamp) as { total: number };
-  return row.total;
-}
-
 export function getSpendForInstance(agentId: string, instanceId: string): number {
   const row = getDb().prepare(
     "SELECT COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE agent_id = ? AND instance_id = ?"

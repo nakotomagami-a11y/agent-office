@@ -40,18 +40,6 @@ export function getRecentMessages(agentId: string, instanceId: string, limit = 8
   return rows.reverse().map(r => ({ role: r.role as "user" | "assistant", content: r.content, runId: r.run_id, ts: r.ts }));
 }
 
-export function searchMessages(query: string, limit = 50): Array<HistoryMessage & { agentId: string; instanceId: string }> {
-  const rows = getDb().prepare(`
-    SELECT m.role, m.content, m.run_id, m.ts, m.agent_id, m.instance_id
-    FROM messages_fts f JOIN messages m ON f.rowid = m.rowid
-    WHERE messages_fts MATCH ? ORDER BY rank LIMIT ?
-  `).all(query, limit) as Array<{ role: string; content: string; run_id: string; ts: number; agent_id: string; instance_id: string }>;
-  return rows.map(r => ({
-    role: r.role as "user" | "assistant", content: r.content,
-    runId: r.run_id, ts: r.ts, agentId: r.agent_id, instanceId: r.instance_id,
-  }));
-}
-
 export function searchMessagesForAgent(agentId: string, instanceId: string, ftsQuery: string, limit = 10): HistoryMessage[] {
   try {
     const rows = getDb().prepare(`
