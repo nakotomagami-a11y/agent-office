@@ -156,6 +156,7 @@ export function everything(): CleanupResult {
     // `active_run_id` has no FK, so deleting runs beneath a conversation or
     // loop does not throw — it WEDGES it: the reconcilers read a missing run
     // as "just spawned" and return early forever.
+    detail.scheduled_jobs = db.prepare("DELETE FROM scheduled_jobs").run().changes;
     detail.queued_messages = db.prepare("DELETE FROM queued_messages").run().changes;
     detail.loops = db.prepare("DELETE FROM loops").run().changes;
     detail.conversations = db.prepare("DELETE FROM conversations").run().changes;

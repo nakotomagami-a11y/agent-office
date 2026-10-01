@@ -346,3 +346,35 @@ test("deleting an instance's runs leaves another instance untouched", () => {
     ["other"],
   );
 });
+
+test("a scheduled job never outlives the run it fired", () => {
+  // `reconcileFiring` does `if (!outcome || outcome.status === "running") return`
+  // — a DELETED run is indistinguishable from a live one, so the job sticks in
+  // `firing` forever. I wrongly called this cosmetic; review caught it.
+  // `everything()` is the total nuke, so the jobs go; a SCOPED delete only
+  // clears the pointer, which routes the job to the `!firedRunId -> done` path.
+  const db = freshDb();
+  seedRun(db, "fired", "done", 0);
+  const job = (fired: string | null) =>
+    db.prepare(
+      `INSERT INTO scheduled_jobs (id, fire_at, summon_request, reason, status, attempts, fired_run_id, created_at, updated_at)
+       VALUES ('j1', 1, '{}', 'manual', 'firing', 0, ?, 1, 1)`,
+    ).run(fired);
+
+  job("fired");
+  deleteRunsByAgent("dev");
+  assert.equal(
+    (db.prepare("SELECT fired_run_id FROM scheduled_jobs WHERE id='j1'").get() as { fired_run_id: string | null }).fired_run_id,
+    null,
+    "a scoped delete must clear the pointer, or the job wedges in `firing`",
+  );
+
+  db.prepare("DELETE FROM scheduled_jobs").run();
+  seedRun(db, "fired2", "done", 0);
+  db.prepare(
+    `INSERT INTO scheduled_jobs (id, fire_at, summon_request, reason, status, attempts, fired_run_id, created_at, updated_at)
+     VALUES ('j2', 1, '{}', 'manual', 'firing', 0, 'fired2', 1, 1)`,
+  ).run();
+  everything();
+  assert.equal(count(db, "scheduled_jobs"), 0, "the total nuke must not leave a job pointing at nothing");
+});
