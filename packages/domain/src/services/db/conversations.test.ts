@@ -145,6 +145,12 @@ check("origin survives a queue rewrite, which is every state transition", () => 
   // `replaceQueue` is how the conversation service persists state after EVERY
   // transition. Dropping origin there relabels Agent Office's own message as
   // the user's on the next tick — invisible, because the text is unchanged.
+  //
+  // This is the LIVE path. `enqueueMessage`/`dequeueMessage` below are the
+  // pre-reducer primitives and have no production caller, so a test written
+  // against them would assert nothing about what actually runs; they are used
+  // here only to seed rows. The drain itself is covered in
+  // conversation-machine.test.ts.
   const c = convo.createConversation("dev", "origin-rw", null, null);
   convo.enqueueMessage(c.id, "mine");
   convo.enqueueMessage(c.id, "wake", null, "system");
@@ -157,12 +163,6 @@ check("origin survives a queue rewrite, which is every state transition", () => 
     ["user", "system"],
     "a rewrite must not relabel who wrote the message",
   );
-});
-
-check("a queued system message stays system when it is dequeued", () => {
-  const c = convo.createConversation("dev", "origin-dq", null, null);
-  convo.enqueueMessage(c.id, "wake", null, "system");
-  assert.equal(convo.dequeueMessage(c.id)?.origin, "system");
 });
 
 check("rows written before the origin column default to the user", () => {
