@@ -360,8 +360,13 @@ export function clearShowcase(): void {
   const placeholders = ids.map(() => "?").join(",");
 
   // Runs / tool_calls / messages for showcase projects
-  raw.prepare(`DELETE FROM tool_calls WHERE run_id IN (SELECT id FROM runs WHERE project_id IN (${placeholders}))`).run(...ids);
-  raw.prepare(`DELETE FROM messages WHERE run_id IN (SELECT id FROM runs WHERE project_id IN (${placeholders}))`).run(...ids);
+  // Same FK order the cleanup service had to fix: `background_shells` and the
+  // `runs.parent_run_id` self-FK both throw if the run goes first.
+  const scoped = `SELECT id FROM runs WHERE project_id IN (${placeholders})`;
+  for (const t of ["tool_calls", "messages", "background_shells"]) {
+    raw.prepare(`DELETE FROM ${t} WHERE run_id IN (${scoped})`).run(...ids);
+  }
+  raw.prepare(`UPDATE runs SET parent_run_id = NULL WHERE parent_run_id IN (${scoped})`).run(...ids);
   raw.prepare(`DELETE FROM runs WHERE project_id IN (${placeholders})`).run(...ids);
 
   // Transcripts by instance suffix
