@@ -32,12 +32,15 @@ function git(args: string[], cwd: string): string | null {
   }
 }
 
-/** Repo-controlled text is DATA. Directory names may contain newlines, and this
- *  block lands in every agent's system prompt — so a crafted name could forge a
- *  prompt section. */
+/** Repo text is DATA: a name with a newline could forge a prompt section. */
+/** At most `max` UTF-16 units, never splitting a surrogate pair. */
+function cut(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, /[\uD800-\uDBFF]/.test(s[max - 1]!) ? max - 1 : max);
+}
+
 export function clean(s: string, max = 80): string {
-  // By CODE POINT: a UTF-16 slice split an emoji into a lone surrogate.
-  return [...s.replace(/[\p{Cc}\p{Cf}]/gu, " ")].slice(0, max).join("").trim();
+  return cut(s.replace(/[\p{Cc}\p{Cf}]/gu, " "), max).trim();
 }
 
 /** The login `gh`/`git push` will use. Reads only the `user:` key — no network,

@@ -459,11 +459,16 @@ test("the Run block is bounded in rows and in line length", () => {
     assert.ok(rows.length <= 6, `unbounded rows: ${rows.length}`);
     for (const r of rows) assert.ok(r.length <= 140, `unbounded line (${r.length})`);
   });
-  withRepo(aoBuild("x".repeat(5000)), (root) => {
-    for (const l of renderProjectMap("P", root).split("\n")) {
-      assert.ok(l.length <= 140, `unbounded line (${l.length})`);
-    }
-  });
+  // BOTH fixtures were BMP-only, so the bound was vacuous for exactly the input
+  // class that broke it: a code-point cut against a `.length` budget let astral
+  // text run to 2x. `.length` here is UTF-16, the same unit the budget is in.
+  for (const cmd of ["x".repeat(5000), "\u{1F600}".repeat(2000), "中".repeat(2000)]) {
+    withRepo(aoBuild(cmd), (root) => {
+      for (const l of renderProjectMap("P", root).split("\n")) {
+        assert.ok(l.length <= 140, `unbounded line (${l.length}) for ${cmd.slice(0, 4)}`);
+      }
+    });
+  }
 });
 
 // --- the containment invariant ----------------------------------------------
