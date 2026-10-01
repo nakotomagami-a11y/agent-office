@@ -8,7 +8,10 @@
 
 const WRAPPERS = new Set(["sudo", "nohup", "time", "command", "exec", "doas", "env", "timeout"]);
 
-const SEGMENT_BUILTINS = new Set(["cd", "export", "set", "unset", "declare", "local", "readonly", "alias", "source", "pushd", "popd"]);
+const SEGMENT_BUILTINS = new Set([
+  "cd", "export", "set", "unset", "declare", "local", "readonly", "alias", "source",
+  "pushd", "popd", "exit", "return", "shift", "read", "wait", "umask",
+]);
 
 const SHELL_KEYWORDS = new Set(["for", "while", "until", "if", "case", "function", "select", "eval", "trap"]);
 
@@ -39,6 +42,14 @@ function readToken(c: string, i: number): { text: string; next: number } {
     if (ch === "$" && c.charAt(i + 1) === "(") {
       depth += 1;
       i += 2;
+      continue;
+    }
+    if (ch === "(" && depth > 0) {
+      // Mirror skipSubstitution. Counting `)` without counting `(` closed a
+      // substitution early and walked the scan into its body — prose in a
+      // heredoc produced a live chart bar called `Bash: run`.
+      depth += 1;
+      i += 1;
       continue;
     }
     if (ch === ")" && depth > 0) {
@@ -90,6 +101,9 @@ function skipSubstitution(c: string, i: number): number {
 const ASSIGNMENT = /^[A-Za-z_]\w*=/;
 const PROGRAM = /^[A-Za-z_][\w.-]*$/;
 
+/** Flags whose VALUE is a separate token — `timeout -s KILL 30 cmd`. */
+const TIMEOUT_VALUE_FLAGS = new Set(["-s", "--signal", "-k", "--kill-after"]);
+
 /** `timeout 90 claude` — step past the duration/flag args to the program. */
 function skipTimeoutArgs(c: string, i: number): number {
   while (i < c.length) {
@@ -98,6 +112,11 @@ function skipTimeoutArgs(c: string, i: number): number {
     const arg = readToken(c, i);
     if (!/^-|^[\d.]+[smhd]?$/.test(arg.text)) return save;
     i = arg.next;
+    // Otherwise `KILL` is read as the program and renders `Bash: KILL`.
+    if (TIMEOUT_VALUE_FLAGS.has(arg.text)) {
+      while (i < c.length && /\s/.test(c.charAt(i))) i += 1;
+      i = readToken(c, i).next;
+    }
   }
   return i;
 }
@@ -113,7 +132,15 @@ export function headCommand(command: string): string | null {
     if (i >= c.length) return null;
 
     const { text, next } = readToken(c, i);
-    if (!text) return null;
+    if (!text) {
+      // `cd /repo \\<newline> && pnpm build` — the separator run is not
+      // adjacent to the previous token, so step over it rather than giving up.
+      if (isSeparatorAt(c, i)) {
+        i = skipToNextSegment(c, i);
+        continue;
+      }
+      return null;
+    }
 
     // `FOO=bar cmd` is a prefix; `FOO=bar; cmd` is its own statement.
     if (ASSIGNMENT.test(text)) {

@@ -3110,9 +3110,9 @@
     "comment": 119
   },
   "packages/domain/src/types/index.ts": {
-    "ratio": 0.1722,
-    "code": 604,
-    "comment": 104
+    "ratio": 0.1616,
+    "code": 594,
+    "comment": 96
   },
   "apps/web/src/proxy.ts": {
     "ratio": 0,

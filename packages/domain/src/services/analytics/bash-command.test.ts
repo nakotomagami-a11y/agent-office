@@ -44,7 +44,28 @@ test("a cd hop is skipped however its path is written", () => {
   assert.equal(headCommand('cd "/usr/lib/Agent Office/server" && echo hi'), "echo");
   assert.equal(headCommand("cd '/home/x/My Repo' && pnpm build"), "pnpm");
   assert.equal(headCommand("cd $(git rev-parse --show-toplevel) && pnpm build"), "pnpm");
-  assert.equal(headCommand("cd /x || exit 1; pnpm build"), "exit", "|| is a separator too");
+  assert.equal(headCommand("cd /x || exit 1; pnpm build"), "pnpm", "|| is a separator too");
+});
+
+test("a substitution body is not walked into", () => {
+  // readToken counted `)` without counting `(`, so a bare paren inside a
+  // substitution closed it early and the scan wandered into the body. Prose
+  // in a heredoc'd commit message produced a live bar called `Bash: run`.
+  assert.equal(headCommand("MSG=$(cat <<EOF\nsee (note) python3 x\nEOF\n) && git commit"), "git");
+  assert.equal(headCommand("X=$(foo (bar) baz); ls"), "ls");
+  assert.equal(headCommand("cd $(dirname (x)) && pnpm build"), "pnpm");
+});
+
+test("a timeout flag's value is not mistaken for the program", () => {
+  // `-s` was consumed but `KILL` was not, so it rendered `Bash: KILL`.
+  assert.equal(headCommand("timeout -s KILL 30 pnpm test"), "pnpm");
+  assert.equal(headCommand("timeout -k 5 10 claude -p x"), "claude");
+  assert.equal(headCommand("timeout --signal=KILL 10 pnpm test"), "pnpm");
+});
+
+test("a line continuation before an operator does not end the scan", () => {
+  assert.equal(headCommand("cd /repo \\\n  && pnpm build"), "pnpm");
+  assert.equal(headCommand("export FOO=1 \\\n && git status"), "git");
 });
 
 test("a shell builtin is never reported as a program", () => {
@@ -54,6 +75,8 @@ test("a shell builtin is never reported as a program", () => {
   assert.equal(headCommand("export FOO=1 && pnpm build"), "pnpm");
   assert.equal(headCommand("source ~/.bashrc && node x.js"), "node");
   assert.equal(headCommand("export PATH=/x"), null, "a bare builtin is not a program");
+  assert.equal(headCommand("cd /x; shift; ls"), "ls");
+  assert.equal(headCommand("read -r x; git status"), "git");
 });
 
 test("a standalone assignment is a statement, not a prefix", () => {

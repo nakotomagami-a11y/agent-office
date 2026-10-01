@@ -141,7 +141,9 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
   // lone truncated-run row too. Accepted: no command, ~0 of them.
   const toolRaw = db
     .prepare(
-      `SELECT tc.name AS name, tc.input AS input, tc.run_id AS runId
+      `SELECT tc.name AS name,
+              CASE WHEN tc.name = 'Bash' THEN tc.input END AS input,
+              tc.run_id AS runId
        FROM tool_calls tc
        JOIN runs r ON r.id = tc.run_id
        WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}
