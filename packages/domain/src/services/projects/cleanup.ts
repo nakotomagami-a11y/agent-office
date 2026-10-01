@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import type { CleanupKind } from "../../config/cleanup";
 import { join } from "node:path";
-import { getDb } from "../db";
+import { getDb, deleteRunsWhere } from "../db";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 
@@ -29,21 +29,26 @@ export interface CleanupResult {
   detail?: Record<string, number>;
 }
 
-/** FK children of `runs`: no ON DELETE CASCADE, so a run deleted before them
- *  throws. cleanup.test.ts asserts this still matches the schema. */
-export const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
+/** FK refs INTO `runs`, checked against the schema in cleanup.test.ts. Keyed
+ *  on the TABLE: a `run_id` name filter hid the `parent_run_id` self-FK. */
+export const RUN_FK_REFS = [
+  "messages.run_id",
+  "tool_calls.run_id",
+  "background_shells.run_id",
+  "runs.parent_run_id",
+] as const;
 
-/** Runs matching `where`, plus their children, in FK-safe order. */
-function deleteRunsWhere(where: string): number {
+const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
+
+export const PIPELINE_CHILD_TABLES = ["pipeline_steps"] as const;
+
+function deletePipelinesWhere(where: string): number {
   const db = getDb();
-  const ids = db.prepare(`SELECT id FROM runs WHERE ${where}`).all() as Array<{ id: string }>;
-  if (ids.length === 0) return 0;
-  const list = ids.map(() => "?").join(",");
-  const params = ids.map((r) => r.id);
-  for (const t of RUN_CHILD_TABLES) {
-    db.prepare(`DELETE FROM ${t} WHERE run_id IN (${list})`).run(...params);
+  const ids = `SELECT id FROM pipelines WHERE ${where}`;
+  for (const t of PIPELINE_CHILD_TABLES) {
+    db.prepare(`DELETE FROM ${t} WHERE pipeline_id IN (${ids})`).run();
   }
-  return db.prepare(`DELETE FROM runs WHERE id IN (${list})`).run(...params).changes;
+  return db.prepare(`DELETE FROM pipelines WHERE ${where}`).run().changes;
 }
 
 // ─── Chat transcripts ────────────────────────────────────────────────────────
@@ -70,9 +75,7 @@ export function wipeOrphanedRuns(): CleanupResult {
   const db = getDb();
   const { orphanRunsChanges, orphanPipelinesChanges } = db.transaction(() => ({
     orphanRunsChanges: deleteRunsWhere("status = 'error' AND exit_code = -1"),
-    orphanPipelinesChanges: db
-      .prepare("DELETE FROM pipelines WHERE interrupted = 1")
-      .run().changes,
+    orphanPipelinesChanges: deletePipelinesWhere("interrupted = 1"),
   }))();
   return {
     cleared: orphanRunsChanges + orphanPipelinesChanges,
@@ -87,13 +90,13 @@ export function wipeOrphanedRuns(): CleanupResult {
 // Wipes every `<agent-id>.memory.md` under ~/.claude/agents/. Skips the global
 // memory file — that lives elsewhere and is user-authored.
 
-export function resetAgentMemoryFiles(): CleanupResult {
-  if (!existsSync(AGENTS_DIR)) return { cleared: 0 };
+export function resetAgentMemoryFiles(dir: string = AGENTS_DIR): CleanupResult {
+  if (!existsSync(dir)) return { cleared: 0 };
   let cleared = 0;
-  for (const name of readdirSync(AGENTS_DIR)) {
+  for (const name of readdirSync(dir)) {
     if (!name.endsWith(".memory.md")) continue;
     if (name === "_global.memory.md") continue;
-    const p = join(AGENTS_DIR, name);
+    const p = join(dir, name);
     if (!isKind(p, "file")) continue;
     rmSync(p);
     cleared++;
@@ -114,11 +117,11 @@ export function resetUserAnalysis(): CleanupResult {
 // ─── Skills install cache ────────────────────────────────────────────────────
 // Every subdirectory under ~/.claude/agents/_skills/. Skips top-level files.
 
-export function clearSkillInstallCache(): CleanupResult {
-  if (!existsSync(SKILLS_DIR)) return { cleared: 0 };
+export function clearSkillInstallCache(dir: string = SKILLS_DIR): CleanupResult {
+  if (!existsSync(dir)) return { cleared: 0 };
   let cleared = 0;
-  for (const name of readdirSync(SKILLS_DIR)) {
-    const p = join(SKILLS_DIR, name);
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
     if (!isKind(p, "dir")) continue;
     rmSync(p, { recursive: true, force: true });
     cleared++;
@@ -150,11 +153,17 @@ export function everything(): CleanupResult {
     detail.transcripts = resetAllTranscripts().cleared;
     detail.drafts = clearComposerDrafts().cleared;
     detail.uiSettings = resetUiSettings().cleared;
+    // `active_run_id` has no FK, so deleting runs beneath a conversation or
+    // loop does not throw — it WEDGES it: the reconcilers read a missing run
+    // as "just spawned" and return early forever.
+    detail.queued_messages = db.prepare("DELETE FROM queued_messages").run().changes;
+    detail.loops = db.prepare("DELETE FROM loops").run().changes;
+    detail.conversations = db.prepare("DELETE FROM conversations").run().changes;
     for (const t of RUN_CHILD_TABLES) {
       detail[t] = db.prepare(`DELETE FROM ${t}`).run().changes;
     }
     detail.runs = db.prepare("DELETE FROM runs").run().changes;
-    detail.pipelineSteps = db.prepare("DELETE FROM pipeline_steps").run().changes;
+    detail.pipeline_steps = db.prepare("DELETE FROM pipeline_steps").run().changes;
     detail.pipelines = db.prepare("DELETE FROM pipelines").run().changes;
   })();
 
