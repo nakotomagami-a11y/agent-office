@@ -35,7 +35,6 @@ const sessions: Map<string, LoginSession> =
   (globalThis.__agentOfficeLoginSessions = new Map());
 
 declare global {
-  // eslint-disable-next-line no-var
   var __agentOfficeLoginSessions: Map<string, LoginSession> | undefined;
 }
 

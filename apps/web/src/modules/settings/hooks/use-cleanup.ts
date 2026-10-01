@@ -4,23 +4,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@agent-office/domain/hooks/api";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 
-export const CLEANUP_KINDS = [
-  "transcripts",
-  "drafts",
-  "orphaned-runs",
-  "agent-memory",
-  "user-analysis",
-  "skill-cache",
-  "ui-settings",
-  "everything",
-] as const;
-
-export type CleanupKind = (typeof CLEANUP_KINDS)[number];
-
-export interface CleanupResult {
-  cleared: number;
-  detail?: Record<string, number>;
-}
+import { CLEANUP_KINDS, type CleanupKind } from "@agent-office/domain/config/cleanup";
+import type { CleanupResult } from "@agent-office/domain/services/projects/cleanup";
+export { CLEANUP_KINDS };
+export type { CleanupKind, CleanupResult };
 
 export function useCleanup() {
   const qc = useQueryClient();

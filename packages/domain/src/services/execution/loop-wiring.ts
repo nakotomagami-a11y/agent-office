@@ -12,7 +12,6 @@ declare global {
   // HMR-safety: without this, editing this file in dev registers a second
   // closure into a listener Set that survives HMR, double-advancing every
   // loop. Identical rationale to `__agentOfficeConversationWiringInstalled`.
-  // eslint-disable-next-line no-var
   var __agentOfficeLoopWiringInstalled: boolean | undefined;
 }
 

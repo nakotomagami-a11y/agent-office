@@ -2,9 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { log } from "./log";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __agentOfficeSleepInhibitProc: ChildProcess | null | undefined;
-  // eslint-disable-next-line no-var
   var __agentOfficeSleepInhibitCount: number | undefined;
 }
 

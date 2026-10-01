@@ -56,9 +56,25 @@ function bumpCargoLock(relPath) {
   console.log(`    ${relPath} → ${version}`);
 }
 
+/** The Arch recipe carries its own `pkgver`, plus a `pkgrel` rebuild counter
+ *  that must reset to 1 for a new version — `pacman -U` refuses an identical
+ *  pkgver-pkgrel, so a stale pair silently builds the OLD version. This file
+ *  was missing from the bump, which is how 0.1.2 shipped four times. */
+function bumpPkgbuild(relPath) {
+  const file = join(root, relPath);
+  const src = readFileSync(file, "utf8");
+  const next = src
+    .replace(/^pkgver=.*$/m, `pkgver=${version}`)
+    .replace(/^pkgrel=.*$/m, "pkgrel=1");
+  if (next === src) throw new Error(`set-version: no pkgver/pkgrel found in ${relPath}`);
+  writeFileSync(file, next);
+  console.log(`    ${relPath} → ${version}-1`);
+}
+
 console.log(`Setting version ${version} (★ = canonical source):`);
 bumpPackageJson("apps/web/package.json", { canonical: true });
 bumpPackageJson("package.json");
 bumpCargoToml("apps/web/src-tauri/Cargo.toml");
 bumpCargoLock("apps/web/src-tauri/Cargo.lock");
+bumpPkgbuild("packaging/arch/PKGBUILD");
 console.log("Done. Commit these together, then tag v" + version + " to release.");

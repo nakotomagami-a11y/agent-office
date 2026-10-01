@@ -40,8 +40,14 @@ Applies to request bodies, on-disk JSON, and CLI stream output alike.
 guard for files.
 
 > **enforced by** `no-restricted-syntax` in `packages/domain/eslint.config.mjs`
-> **known debt:** 13 pre-existing sites are baselined in `eslint-suppressions.json`.
-> New ones fail. Fix opportunistically; never add to the baseline by hand.
+> (`error`) and `apps/web/eslint.config.mjs` (**`warn` — see below**)
+> **known debt:** 12 pre-existing sites are baselined in `packages/domain/eslint-suppressions.json`.
+> New ones fail **in `packages/domain` only**. In `apps/web` the rule is a
+> warning, `eslint-suppressions.json` there is empty, and CI runs
+> `--max-warnings=-1` — so 12 live violations accumulated unchallenged. Fixing
+> those and raising the severity is tracked separately; until then this rule is
+> half-enforced and the honest statement is this one.
+> Fix opportunistically; never add to the baseline by hand.
 
 ---
 

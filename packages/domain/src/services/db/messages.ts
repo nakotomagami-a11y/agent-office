@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
+import { log } from "../infra/log";
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,9 @@ export function insertToolCall(
        ON CONFLICT(id) DO UPDATE SET input = excluded.input, ts = excluded.ts
        WHERE excluded.input IS NOT NULL AND excluded.input <> '{}' AND excluded.input <> ''`
     ).run(toolUseId || randomUUID(), runId, name, json, ts);
-  } catch { /* best-effort */ }
+  } catch (err) {
+    log.warn("toolcall.insert_failed", { runId, name, toolUseId, err: String(err) });
+  }
 }
 
 /** Deletes tool_calls rows older than `olderThanTs` — the 48h retention
@@ -90,7 +93,8 @@ export function insertToolCall(
 export function pruneExpiredToolCalls(olderThanTs: number): number {
   try {
     return getDb().prepare("DELETE FROM tool_calls WHERE ts < ?").run(olderThanTs).changes;
-  } catch {
+  } catch (err) {
+    log.warn("toolcall.prune_failed", { olderThanTs, err: String(err) });
     return 0;
   }
 }

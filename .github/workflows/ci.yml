@@ -39,6 +39,11 @@ jobs:
       - name: Test (web)
         run: pnpm --filter @agent-office/web test
 
+      # The Arch recipe carries its own pkgver. It was not part of
+      # set-version.mjs, so it silently lagged and built the previous version.
+      - name: Version consistency
+        run: node scripts/check-version-sync.mjs
+
       - name: Comment-ratio ratchet
         run: node scripts/check-comment-ratio.mjs
 
