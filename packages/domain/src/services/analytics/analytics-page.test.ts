@@ -74,10 +74,17 @@ test("toolCallsTotal counts everything, not just the rendered top 12", () => {
 });
 
 test("byTool is capped at 12 while the total still counts the tail", () => {
-  const c = run();
-  for (let i = 0; i < 20; i++) bash(c, `prog${i} --flag`);
-  const d = page();
+  // Scoped to its OWN time window. The fixture above is shared module state,
+  // and this test adds 20 labels to it — without the window, moving this test
+  // earlier breaks two others, and nothing in the file would say why.
+  const LATE = T * 100;
+  const id = `run-late`;
+  insertRun({ id, agentId: "dev", agentName: "Dev", instanceId: "t", status: "done", prompt: "p", model: "", effort: "", startedAt: LATE });
+  for (let i = 0; i < 20; i++) insertToolCall(id, "Bash", { command: `prog${i} --flag` }, LATE, `toolu_late_${i}`);
+
+  const d = getAnalyticsPage({ start: LATE - 1, end: LATE + 1 });
   assert.equal(d.byTool.length, 12, "the chart renders at most 12 bars");
+  assert.equal(d.toolCallsTotal, 20, "the total counts all 20, not the rendered 12");
   assert.ok(
     d.toolCallsTotal > d.byTool.reduce((s, t) => s + t.calls, 0),
     "the total must exceed the rendered subtotal once the tail is dropped",

@@ -26,27 +26,49 @@ test("a cd hop does not swallow the real program", () => {
   assert.equal(headCommand("cd /tmp; python3 x.py"), "python3");
 });
 
-test("a quoted or substituted assignment does NOT invent a program", () => {
-  // The first version peeled `[^\s]*`, which is quote-blind: it produced a bar
-  // called "merge-base" (not a program) and one called
-  // "Office_0.1.2_amd64.deb" (a filename) on the live dataset.
-  assert.equal(headCommand("MB=$(git merge-base origin/dev HEAD) && echo $MB"), null);
-  assert.equal(headCommand('DEB="/x/Agent Office_0.1.2_amd64.deb"; ls "$DEB"'), null);
-  assert.equal(headCommand('GIT_AUTHOR_NAME="A B" git commit -m x'), null);
+test("a quoted or substituted assignment resolves to the real program", () => {
+  // These produced live bars called "merge-base" (not a program) and
+  // "Office_0.1.2_amd64.deb" (a FILENAME). The regex version could only fall
+  // back to null; the scanner reads the value as one token and moves past it,
+  // so the actual command is recovered rather than merely not-invented.
+  assert.equal(headCommand("MB=$(git merge-base origin/dev HEAD) && echo $MB"), "echo");
+  assert.equal(headCommand('DEB="/x/Agent Office_0.1.2_amd64.deb"; ls "$DEB"'), "ls");
+  assert.equal(headCommand('GIT_AUTHOR_NAME="A B" git commit -m x'), "git");
   assert.equal(headCommand("FOO=bar"), null, "an assignment with no command is not a program");
 });
 
-test("a cd hop with a redirect is still a cd hop", () => {
-  // `cd x 2>/dev/null && ls` used to label the chart "cd" — the one bucket
-  // this module exists to prevent.
+test("a cd hop is skipped however its path is written", () => {
+  // Three review rounds each found another shape the old regex could not see.
+  // The scanner reads tokens, so quoting and `$( )` are not special cases.
   assert.equal(headCommand("cd ~/.config/logs 2>/dev/null && ls"), "ls");
+  assert.equal(headCommand('cd "/usr/lib/Agent Office/server" && echo hi'), "echo");
+  assert.equal(headCommand("cd '/home/x/My Repo' && pnpm build"), "pnpm");
+  assert.equal(headCommand("cd $(git rev-parse --show-toplevel) && pnpm build"), "pnpm");
+  assert.equal(headCommand("cd /x || exit 1; pnpm build"), "exit", "|| is a separator too");
+});
+
+test("a shell builtin is never reported as a program", () => {
+  // `Bash: export` was the #6 bar at 215 live calls — a builtin, not a
+  // program, hiding git/echo/cat/gh behind an env-setup prefix.
+  assert.equal(headCommand('export PATH="$HOME/.nvm/bin:$PATH"; git status'), "git");
+  assert.equal(headCommand("export FOO=1 && pnpm build"), "pnpm");
+  assert.equal(headCommand("source ~/.bashrc && node x.js"), "node");
+  assert.equal(headCommand("export PATH=/x"), null, "a bare builtin is not a program");
+});
+
+test("a standalone assignment is a statement, not a prefix", () => {
+  // `FOO=bar;git status` reported "status" — a fragment of the VALUE.
+  assert.equal(headCommand("FOO=bar;git status"), "git");
+  assert.equal(headCommand("MB=$(git merge-base origin/dev HEAD) && echo $MB"), "echo");
+  assert.equal(headCommand('DEB="/x/Agent Office_0.1.2.deb"; ls "$DEB"'), "ls");
 });
 
 test("env assignments and wrappers are peeled", () => {
   assert.equal(headCommand("NODE_OPTIONS=--max-old-space-size=8192 pnpm build"), "pnpm");
   assert.equal(headCommand("sudo pacman -U pkg.tar.zst"), "pacman");
   assert.equal(headCommand("nohup pnpm dev"), "pnpm");
-  assert.equal(headCommand("timeout 90 claude -p x"), "timeout", "timeout IS the program here");
+  assert.equal(headCommand("timeout 90 claude -p x"), "claude", "timeout is a wrapper, like nohup");
+  assert.equal(headCommand("timeout 5m pnpm test"), "pnpm");
 });
 
 test("a pipeline is named by what it set out to do", () => {
@@ -82,16 +104,19 @@ test("the label is what the chart renders", () => {
   assert.equal(bash("cd /repo && gh pr create"), "Bash: gh");
 });
 
-test("peeling is bounded, and gives up rather than grinding", () => {
-  // The loop would terminate anyway (each pass shrinks or breaks), so "it did
-  // not hang" proves nothing. What the cap actually buys is a ceiling on work
-  // for pathological input — and the observable price is that absurdly nested
-  // input is NOT fully peeled. Pin that, or the cap can be deleted unnoticed.
-  assert.equal(headCommand("(".repeat(3) + "git status"), "git", "normal nesting still peels");
-  assert.equal(headCommand("(".repeat(40) + "git status"), null, "past the cap it gives up");
+test("the scan is bounded, and gives up rather than grinding", () => {
+  // "it did not hang" proves nothing — the scan terminates regardless. The cap
+  // bounds CHAINED PREFIXES, and its observable price is that an absurd chain
+  // reports nothing. Pin that, or the cap can be deleted unnoticed.
+  const chain = (n: number) =>
+    Array.from({ length: n }, (_, i) => `V${i}=1`).join(" ") + " git status";
+  assert.equal(headCommand(chain(5)), "git", "a realistic chain still resolves");
+  assert.equal(headCommand(chain(40)), null, "past the cap it gives up rather than guessing");
 
-  const nasty = "(".repeat(20_000) + "git status";
+  // Deep nesting is handled by the tokenizer, not the cap, so it stays correct
+  // AND fast — these come from agent output and must not stall the request.
   const started = Date.now();
-  assert.doesNotThrow(() => headCommand(nasty));
-  assert.ok(Date.now() - started < 500, "a capped peel stays fast on hostile input");
+  assert.equal(headCommand("(".repeat(20_000) + "git status"), "git");
+  assert.equal(headCommand("cd " + "$(".repeat(5_000) + "x" + ")".repeat(5_000) + " && git x"), "git");
+  assert.ok(Date.now() - started < 500, "hostile input stays fast");
 });

@@ -136,8 +136,9 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         )
         .all(params) as ProjectRow[]);
 
-  // Labelled in TS (no regex in SQLite); bounded by TOOL_CALL_RETENTION_MS,
-  // not the date scope. Empty-input Bash rows are half-records (#161).
+  // Labelled in TS (no regex in SQLite); bounded by TOOL_CALL_RETENTION_MS.
+  // The empty-Bash predicate drops pre-#161 half-records — and, post-#161, a
+  // lone truncated-run row too. Accepted: no command, ~0 of them.
   const toolRaw = db
     .prepare(
       `SELECT tc.name AS name, tc.input AS input, tc.run_id AS runId
@@ -156,7 +157,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
     entry.runs.add(row.runId);
     tally.set(label, entry);
   }
-  // BEFORE the slice: the UI used to sum byTool, now a top-12 subtotal.
+  // BEFORE the slice — the UI used to sum byTool.
   const toolCallsTotal = toolRaw.length;
   const byTool: ToolRow[] = [...tally.entries()]
     .map(([name, v]) => ({ name, calls: v.calls, runs: v.runs.size }))
