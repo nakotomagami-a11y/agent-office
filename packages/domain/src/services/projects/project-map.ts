@@ -35,7 +35,7 @@ function git(args: string[], cwd: string): string | null {
 /** Repo-controlled text is DATA. Directory names may contain newlines, and this
  *  block lands in every agent's system prompt — so a crafted name could forge a
  *  prompt section. */
-function clean(s: string, max = 80): string {
+export function clean(s: string, max = 80): string {
   return s.replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, max).trim();
 }
 
@@ -51,7 +51,7 @@ export function readSystemGhUser(): string | null {
   }
 }
 
-function topLevelEntries(cwd: string): string[] {
+export function topLevelEntries(cwd: string): string[] {
   const SKIP = new Set([
     "node_modules", ".git", ".next", "dist", "build", "target", "out",
     ".turbo", ".cache", "coverage", ".worktrees", ".venv", "__pycache__",
@@ -67,7 +67,7 @@ function topLevelEntries(cwd: string): string[] {
   }
 }
 
-function conventionDocs(cwd: string): string[] {
+export function conventionDocs(cwd: string): string[] {
   const candidates = [
     "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md",
     "docs/conventions.md", "docs/architecture.md",
