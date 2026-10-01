@@ -6,13 +6,14 @@
  * "what are my totals" but "where is the money and time going, and is this
  * period unusual".
  *
- * Everything is aggregated in SQL against the `runs` / `tool_calls` tables
- * so the payload stays constant-size no matter how long the history gets.
+ * Aggregated in SQL against the `runs` / `tool_calls` tables so the payload
+ * stays constant-size — except `byTool`, which scans (see its query).
  * All of it is one round trip — the page renders ~8 panels and fanning that
  * out into 8 requests would be silly.
  */
 
 import { getDb } from "../db";
+import { toolCallLabel } from "./bash-command";
 import { familyOf } from "../../config/models";
 import type {
   AnalyticsTotals, ModelFamilyRow, ToolRow, ActivityCell, SeriesPoint,
@@ -135,19 +136,35 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         )
         .all(params) as ProjectRow[]);
 
-  const byTool = db
+  // Labelled in TS (no regex in SQLite); bounded by TOOL_CALL_RETENTION_MS.
+  // The empty-Bash predicate drops pre-#161 half-records — and, post-#161, a
+  // lone truncated-run row too. Accepted: no command, ~0 of them.
+  const toolRaw = db
     .prepare(
       `SELECT tc.name AS name,
-              COUNT(*) AS calls,
-              COUNT(DISTINCT tc.run_id) AS runs
+              CASE WHEN tc.name = 'Bash' THEN tc.input END AS input,
+              tc.run_id AS runId
        FROM tool_calls tc
        JOIN runs r ON r.id = tc.run_id
        WHERE r.started_at >= @start AND r.started_at < @end ${scope.replace(/project_id/g, "r.project_id")}
-       GROUP BY tc.name
-       ORDER BY calls DESC
-       LIMIT 12`,
+         AND NOT (tc.name = 'Bash' AND (tc.input IS NULL OR tc.input = '{}'))`,
     )
-    .all(params) as ToolRow[];
+    .all(params) as { name: string; input: string | null; runId: string }[];
+
+  const tally = new Map<string, { calls: number; runs: Set<string> }>();
+  for (const row of toolRaw) {
+    const label = toolCallLabel(row.name, row.input);
+    const entry = tally.get(label) ?? { calls: 0, runs: new Set<string>() };
+    entry.calls += 1;
+    entry.runs.add(row.runId);
+    tally.set(label, entry);
+  }
+  // BEFORE the slice — the UI used to sum byTool.
+  const toolCallsTotal = toolRaw.length;
+  const byTool: ToolRow[] = [...tally.entries()]
+    .map(([name, v]) => ({ name, calls: v.calls, runs: v.runs.size }))
+    .sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name))
+    .slice(0, 12);
 
   const activity = db
     .prepare(
@@ -171,6 +188,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
     byAgent,
     byProject,
     byTool,
+    toolCallsTotal,
     activity,
     series,
     seriesGranularity: granularity,

@@ -744,6 +744,7 @@ export interface AnalyticsPage {
   byAgent: AnalyticsAgentRow[];
   byProject: AnalyticsProjectRow[];
   byTool: ToolRow[];
+  toolCallsTotal: number;
   activity: ActivityCell[];
   series: SeriesPoint[];
   seriesGranularity: "day" | "week";

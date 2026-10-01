@@ -103,7 +103,7 @@ export function AnalyticsPage({
     meta: `${compact(t.runs)} runs`,
   }));
 
-  const totalToolCalls = d.byTool.reduce((s, t) => s + t.calls, 0);
+  const totalToolCalls = d.toolCallsTotal;
 
   return (
     <>
