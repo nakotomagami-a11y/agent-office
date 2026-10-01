@@ -133,30 +133,24 @@ export function getChildRuns(parentRunId: string): PersistedRun[] {
   return rows.map(rowToRun);
 }
 
-export function deleteRunsForInstance(projectId: string, instanceId: string): number {
+export function deleteRunsWhere(where: string, ...params: unknown[]): number {
   const db = getDb();
-  const runIds = (db.prepare("SELECT id FROM runs WHERE project_id = ? AND instance_id = ?").all(projectId, instanceId) as { id: string }[]).map(r => r.id);
-  if (runIds.length === 0) return 0;
-  const placeholders = runIds.map(() => "?").join(",");
-  const deleteToolCalls = db.prepare(`DELETE FROM tool_calls WHERE run_id IN (${placeholders})`);
-  const deleteMessages = db.prepare(`DELETE FROM messages WHERE run_id IN (${placeholders})`);
-  const deleteRuns = db.prepare("DELETE FROM runs WHERE project_id = ? AND instance_id = ?");
+  const ids = `SELECT id FROM runs WHERE ${where}`;
   let changes = 0;
   db.transaction(() => {
-    deleteToolCalls.run(...runIds);
-    deleteMessages.run(...runIds);
-    changes = deleteRuns.run(projectId, instanceId).changes;
+    for (const t of ["messages", "tool_calls", "background_shells"]) {
+      db.prepare(`DELETE FROM ${t} WHERE run_id IN (${ids})`).run(...params);
+    }
+    db.prepare(`UPDATE runs SET parent_run_id = NULL WHERE parent_run_id IN (${ids})`).run(...params);
+    changes = db.prepare(`DELETE FROM runs WHERE ${where}`).run(...params).changes;
   })();
   return changes;
 }
 
+export function deleteRunsForInstance(projectId: string, instanceId: string): number {
+  return deleteRunsWhere("project_id = ? AND instance_id = ?", projectId, instanceId);
+}
+
 export function deleteRunsByAgent(agentId: string): number {
-  const db = getDb();
-  let changes = 0;
-  db.transaction(() => {
-    db.prepare("DELETE FROM tool_calls WHERE run_id IN (SELECT id FROM runs WHERE agent_id = ?)").run(agentId);
-    db.prepare("DELETE FROM messages WHERE agent_id = ?").run(agentId);
-    changes = db.prepare("DELETE FROM runs WHERE agent_id = ?").run(agentId).changes;
-  })();
-  return changes;
+  return deleteRunsWhere("agent_id = ?", agentId);
 }

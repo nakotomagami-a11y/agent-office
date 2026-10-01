@@ -30,7 +30,7 @@ const ROWS: CleanupRow[] = [
   { kind: "ui-settings", key: "ui_settings", icon: "settings" },
 ];
 
-type RowState = "idle" | "confirming" | "done";
+type RowState = "idle" | "confirming" | "done" | "failed";
 
 function CleanupRowView({ row }: { row: CleanupRow }) {
   const t = useTranslations("cleanup_panel");
@@ -43,7 +43,8 @@ function CleanupRowView({ row }: { row: CleanupRow }) {
         setState("done");
         setTimeout(() => setState("idle"), 1500);
       },
-      onError: () => setState("idle"),
+      // Not swallowed: this is how two throwing buttons went unnoticed.
+      onError: () => setState("failed"),
     });
   };
 
@@ -57,7 +58,14 @@ function CleanupRowView({ row }: { row: CleanupRow }) {
         <div className="text-[11px] leading-[1.5] text-txt-4 mt-[3px] text-pretty">{t(`row_${row.key}_desc`)}</div>
       </div>
       <div className="flex items-center gap-[6px] shrink-0">
-        {state === "done" ? (
+        {state === "failed" ? (
+          <span
+            title={cleanup.error instanceof Error ? cleanup.error.message : undefined}
+            className="flex items-center gap-[7px] py-[7px] px-[13px] rounded-[11px] bg-red-soft text-red text-[11.5px] font-bold whitespace-nowrap"
+          >
+            {t("failed")}
+          </span>
+        ) : state === "done" ? (
           <span className="flex items-center gap-[7px] py-[7px] px-[13px] rounded-[11px] bg-green-soft text-green text-[11.5px] font-bold whitespace-nowrap">
             <Icon name="check" size={11} /> {t("cleared")}
           </span>
