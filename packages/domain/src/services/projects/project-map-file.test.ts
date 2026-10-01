@@ -106,8 +106,20 @@ test("run commands are detected from the project, not assumed", () => {
   });
   const md = renderProjectMap("Proj", root);
   assert.match(md, /## Run/);
-  assert.match(md, /\| build \| `npm run build` \|/, "the detected command, not just the word");
-  assert.match(md, /vite|dev/, "the dev script the fixture sets up");
+  assert.match(md, /^build\s+npm run build$/m, "the detected command, not just the word");
+  assert.match(md, /^dev\s+npm run dev$/m, "the dev script the fixture sets up");
+});
+
+test("the same command detected twice is listed once", () => {
+  // Two .ao.json entries, one argv. A map that lists `vite --port 1` twice
+  // under different names tells an agent there are two things to run.
+  const root = repo({
+    ".ao.json": JSON.stringify({
+      devCommands: [{ name: "a", cmd: "vite --port 1" }, { name: "b", cmd: "vite --port 1" }],
+    }),
+  });
+  const md = renderProjectMap("Proj", root);
+  assert.equal(md.split("vite --port 1").length - 1, 1, `listed twice:\n${md}`);
 });
 
 test("a repo with nothing detectable still renders a valid document", () => {

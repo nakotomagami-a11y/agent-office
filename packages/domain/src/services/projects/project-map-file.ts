@@ -1,4 +1,5 @@
-/** Writes a project's `CLAUDE.md` map, sharing project-map.ts's detectors. */
+/** Writes a project's `CLAUDE.md` map. The marker below is what marks the
+ *  file as ours; its absence means a human wrote it, so we leave it alone. */
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { writeFileAtomic } from "../infra/fs-atomic";
@@ -6,7 +7,6 @@ import { log } from "../infra/log";
 import { clean, conventionDocs, topLevelEntries } from "./project-map";
 import { detectBuildCommand, detectDevCommands, detectPackageManager } from "./project-runtime";
 
-/** Marks a file this module owns; its absence means a human wrote it. */
 export const PROJECT_MAP_MARKER = "<!-- agent-office:project-map -->";
 
 export type ProjectMapSkipReason = "no_cwd" | "handwritten" | "write_failed";
@@ -16,7 +16,6 @@ export interface ProjectMapResult {
 
   written: boolean;
   reason?: ProjectMapSkipReason;
-  /** Returned even when skipped, so a caller can preview. */
   content: string;
 }
 
@@ -31,16 +30,27 @@ export function isRegenerable(cwd: string): boolean {
   }
 }
 
-/** Repo text is DATA; a heading or label is not a code span, so markup goes. */
+/** GFM links these unaided, so stripping `[`/`]` does not cover a heading. */
+const LINKIFIERS = [/\b[a-z][a-z0-9+.-]*:\/\//gi, /\bwww\./gi, /[\w.+-]+@[\w-]+\.[\w.-]+/g];
+
+/** A heading is not a fence, so markup goes; `\s+` also eats U+2028/9. */
 function cell(s: string, max: number): string {
-  return clean(s, max).replace(/[|<>`[\]]/g, " ").replace(/\s+/g, " ").trim();
+  let out = clean(s, max);
+  for (const re of LINKIFIERS) out = out.replace(re, " ");
+  return out.replace(/[|<>`[\]]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** A command cell: ESCAPED, not stripped — deleting `<` turned `node x.js < in`
- *  into a different command that also runs, printed as fact. Only `|` (a cell
- *  boundary) and a backtick (it would end the span) need rewriting. */
-function cmdCell(s: string, max: number): string {
-  return clean(s, max).replace(/\|/g, "\\|").replace(/`/g, "'").replace(/\s+/g, " ").trim();
+/** A Run line, kept VERBATIM — a sanitised command is a DIFFERENT command that
+ *  also runs, printed as fact. A GFM table could not offer that: see the tests. */
+function runLine(s: string, max: number): string {
+  return clean(s, max).replace(/\s+/g, " ").trim();
+}
+
+/** Second-line defence: rows are label-indented, so none can close the block
+ *  (a closing fence allows at most 3 leading spaces) whatever this returns. */
+function fenceFor(rows: string[]): string {
+  const runs = rows.flatMap((r) => [...r.matchAll(/`+/g)].map((m) => m[0].length));
+  return "`".repeat(Math.max(2, ...runs) + 1);
 }
 
 export function renderProjectMap(name: string, cwd: string): string {
@@ -56,7 +66,7 @@ export function renderProjectMap(name: string, cwd: string): string {
   const dirs = topLevelEntries(cwd);
   if (dirs.length > 0) {
     // Second-line defence: topLevelEntries already allowlists to [\w.@-].
-    out.push("## Layout", "", ...dirs.map((d) => `- \`${cmdCell(d, 60)}/\``), "");
+    out.push("## Layout", "", ...dirs.map((d) => `- \`${cell(d, 60)}/\``), "");
   }
 
   const docs = conventionDocs(cwd).filter((d) => d !== "CLAUDE.md");
@@ -65,19 +75,20 @@ export function renderProjectMap(name: string, cwd: string): string {
   }
 
   const pm = detectPackageManager(cwd);
-  const cmds: string[] = [];
+  const rows: string[] = [];
   const seen = new Set<string>();
   const push = (label: string, argv: string[]) => {
     const key = argv.join(" ");
-    if (seen.has(key) || cmds.length >= 6) return;
+    if (seen.has(key) || rows.length >= 6) return;
     seen.add(key);
-    cmds.push(`| ${cell(label, 24)} | \`${cmdCell(key, 120)}\` |`);
+    rows.push(`${runLine(label, 24).padEnd(12)} ${runLine(key, 120)}`.trimEnd());
   };
   const build = detectBuildCommand(cwd, pm);
   if (build) push("build", build);
   for (const d of detectDevCommands(cwd)) push(d.name.split("·").pop()!.trim().toLowerCase(), d.argv);
-  if (cmds.length > 0) {
-    out.push(`## Run (${cell(pm, 24)})`, "", "| | |", "|---|---|", ...cmds, "");
+  if (rows.length > 0) {
+    const fence = fenceFor(rows);
+    out.push(`## Run (${cell(pm, 24)})`, "", `${fence}sh`, ...rows, fence, "");
   }
 
   return `${out.join("\n").trimEnd()}\n`;
