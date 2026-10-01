@@ -22,7 +22,9 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, symlinkSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, symlinkSync, readFileSync, readdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { micromark } from "micromark";
@@ -31,11 +33,24 @@ import { PROJECT_MAP_MARKER, isRegenerable, refreshProjectMap, renderProjectMap 
 
 const html = (md: string) => micromark(md, { extensions: [gfm()], htmlExtensions: [gfmHtml()] });
 
-/** No live reference, no markup, nothing but text an agent reads as text. */
+/** No live reference, no markup, no forged section — nothing but text.
+ *
+ *  The tag list is the assertion. An earlier version omitted `h1`-`h6`, so a
+ *  `.ao.json` label of `##` forged a SECURITY POLICY heading and this helper,
+ *  named `assertInert`, called it inert. Headings cannot be banned outright
+ *  (the title and section headers are ours), so they are checked in the SOURCE
+ *  against the set we emit; the Run fence is stripped before the tag check
+ *  because its own `<pre><code>` is ours too. */
 function assertInert(md: string, where: string): void {
-  const out = html(md);
+  const out = html(md).replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, "");
   assert.doesNotMatch(out, /<a\s/, `${where}: rendered a live link\n${out}`);
-  assert.doesNotMatch(out, /<(strong|em|img|script|iframe)\b/, `${where}: rendered markup\n${out}`);
+  assert.doesNotMatch(
+    out,
+    /<(strong|em|img|script|iframe|blockquote|hr|code)\b/,
+    `${where}: rendered markup\n${out}`,
+  );
+  const forged = md.split("\n").filter((l) => /^#{1,6}\s/.test(l) && !/^(# |## (Layout|Read|Run))/.test(l));
+  assert.deepEqual(forged, [], `${where}: forged heading: ${forged.join(" | ")}`);
 }
 
 function withRepo(files: Record<string, string>, fn: (root: string) => void): void {
@@ -96,6 +111,56 @@ test("a command cannot close the fence it is printed in", () => {
   }
 });
 
+test("a bare backtick label cannot close the fence", () => {
+  // The 19th mutant, found in review round 4: with `fenceFor` replaced by a
+  // constant ```, the whole suite still passed while THIS payload escaped.
+  // `str()` accepts a lone NUL and `clean()` then erases it, so the command
+  // column renders empty and the label is left alone at column 0 — which is a
+  // closing fence. Rows are NOT guaranteed indented; the fence length is the
+  // only thing holding the block shut.
+  const escapee = { name: "x", cmd: "[CLICK](http://evil.test/pwn)" };
+  for (const first of [{ name: "```", cmd: "`" }, { name: "``````", cmd: "`" }]) {
+    withRepo({ ".ao.json": JSON.stringify({ devCommands: [first, escapee] }) }, (root) => {
+      const md = renderProjectMap("P", root);
+      assertInert(md, `label ${first.name}`);
+      assert.equal(html(md).split("<pre><code").length - 1, 1, `fence broken:\n${md}`);
+    });
+  }
+});
+
+test("no Run row can close the fence, whatever the fence length", () => {
+  // The invariant `fenceFor` is belt-and-braces FOR: a row is only ever
+  // `label + space + command`, and dropping empty commands means a non-backtick
+  // always follows any backtick run. Swept over hostile label/command pairs.
+  const CLOSER = /^ {0,3}`{3,}\s*$/;
+  const parts = ["```", "``````", "`", "", " ", "\u0000", "  ```  ", "```sh"];
+  for (const name of parts) {
+    for (const cmd of parts) {
+      withRepo(
+        { ".ao.json": JSON.stringify({ devCommands: [{ name, cmd }, { name: "z", cmd: "vite" }] }) },
+        (root) => {
+          const md = renderProjectMap("P", root);
+          const open = md.split("\n").findIndex((l) => /^`+sh$/.test(l));
+          if (open < 0) return;
+          const body = md.split("\n").slice(open + 1, -2);
+          for (const l of body) {
+            assert.ok(!CLOSER.test(l), `row closes the fence: ${JSON.stringify({ name, cmd, l })}`);
+          }
+        },
+      );
+    }
+  }
+});
+
+test("a label with no command is not listed as a thing to run", () => {
+  // `cmd: "\u0000"` survives `str()` but sanitises to nothing. A Run entry
+  // naming a command it cannot show is noise in a document agents act on.
+  withRepo(
+    { ".ao.json": JSON.stringify({ devCommands: [{ name: "deploy to prod", cmd: "\u0000" }] }) },
+    (root) => assert.doesNotMatch(renderProjectMap("P", root), /deploy to prod/),
+  );
+});
+
 test("a script name cannot forge structure through the label column", () => {
   // `.ao.json` devCommands[].name reaches the label. It used to be sanitised
   // differently from the command beside it; now both are inside the fence.
@@ -119,13 +184,12 @@ test("a project name cannot forge a heading or carry a live reference", () => {
     "Acme https://evil.test/creds?x=1 app",
     "Acme www.evil.test app",
     "Acme ops@evil.test app",
+    "Acme *bold* _em_ **x**",
     `X ${PROJECT_MAP_MARKER} Y`,
   ]) {
     withRepo({}, (root) => {
       const md = renderProjectMap(name, root);
       assertInert(md, `name ${JSON.stringify(name)}`);
-      const forged = md.split("\n").filter((l) => /^#{1,6}\s/.test(l) && !/^(# |## (Layout|Read|Run))/.test(l));
-      assert.deepEqual(forged, [], `forged headings: ${forged.join(" | ")}`);
     });
   }
 });
@@ -243,6 +307,20 @@ test("an unwritable target returns write_failed instead of throwing", () => {
   }
 });
 
+test("a failed write leaves no temp file behind in the user's repo", () => {
+  // writeFileAtomic puts its temp file in the TARGET's directory, which is now
+  // someone's repo. A leftover `CLAUDE.md.<uuid>.tmp` holds the full generated
+  // map and the next `git add -A` commits a write that explicitly failed.
+  const root = mkdtempSync(join(tmpdir(), "ao-mapsec-tmp-"));
+  try {
+    mkdirSync(join(root, "CLAUDE.md")); // renameSync onto a directory fails
+    assert.equal(refreshProjectMap("p", root, "Proj", { force: true }).reason, "write_failed");
+    assert.deepEqual(readdirSync(root), ["CLAUDE.md"], "a .tmp file was left behind");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // --- bounds -----------------------------------------------------------------
 
 test("a hostile directory name is dropped from the layout, not rendered", () => {
@@ -258,6 +336,32 @@ test("a hostile directory name is dropped from the layout, not rendered", () => 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("a command too long to quote is marked, never silently shortened", () => {
+  // `clean()` slices at MAX_CMD. The cut lands mid-argument, and the prefix is
+  // usually still a VALID command — `docker run … --network none --read-only`
+  // truncates to a docker run with the isolation flags gone, and `rm -rf …
+  // --dry-run` to one without `--dry-run`. Printing that as fact is the round-2
+  // bug with a different mechanism, so the line must admit it was cut.
+  const real =
+    "rm -rf ./build ./dist ./coverage ./.next ./.turbo ./out ./tmp ./logs " +
+    "./artifacts ./reports ./.cache ./.parcel-cache ./node_modules/.vite --dry-run";
+  // Assert the PRECONDITION. The first version of this test used a 109-char
+  // fixture against a 120-char budget, so it never truncated and the branch
+  // that did the asserting never ran.
+  assert.ok(real.length > 120, `fixture must exceed the budget, is ${real.length}`);
+  withRepo(aoBuild(real), (root) => {
+    const line = renderProjectMap("P", root).split("\n").find((l) => l.includes("rm -rf"))!;
+    assert.ok(line, "the build row must render");
+    assert.ok(!line.includes(real), "precondition: the fixture must actually be cut");
+    assert.match(line, /… \(truncated\)/, `a bare prefix printed as the command: ${line}`);
+    assert.doesNotMatch(line, /--dry-run/, "the cut dropped --dry-run; the line must not look complete");
+  });
+  // The marker is not decoration: a command that fits must NOT carry it.
+  withRepo(aoBuild("pnpm run build"), (root) => {
+    assert.doesNotMatch(renderProjectMap("P", root), /truncated/);
+  });
 });
 
 test("the Run block is bounded in rows and in line length", () => {

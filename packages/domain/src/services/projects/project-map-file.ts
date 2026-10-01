@@ -13,7 +13,6 @@ export type ProjectMapSkipReason = "no_cwd" | "handwritten" | "write_failed";
 
 export interface ProjectMapResult {
   path: string;
-
   written: boolean;
   reason?: ProjectMapSkipReason;
   content: string;
@@ -30,6 +29,8 @@ export function isRegenerable(cwd: string): boolean {
   }
 }
 
+const MAX_CMD = 120;
+
 /** GFM links these unaided, so stripping `[`/`]` does not cover a heading. */
 const LINKIFIERS = [/\b[a-z][a-z0-9+.-]*:\/\//gi, /\bwww\./gi, /[\w.+-]+@[\w-]+\.[\w.-]+/g];
 
@@ -37,7 +38,7 @@ const LINKIFIERS = [/\b[a-z][a-z0-9+.-]*:\/\//gi, /\bwww\./gi, /[\w.+-]+@[\w-]+\
 function cell(s: string, max: number): string {
   let out = clean(s, max);
   for (const re of LINKIFIERS) out = out.replace(re, " ");
-  return out.replace(/[|<>`[\]]/g, " ").replace(/\s+/g, " ").trim();
+  return out.replace(/[|<>`[\]*_]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** A Run line, kept VERBATIM — a sanitised command is a DIFFERENT command that
@@ -46,8 +47,7 @@ function runLine(s: string, max: number): string {
   return clean(s, max).replace(/\s+/g, " ").trim();
 }
 
-/** Second-line defence: rows are label-indented, so none can close the block
- *  (a closing fence allows at most 3 leading spaces) whatever this returns. */
+/** Belt-and-braces; `push` dropping empty-command rows is the real guard. */
 function fenceFor(rows: string[]): string {
   const runs = rows.flatMap((r) => [...r.matchAll(/`+/g)].map((m) => m[0].length));
   return "`".repeat(Math.max(2, ...runs) + 1);
@@ -81,14 +81,19 @@ export function renderProjectMap(name: string, cwd: string): string {
     const key = argv.join(" ");
     if (seen.has(key) || rows.length >= 6) return;
     seen.add(key);
-    rows.push(`${runLine(label, 24).padEnd(12)} ${runLine(key, 120)}`.trimEnd());
+    // A prefix is a DIFFERENT command that still runs — cutting mid-flag drops
+    // the `--dry-run` that made it safe. Say it was cut.
+    const whole = runLine(key, Number.MAX_SAFE_INTEGER);
+    const shown = whole.length <= MAX_CMD ? whole : `${runLine(key, MAX_CMD - 24)} … (truncated)`;
+    if (!shown) return; // a label with no command is not a thing to run
+    rows.push(`${runLine(label, 24).padEnd(12)} ${shown}`);
   };
   const build = detectBuildCommand(cwd, pm);
   if (build) push("build", build);
   for (const d of detectDevCommands(cwd)) push(d.name.split("·").pop()!.trim().toLowerCase(), d.argv);
   if (rows.length > 0) {
     const fence = fenceFor(rows);
-    out.push(`## Run (${cell(pm, 24)})`, "", `${fence}sh`, ...rows, fence, "");
+    out.push(`## Run (${pm})`, "", `${fence}sh`, ...rows, fence, "");
   }
 
   return `${out.join("\n").trimEnd()}\n`;
