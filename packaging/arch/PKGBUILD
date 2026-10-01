@@ -1,0 +1,34 @@
+# Repacks the Tauri .deb into a pacman package.
+#
+# scripts/install-local.sh ends in `sudo dpkg -i`, which cannot work on Arch.
+# This existed only as ad-hoc shell history until now, so every reinstall had
+# to rediscover it. Deps mirror the .deb's Depends line.
+#
+#   cd apps/web && pnpm tauri build --bundles deb
+#   cd packaging/arch && makepkg -f && pkexec pacman -U --noconfirm agent-office-*.pkg.tar.zst
+#
+# pkgrel is bumped by hand per rebuild of the same version; `pacman -U` refuses
+# to reinstall an identical pkgver-pkgrel without --overwrite.
+
+pkgname=agent-office
+pkgver=0.1.2
+pkgrel=4
+pkgdesc="Agent Office - a desktop cockpit for Claude Code agents"
+arch=('x86_64')
+url="https://github.com/nakotomagami-a11y/agent-office"
+license=('GPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'librsvg' 'openssl')
+options=('!strip' '!debug')
+
+_debdir="$startdir/../../apps/web/src-tauri/target/release/bundle/deb"
+
+package() {
+  local deb
+  deb="$(find "$_debdir" -maxdepth 1 -name '*.deb' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+  if [[ -z "$deb" ]]; then
+    echo "no .deb found in $_debdir — run 'pnpm tauri build --bundles deb' first" >&2
+    return 1
+  fi
+  echo "repacking: $deb"
+  bsdtar -xOf "$deb" data.tar.gz | bsdtar -xzf - -C "$pkgdir"
+}
