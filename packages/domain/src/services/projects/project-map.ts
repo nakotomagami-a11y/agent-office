@@ -36,7 +36,8 @@ function git(args: string[], cwd: string): string | null {
  *  block lands in every agent's system prompt — so a crafted name could forge a
  *  prompt section. */
 export function clean(s: string, max = 80): string {
-  return s.replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, max).trim();
+  // By CODE POINT: a UTF-16 slice split an emoji into a lone surrogate.
+  return [...s.replace(/[\p{Cc}\p{Cf}]/gu, " ")].slice(0, max).join("").trim();
 }
 
 /** The login `gh`/`git push` will use. Reads only the `user:` key — no network,

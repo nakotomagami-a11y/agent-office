@@ -1,5 +1,4 @@
-/** Writes a project's `CLAUDE.md` map. The marker below is what marks the
- *  file as ours; its absence means a human wrote it, so we leave it alone. */
+/** Writes `CLAUDE.md`. The marker marks it ours; absent, a human wrote it. */
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { writeFileAtomic } from "../infra/fs-atomic";
@@ -38,11 +37,17 @@ const LINKIFIERS = [/\b[a-z][a-z0-9+.-]*:\/\//gi, /\bwww\./gi, /[\w.+-]+@[\w-]+\
 function cell(s: string, max: number): string {
   let out = clean(s, max);
   for (const re of LINKIFIERS) out = out.replace(re, " ");
-  return out.replace(/[|<>`[\]*_]/g, " ").replace(/\s+/g, " ").trim();
+  return out.replace(/[|<>`[\]*_~]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** A Run line, kept VERBATIM — a sanitised command is a DIFFERENT command that
- *  also runs, printed as fact. A GFM table could not offer that: see the tests. */
+/** Only a backtick is structural here; stripping more rewrote `my_package/`
+ *  to `my package/` and `__/` to `/`, the filesystem root. */
+function codeSpan(s: string, max: number): string {
+  return clean(s, max).replace(/`/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** A Run line, VERBATIM: a sanitised command is a different command that also
+ *  runs, printed as fact. A GFM table could not offer that — see the tests. */
 function runLine(s: string, max: number): string {
   return clean(s, max).replace(/\s+/g, " ").trim();
 }
@@ -65,8 +70,8 @@ export function renderProjectMap(name: string, cwd: string): string {
 
   const dirs = topLevelEntries(cwd);
   if (dirs.length > 0) {
-    // Second-line defence: topLevelEntries already allowlists to [\w.@-].
-    out.push("## Layout", "", ...dirs.map((d) => `- \`${cell(d, 60)}/\``), "");
+    const entries = dirs.map((d) => codeSpan(d, 60)).filter(Boolean);
+    out.push("## Layout", "", ...entries.map((d) => `- \`${d}/\``), "");
   }
 
   const docs = conventionDocs(cwd).filter((d) => d !== "CLAUDE.md");
@@ -81,11 +86,12 @@ export function renderProjectMap(name: string, cwd: string): string {
     const key = argv.join(" ");
     if (seen.has(key) || rows.length >= 6) return;
     seen.add(key);
-    // A prefix is a DIFFERENT command that still runs — cutting mid-flag drops
-    // the `--dry-run` that made it safe. Say it was cut.
+    // A prefix is a DIFFERENT command that still runs: cutting mid-flag drops
+    // the `--dry-run`. Test the VISIBLE text — the marker alone kept it truthy.
     const whole = runLine(key, Number.MAX_SAFE_INTEGER);
-    const shown = whole.length <= MAX_CMD ? whole : `${runLine(key, MAX_CMD - 24)} … (truncated)`;
-    if (!shown) return; // a label with no command is not a thing to run
+    const head = whole.length <= MAX_CMD ? whole : runLine(key, MAX_CMD - 24);
+    if (!head) return; // a label with no command is not a thing to run
+    const shown = whole.length <= MAX_CMD ? head : `${head} … (truncated)`;
     rows.push(`${runLine(label, 24).padEnd(12)} ${shown}`);
   };
   const build = detectBuildCommand(cwd, pm);
@@ -110,12 +116,12 @@ export function refreshProjectMap(
     return { path: "", written: false, reason: "no_cwd", content: "" };
   }
   const path = join(cwd, "CLAUDE.md");
-  const content = renderProjectMap(name, cwd);
-
   if (!opts.force && !isRegenerable(cwd)) {
+    // No content: a caller rendering it would show a map that is not on disk.
     log.info("project.map_skipped", { projectId, reason: "handwritten" });
-    return { path, written: false, reason: "handwritten", content };
+    return { path, written: false, reason: "handwritten", content: "" };
   }
+  const content = renderProjectMap(name, cwd);
 
   try {
     writeFileAtomic(path, content);

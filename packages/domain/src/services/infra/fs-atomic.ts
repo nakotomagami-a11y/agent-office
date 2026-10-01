@@ -17,7 +17,7 @@ export function writeFileAtomic(path: string, data: string | Buffer): void {
     renameSync(tmp, path);
   } catch (err) {
     // The temp lands in a USER'S REPO; leaving it gets a failed write committed.
-    rmSync(tmp, { force: true });
+    try { rmSync(tmp, { force: true }); } catch { /* keep the rename's error */ }
     throw err;
   }
 }

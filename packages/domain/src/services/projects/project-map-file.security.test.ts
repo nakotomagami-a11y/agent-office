@@ -18,6 +18,15 @@
  * So: no counting. Render to HTML with the same engine the app uses and assert
  * on what a reader actually sees.
  *
+ * WHAT THIS FILE DOES NOT TEST: the consumer is a MODEL reading markdown, and
+ * every assertion here is structural. Text that is perfectly inert to a parser
+ * can still read as an instruction. The containment invariant at the bottom is
+ * the closest thing to a defence — repo text may land only inside the Run
+ * fence or inside a `[\w.@-]{1,60}` code span, and nowhere else — and semantic
+ * injection WITHIN those two regions is accepted residual risk, not a gap
+ * someone forgot. Round 4's `_`-stripping bug mattered because it broke that
+ * invariant's premise: it turned an allowlisted token into English prose.
+ *
  *   pnpm --filter @agent-office/domain test
  */
 import assert from "node:assert";
@@ -42,11 +51,13 @@ const html = (md: string) => micromark(md, { extensions: [gfm()], htmlExtensions
  *  against the set we emit; the Run fence is stripped before the tag check
  *  because its own `<pre><code>` is ours too. */
 function assertInert(md: string, where: string): void {
-  const out = html(md).replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, "");
+  const out = html(md)
+    .replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, "") // the Run fence is ours
+    .replace(/<li><code>[^<]*<\/code><\/li>/g, ""); // the Layout bullets are ours
   assert.doesNotMatch(out, /<a\s/, `${where}: rendered a live link\n${out}`);
   assert.doesNotMatch(
     out,
-    /<(strong|em|img|script|iframe|blockquote|hr|code)\b/,
+    /<(strong|em|img|script|iframe|blockquote|hr|code|del|sub|sup|table)\b/,
     `${where}: rendered markup\n${out}`,
   );
   const forged = md.split("\n").filter((l) => /^#{1,6}\s/.test(l) && !/^(# |## (Layout|Read|Run))/.test(l));
@@ -57,6 +68,10 @@ function withRepo(files: Record<string, string>, fn: (root: string) => void): vo
   const root = mkdtempSync(join(tmpdir(), "ao-mapsec-"));
   try {
     for (const [f, body] of Object.entries(files)) writeFileSync(join(root, f), body);
+    // EVERY repo gets directories. Without them no map reaching `assertInert`
+    // had a Layout section at all — the one repo-controlled surface outside
+    // the fence was the one surface the inert check structurally never saw.
+    for (const d of ["src", "my_package", "__tests__"]) mkdirSync(join(root, d));
     fn(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -185,6 +200,7 @@ test("a project name cannot forge a heading or carry a live reference", () => {
     "Acme www.evil.test app",
     "Acme ops@evil.test app",
     "Acme *bold* _em_ **x**",
+    "~~archived~~ Acme",
     `X ${PROJECT_MAP_MARKER} Y`,
   ]) {
     withRepo({}, (root) => {
@@ -228,6 +244,9 @@ test("no rendered line carries a control or line-separator character", () => {
   // matches `build\u2028evil`, and the name is what `npm run` is handed.
   const fixtures = [
     aoBuild("a\u0000b\u001bc"),
+    // U+200B/U+2060 are Cf, and `/\s/` does NOT match them, so the `\s+`
+    // collapse is no backstop — only `clean`'s \p{Cf} class catches these.
+    aoBuild("vite\u200b--port\u20601"),
     { "package.json": JSON.stringify({ name: "x", scripts: { "build\u2028evil\u2029x": "tsc" } }) },
   ];
   for (const files of fixtures) {
@@ -323,6 +342,72 @@ test("a failed write leaves no temp file behind in the user's repo", () => {
 
 // --- bounds -----------------------------------------------------------------
 
+test("a directory name is printed as it is on disk, never rewritten", () => {
+  // Round 4 added `*`/`_` to the heading sanitiser and it reached the Layout
+  // list, where `_` is inert: `my_package` rendered as `my package` and `__`
+  // as `/` — the filesystem ROOT — as a path an agent is told exists. It also
+  // turned an allowlisted token into English prose, spending the no-spaces
+  // property that makes [\w.@-] containment worth anything.
+  const root = mkdtempSync(join(tmpdir(), "ao-mapsec-us-"));
+  try {
+    const names = ["my_package", "__tests__", "__", "_", "a.b", "x@1", "c-d"];
+    for (const d of names) mkdirSync(join(root, d));
+    const md = renderProjectMap("P", root);
+    const got = md.split("\n").filter((l) => l.startsWith("- `")).sort();
+    assert.deepEqual(got, names.map((n) => `- \`${n}/\``).sort(), `paths rewritten:\n${md}`);
+    assert.doesNotMatch(md, /- `\/`/, "a directory may never render as the filesystem root");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the layout is capped, so a wide repo cannot flood the map", () => {
+  const root = mkdtempSync(join(tmpdir(), "ao-mapsec-wide-"));
+  try {
+    for (let i = 0; i < 40; i += 1) mkdirSync(join(root, `d${i}`));
+    const rows = renderProjectMap("P", root).split("\n").filter((l) => l.startsWith("- `"));
+    assert.ok(rows.length <= 12, `unbounded layout: ${rows.length} rows`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a truncated command that shows nothing is not listed at all", () => {
+  // `… (truncated)` made `shown` truthy even when the visible text was empty,
+  // so the row advertised a command it displayed none of — an invitation to go
+  // reconstruct it. 96 NULs sanitise away; the 130 chars after are past the cut.
+  const cmd = "\u0000".repeat(96) + "x".repeat(130);
+  assert.ok(cmd.length > 120, "precondition: must take the truncated branch");
+  withRepo(
+    { ".ao.json": JSON.stringify({ devCommands: [{ name: "deploy to production", cmd }, { name: "dev", cmd: "vite" }] }) },
+    (root) => {
+      const md = renderProjectMap("P", root);
+      assert.doesNotMatch(md, /deploy to production/, `empty row rendered:\n${md}`);
+      assert.match(md, /dev\s+vite/, "the real command must still render");
+    },
+  );
+});
+
+test("a label column cannot be widened by a hostile name", () => {
+  withRepo(
+    { ".ao.json": JSON.stringify({ devCommands: [{ name: "L".repeat(300), cmd: "vite" }] }) },
+    (root) => {
+      const line = renderProjectMap("P", root).split("\n").find((l) => l.includes("vite"))!;
+      assert.ok(line.indexOf("vite") <= 30, `label column blown out to ${line.indexOf("vite")}`);
+    },
+  );
+});
+
+test("a cut never lands inside a character", () => {
+  // `.slice` is UTF-16. Cutting 96 units into an emoji left a LONE SURROGATE,
+  // which writeFileSync encodes as U+FFFD — a character the command lacks.
+  withRepo(aoBuild("n".repeat(95) + "\u{1F600}" + "y".repeat(40)), (root) => {
+    const md = renderProjectMap("P\u{1F600}".padEnd(84, "z"), root);
+    assert.doesNotMatch(md, /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/, "lone high surrogate");
+    assert.doesNotMatch(md, /[\uFFFD]/, "replacement character written as if it were the command");
+  });
+});
+
 test("a hostile directory name is dropped from the layout, not rendered", () => {
   // `topLevelEntries` allowlists names to [\w.@-], so no hostile name reaches
   // the renderer at all. THAT is the reachable guarantee; the sanitiser applied
@@ -379,4 +464,36 @@ test("the Run block is bounded in rows and in line length", () => {
       assert.ok(l.length <= 140, `unbounded line (${l.length})`);
     }
   });
+});
+
+// --- the containment invariant ----------------------------------------------
+
+test("repo text lands only in the fence or in a path code span, never loose", () => {
+  // The design's actual claim, stated once and checked. Everything else in this
+  // file is a special case of it.
+  const root = mkdtempSync(join(tmpdir(), "ao-mapsec-cont-"));
+  try {
+    mkdirSync(join(root, "MARKERDIR"));
+    writeFileSync(
+      join(root, ".ao.json"),
+      JSON.stringify({ buildCommand: "MARKERCMD --flag", devCommands: [{ name: "MARKERLABEL", cmd: "vite" }] }),
+    );
+    const lines = renderProjectMap("P", root).split("\n");
+    const open = lines.findIndex((l) => /^`+sh$/.test(l));
+    const close = lines.lastIndexOf(lines[open]!.replace(/sh$/, ""));
+    assert.ok(open > 0 && close > open, "the fence must render for this to mean anything");
+
+    for (const [i, line] of lines.entries()) {
+      const inFence = i > open && i < close;
+      for (const marker of ["MARKERCMD", "MARKERLABEL", "MARKERDIR"]) {
+        if (!line.includes(marker)) continue;
+        assert.ok(
+          inFence || /^- `[\w.@-]{1,60}\/`$/.test(line),
+          `repo text escaped containment on line ${i}: ${JSON.stringify(line)}`,
+        );
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
