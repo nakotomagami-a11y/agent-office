@@ -1,3 +1,4 @@
+import type { MessageOrigin } from "@agent-office/domain/types";
 // In-memory thread item shapes built from SSE events. The chat panel renders
 // these directly - keeping them denormalised here means components don't have
 // to know anything about the wire format.
@@ -7,7 +8,7 @@ import type { RunErrorCode } from "@agent-office/domain/types";
 export type SubAgentStatus = "queued" | "running" | "cancelling" | "done" | "error" | "cancelled" | "timeout";
 
 export type ThreadItem =
-  | { kind: "you"; id: string; text: string }
+  | { kind: "you"; id: string; text: string; origin?: MessageOrigin }
   | { kind: "agent-text"; id: string; text: string; streaming: boolean }
   // `runId` is the run that made this tool call — only read by the
   // background-task pill, to check via /api/processes if its shell is alive.

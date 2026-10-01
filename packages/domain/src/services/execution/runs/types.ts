@@ -16,6 +16,7 @@ import type {
   SseToolEvent,
   SseUsageEvent,
   SubAgentStatus,
+  MessageOrigin,
 } from "../../../types/index";
 
 export type SseEvent =
@@ -51,6 +52,9 @@ export interface LiveRun {
   agentName: string;
   startTs: number;
   prompt: string;
+  /** Who wrote `prompt` — surfaced so a live turn reads the same as the
+   *  persisted one once it finishes. */
+  origin: MessageOrigin;
   model: string;
   effort: string;
   cwd?: string;
@@ -114,6 +118,7 @@ export interface StartRunOpts {
   agentId: string;
   agentName: string;
   prompt: string;
+  origin?: MessageOrigin;
   model: string;
   effort: string;
   cwd?: string;

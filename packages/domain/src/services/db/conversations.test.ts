@@ -141,4 +141,38 @@ check("backfill creates a conversation per legacy slot and tags its runs", () =>
   assert.equal(convo.listConversationTurns(c!.id).length, 2);
 });
 
+check("origin survives a queue rewrite, which is every state transition", () => {
+  // `replaceQueue` is how the conversation service persists state after EVERY
+  // transition. Dropping origin there relabels Agent Office's own message as
+  // the user's on the next tick — invisible, because the text is unchanged.
+  const c = convo.createConversation("dev", "origin-rw", null, null);
+  convo.enqueueMessage(c.id, "mine");
+  convo.enqueueMessage(c.id, "wake", null, "system");
+  const before = convo.listQueue(c.id);
+  assert.deepEqual(before.map((m) => m.origin), ["user", "system"]);
+
+  convo.replaceQueue(c.id, before.map((m) => ({ id: m.id, text: m.text, origin: m.origin })));
+  assert.deepEqual(
+    convo.listQueue(c.id).map((m) => m.origin),
+    ["user", "system"],
+    "a rewrite must not relabel who wrote the message",
+  );
+});
+
+check("a queued system message stays system when it is dequeued", () => {
+  const c = convo.createConversation("dev", "origin-dq", null, null);
+  convo.enqueueMessage(c.id, "wake", null, "system");
+  assert.equal(convo.dequeueMessage(c.id)?.origin, "system");
+});
+
+check("rows written before the origin column default to the user", () => {
+  // The migration backfills 'user'. That is true for every pre-existing row:
+  // only the reply box could write one.
+  const c = convo.createConversation("dev", "origin-old", null, null);
+  mem.prepare(
+    "INSERT INTO queued_messages (id, conversation_id, text, attachments, position, created_at) VALUES (?, ?, ?, NULL, 0, 0)",
+  ).run("legacy1", c.id, "typed by hand");
+  assert.equal(convo.listQueue(c.id)[0]?.origin, "user");
+});
+
 console.log(`\n${passed} passed`);

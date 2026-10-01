@@ -6,6 +6,8 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { SystemNotice } from "./system-notice";
+import type { MessageOrigin } from "@agent-office/domain/types";
 import { ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
 import { MsgActions } from "./msg-actions";
 import { LiveStatus, type ChatPhase } from "./live-status";
@@ -78,7 +80,7 @@ export type ChatThreadProps = {
   phaseHint?: string;
   phaseStats?: LiveStats;
   /** Messages queued while agent is running - rendered as pending bubbles at the bottom. */
-  queuedMessages?: Array<{ id: string; text: string }>;
+  queuedMessages?: Array<{ id: string; text: string; origin?: MessageOrigin }>;
   onCancelQueuedMessage?: (id: string) => void;
 };
 
@@ -528,6 +530,17 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
           {queuedMessages && queuedMessages.length > 0 ? (
             <div className="px-2 mt-1 flex flex-col gap-3">
               {queuedMessages.map((q, i) => (
+                q.origin === "system" ? (
+                  // Agent Office's own queued message. Same card as the one it
+                  // becomes once it runs, so the user sees one thing, not two.
+                  <SystemNotice
+                    key={q.id + "qm_" + i}
+                    text={q.text}
+                    pending
+                    positionLabel={queuedMessages.length > 1 ? `${i + 1}/${queuedMessages.length}` : undefined}
+                    onDismiss={() => onCancelQueuedMessage?.(q.id)}
+                  />
+                ) : (
                 <div key={q.id + "qm_"+i} className="flex flex-row-reverse ml-auto w-fit max-w-[80%] gap-[12px] relative opacity-[0.55]">
                   <UserAvatar size={60} className="shrink-0" />
                   <div className="flex flex-col items-end gap-[6px]">
@@ -548,6 +561,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                     </div>
                   </div>
                 </div>
+                )
               ))}
             </div>
           ) : null}

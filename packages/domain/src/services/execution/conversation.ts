@@ -23,7 +23,7 @@ import {
 // node:child_process deps) so browser code can import it directly — see that
 // file's header comment. Re-exported here so existing `conversation.` callers
 // keep working unchanged.
-import type { ContextProfile, ConversationView } from "../../types/index";
+import type { ContextProfile, ConversationView, MessageOrigin } from "../../types/index";
 export type { ConversationView } from "../../types/index";
 
 export interface StartRunInput {
@@ -31,6 +31,9 @@ export interface StartRunInput {
   instanceId: string;
   projectId: string | null;
   prompt: string;
+  /** `system` when Agent Office wrote the prompt itself. Persisted on the run
+   *  so the transcript can render it as a notice, not as the user. */
+  origin: MessageOrigin;
   resumeSessionId: string | null;
   conversationId: string;
   /** Only meaningful when `resumeSessionId` is null (the first turn of a
@@ -48,13 +51,14 @@ export interface ConversationRunner {
 
 /** Reconstruct the machine's in-memory state from the durable DB rows. */
 function buildState(conv: db.ConversationRow): ConversationState {
-  const queue = db.listQueue(conv.id).map((m) => ({ id: m.id, text: m.text }));
+  const queue = db.listQueue(conv.id).map((m) => ({ id: m.id, text: m.text, origin: m.origin }));
   const lastPrompt = db.latestConversationTurn(conv.id)?.prompt ?? null;
   return {
     status: conv.status,
     activeRunId: conv.activeRunId,
     sessionId: conv.sessionId,
     lastPrompt,
+    lastOrigin: db.latestConversationTurn(conv.id)?.origin ?? "user",
     queue,
   };
 }
@@ -66,7 +70,7 @@ function persist(convId: string, next: ConversationState): void {
     activeRunId: next.activeRunId,
     sessionId: next.sessionId,
   });
-  db.replaceQueue(convId, next.queue.map((m) => ({ id: m.id, text: m.text })));
+  db.replaceQueue(convId, next.queue.map((m) => ({ id: m.id, text: m.text, origin: m.origin })));
 }
 
 /**
@@ -127,6 +131,7 @@ async function apply(
         instanceId: conv.instanceId,
         projectId: conv.projectId,
         prompt: startEffect.prompt,
+        origin: startEffect.origin,
         resumeSessionId: startEffect.resumeSessionId,
         conversationId: convId,
         contextProfile: opts.contextProfile,
@@ -176,9 +181,10 @@ export async function sendMessage(
   text: string,
   runner: ConversationRunner,
   contextProfile?: ContextProfile,
+  origin: MessageOrigin = "user",
 ): Promise<ConversationView> {
   const conv = db.ensureConversation(agentId, instanceId, projectId);
-  return sendMessageToConversation(conv.id, text, runner, contextProfile);
+  return sendMessageToConversation(conv.id, text, runner, contextProfile, origin);
 }
 
 /** Send a user message directly to a known conversation id (the shape the
@@ -190,8 +196,9 @@ export function sendMessageToConversation(
   text: string,
   runner: ConversationRunner,
   contextProfile?: ContextProfile,
+  origin: MessageOrigin = "user",
 ): Promise<ConversationView> {
-  const message = { id: cryptoRandomId(), text };
+  const message = { id: cryptoRandomId(), text, origin };
   return apply(convId, { type: "send", message }, runner, { contextProfile });
 }
 

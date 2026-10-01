@@ -46,6 +46,25 @@ export function shouldWake(pidAlive: boolean, runStatus: string | undefined): bo
   return runStatus !== "running";
 }
 
+/** The send itself, as its own function so a test can assert WHAT IT SENDS.
+ *  `origin: "system"` is the whole point: without it this lands in the user's
+ *  queue wearing the user's avatar, which is how it shipped. `tick` had no
+ *  seam, so the argument that matters was the one argument nothing covered. */
+export async function sendWake(
+  row: db.BackgroundShellRow,
+  send: typeof sendMessage = sendMessage,
+): Promise<void> {
+  await send(
+    row.agentId,
+    row.instanceId ?? "default",
+    row.projectId,
+    buildWakeMessage(row),
+    productionConversationRunner,
+    undefined,
+    "system",
+  );
+}
+
 let ticking = false;
 async function tick(): Promise<void> {
   if (ticking) return;
@@ -58,7 +77,7 @@ async function tick(): Promise<void> {
       // `collectBackgroundShells` already applies to a dead PID.
       db.deleteBackgroundShell(row.id);
       try {
-        await sendMessage(row.agentId, row.instanceId ?? "default", row.projectId, buildWakeMessage(row), productionConversationRunner);
+        await sendWake(row);
         log.info("background_shell.wake_sent", { pid: row.pid, agentId: row.agentId, instanceId: row.instanceId });
       } catch (err) {
         log.warn("background_shell.wake_failed", { pid: row.pid, agentId: row.agentId, err: String(err) });
