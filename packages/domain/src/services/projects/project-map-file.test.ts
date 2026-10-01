@@ -12,7 +12,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -22,8 +22,12 @@ import {
   renderProjectMap,
 } from "./project-map-file";
 
+const made: string[] = [];
+process.on("exit", () => { for (const r of made) rmSync(r, { recursive: true, force: true }); });
+
 function repo(files: Record<string, string> = {}, dirs: string[] = []): string {
   const root = mkdtempSync(join(tmpdir(), "ao-map-"));
+  made.push(root);
   for (const d of dirs) mkdirSync(join(root, d), { recursive: true });
   for (const [f, body] of Object.entries(files)) {
     mkdirSync(join(root, f, ".."), { recursive: true });
@@ -61,6 +65,8 @@ test("an unreadable CLAUDE.md is treated as precious, not as absent", () => {
   const root = repo();
   mkdirSync(join(root, "CLAUDE.md")); // a directory: readFileSync throws EISDIR
   assert.equal(isRegenerable(root), false);
+  // The predicate is not the guarantee — pin the refusal itself.
+  assert.equal(refreshProjectMap("p", root, "Proj").reason, "handwritten");
 });
 
 test("a missing CLAUDE.md is written, and carries the marker", () => {
@@ -100,7 +106,8 @@ test("run commands are detected from the project, not assumed", () => {
   });
   const md = renderProjectMap("Proj", root);
   assert.match(md, /## Run/);
-  assert.match(md, /build/);
+  assert.match(md, /\| build \| `npm run build` \|/, "the detected command, not just the word");
+  assert.match(md, /vite|dev/, "the dev script the fixture sets up");
 });
 
 test("a repo with nothing detectable still renders a valid document", () => {
