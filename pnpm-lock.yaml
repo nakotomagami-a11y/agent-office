@@ -151,6 +151,12 @@ importers:
       eslint:
         specifier: ^9.15.0
         version: 9.39.4(jiti@2.7.0)
+      micromark:
+        specifier: ^4.0.2
+        version: 4.0.2
+      micromark-extension-gfm:
+        specifier: ^3.0.0
+        version: 3.0.0
       tsx:
         specifier: ^4.19.2
         version: 4.23.15
