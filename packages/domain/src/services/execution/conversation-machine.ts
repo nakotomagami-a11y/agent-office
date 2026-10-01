@@ -21,11 +21,14 @@
  * See docs/chat-refactor.md for the full design.
  */
 
+import type { MessageOrigin } from "../../types/index";
+
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
 export interface QueuedMessage {
   id: string;
   text: string;
+  origin: MessageOrigin;
 }
 
 export interface ConversationState {
@@ -38,6 +41,8 @@ export interface ConversationState {
   sessionId: string | null;
   /** Prompt of the running/most-recent turn — what `retry` re-runs. */
   lastPrompt: string | null;
+  /** So a retried system message does not become the user's. */
+  lastOrigin: MessageOrigin;
   /** Pending user messages, strict FIFO. */
   queue: QueuedMessage[];
 }
@@ -57,6 +62,7 @@ export type ConversationAction =
 export interface StartRunEffect {
   type: "startRun";
   prompt: string;
+  origin: MessageOrigin;
   resumeSessionId: string | null;
 }
 export type ConversationEffect = StartRunEffect;
@@ -71,17 +77,17 @@ export const RESUME_PROMPT =
   "Continue the previous task where you left off — the previous run was interrupted before it finished.";
 
 export function initialConversationState(sessionId: string | null = null): ConversationState {
-  return { status: "idle", activeRunId: null, sessionId, lastPrompt: null, queue: [] };
+  return { status: "idle", activeRunId: null, sessionId, lastPrompt: null, lastOrigin: "user", queue: [] };
 }
 
 const noop = (state: ConversationState): Reduction => ({ state, effects: [] });
 
 /** Begin a run for `prompt`: enter `running`, clear activeRunId until
  *  `runStarted`, remember the prompt for a later Retry. */
-function begin(state: ConversationState, prompt: string): Reduction {
+function begin(state: ConversationState, prompt: string, origin: MessageOrigin): Reduction {
   return {
-    state: { ...state, status: "running", activeRunId: null, lastPrompt: prompt },
-    effects: [{ type: "startRun", prompt, resumeSessionId: state.sessionId }],
+    state: { ...state, status: "running", activeRunId: null, lastPrompt: prompt, lastOrigin: origin },
+    effects: [{ type: "startRun", prompt, origin, resumeSessionId: state.sessionId }],
   };
 }
 
@@ -93,8 +99,8 @@ function advance(state: ConversationState): Reduction {
     return { state: { ...state, status: "idle", activeRunId: null }, effects: [] };
   }
   return {
-    state: { ...state, status: "running", activeRunId: null, lastPrompt: next.text, queue: rest },
-    effects: [{ type: "startRun", prompt: next.text, resumeSessionId: state.sessionId }],
+    state: { ...state, status: "running", activeRunId: null, lastPrompt: next.text, lastOrigin: next.origin, queue: rest },
+    effects: [{ type: "startRun", prompt: next.text, origin: next.origin, resumeSessionId: state.sessionId }],
   };
 }
 
@@ -104,7 +110,7 @@ export function reduce(state: ConversationState, action: ConversationAction): Re
       // Idle → start immediately. Otherwise (running or needs_attention) the
       // message waits in the queue; it never starts a second concurrent run,
       // and it is never lost while a failed turn is unresolved.
-      if (state.status === "idle") return begin(state, action.message.text);
+      if (state.status === "idle") return begin(state, action.message.text, action.message.origin);
       return noop({ ...state, queue: [...state.queue, action.message] });
     }
 
@@ -126,12 +132,13 @@ export function reduce(state: ConversationState, action: ConversationAction): Re
 
     case "retry": {
       if (state.status !== "needs_attention" || state.lastPrompt == null) return noop(state);
-      return begin(state, state.lastPrompt);
+      return begin(state, state.lastPrompt, state.lastOrigin);
     }
 
     case "resume": {
       if (state.status !== "needs_attention") return noop(state);
-      return begin(state, RESUME_PROMPT);
+      // The user pressed Resume, so the prompt is genuinely theirs.
+      return begin(state, RESUME_PROMPT, "user");
     }
 
     case "skip": {

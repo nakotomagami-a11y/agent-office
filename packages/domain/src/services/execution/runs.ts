@@ -135,6 +135,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     childRunIds: [],
     subAgents: new Map(),
     pendingBackgroundBash: new Map(),
+    origin: opts.origin ?? "user",
   };
   liveRuns.set(runId, run);
   acquireInhibit();
@@ -149,6 +150,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     sessionId: undefined,
     status: "running",
     prompt: opts.prompt,
+    origin: opts.origin ?? "user",
     model: opts.model,
     effort: opts.effort,
     cwd: opts.cwd,
@@ -788,6 +790,7 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     agentId: run.agentId,
     agentName: run.agentName,
     ts: run.startTs,
+    origin: run.origin,
     prompt: run.prompt,
     status: run.status,
     exitCode: run.exitCode,

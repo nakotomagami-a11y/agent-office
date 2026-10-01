@@ -10,6 +10,7 @@ import type { RunErrorCode } from "@agent-office/domain/types";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { SystemNotice } from "./system-notice";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ThreadItem } from "../format/thread-types";
 import { Icon } from "@/components/ui/icon";
@@ -578,6 +579,9 @@ function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string
 function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   switch (item.kind) {
     case "you": {
+      // Agent Office's own messages reach here through the same path as the
+      // user's — only `origin` tells them apart.
+      if (item.origin === "system") return <SystemNotice text={item.text} />;
       const youImgs = extractImages(item.text);
       const youText = stripAttachmentFooter(item.text);
       return (

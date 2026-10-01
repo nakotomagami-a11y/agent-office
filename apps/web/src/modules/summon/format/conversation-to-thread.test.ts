@@ -15,7 +15,7 @@ function check(name: string, fn: () => void) {
 }
 
 const baseTurn: PersistedRun = {
-  id: "run1", agentId: "dev", agentName: "Dev", ts: 1000, prompt: "do it",
+  id: "run1", agentId: "dev", agentName: "Dev", ts: 1000, prompt: "do it", origin: "user",
   status: "done", output: "", tokensIn: 0, tokensOut: 0, cost: 0, durMs: 0,
   model: "", effort: "",
 };

@@ -5,6 +5,7 @@
  *   npx tsx packages/domain/src/services/execution/conversation-machine.test.ts
  */
 import assert from "node:assert";
+import type { MessageOrigin } from "../../types/index";
 import {
   reduce,
   initialConversationState,
@@ -21,7 +22,7 @@ function check(name: string, fn: () => void) {
   console.log(`PASS  ${name}`);
 }
 
-const msg = (id: string, text = id) => ({ id, text });
+const msg = (id: string, text = id, origin: MessageOrigin = "user") => ({ id, text, origin });
 
 /** Apply a sequence of actions, collecting all effects in order. */
 function run(state: ConversationState, actions: ConversationAction[]): { state: ConversationState; effects: ConversationEffect[] } {
@@ -40,7 +41,7 @@ check("idle send starts a run", () => {
   const r = reduce(initialConversationState(), { type: "send", message: msg("a") });
   assert.equal(r.state.status, "running");
   assert.equal(r.state.lastPrompt, "a");
-  assert.deepEqual(r.effects, [{ type: "startRun", prompt: "a", resumeSessionId: null }]);
+  assert.deepEqual(r.effects, [{ type: "startRun", prompt: "a", origin: "user", resumeSessionId: null }]);
 });
 
 // 2. Sending while running queues (no second concurrent run).
@@ -193,6 +194,48 @@ check("retry/resume/skip are no-ops when not needs_attention", () => {
     assert.equal(r.state.status, "running");
     assert.equal(r.effects.length, 0);
   }
+});
+
+// Origin: Agent Office writes into conversations through the same path the
+// user's reply box uses. Before `origin` existed, its messages were stored and
+// rendered as the user's — same avatar, same bubble, same queue.
+check("a system message keeps its origin into the run effect", () => {
+  const r = reduce(initialConversationState(), { type: "send", message: msg("w", "wake", "system") });
+  assert.deepEqual(r.effects, [{ type: "startRun", prompt: "wake", origin: "system", resumeSessionId: null }]);
+  assert.equal(r.state.lastOrigin, "system");
+});
+
+check("a system message queued behind a run keeps its origin when it drains", () => {
+  const { state, effects } = run(initialConversationState(), [
+    { type: "send", message: msg("a", "mine") },
+    { type: "runStarted", runId: "r1" },
+    { type: "send", message: msg("w", "wake", "system") },
+    { type: "runFinished", runId: "r1", ok: true },
+  ]);
+  assert.equal(state.lastOrigin, "system", "the drained message must not become the user's");
+  assert.deepEqual(effects.at(-1), { type: "startRun", prompt: "wake", origin: "system", resumeSessionId: null });
+});
+
+check("retrying a system turn does not relabel it as the user's", () => {
+  const { effects } = run(initialConversationState(), [
+    { type: "send", message: msg("w", "wake", "system") },
+    { type: "runStarted", runId: "r1" },
+    { type: "runFinished", runId: "r1", ok: false },
+    { type: "retry" },
+  ]);
+  assert.equal(effects.at(-1)?.origin, "system");
+});
+
+check("Resume is the user's action, whatever the failed turn was", () => {
+  // The user pressed the button, so the prompt is genuinely theirs — the
+  // inverse mislabel would be just as wrong.
+  const { effects } = run(initialConversationState(), [
+    { type: "send", message: msg("w", "wake", "system") },
+    { type: "runStarted", runId: "r1" },
+    { type: "runFinished", runId: "r1", ok: false },
+    { type: "resume" },
+  ]);
+  assert.equal(effects.at(-1)?.origin, "user");
 });
 
 console.log(`\n${passed} passed`);

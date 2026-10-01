@@ -14,7 +14,7 @@ import type { ThreadItem } from "./thread-types";
 import { formatToolArg, isSubAgentSpawnTool, parseStoredToolInput } from "./tool-item";
 
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
-  const items: ThreadItem[] = [{ kind: "you", id: `${turn.id}_you`, text: turn.prompt }];
+  const items: ThreadItem[] = [{ kind: "you", id: `${turn.id}_you`, text: turn.prompt, origin: turn.origin }];
   // Historical turns get their tool-call trail back from the permanent
   // `tool_calls` table (48h retention). Shaped through the SAME helpers the live
   // path uses — the claim that these "render identically either way" was false:

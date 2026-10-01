@@ -465,6 +465,14 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
         )
     `);
   },
+  // v21 -> v22: who wrote a message. Agent Office sends through the same
+  // `sendMessage` the reply box uses, so its own were rendered as the user's.
+  (db) => {
+    db.exec(`
+      ALTER TABLE queued_messages ADD COLUMN origin TEXT NOT NULL DEFAULT 'user';
+      ALTER TABLE runs ADD COLUMN origin TEXT NOT NULL DEFAULT 'user';
+    `);
+  },
 ];
 
 /**
@@ -551,5 +559,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 19) { MIGRATIONS[18]!(db); v = 19; db.pragma("user_version = 19"); }
     if (v < 20) { MIGRATIONS[19]!(db); v = 20; db.pragma("user_version = 20"); }
     if (v < 21) { MIGRATIONS[20]!(db); v = 21; db.pragma("user_version = 21"); }
+    if (v < 22) { MIGRATIONS[21]!(db); v = 22; db.pragma("user_version = 22"); }
   })();
 }

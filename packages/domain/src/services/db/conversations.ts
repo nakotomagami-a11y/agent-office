@@ -5,7 +5,10 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
-import type { PersistedRun } from "../../types/index";
+import type { MessageOrigin, PersistedRun } from "../../types/index";
+
+/** Parse, don't cast: the column is TEXT and old rows predate it. */
+export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
@@ -117,35 +120,37 @@ export function updateConversation(id: string, patch: ConversationPatch): void {
 export interface QueuedMessageRow {
   id: string;
   text: string;
+  origin: MessageOrigin;
   attachments: string | null;
   position: number;
   createdAt: number;
 }
 
-interface RawQueuedRow { id: string; text: string; attachments: string | null; position: number; created_at: number }
+interface RawQueuedRow { id: string; text: string; origin: string; attachments: string | null; position: number; created_at: number }
 
 const toQueued = (r: RawQueuedRow): QueuedMessageRow => ({
-  id: r.id, text: r.text, attachments: r.attachments, position: r.position, createdAt: r.created_at,
+  id: r.id, text: r.text, origin: asOrigin(r.origin), attachments: r.attachments,
+  position: r.position, createdAt: r.created_at,
 });
 
 export function listQueue(conversationId: string): QueuedMessageRow[] {
   const rows = getDb()
-    .prepare("SELECT id, text, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC")
+    .prepare("SELECT id, text, origin, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC")
     .all(conversationId) as RawQueuedRow[];
   return rows.map(toQueued);
 }
 
 /** Append a message to the end of the conversation's queue. */
-export function enqueueMessage(conversationId: string, text: string, attachments: string | null = null): QueuedMessageRow {
+export function enqueueMessage(conversationId: string, text: string, attachments: string | null = null, origin: MessageOrigin = "user"): QueuedMessageRow {
   const db = getDb();
   const now = Date.now();
   const id = randomUUID();
   const row = db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM queued_messages WHERE conversation_id = ?").get(conversationId) as { pos: number };
   const position = row.pos;
   db.prepare(
-    "INSERT INTO queued_messages (id, conversation_id, text, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run(id, conversationId, text, attachments, position, now);
-  return { id, text, attachments, position, createdAt: now };
+    "INSERT INTO queued_messages (id, conversation_id, text, origin, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(id, conversationId, text, origin, attachments, position, now);
+  return { id, text, origin, attachments, position, createdAt: now };
 }
 
 /** Remove and return the front (lowest position) queued message, atomically. */
@@ -153,7 +158,7 @@ export function dequeueMessage(conversationId: string): QueuedMessageRow | null 
   const db = getDb();
   return db.transaction(() => {
     const raw = db
-      .prepare("SELECT id, text, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC LIMIT 1")
+      .prepare("SELECT id, text, origin, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC LIMIT 1")
       .get(conversationId) as RawQueuedRow | undefined;
     if (!raw) return null;
     db.prepare("DELETE FROM queued_messages WHERE id = ?").run(raw.id);
@@ -174,17 +179,18 @@ export function clearQueue(conversationId: string): void {
  *  the state machine's queue after a transition. */
 export function replaceQueue(
   conversationId: string,
-  items: Array<{ id: string; text: string; attachments?: string | null }>,
+  items: Array<{ id: string; text: string; origin?: MessageOrigin; attachments?: string | null }>,
 ): void {
   const db = getDb();
   const del = db.prepare("DELETE FROM queued_messages WHERE conversation_id = ?");
   const ins = db.prepare(
-    "INSERT INTO queued_messages (id, conversation_id, text, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO queued_messages (id, conversation_id, text, origin, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   const now = Date.now();
   db.transaction(() => {
     del.run(conversationId);
-    items.forEach((m, i) => ins.run(m.id, conversationId, m.text, m.attachments ?? null, i, now));
+    // Dropping origin relabels a system message as the user's on every rewrite.
+    items.forEach((m, i) => ins.run(m.id, conversationId, m.text, m.origin ?? "user", m.attachments ?? null, i, now));
   })();
 }
 
@@ -198,7 +204,7 @@ export function queueLength(conversationId: string): number {
 interface RunRow {
   id: string; agent_id: string; agent_name: string; instance_id: string;
   instance_label: string | null; project_id: string | null; session_id: string | null;
-  status: string; exit_code: number | null; prompt: string; output: string;
+  status: string; exit_code: number | null; prompt: string; origin: string; output: string;
   tokens_in: number; tokens_out: number; cost_usd: number; dur_ms: number | null;
   cache_creation_tokens: number | null; cache_read_tokens: number | null;
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
@@ -212,7 +218,7 @@ function rowToRun(row: RunRow): PersistedRun {
     instanceLabel: row.instance_label ?? undefined,
     projectId: row.project_id ?? undefined, sessionId: row.session_id ?? undefined,
     status: row.status as "running" | "done" | "error",
-    exitCode: row.exit_code ?? undefined, prompt: row.prompt, output: row.output,
+    exitCode: row.exit_code ?? undefined, prompt: row.prompt, origin: asOrigin(row.origin), output: row.output,
     tokensIn: row.tokens_in, tokensOut: row.tokens_out, cost: row.cost_usd,
     cacheCreationTokens: row.cache_creation_tokens ?? undefined,
     cacheReadTokens: row.cache_read_tokens ?? undefined,

@@ -12,7 +12,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { shouldWake, buildWakeMessage } from "./background-shell-watcher";
+import { shouldWake, buildWakeMessage, sendWake } from "./background-shell-watcher";
 import type { BackgroundShellRow } from "../db";
 
 test("a live shell is never woken, whatever the run is doing", () => {
@@ -57,4 +57,22 @@ test("a described shell is identified by description AND command", () => {
   const msg = buildWakeMessage(row({ description: "release build" }));
   assert.match(msg, /release build/);
   assert.match(msg, /pnpm build/);
+});
+
+test("the wake is sent as the SYSTEM, not as the user", async () => {
+  // It goes through the same `sendMessage` the reply box uses, so without an
+  // explicit origin it is stored as the user's and rendered as the user's —
+  // their avatar, their bubble, their queue. Nothing covered this argument,
+  // because `tick` had no seam; `sendWake` exists to give it one.
+  const calls: unknown[][] = [];
+  const fake = (async (...args: unknown[]) => { calls.push(args); return undefined; }) as never;
+  const row = {
+    id: "b1", runId: "r1", agentId: "dev", instanceId: "s1", projectId: "p1",
+    pid: 1234, command: "sleep 1", description: "a job", startedAt: 0,
+  } as unknown as BackgroundShellRow;
+
+  await sendWake(row, fake);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]![6], "system", `origin arg was ${String(calls[0]![6])}`);
+  assert.match(String(calls[0]![3]), /background task finished/);
 });

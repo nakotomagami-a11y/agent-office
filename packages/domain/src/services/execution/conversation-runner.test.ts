@@ -22,12 +22,14 @@ check("maps a full StartRunInput 1:1 into a SummonRequest", () => {
     instanceId: "s1",
     projectId: "proj",
     prompt: "do the thing",
+    origin: "user" as const,
     resumeSessionId: "sess-1",
     conversationId: "conv-1",
   });
   assert.deepEqual(req, {
     agentId: "dev",
     prompt: "do the thing",
+    origin: "user" as const,
     instanceId: "s1",
     projectId: "proj",
     resumeSessionId: "sess-1",
@@ -38,7 +40,7 @@ check("maps a full StartRunInput 1:1 into a SummonRequest", () => {
 
 check("threads contextProfile through when supplied", () => {
   const req = buildSummonRequest({
-    agentId: "dev", instanceId: "s1", projectId: "proj", prompt: "x",
+    agentId: "dev", instanceId: "s1", projectId: "proj", prompt: "x", origin: "user",
     resumeSessionId: null, conversationId: "c", contextProfile: "deep",
   });
   assert.equal(req.contextProfile, "deep");
@@ -50,6 +52,7 @@ check('the "default" instance sentinel is omitted, not passed through literally'
     instanceId: "default",
     projectId: null,
     prompt: "x",
+    origin: "user" as const,
     resumeSessionId: null,
     conversationId: "c",
   });
@@ -62,6 +65,7 @@ check("null projectId / resumeSessionId become undefined, not null", () => {
     instanceId: "s2",
     projectId: null,
     prompt: "x",
+    origin: "user" as const,
     resumeSessionId: null,
     conversationId: "c",
   });

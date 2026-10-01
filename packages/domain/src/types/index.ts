@@ -68,12 +68,16 @@ export interface AgentBody {
   unit?: string;
 }
 
+/** Who wrote a prompt. Stored, never inferred: a user may type the same words. */
+export type MessageOrigin = "user" | "system";
+
 export interface PersistedRun {
   id: string;
   agentId: string;
   agentName: string;
   ts: number;
   prompt: string;
+  origin: MessageOrigin;
   status: "running" | "done" | "error";
   exitCode?: number;
   output: string;
@@ -113,6 +117,7 @@ export type ConversationStatus = "idle" | "running" | "needs_attention";
 export interface ConversationQueuedMessage {
   id: string;
   text: string;
+  origin: MessageOrigin;
   attachments: string | null;
   position: number;
   createdAt: number;
@@ -398,6 +403,7 @@ export interface Workflow {
 
 export interface SummonRequest {
   agentId: string;
+  origin?: MessageOrigin;
   prompt: string;
   model?: string;
   effort?: string;

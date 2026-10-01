@@ -120,7 +120,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       const liveItems: ThreadItem[] = [];
       const hasLiveContent = stream.thread.length > 0 || stream.phase === "streaming" || stream.phase === "starting";
       if (hasLiveContent) {
-        liveItems.push({ kind: "you", id: `${liveTurn.id}_you`, text: liveTurn.prompt });
+        liveItems.push({ kind: "you", id: `${liveTurn.id}_you`, text: liveTurn.prompt, origin: liveTurn.origin });
         liveItems.push(...stream.thread);
       } else {
         liveItems.push(...turnToThreadItems(liveTurn));
@@ -146,7 +146,9 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
     return hiddenIds.size > 0 ? items.filter((it) => !hiddenIds.has(it.id)) : items;
   }, [view, liveTurnId, stream.thread, stream.phase, hiddenIds]);
 
-  const queuedMessages = useMemo(() => (view?.queue ?? []).map((m) => ({ id: m.id, text: m.text })), [view]);
+  // origin included: dropping it here renders Agent Office's own queued
+  // message as the user's, which is the bug this field exists to fix.
+  const queuedMessages = useMemo(() => (view?.queue ?? []).map((m) => ({ id: m.id, text: m.text, origin: m.origin })), [view]);
 
   // The one item Retry/Resume/Skip act on — see ChatThread's
   // `currentFailureItemId` doc comment. Only ever the LAST rendered item,

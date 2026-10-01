@@ -1,10 +1,11 @@
 import { getDb } from "./connection";
-import type { PersistedRun } from "../../types/index";
+import type { MessageOrigin, PersistedRun } from "../../types/index";
+import { asOrigin } from "./conversations";
 
 export interface RunInsert {
   id: string; agentId: string; agentName: string;
   instanceId?: string; instanceLabel?: string; projectId?: string;
-  sessionId?: string; status: string; prompt: string;
+  sessionId?: string; status: string; prompt: string; origin?: MessageOrigin;
   model: string; effort: string; cwd?: string; startedAt: number;
   parentRunId?: string;
   conversationId?: string;
@@ -13,9 +14,9 @@ export interface RunInsert {
 
 export function insertRun(r: RunInsert): void {
   getDb().prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid)
-    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid)
-  `).run({ ...r, instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
+    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, origin, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid)
+    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, @origin, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid)
+  `).run({ ...r, origin: r.origin ?? "user", instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
 }
 
 export interface RunUpdate {
@@ -48,7 +49,7 @@ export function markRunAborted(id: string): void {
 interface RunRow {
   id: string; agent_id: string; agent_name: string; instance_id: string;
   instance_label: string | null; project_id: string | null; session_id: string | null;
-  status: string; exit_code: number | null; prompt: string; output: string;
+  status: string; exit_code: number | null; prompt: string; origin: string; output: string;
   tokens_in: number; tokens_out: number; cost_usd: number; dur_ms: number | null;
   cache_creation_tokens: number | null; cache_read_tokens: number | null;
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
@@ -62,7 +63,7 @@ function rowToRun(row: RunRow): PersistedRun {
     instanceLabel: row.instance_label ?? undefined,
     projectId: row.project_id ?? undefined, sessionId: row.session_id ?? undefined,
     status: row.status as "running" | "done" | "error",
-    exitCode: row.exit_code ?? undefined, prompt: row.prompt, output: row.output,
+    exitCode: row.exit_code ?? undefined, prompt: row.prompt, origin: asOrigin(row.origin), output: row.output,
     tokensIn: row.tokens_in, tokensOut: row.tokens_out, cost: row.cost_usd,
     cacheCreationTokens: row.cache_creation_tokens ?? undefined,
     cacheReadTokens: row.cache_read_tokens ?? undefined,
