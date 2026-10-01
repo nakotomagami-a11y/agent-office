@@ -600,6 +600,7 @@
     "row_ui_settings_label": "App UI settings",
     "row_ui_settings_desc": "Clears theme, layout, and tab persistence. Migration sentinel is kept.",
     "cleared": "Cleared",
+    "failed": "Failed",
     "confirm_prompt": "Run this reset?",
     "cancel": "Cancel",
     "run": "Run",
