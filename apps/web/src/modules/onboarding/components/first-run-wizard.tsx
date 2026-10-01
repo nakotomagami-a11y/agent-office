@@ -19,6 +19,8 @@ import { AgentsStep } from "./first-run-wizard-steps/agents-step";
 import { ProjectStep } from "./first-run-wizard-steps/project-step";
 import { IntegrationsStep } from "./first-run-wizard-steps/integrations-step";
 import { INTEGRATIONS } from "@agent-office/domain/config/integrations";
+import { parseJson } from "@/lib/json-narrow";
+import { wizardDraftSchema } from "@/lib/validation-schemas";
 
 const DEFAULT_EXCLUDED = [
   "node_modules",
@@ -59,7 +61,7 @@ async function loadDraft(): Promise<WizardDraft | null> {
   try {
     const raw = (await getUiSettings())[DRAFT_KEY];
     if (!raw) return null;
-    return JSON.parse(raw) as WizardDraft;
+    return wizardDraftSchema.parse(parseJson(raw)) as WizardDraft;
   } catch {
     return null;
   }

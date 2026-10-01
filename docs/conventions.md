@@ -39,15 +39,17 @@ Applies to request bodies, on-disk JSON, and CLI stream output alike.
 *Fix:* `validateBody(schema, raw)` for requests; a Zod schema or an explicit type
 guard for files.
 
-> **enforced by** `no-restricted-syntax` in `packages/domain/eslint.config.mjs`
-> (`error`) and `apps/web/eslint.config.mjs` (**`warn` — see below**)
-> **known debt:** 12 pre-existing sites are baselined in `packages/domain/eslint-suppressions.json`.
-> New ones fail **in `packages/domain` only**. In `apps/web` the rule is a
-> warning, `eslint-suppressions.json` there is empty, and CI runs
-> `--max-warnings=-1` — so 12 live violations accumulated unchallenged. Fixing
-> those and raising the severity is tracked separately; until then this rule is
-> half-enforced and the honest statement is this one.
-> Fix opportunistically; never add to the baseline by hand.
+> **enforced by** `no-restricted-syntax` (`error`) in BOTH
+> `packages/domain/eslint.config.mjs` and `apps/web/eslint.config.mjs`
+> **known debt:** 12 pre-existing sites are baselined in
+> `packages/domain/eslint-suppressions.json`. `apps/web` has none — its 12
+> accumulated while the rule was a `warn` there with an empty suppressions file
+> and CI running `--max-warnings=-1`; they were fixed rather than baselined.
+> New ones fail in both packages. Never add to the baseline by hand.
+>
+> Parse to `unknown`, then narrow: a real shape gets a schema in
+> `apps/web/src/lib/validation-schemas.ts` (a schema also supplies defaults);
+> a single field read gets a guard from `apps/web/src/lib/json-narrow.ts`.
 
 ---
 

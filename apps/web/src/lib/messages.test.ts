@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
+import { z } from "zod";
 
 const RAW = readFileSync(join(process.cwd(), "messages", "en.json"), "utf8");
 
@@ -36,7 +37,7 @@ test("no object in en.json declares the same key twice", () => {
 });
 
 test("every permission mode the picker offers has a label and subtitle", () => {
-  const msgs = JSON.parse(RAW) as { agent_editor: Record<string, string> };
+  const msgs = z.object({ agent_editor: z.record(z.string(), z.string()) }).parse(JSON.parse(RAW));
   const stem = (m: string) => m.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
   for (const mode of PERMISSION_MODE_OPTS) {
     const key = mode === "bypassPermissions" ? "bypass" : stem(mode);

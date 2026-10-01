@@ -3,6 +3,8 @@
  * NOT a valid quota-reset period — `parseLimits` never produces it, so a
  * persisted limits config can't accidentally disable the reset cycle.
  */
+import { parseJson, asRecord } from "@/lib/json-narrow";
+
 export type LimitsPeriod = "daily" | "week" | "month" | "all";
 export type HardCap = "off" | "warn" | "block";
 
@@ -17,7 +19,7 @@ const DEFAULTS: ClaudeLimits = { quotaUsd: 0, period: "week", hardCap: "warn" };
 export function parseLimits(raw: string | null): ClaudeLimits {
   if (!raw) return DEFAULTS;
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const parsed = asRecord(parseJson(raw)) ?? {};
     const period: LimitsPeriod =
       parsed.period === "month" ? "month" :
       parsed.period === "daily" ? "daily" :

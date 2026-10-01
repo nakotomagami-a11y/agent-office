@@ -19,6 +19,8 @@ import {
   type AgentPositions,
   type VisibleRange,
 } from "./office-map";
+import { parseJson } from "@/lib/json-narrow";
+import { dragRefSchema } from "@/lib/validation-schemas";
 
 // Compute the CSS box position + size for a unit so its feet align with the
 // same ground line used by the PixiJS canvas (TARGET_FEET_Y = (TILE+AGENT_SIZE)/2).
@@ -265,7 +267,7 @@ function OfficeMapOverlayImpl({
     const raw = e.dataTransfer.getData(AGENT_DRAG_MIME);
     if (!raw) return;
     try {
-      const ref = JSON.parse(raw) as DragRef;
+      const ref = dragRefSchema.parse(parseJson(raw));
       const isGrass = g[y]?.[x] === true;
       if (!isGrass) {
         const stack = d[decorationKey(x, y)];

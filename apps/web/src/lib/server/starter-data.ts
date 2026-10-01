@@ -17,6 +17,8 @@ import {
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { parseJson } from "@/lib/json-narrow";
+import { starterManifestSchema, starterSkipStateSchema } from "@/lib/validation-schemas";
 
 export const AGENTS_DIR = join(homedir(), ".claude", "agents");
 const ARCHIVE_DIR = join(AGENTS_DIR, "_archive");
@@ -176,9 +178,7 @@ function loadManifest(starterDir: string): Manifest | null {
   const path = join(starterDir, "agents", "MANIFEST.json");
   if (!existsSync(path)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as Manifest;
-    if (typeof parsed.version !== "string" || !Array.isArray(parsed.agents)) return null;
-    return parsed;
+    return starterManifestSchema.parse(parseJson(readFileSync(path, "utf8"))) as Manifest;
   } catch {
     return null;
   }
@@ -207,9 +207,7 @@ interface SkipState {
 function readSkipState(): SkipState | null {
   try {
     if (!existsSync(SKIP_FILE)) return null;
-    const parsed = JSON.parse(readFileSync(SKIP_FILE, "utf8")) as SkipState;
-    if (typeof parsed.version !== "string" || !Array.isArray(parsed.slugs)) return null;
-    return parsed;
+    return starterSkipStateSchema.parse(parseJson(readFileSync(SKIP_FILE, "utf8"))) as SkipState;
   } catch {
     return null;
   }

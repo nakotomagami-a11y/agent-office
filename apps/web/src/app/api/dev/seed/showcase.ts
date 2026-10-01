@@ -14,6 +14,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { db, projects, accounts, githubAccounts, secrets, scheduler, agents, paths } from "@agent-office/domain/services";
 import type { ThreadItem } from "@/modules/summon/format/thread-types";
+import { parseJson } from "@/lib/json-narrow";
 
 const now = () => Date.now();
 const MIN = 60_000;
@@ -389,7 +390,10 @@ export function clearShowcase(): void {
 
   // Project metadata + created folders
   let folders: string[] = [];
-  try { folders = JSON.parse(db.getUiSetting("showcase:folders") ?? "[]") as string[]; } catch { /* ignore */ }
+  try {
+    const parsed = parseJson(db.getUiSetting("showcase:folders") ?? "[]");
+    folders = Array.isArray(parsed) ? parsed.filter((f): f is string => typeof f === "string") : [];
+  } catch { /* ignore */ }
   for (const f of folders) { try { rmSync(f, { recursive: true, force: true }); } catch { /* ignore */ } }
   for (const id of ids) { try { rmSync(join(paths.PROJECTS_DIR, id), { recursive: true, force: true }); } catch { /* ignore */ } }
   raw.prepare("DELETE FROM ui_settings WHERE key = 'showcase:folders'").run();
