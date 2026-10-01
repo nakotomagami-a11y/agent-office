@@ -14,9 +14,36 @@ import { getDb } from "../db";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 
+/** An unreadable entry is "not this kind", not fatal to the whole sweep. */
+export function isKind(path: string, kind: "file" | "dir"): boolean {
+  try {
+    const st = statSync(path);
+    return kind === "file" ? st.isFile() : st.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 export interface CleanupResult {
   cleared: number;
   detail?: Record<string, number>;
+}
+
+/** FK children of `runs`: no ON DELETE CASCADE, so a run deleted before them
+ *  throws. cleanup.test.ts asserts this still matches the schema. */
+export const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
+
+/** Runs matching `where`, plus their children, in FK-safe order. */
+function deleteRunsWhere(where: string): number {
+  const db = getDb();
+  const ids = db.prepare(`SELECT id FROM runs WHERE ${where}`).all() as Array<{ id: string }>;
+  if (ids.length === 0) return 0;
+  const list = ids.map(() => "?").join(",");
+  const params = ids.map((r) => r.id);
+  for (const t of RUN_CHILD_TABLES) {
+    db.prepare(`DELETE FROM ${t} WHERE run_id IN (${list})`).run(...params);
+  }
+  return db.prepare(`DELETE FROM runs WHERE id IN (${list})`).run(...params).changes;
 }
 
 // ─── Chat transcripts ────────────────────────────────────────────────────────
@@ -41,12 +68,12 @@ export function clearComposerDrafts(): CleanupResult {
 
 export function wipeOrphanedRuns(): CleanupResult {
   const db = getDb();
-  const orphanRunsChanges = db
-    .prepare("DELETE FROM runs WHERE status = 'error' AND exit_code = -1")
-    .run().changes;
-  const orphanPipelinesChanges = db
-    .prepare("DELETE FROM pipelines WHERE interrupted = 1")
-    .run().changes;
+  const { orphanRunsChanges, orphanPipelinesChanges } = db.transaction(() => ({
+    orphanRunsChanges: deleteRunsWhere("status = 'error' AND exit_code = -1"),
+    orphanPipelinesChanges: db
+      .prepare("DELETE FROM pipelines WHERE interrupted = 1")
+      .run().changes,
+  }))();
   return {
     cleared: orphanRunsChanges + orphanPipelinesChanges,
     detail: {
@@ -67,7 +94,7 @@ export function resetAgentMemoryFiles(): CleanupResult {
     if (!name.endsWith(".memory.md")) continue;
     if (name === "_global.memory.md") continue;
     const p = join(AGENTS_DIR, name);
-    if (!statSync(p).isFile()) continue;
+    if (!isKind(p, "file")) continue;
     rmSync(p);
     cleared++;
   }
@@ -92,7 +119,7 @@ export function clearSkillInstallCache(): CleanupResult {
   let cleared = 0;
   for (const name of readdirSync(SKILLS_DIR)) {
     const p = join(SKILLS_DIR, name);
-    if (!statSync(p).isDirectory()) continue;
+    if (!isKind(p, "dir")) continue;
     rmSync(p, { recursive: true, force: true });
     cleared++;
   }
@@ -112,28 +139,29 @@ export function resetUiSettings(): CleanupResult {
 }
 
 // ─── Everything ──────────────────────────────────────────────────────────────
-// The bulk nuke — also wipes runs, messages, tool_calls (i.e. analytics
-// history). Callers must confirm twice at the UI layer.
+// The bulk nuke — also wipes analytics history. Confirmed twice at the UI.
 
 export function everything(): CleanupResult {
   const detail: Record<string, number> = {};
-
-  detail.transcripts = resetAllTranscripts().cleared;
-  detail.drafts = clearComposerDrafts().cleared;
-
   const db = getDb();
+
+  // EVERY db write in one transaction, or a rollback leaves a partial wipe.
   db.transaction(() => {
-    detail.messages = db.prepare("DELETE FROM messages").run().changes;
-    detail.toolCalls = db.prepare("DELETE FROM tool_calls").run().changes;
+    detail.transcripts = resetAllTranscripts().cleared;
+    detail.drafts = clearComposerDrafts().cleared;
+    detail.uiSettings = resetUiSettings().cleared;
+    for (const t of RUN_CHILD_TABLES) {
+      detail[t] = db.prepare(`DELETE FROM ${t}`).run().changes;
+    }
     detail.runs = db.prepare("DELETE FROM runs").run().changes;
     detail.pipelineSteps = db.prepare("DELETE FROM pipeline_steps").run().changes;
     detail.pipelines = db.prepare("DELETE FROM pipelines").run().changes;
   })();
 
+  // Filesystem last: it cannot be rolled back if the db half fails.
   detail.agentMemory = resetAgentMemoryFiles().cleared;
   detail.userAnalysis = resetUserAnalysis().cleared;
   detail.skillCache = clearSkillInstallCache().cleared;
-  detail.uiSettings = resetUiSettings().cleared;
 
   const total = Object.values(detail).reduce((a, b) => a + b, 0);
   return { cleared: total, detail };
