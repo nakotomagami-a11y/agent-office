@@ -5,7 +5,6 @@ import { DB_PATH, APP_STATE_DIR } from "../infra/paths";
 import { createSchema } from "./migrations";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __agentOfficeDb: Database.Database | undefined;
 }
 

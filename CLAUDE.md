@@ -27,6 +27,18 @@ pnpm -r lint
 pnpm --filter @agent-office/domain test
 ```
 
+The `test` script **excludes `*e2e*`**, and CI runs the same command — so two
+files never run unless you type it. They are not self-contained: each needs a
+throwaway `HOME` and its own stub `claude` on `PATH`, and the two stubs differ
+(one must fail auth, the other must stream a session id), so `test:e2e` cannot
+run both at once. Until that is fixed they are per-file:
+
+```bash
+# auth classification — stub must print an oauth error to stderr and exit 1
+HOME=$(mktemp -d) PATH="<stubdir>:$PATH" \
+  pnpm exec tsx packages/domain/src/services/execution/runs.auth-e2e.test.ts
+```
+
 ## Non-obvious
 
 - Agents are spawned as `claude -p` child processes; **stdin is closed**, so a

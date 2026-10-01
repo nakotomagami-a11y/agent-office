@@ -27,7 +27,6 @@ declare global {
   // in runs.ts) — silently double-processing every run's finish from then on
   // (double-draining the queue). See the identical pattern + rationale on
   // `__agentOfficeRunsInstalled` in runs.ts.
-  // eslint-disable-next-line no-var
   var __agentOfficeConversationWiringInstalled: boolean | undefined;
 }
 
