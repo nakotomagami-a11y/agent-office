@@ -257,6 +257,4 @@ the originals are worth your time.
   JavaScript. The other four — `axes`, `staffs`, `tridents`, `shields` — are
   original to
   [`pixel-weapons-generator`](https://github.com/nakotomagami-a11y/pixel-weapons-generator).
-  This is the dependency that determines this repo's licence; see
-  [License](#license).
 - **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0), also distributed on the [Unity Asset Store](https://assetstore.unity.com/packages/2d/environments/tiny-swords-352566).
