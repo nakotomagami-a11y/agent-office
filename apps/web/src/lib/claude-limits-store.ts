@@ -4,6 +4,7 @@ import { assertNever } from "@/lib/assert-never";
 import { type LimitsPeriod, type HardCap, parseLimits as parseLimitsCore, periodStart, periodEnd } from "@/lib/claude-limits";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { getAccount } from "@/lib/api/account";
+import { parseJson, asRecord } from "@/lib/json-narrow";
 
 export type { LimitsPeriod, HardCap };
 export { periodStart, periodEnd };
@@ -35,7 +36,7 @@ function validPlan(p: unknown): p is ClaudePlan {
 
 function parseLimits(raw: string): StoredClaudeLimits {
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const parsed = asRecord(parseJson(raw)) ?? {};
 
     // Migrate legacy max-5x / max-20x values
     let plan: ClaudePlan;

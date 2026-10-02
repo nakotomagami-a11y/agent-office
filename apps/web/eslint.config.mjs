@@ -81,8 +81,13 @@ export default [
 
       // ── Architecture rules (docs/conventions.md — Flexbox only + no
       //    generic utility drawer names) ─────────────────────────
+      // `error`, matching packages/domain. It was `warn` here with an EMPTY
+      // suppressions file and CI running `--max-warnings=-1`, so the rule
+      // conventions.md calls enforced was not enforced in this package at all —
+      // 12 violations accumulated unchallenged. They are now fixed; this keeps
+      // the next one from landing.
       "no-restricted-syntax": [
-        "warn",
+        "error",
         {
           selector:
             "JSXAttribute[name.name='className'] Literal[value=/\\b(grid-cols-|grid-rows-|grid-template|grid-flow|grid-area)\\b/]",

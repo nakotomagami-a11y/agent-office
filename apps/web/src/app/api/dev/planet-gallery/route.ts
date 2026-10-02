@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@agent-office/domain/services";
 import { forbidInProd } from "@/lib/api-helpers";
+import { parseJson, asRecord } from "@/lib/json-narrow";
 
 const KEY = "dev.planet-gallery";
 
@@ -14,7 +15,7 @@ export async function GET() {
   let configs: Record<string, unknown> = {};
   if (raw) {
     try {
-      configs = JSON.parse(raw) as Record<string, unknown>;
+      configs = asRecord(parseJson(raw)) ?? {};
     } catch {
       // Corrupt/old-shape value — treat as empty so the page falls back to defaults.
     }

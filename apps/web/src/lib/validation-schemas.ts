@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_PROMPT_BYTES } from "@agent-office/domain/services/infra/paths";
+import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 
 export const agentBodySchema = z.object({
@@ -393,4 +393,44 @@ export const startLoopSchema = z.object({
 
 export const loopActionSchema = z.object({
   action: z.enum(["stop", "acceptAsIs", "allowOneMore"]),
+});
+
+// ─── Parsed-from-disk shapes (RULE arch.parse-dont-cast) ─────────────────────
+// A malformed value here is reachable without any code change.
+
+const docsTabSchema = z.object({ id: z.string(), label: z.string(), file: z.string() });
+
+export const docsIndexSchema = z.object({
+  version: z.number().default(0),
+  // One bad tab must not blank the whole panel, so entries are DROPPED.
+  tabs: z.array(z.unknown()).default([]).transform((tabs) =>
+    tabs.flatMap((t) => {
+      const parsed = docsTabSchema.safeParse(t);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  ),
+});
+
+export const starterManifestSchema = z.object({
+  version: z.string(),
+  agents: z.array(z.unknown()),
+}).passthrough();
+
+export const starterSkipStateSchema = z.object({
+  version: z.string(),
+  slugs: z.array(z.string()),
+}).passthrough();
+
+export const wizardDraftSchema = z.object({
+  step: z.string(),
+  root: z.string().default(""),
+  excluded: z.array(z.string()).default([]),
+  selectedAgents: z.array(z.string()).default([]),
+  chosenFolderIds: z.array(z.string()).default([]),
+  projectName: z.string().default(""),
+});
+
+export const dragRefSchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
 });

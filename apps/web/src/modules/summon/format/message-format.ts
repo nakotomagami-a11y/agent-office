@@ -2,6 +2,7 @@
 // attachment cleanup, and lightweight syntax/inline-markdown highlighting.
 
 import { escapeHtml } from "@/lib/markdown";
+import { parseJson, strField } from "@/lib/json-narrow";
 
 /** Wall-clock "you" item ids are `y_<epoch-ms>` — extract a real HH:MM from
  *  them for the turn timeline. Returns undefined for non-`y_`-prefixed ids
@@ -51,8 +52,8 @@ export function isBackgroundBash(name: string, arg: string | undefined): boolean
  *  never renders blank. */
 export function extractBashCommand(arg: string): string {
   try {
-    const parsed = JSON.parse(arg) as { command?: unknown };
-    if (typeof parsed.command === "string") return parsed.command;
+    const command = strField(parseJson(arg), "command");
+    if (command !== undefined) return command;
   } catch { /* fall through */ }
   return arg;
 }

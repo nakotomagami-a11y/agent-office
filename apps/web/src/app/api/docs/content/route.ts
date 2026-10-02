@@ -8,6 +8,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { DocsIndex } from "@agent-office/domain/types";
+import { parseJson } from "@/lib/json-narrow";
+import { docsIndexSchema } from "@/lib/validation-schemas";
 
 // Resolve the repo-root `docs/` dir. `next dev`/`start` run with cwd = apps/web,
 // so we walk up two levels; when cwd is the repo root the first candidate hits.
@@ -33,13 +35,7 @@ function resolveDocsDir(): string | null {
 function loadIndex(dir: string): DocsIndex | null {
   try {
     const raw = readFileSync(join(dir, "_index.json"), "utf8");
-    const parsed = JSON.parse(raw) as DocsIndex;
-    if (!Array.isArray(parsed.tabs)) return null;
-    // Filter out malformed entries so the UI can't crash on partial config.
-    parsed.tabs = parsed.tabs.filter(
-      (t) => typeof t === "object" && typeof t.id === "string" && typeof t.file === "string" && typeof t.label === "string",
-    );
-    return parsed;
+    return docsIndexSchema.parse(parseJson(raw));
   } catch {
     return null;
   }
