@@ -24,6 +24,38 @@ fn pick_free_port() -> u16 {
         .port()
 }
 
+// Tauri hands back a Windows *verbatim* resource path (`\\?\C:\Users\...`).
+// CreateProcess accepts one, so spawning node works — but the server path is
+// also an *argument*, and Node cannot resolve a main module from a verbatim
+// path: `fs.realpathSync` walks it, lstats the bare `C:` component and dies
+// with EISDIR before a line of the server runs. The app then panics with
+// "bundled server exited during startup" and no window ever appears.
+//
+// Stripping the prefix once, at the resource dir, keeps every path derived
+// from it (node binary, server entry, AO_BUNDLE_ROOT) an ordinary path.
+#[cfg(all(not(debug_assertions), target_os = "windows"))]
+fn strip_verbatim(path: std::path::PathBuf) -> std::path::PathBuf {
+    use std::path::PathBuf;
+    let text = path.to_string_lossy();
+    // `\\?\UNC\server\share` is the verbatim spelling of `\\server\share`.
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    // `\\?\C:\...` -> `C:\...`. Only drive-letter paths have a
+    // non-verbatim spelling; `\\?\Volume{...}` must be left exactly as it is.
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        if matches!(rest.as_bytes(), [b'A'..=b'Z' | b'a'..=b'z', b':', b'\\', ..]) {
+            return PathBuf::from(rest);
+        }
+    }
+    path
+}
+
+#[cfg(all(not(debug_assertions), not(target_os = "windows")))]
+fn strip_verbatim(path: std::path::PathBuf) -> std::path::PathBuf {
+    path
+}
+
 // Wait until the bundled server actually serves HTTP, not merely until
 // something accepts a TCP connection. A bare connect() cannot tell our
 // server from an unrelated process, and it also returns true the instant
@@ -122,10 +154,9 @@ pub fn run() {
                 use std::process::Command;
                 use tauri::Manager;
 
-                let resource_dir = app
-                    .path()
-                    .resource_dir()
-                    .expect("resource dir not found");
+                let resource_dir = strip_verbatim(
+                    app.path().resource_dir().expect("resource dir not found"),
+                );
 
                 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
                 let node_bin_name = "node-x86_64-unknown-linux-gnu";
