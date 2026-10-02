@@ -12,8 +12,11 @@
 | `packages/domain` | `@agent-office/domain` — types, DB layer, services, route config |
 
 The workspace globs `apps/*` and `packages/*`, but today only `apps/web` and
-`packages/domain` exist. (Earlier `@agent-office/pixel-planets` / `pixel-icons`
-packages were removed — the office moved to PixiJS inside `apps/web`.)
+`packages/domain` exist. `@agent-office/pixel-planets` and
+`@agent-office/pixel-icons` are still used — they moved out of `packages/` into
+standalone repos and are pinned by commit as git dependencies in
+`apps/web/package.json`. The office *scene* is PixiJS inside `apps/web`; those
+two packages render the planet and weapon icons, not the scene.
 
 ---
 

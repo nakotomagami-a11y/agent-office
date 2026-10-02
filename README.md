@@ -62,7 +62,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Auto-tiling path tiles** - dirt paths connect to cardinal neighbours automatically; drawn via PixiJS Graphics (no PNG dependency)
 - **Bridges** - place horizontal/vertical bridge planks on water; end-caps auto-render on adjacent land tiles; agents stand elevated on bridges
 - **Voronoi water shader** - animated teal cellular water pattern behind the island
-- **Pixel-planet project icons** - each project gets a deterministic procedural WebGL2 planet icon (11 types: gas giant, rocky, terran, ice world, lava, etc.)
+- **Pixel-planet project icons** - each project gets a deterministic procedural WebGL2 planet icon (15 types: gas giant, rocky, terran, toxic, ice, islands, lava, ice moon, eclipse, black hole, galaxy, star, asteroid, comet, ringed terran)
 - **Smooth pan/zoom** - Ctrl+Scroll zooms to cursor; arrow keys / drag to pan
 
 ### Knowledge & memory
@@ -107,7 +107,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS v4** + custom design system (dark "Obsidian" theme, violet accent `#7c6af5`)
 - **Pixi.js v8** for the isometric office canvas (GPU-accelerated; PixiJS Graphics for procedural path tiles)
-- **`@agent-office/pixel-planets`** — in-house WebGL2 procedural planet renderer; one shared GL context for all project icons
+- **`@agent-office/pixel-planets`** and **`@agent-office/pixel-icons`** — own-authored procedural renderers, kept as separate repos: WebGL2 planet icons (one shared GL context for all of them) and canvas-2D weapon/shield icons
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules — see [`docs/data-fetching.md`](docs/data-fetching.md))
 - **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, pipelines, workflows, UI state
 - **framer-motion** for page + modal transitions
@@ -122,9 +122,15 @@ apps/
   web/            Next.js app (UI + API routes + SSE runner)
 packages/
   domain/         Types, DB layer, services (runs, agents, pipelines, skills, worktrees, accounts, ...) — imported as @agent-office/domain
-  pixel-planets/  WebGL2 procedural planet renderer (@agent-office/pixel-planets)
-  pixel-icons/    Procedural pixel-art icon set (@agent-office/pixel-icons)
 ```
+
+The workspace globs `packages/*` but `domain` is the only one. The two
+procedural-icon renderers used to live here and are now standalone
+repositories, pinned by commit as git dependencies in `apps/web/package.json`:
+[`pixel-planets-generator`](https://github.com/nakotomagami-a11y/pixel-planets-generator)
+(`@agent-office/pixel-planets`) and
+[`pixel-weapons-generator`](https://github.com/nakotomagami-a11y/pixel-weapons-generator)
+(`@agent-office/pixel-icons`).
 
 Inside `apps/web/src`:
 
@@ -211,12 +217,44 @@ Release builds are unsigned, and cover Linux and Windows only — see [Installin
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). The app links against `@agent-office/pixel-icons`, whose generator is GPL-3.0, so the combined work is GPL-3.0-or-later. Two components are separately licensed and remain redistributable on their own terms:
+[GPL-3.0-or-later](LICENSE) — and not by preference. The app links
+`@agent-office/pixel-icons`, whose `blades` and `spears` generators are ports of
+[Icon Machine](https://github.com/BrianMacIntosh/icon-machine), which is
+GPL-3.0. A port is a derivative work, so the combined work inherits
+GPL-3.0-or-later.
 
-- **`@agent-office/pixel-planets`** — MIT (see `packages/pixel-planets`)
-- **`@agent-office/pixel-icons`** — GPL-3.0-or-later source; the pixel-art icons it *generates* are released as [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+In practice: read it, run it, modify it, redistribute it, commercially or not —
+but anything you ship built on this carries the same licence and must offer the
+same complete source to whoever receives it. There is no take-it-private path,
+which is the point.
+
+The two procedural-icon renderers are separate repositories on their own terms,
+and stay redistributable on them independently of this app:
+
+| Package | Terms |
+|---|---|
+| [`pixel-planets-generator`](https://github.com/nakotomagami-a11y/pixel-planets-generator) | MIT |
+| [`pixel-weapons-generator`](https://github.com/nakotomagami-a11y/pixel-weapons-generator) | GPL-3.0-or-later for the generator *source*. As in Icon Machine, the pixel art it *outputs* is released [CC0](https://creativecommons.org/publicdomain/zero/1.0/) — generated icons are yours to use anywhere |
 
 ## Credits
 
-- **Pixel Planet icons** — WebGL2 port of the [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by [Deep-Fold](https://deep-fold.itch.io/) (MIT).
+Two generators here started from someone else's idea. Both were rewritten rather
+than copied — a different language in each case, a different renderer entirely
+for the planets, and mostly different code by now — but the ideas are theirs and
+the originals are worth your time.
+
+- **Procedural planet icons** — the shader algorithms began as a study of
+  [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by
+  [Deep-Fold](https://deep-fold.itch.io/) (MIT), written in Godot + GLSL ES.
+  [`pixel-planets-generator`](https://github.com/nakotomagami-a11y/pixel-planets-generator)
+  re-implements them as engine-free TypeScript + WebGL2 sharing one GL context
+  across every icon on screen, now covering 15 planet types. Please go support
+  the original.
+- **Procedural weapon & shield icons** — two of the six generator families,
+  `blades` and `spears`, are TypeScript ports of
+  [Icon Machine](https://github.com/BrianMacIntosh/icon-machine) by
+  [Brian MacIntosh](https://www.brianmacintosh.com/) (GPL-3.0), originally
+  JavaScript. The other four — `axes`, `staffs`, `tridents`, `shields` — are
+  original to
+  [`pixel-weapons-generator`](https://github.com/nakotomagami-a11y/pixel-weapons-generator).
 - **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0), also distributed on the [Unity Asset Store](https://assetstore.unity.com/packages/2d/environments/tiny-swords-352566).
