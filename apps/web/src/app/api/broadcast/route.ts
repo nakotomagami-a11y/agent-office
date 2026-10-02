@@ -52,6 +52,7 @@ function startRunForRosterInstance(
     instanceId: inst.instanceId,
     instanceLabel,
     args: built.args,
+    stdin: built.stdin,
   });
   return { runId };
 }

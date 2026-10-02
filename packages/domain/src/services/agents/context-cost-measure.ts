@@ -13,7 +13,8 @@
 // turn-diff unreliably reads ~0. The server's own tools/list is
 // deterministic; real runs do pay this (developer agents call
 // mcp__playwright__* thousands of times).
-import { spawn } from "node:child_process";
+// cross-spawn: `claude` and the MCP command (usually `npx`) are `.cmd` shims on Windows.
+import spawn from "cross-spawn";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -60,8 +61,8 @@ function runProbeTurn(args: string[], cwd: string, env: NodeJS.ProcessEnv): Prom
       reject(new Error("context-cost probe timed out"));
     }, PROBE_TIMEOUT_MS);
 
-    proc.stdout.on("data", (d: Buffer) => { out += d.toString(); });
-    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    proc.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
+    proc.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
     proc.on("error", (err) => { clearTimeout(timer); reject(err); });
     proc.on("close", () => {
       clearTimeout(timer);
@@ -119,10 +120,10 @@ function probeMcpSchemaTokens(command: string, args: string[]): Promise<number> 
     const proc = spawn(command, args, { stdio: ["pipe", "pipe", "ignore"] });
     const timer = setTimeout(() => finish(0), MCP_HANDSHAKE_TIMEOUT_MS);
     let buf = "";
-    const send = (o: unknown) => { try { proc.stdin.write(JSON.stringify(o) + "\n"); } catch { finish(0); } };
+    const send = (o: unknown) => { try { proc.stdin?.write(JSON.stringify(o) + "\n"); } catch { finish(0); } };
 
     proc.on("error", () => finish(0));
-    proc.stdout.on("data", (d: Buffer) => {
+    proc.stdout?.on("data", (d: Buffer) => {
       buf += d.toString();
       let idx: number;
       while ((idx = buf.indexOf("\n")) >= 0) {

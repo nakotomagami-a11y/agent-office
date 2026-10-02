@@ -10,7 +10,9 @@
 // On this machine it can also self-complete via the OS keychain (exit 0 with
 // no code), which we detect the same way — by watching for process exit.
 
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+// cross-spawn: `claude` is a `.cmd` shim on Windows — see runs.ts's import.
+import spawn from "cross-spawn";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { accountConfigDir, buildAugmentedPath, DEFAULT_ACCOUNT_ID, CLAUDE_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureAccountDir } from "./accounts";
 import { log } from "../infra/log";

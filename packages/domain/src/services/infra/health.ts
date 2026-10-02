@@ -1,6 +1,7 @@
 // `claude --version` cache. Refreshed on demand.
 
-import { spawn } from "node:child_process";
+// cross-spawn: `claude` is a `.cmd` shim on Windows — see runs.ts's import.
+import spawn from "cross-spawn";
 import type { HealthInfo } from "../../types/index";
 import { buildAugmentedPath } from "./paths";
 
@@ -26,10 +27,10 @@ function probe(): Promise<HealthInfo> {
         stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env, PATH: buildAugmentedPath() },
       });
-      proc.stdout.on("data", (chunk: Buffer) => {
+      proc.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString();
       });
-      proc.stderr.on("data", (chunk: Buffer) => {
+      proc.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString();
       });
       proc.on("error", (err) => {

@@ -89,6 +89,7 @@ export async function POST() {
       cwd,
       projectId: project?.id,
       args: built.args,
+      stdin: built.stdin,
     });
     return NextResponse.json({ runId, status: "started" });
   } catch (e) {

@@ -71,7 +71,9 @@ export function fmtDuration(ms: number): string {
 const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
 
 /** Convert a local upload path to a servable API URL, or return http(s) URLs as-is. */
-export function pathToUrl(raw: string): string | null {
+export function pathToUrl(rawPath: string): string | null {
+  // Uploads carry the host's separators; normalising lets one pattern set match both.
+  const raw = rawPath.replace(/\\/g, "/");
   // Agent uploads: ~/.claude/agents/_uploads/{agentId}/{filename}
   const agentM = raw.match(/\.claude\/agents\/_uploads\/([^/\s]+)\/([^/\s]+)$/);
   if (agentM && IMG_EXT.test(agentM[2]!)) {
@@ -93,8 +95,8 @@ export function pathToUrl(raw: string): string | null {
 export function extractImages(text: string): string[] {
   const urls: string[] = [];
   const seen = new Set<string>();
-  // Absolute paths ending in image extension
-  const pathRe = /(\/[^\s,'"<>()[\]]+)/g;
+  // Absolute paths ending in image extension — POSIX (`/…`) or Windows (`C:\…`, `C:/…`)
+  const pathRe = /((?:[A-Za-z]:)?[\\/][^\s,'"<>()[\]]+)/g;
   let m: RegExpExecArray | null;
   while ((m = pathRe.exec(text)) !== null) {
     const raw = m[1]!;
