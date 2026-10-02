@@ -210,6 +210,7 @@ export const summonRequestSchema = z.object({
   instanceId: z.string().optional(),
   resumeSessionId: z.string().optional(),
   contextProfile: z.enum(["tight", "balanced", "deep"]).optional(),
+  conversationId: z.string().optional(),
 });
 
 // ─── Conversations (server-authoritative chat, see docs/chat-refactor.md) ────
