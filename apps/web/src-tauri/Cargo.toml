@@ -1,10 +1,10 @@
 [package]
 name = "app"
 version = "0.1.2"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Agent Office — your Claude Code agents, visualized as a living isometric office"
+authors = ["chaos and curves"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/nakotomagami-a11y/agent-office"
 edition = "2021"
 rust-version = "1.77.2"
 
