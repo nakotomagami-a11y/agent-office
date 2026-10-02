@@ -1,0 +1,104 @@
+name: Windows Release
+
+# Builds the NSIS installer (`*-setup.exe`) and its updater signature. There is
+# no Windows code-signing certificate, so SmartScreen will warn on first run —
+# that is about Authenticode, which is unrelated to the minisign key below that
+# the in-app updater verifies.
+#
+# NSIS only, no MSI: the updater config uses `installMode: passive`, which NSIS
+# supports and WiX does not, so an MSI could be installed but never updated.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Every `run` below is POSIX, not PowerShell. windows-latest ships Git bash.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Before setup-node, so its `cache: pnpm` can find a package manager.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            apps/web/src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # The cache falls back to a same-OS restore-key whenever Cargo.lock's hash
+      # misses (every release bumps it), which restores the whole target/ dir —
+      # including the previous tag's bundle/. The upload step globs that
+      # directory, so a stale installer would ship inside this release.
+      - name: Clean stale bundle output
+        run: rm -rf apps/web/src-tauri/target/release/bundle
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+
+      # One step, not four: tauri.windows.conf.json's beforeBuildCommand already
+      # runs the Next build, prepare-bundle and verify-bundle, so doing them
+      # separately here would build the app twice.
+      - name: Build installer
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          # The webpack build OOMs the runner's default heap.
+          NODE_OPTIONS: --max-old-space-size=8192
+          # Signs the updater artifacts so the in-app updater accepts them.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build --bundles nsis
+
+      - name: Upload installer to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          # The .sig is what gen-latest-json.mjs maps to the windows-x86_64
+          # updater platform; without it the release installs but never updates.
+          files: |
+            apps/web/src-tauri/target/release/bundle/nsis/*-setup.exe
+            apps/web/src-tauri/target/release/bundle/nsis/*-setup.exe.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer as artifact (manual run)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: windows-installer
+          path: |
+            apps/web/src-tauri/target/release/bundle/nsis/*-setup.exe
+            apps/web/src-tauri/target/release/bundle/nsis/*-setup.exe.sig
+          if-no-files-found: error
