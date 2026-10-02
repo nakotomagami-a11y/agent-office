@@ -143,6 +143,7 @@ export function deleteRunsWhere(where: string, ...params: unknown[]): number {
       db.prepare(`DELETE FROM ${t} WHERE run_id IN (${ids})`).run(...params);
     }
     db.prepare(`UPDATE runs SET parent_run_id = NULL WHERE parent_run_id IN (${ids})`).run(...params);
+    db.prepare(`UPDATE scheduled_jobs SET fired_run_id = NULL WHERE fired_run_id IN (${ids})`).run(...params);
     changes = db.prepare(`DELETE FROM runs WHERE ${where}`).run(...params).changes;
   })();
   return changes;
