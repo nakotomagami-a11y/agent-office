@@ -40,6 +40,14 @@ if (!existsSync(standaloneDir)) {
   process.exit(1);
 }
 
+// Skip the excluded paths while copying, not only afterwards. `src-tauri` on
+// its own is multi-GB, and copying it just to delete it moments later cost
+// minutes of wall clock on every build. The post-copy sweep below stays as
+// the backstop for excluded entries nested inside directories we do copy.
+const excludedSources = new Set(
+  EXCLUDED_BUNDLE_PATHS.map((segments) => join(standaloneDir, ...segments)),
+);
+
 // Enumerate and diagnose each top-level entry in standalone
 console.log("\n=== standalone top-level entries ===");
 const topEntries = readdirSync(standaloneDir, { withFileTypes: true });
@@ -96,6 +104,10 @@ if (existsSync(standaloneAppWebNM)) {
  * overflow). This version uses JS recursion with a cycle-detection stack.
  */
 function safeCpSync(src, dest, _stack = new Set()) {
+  if (excludedSources.has(src)) {
+    console.log(`    skipped (excluded from bundle): ${src}`);
+    return;
+  }
   let srcStat;
   try {
     srcStat = lstatSync(src);
@@ -183,7 +195,11 @@ try {
       if (platform() === "win32") {
         safeCpSync(src, dest);
       } else {
-        cpSync(src, dest, { recursive: true, dereference: true });
+        cpSync(src, dest, {
+          recursive: true,
+          dereference: true,
+          filter: (from) => !excludedSources.has(from),
+        });
       }
       console.log(`  done:    ${entry.name}`);
     } catch (err) {
