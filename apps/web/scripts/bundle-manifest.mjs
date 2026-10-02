@@ -19,4 +19,13 @@ export const BUNDLE_ROOT_ENV = "AO_BUNDLE_ROOT";
 export const EXCLUDED_BUNDLE_PATHS = [
   ["apps", "web", ".next", "cache"],
   ["apps", "web", ".next", "dev"],
+  // The Tauri crate itself. Next's file tracing walks the app directory and
+  // drags `src-tauri` into the standalone output — including `target/`, which
+  // is multi-GB once a release build has run, and `server/`, which is the
+  // previous copy of this very bundle. Nothing under it is read at runtime:
+  // the launcher passes AO_BUNDLE_ROOT, and scripts/ and docs/ are copied
+  // explicitly. At 2.2GB it pushed makensis past its address space and the
+  // installer stage died with "Internal compiler error #12345: error mmapping
+  // datablock", which reads like a corrupt build rather than an oversized one.
+  ["apps", "web", "src-tauri"],
 ];
