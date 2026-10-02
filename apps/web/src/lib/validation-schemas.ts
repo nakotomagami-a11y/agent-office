@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_PROMPT_BYTES } from "@agent-office/domain/services/infra/paths";
+import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 
 export const agentBodySchema = z.object({
