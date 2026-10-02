@@ -221,6 +221,16 @@ export async function onRunFinished(
   await apply(convId, { type: "runFinished", runId, ok, sessionId }, runner);
 }
 
+/** Mirror `apply()`'s `startRun` effect for a run started outside the `send`
+ *  flow (a direct POST to /api/summon). Without it the conversation sits at
+ *  its old status/activeRunId while the run is live, so the UI shows nothing
+ *  running until it ends. */
+export function attachExternalRun(convId: string, runId: string): void {
+  const conv = db.getConversation(convId);
+  if (!conv) return;
+  persist(convId, reduce(buildState(conv), { type: "runStarted", runId }).state);
+}
+
 export function retry(convId: string, runner: ConversationRunner): Promise<ConversationView> {
   return apply(convId, { type: "retry" }, runner);
 }

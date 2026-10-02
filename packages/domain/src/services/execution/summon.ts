@@ -9,6 +9,10 @@ import { APP_STATE_DIR, REPO_SCRIPTS_DIR } from "../infra/paths";
 
 export interface BuiltCommand {
   args: string[];
+  /** Prior context + user message, fed over stdin rather than argv: on Windows
+   *  argv goes through cmd.exe, which truncates at the first newline and caps
+   *  the command line at ~8 KB. `claude -p` reads stdin on every platform. */
+  stdin: string;
   model: string;
   effort: string;
   permissionMode?: string;
@@ -19,12 +23,9 @@ export interface BuiltCommand {
 }
 
 // Linux execve() rejects any single argv string over MAX_ARG_STRLEN (128 KiB,
-// enforced kernel-side regardless of ARG_MAX/ulimit) with ENAMETOOLONG, which
-// surfaces to Node as `spawn E2BIG` before the child process even starts. An
-// agent with a heavy skill loadout (e.g. a dozen+ multi-KB SKILL.md bodies
-// concatenated by buildAppendedPrompt) blows past that easily. Passing the
-// system prompt as a file via `--append-system-prompt-file` sidesteps the
-// limit entirely — write once, hand the CLI a path instead of the payload.
+// kernel-enforced regardless of ulimit) as `spawn E2BIG`, and a heavy skill
+// loadout blows past it. `--append-system-prompt-file` hands the CLI a path
+// instead of the payload.
 const TMP_PROMPTS_DIR = join(APP_STATE_DIR, "tmp-prompts");
 const TMP_PROMPT_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6h — generous vs. realistic run duration
 
@@ -145,12 +146,12 @@ export function buildClaudeArgs(opts: {
   }
   if (request.resumeSessionId) args.push("--resume", request.resumeSessionId);
 
-  args.push(priorContext ? priorContext + request.prompt : request.prompt);
+  const stdin = priorContext ? priorContext + request.prompt : request.prompt;
 
   const permissionBridgeMissing =
     needsPermissionServer && !existsSync(PERMISSION_SERVER_PATH)
       ? PERMISSION_SERVER_PATH
       : undefined;
 
-  return { args, model, effort, permissionMode, systemPromptFile, permissionBridgeMissing };
+  return { args, stdin, model, effort, permissionMode, systemPromptFile, permissionBridgeMissing };
 }

@@ -2,8 +2,8 @@
 // values so existing user data still loads.
 
 import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { homedir, platform } from "node:os";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const HOME = homedir();
@@ -114,8 +114,15 @@ export function expandTilde(p: string): string {
  * Return an augmented PATH string that includes NVM node bin dirs and other
  * common locations so that `spawn("claude", ...)` works when the server
  * process inherits a minimal desktop-session environment (no .bashrc sourced).
+ * POSIX only: splitting a Windows PATH on `:` mangles every drive letter.
  */
 export function buildAugmentedPath(): string {
+  const existing = process.env.PATH ?? process.env.Path ?? "";
+  if (platform() === "win32") {
+    // Windows' inherited PATH already has the global npm bin dir.
+    return existing;
+  }
+
   const extra: string[] = [];
 
   // NVM - add every installed node version's bin dir (newest first via reverse sort)
@@ -137,8 +144,7 @@ export function buildAugmentedPath(): string {
   extra.push("/usr/bin");
   extra.push("/bin");
 
-  const existing = process.env.PATH ?? "";
-  const parts = [...extra, ...existing.split(":").filter(Boolean)];
+  const parts = [...extra, ...existing.split(delimiter).filter(Boolean)];
   // Deduplicate while preserving order
-  return [...new Set(parts)].join(":");
+  return [...new Set(parts)].join(delimiter);
 }

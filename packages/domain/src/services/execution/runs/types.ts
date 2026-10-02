@@ -3,7 +3,7 @@
 // importing the state machine.
 
 import type { ChildProcessByStdio } from "node:child_process";
-import type { Readable } from "node:stream";
+import type { Readable, Writable } from "node:stream";
 import type {
   SseAttachedEvent,
   SsePermissionRequestEvent,
@@ -71,16 +71,15 @@ export interface LiveRun {
   cost: number;
   status: "running" | "done" | "error";
   exitCode?: number;
-  /** Name of the tool call currently in flight (e.g. "Bash", "Read", "Grep") —
-   *  set on every `tool_use` block and left stale after the run finishes, so
-   *  dashboards polling `getRunningRuns()` can show live activity instead of
-   *  just the original prompt while `status === "running"`. */
+  /** Tool call currently in flight. Set on every `tool_use` block and left
+   *  stale after the run finishes, so dashboards polling `getRunningRuns()`
+   *  show live activity rather than just the prompt while `status === "running"`. */
   currentTool?: string;
   /** Set when the user explicitly aborts the run, so the resulting error is
    *  surfaced as a neutral "interrupted" card rather than a red failure. */
   aborted?: boolean;
   sessionId?: string;
-  proc: ChildProcessByStdio<null, Readable, Readable>;
+  proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
   subscribers: Set<SseEmit>;
   finishedAt?: number;
   parseFailures: number;
@@ -126,6 +125,8 @@ export interface StartRunOpts {
   instanceId?: string;
   instanceLabel?: string;
   args: string[];
+  /** Written to the child's stdin then closed — see BuiltCommand.stdin. */
+  stdin?: string;
   parentRunId?: string;
   conversationId?: string;
   /**

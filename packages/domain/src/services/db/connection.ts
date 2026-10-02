@@ -42,6 +42,9 @@ export function getDb(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
+  // Default is 0: a write colliding with another process's throws SQLITE_BUSY
+  // at once. Two servers on one db.sqlite is real, and the reap below raced it.
+  db.pragma("busy_timeout = 5000");
   createSchema(db);
   reapOrphanedRuns(db);
   globalThis.__agentOfficeDb = db;

@@ -164,14 +164,13 @@ pnpm --filter @agent-office/web tauri:build
 
 ## Installing a release build (unsigned)
 
-**Pre-built release binaries are Linux-only** — `.deb` and AppImage. There are
-no Windows or macOS builds; a code-signing certificate for each of those costs
-money per year, and this is a personal project, so those platforms are
-source-build-only (see below).
+Pre-built release binaries cover **Linux** (`.deb`, AppImage) and **Windows**
+(`*-setup.exe`, NSIS). macOS is source-build-only.
 
-**The Linux build is not code-signed.** There is no OS-level gate on Linux
-(unlike macOS Gatekeeper or Windows SmartScreen), so the `.deb` and AppImage
-install and run as-is.
+**Nothing is code-signed**; a certificate per platform costs money per year and
+this is a personal project. Linux has no OS-level gate, so the `.deb` and
+AppImage install as-is. Windows SmartScreen will warn on an unsigned installer —
+*More info* → *Run anyway*.
 
 Only the *updater* artifacts are signed (a minisign key, so the in-app updater
 can verify what it downloads). That is unrelated to OS-level trust.
@@ -182,6 +181,17 @@ On any platform, **build from source** instead of using a downloaded binary —
 ```sh
 pnpm --filter @agent-office/web tauri:build
 ```
+
+To build the working tree *and* install it over your current copy in one step:
+
+```sh
+pnpm install:local           # Linux: builds a .deb, installs it with dpkg
+pnpm install:local:windows   # Windows: builds the NSIS installer, runs it silently
+```
+
+The Windows script refuses while Agent Office is running, because the installer
+terminates the app — and the app hosts the agent runs, so an agent that installs
+over its own host kills its own run mid-task.
 
 ## Architecture notes
 
@@ -197,7 +207,7 @@ pnpm --filter @agent-office/web tauri:build
 
 Personal project, still heavily under development. Not production-grade for shared use - assumes a single local user with `claude` on `$PATH` and a populated `~/.claude/agents/` directory.
 
-Release builds are Linux-only and unsigned — see [Installing a release build](#installing-a-release-build-unsigned). Windows and macOS require building from source.
+Release builds are unsigned, and cover Linux and Windows only — see [Installing a release build](#installing-a-release-build-unsigned). macOS requires building from source.
 
 ## License
 

@@ -8,7 +8,13 @@
 // stream handling, sub-agent record-keeping, finalize). Pure helpers live
 // alongside in `./runs/`: types, error classification, and sub-agent parsing.
 
-import { spawn } from "node:child_process";
+// `node:child_process` cannot spawn `claude` on Windows: it is a `claude.cmd`
+// shim, which recent Node refuses without `shell: true` — and `shell: true`
+// concatenates the args array unescaped, corrupting args and reopening the
+// injection hole that restriction closes. cross-spawn escapes for cmd.exe.
+import spawn from "cross-spawn";
+import { execFileSync, type ChildProcessByStdio } from "node:child_process";
+import type { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
 import type { PersistedRun, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
@@ -58,6 +64,25 @@ const RUN_RETENTION_MS = 4 * 60 * 60_000;
 // falls back to once a turn scrolls out of the live SSE window.
 const TOOL_CALL_RETENTION_MS = 48 * 60 * 60_000;
 
+/** On Windows `proc.kill()` only signals the `cmd.exe` that cross-spawn uses
+ *  to launch `claude.cmd`; the real `claude` is an unrelated grandchild and
+ *  survived, so Abort did nothing. `taskkill /t /f` kills the tree. */
+function killRunProc(proc: ChildProcessByStdio<Writable | null, Readable, Readable>): void {
+  if (process.platform === "win32" && proc.pid) {
+    try {
+      execFileSync("taskkill", ["/pid", String(proc.pid), "/t", "/f"], { stdio: "ignore" });
+      return;
+    } catch {
+      /* already gone, or taskkill itself unavailable — fall through */
+    }
+  }
+  try {
+    proc.kill();
+  } catch {
+    /* already exited */
+  }
+}
+
 function gc(): void {
   const now = Date.now();
   const cutoff = now - RUN_RETENTION_MS;
@@ -69,7 +94,7 @@ function gc(): void {
     if (run.status === "running" && now - run.startTs > MAX_WALL_CLOCK_MS) {
       log.warn("run.wall_clock_exceeded", { runId: id, wallMs: now - run.startTs });
       broadcast(run, { name: "error", data: { runId: id, code: "max_runtime" } });
-      try { run.proc.kill(); } catch { /* already gone */ }
+      killRunProc(run.proc);
     }
   }
   db.pruneExpiredToolCalls(now - TOOL_CALL_RETENTION_MS);
@@ -99,10 +124,15 @@ export function startRun(opts: StartRunOpts): { runId: string } {
   env.AO_RUN_ID = runId;
   env.AO_BASE_URL = process.env.AO_BASE_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
   const proc = spawn("claude", opts.args, {
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [opts.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     cwd: opts.cwd,
     env,
-  });
+  }) as ChildProcessByStdio<Writable | null, Readable, Readable>;
+  if (opts.stdin !== undefined && proc.stdin) {
+    // EPIPE if the CLI dies before reading; the exit handler reports the cause.
+    proc.stdin.on("error", () => {});
+    proc.stdin.end(opts.stdin);
+  }
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,
@@ -188,7 +218,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
         stdio: ["ignore", "pipe", "pipe"],
         cwd: run.cwd,
         env,
-      });
+      }) as ChildProcessByStdio<null, Readable, Readable>;
       run.proc = retryProc;
       run.stderrBuf = "";
       pumpStdout(run);
@@ -341,11 +371,7 @@ export function abortRun(runId: string): boolean {
   const run = liveRuns.get(runId);
   if (run) {
     run.aborted = true;
-    try {
-      run.proc.kill();
-    } catch {
-      /* already exited */
-    }
+    killRunProc(run.proc);
     return true;
   }
   // Not driven by this process — either genuinely dead or a hung/foreign
@@ -357,11 +383,7 @@ export function abortRun(runId: string): boolean {
 
 export function killAllRuns(): void {
   for (const run of liveRuns.values()) {
-    try {
-      run.proc.kill();
-    } catch {
-      /* ignore */
-    }
+    killRunProc(run.proc);
     // Defensively finalise here too - `proc.on('exit')` may not get a turn
     // if Node is about to exit. Without this, in-flight runs at SIGINT time
     // never reach runs.log and a refresh later shows "not_found".
