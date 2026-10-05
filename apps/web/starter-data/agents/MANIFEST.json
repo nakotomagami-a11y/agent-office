@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-06-1",
+  "version": "2026-10-06-2",
   "generated": "2026-10-06",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
@@ -108,8 +108,8 @@
     {
       "file": "level-designer.md",
       "name": "level-designer",
-      "description": "Spatial layout for the cat game. Owns Tools/house_layout.py (the blockout DSL), Tools/house_reach.py (the cat-reachability solver), and the Blender/UE builders. Summon for: adding or reshaping rooms, routes, climb chains, one-way valves, hero landmarks; fixing 'the cat cannot get there'; greyboxing a new chapter; dressing a floor. Every run reports a reachability percentage and attaches renders it actually looked at. NOT for animation, rigging or gait (that is tech-animator), and not for gameplay C++.",
-      "hash": "247d16c98616b73e"
+      "description": "Blockout and greybox level design for 3D games. Shapes space: routes, traversal gating, climb chains, sightlines, landmarks, pacing. Summon for laying out or reshaping a level, fixing 'the player cannot get there', proving a level is traversable end to end, or greyboxing a new area. Works from the project's own layout source of truth and verifies with a measured traversal number plus renders it looked at. NOT for character animation or rigs (tech-animator), and not for gameplay code.",
+      "hash": "6e847e7290d8c0e2"
     },
     {
       "file": "mcp-builder.md",
@@ -180,8 +180,8 @@
     {
       "file": "tech-animator.md",
       "name": "tech-animator",
-      "description": "Cat locomotion and rig work. Owns Tools/blender_animate_cat.py, the blender_diagnose_*.py suite, the export/import chain and Docs/CAT_*. Summon for: gait authoring and tuning (walk, trot, run, gallop), paw placement and contact, turning, spine and neck motion, skeleton fitting, skinning and deformation bugs, idle/walk transitions, root motion and foot sliding. Every run ends with a contact sheet it actually looked at, sampled fast enough to show the event being judged. NOT for level layout or spatial reachability (that is level-designer).",
-      "hash": "9b89e484f5c5be02"
+      "description": "Character locomotion and rig work for 3D games. Summon for gait authoring and tuning (walk, trot, run, gallop), foot placement and contact, foot sliding, turning, spine and head motion, skeleton fitting, skinning and deformation bugs, state transitions, root motion, and the DCC-to-engine export chain. Every run ends with a contact sheet it actually looked at, sampled fast enough to resolve the event being judged. NOT for level layout or spatial reachability (level-designer).",
+      "hash": "c7d4ddb6566b14d8"
     },
     {
       "file": "tech-writer.md",
