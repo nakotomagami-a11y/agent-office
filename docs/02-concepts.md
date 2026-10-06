@@ -87,7 +87,7 @@ Every agent has a **memory tab**. Open the agent → *Memory* → type. That tex
 | **Skill** | A reusable behavior contract listed in an agent's frontmatter. Same skill → same rules. |
 | **Model** | The underlying Claude model. Aliases: `haiku` (fast), `sonnet` (default), `opus` (senior), `fable` (max quality, you dispatch it manually). |
 | **Effort** | How much thinking budget the model gets: `low`, `medium`, `high`, `xhigh`, `max`. |
-| **Room** | A grouping on the office floor — Boardroom, Engineering, QA, etc. Purely visual layout. |
+| **Room** | An agent's department — Boardroom, Engineering, QA, etc. Drives the agent gallery's filter chips, and `Council` gets its own roster section above "All agents". |
 | **Roster** | The list of agent instances attached to a project. |
 | **Worktree** | A separate on-disk copy of the project directory that one instance uses so agents don't step on each other. |
 | **Frontmatter** | The YAML block at the top of an agent's `.md` file. Defines model, tools, skills, etc. |

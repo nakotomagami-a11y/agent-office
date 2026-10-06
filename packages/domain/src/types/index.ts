@@ -52,6 +52,13 @@ export interface ApiAgent {
   addDirs?: string[];
   /** Avatar override "<faction>/<kind>". Unset = hashed from the name. */
   unit?: string;
+  panel?: PanelSeat[];
+}
+
+/** One voice on a council: who to dispatch, and what they argue. */
+export interface PanelSeat {
+  agent: string;
+  seat: string;
 }
 
 export interface AgentBody {
@@ -66,6 +73,7 @@ export interface AgentBody {
   body: string;
   room?: string;
   unit?: string;
+  panel?: PanelSeat[];
 }
 
 /** Who wrote a prompt. Stored, never inferred: a user may type the same words. */

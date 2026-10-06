@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-06-2",
+  "version": "2026-10-06-1",
   "generated": "2026-10-06",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
@@ -18,8 +18,8 @@
     {
       "file": "cs-boardroom.md",
       "name": "cs-boardroom",
-      "description": "Boardroom orchestrator — convenes CEO + CTO + CFO + CPO for cross-functional strategic decisions. Runs a 6-phase protocol: brief, isolated advisor takes, critic, synthesis, founder review, decision log. Use for decisions that span multiple executive domains (pricing + fundraising + product, or hiring wave + runway + roadmap). Not for single-domain questions — those go to the specific C-advisor directly.",
-      "hash": "e28e8de5e607f874"
+      "description": "Convenes the business council — CEO, CFO, CPO, CMO, COO — for cross-functional strategic decisions, and returns ONE advisory memo. Runs brief → isolated takes → critic → synthesis, then STOPS for the founder to decide. Use for decisions spanning multiple executive domains (pricing + fundraising + product, hiring wave + runway + roadmap). Single-domain questions go to that advisor directly.",
+      "hash": "0235785d1ade2c50"
     },
     {
       "file": "cs-ceo.md",

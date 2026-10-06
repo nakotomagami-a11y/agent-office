@@ -16,6 +16,9 @@ export const agentBodySchema = z.object({
   body: z.string().default(""),
   room: z.string().optional(),
   unit: z.string().optional(),
+  // Zod strips unknown keys, so a council saved through the editor would lose
+  // its seats here even though the form carries them.
+  panel: z.array(z.object({ agent: z.string(), seat: z.string().default("") })).optional(),
 });
 
 export const agentBodyListSchema = z.array(agentBodySchema);
