@@ -44,6 +44,9 @@ export interface SubAgentRecord {
   prompt: string;
   startTs: number;
   status: SubAgentStatus;
+  taskId?: string;
+  /** Async spawn: its `tool_result` is a receipt, not an outcome. See `isAsyncTaskLaunchAck`. */
+  backgrounded?: boolean;
 }
 
 export interface LiveRun {

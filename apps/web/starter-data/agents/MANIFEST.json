@@ -85,7 +85,7 @@
       "file": "developer.md",
       "name": "developer",
       "description": "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors.",
-      "hash": "eb1252694e897d64"
+      "hash": "fca1ed9eae369a61"
     },
     {
       "file": "devops-engineer.md",

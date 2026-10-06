@@ -2,6 +2,8 @@
 // (or Bash command), decide whether it spawned a sub-agent and extract the
 // child agent id + prompt. The stateful record-keeping lives in the core.
 
+import type { SubAgentStatus } from "../../../types/index";
+
 function extractTaskPrompt(input: unknown): string {
   if (input && typeof input === "object" && !Array.isArray(input)) {
     const obj = input as Record<string, unknown>;
@@ -89,6 +91,98 @@ function extractBashPrompt(command: string): string {
   const last = quotes.at(-1);
   if (last) return (last[1] ?? last[2] ?? "").trim();
   return command.trim();
+}
+
+/**
+ * CLI >= 2.1.278 runs `Task` asynchronously: the spawn's `tool_result` is a
+ * launch receipt, not the sub-agent's work — treating it as terminal settles
+ * every child card in milliseconds with boilerplate as its output. The real
+ * outcome arrives later on `system/task_notification`.
+ *
+ * `is_backgrounded` on `task_started` is the better signal (protocol, not
+ * prose); this text match covers the receipt arriving first.
+ */
+export function isAsyncTaskLaunchAck(resultText: string): boolean {
+  return /^\s*Async agent launched successfully/.test(resultText);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function str(obj: Record<string, unknown>, key: string): string | undefined {
+  const value = obj[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+export interface TaskStarted {
+  taskId: string;
+  toolUseId?: string;
+  subagentType?: string;
+  backgrounded: boolean;
+}
+
+/** `system/task_started` — correlates a `tool_use` id to a CLI task id. */
+export function parseTaskStarted(evt: unknown): TaskStarted | null {
+  const obj = asRecord(evt);
+  if (!obj || obj.type !== "system" || obj.subtype !== "task_started") return null;
+  const taskId = str(obj, "task_id");
+  if (!taskId) return null;
+  return {
+    taskId,
+    toolUseId: str(obj, "tool_use_id"),
+    subagentType: str(obj, "subagent_type"),
+    backgrounded: obj.is_backgrounded === true,
+  };
+}
+
+export interface TaskCompletion {
+  taskId: string;
+  toolUseId?: string;
+  status: SubAgentStatus;
+  summary?: string;
+  durationMs?: number;
+  outputFile?: string;
+}
+
+const TERMINAL_TASK_STATUS: Record<string, SubAgentStatus> = {
+  completed: "done",
+  cancelled: "cancelled",
+  canceled: "cancelled",
+  timeout: "timeout",
+  timed_out: "timeout",
+};
+
+/** A notification carrying one of these is progress, not completion. */
+const PENDING_TASK_STATUS = new Set(["running", "pending", "queued", "in_progress"]);
+
+/**
+ * `system/task_notification` — the only real completion signal for an async
+ * sub-agent. An unrecognised status maps to `error`, never `done`: claiming a
+ * success we cannot verify is the worse failure.
+ */
+export function parseTaskNotification(evt: unknown): TaskCompletion | null {
+  const obj = asRecord(evt);
+  if (!obj || obj.type !== "system" || obj.subtype !== "task_notification") return null;
+  const taskId = str(obj, "task_id");
+  if (!taskId) return null;
+
+  const raw = str(obj, "status");
+  if (raw && PENDING_TASK_STATUS.has(raw)) return null;
+
+  const usage = asRecord(obj.usage);
+  const durationMs = typeof usage?.duration_ms === "number" ? usage.duration_ms : undefined;
+
+  return {
+    taskId,
+    toolUseId: str(obj, "tool_use_id"),
+    status: (raw ? TERMINAL_TASK_STATUS[raw] : undefined) ?? "error",
+    summary: str(obj, "summary"),
+    durationMs,
+    outputFile: str(obj, "output_file"),
+  };
 }
 
 /** Flatten a tool_result `content` (string | array of parts | object) to text. */
