@@ -126,31 +126,37 @@ export function ensureGithubAccountDir(id: string): string {
 // ─── Status detection ────────────────────────────────────────────────────────
 
 /**
- * Report the logged-in GitHub identity for a gh config dir straight off disk.
- * `gh` persists the active login to `<configDir>/hosts.yml`:
+ * Identities for a gh config dir, read from `<configDir>/hosts.yml`.
  *
- *   github.com:
- *     user: <login>
- *     oauth_token: <...>
+ * **A dir holds N logins, not one.** `user:` is only whichever is ACTIVE
+ * (`gh auth switch` flips it); `users:` is the full set. Reading `user:` alone
+ * made every other login invisible — an account the machine was fully
+ * authenticated for looked like it had never been added.
  *
- * We read that file (never spawn `gh`, never hit the network — mirrors how
- * accounts.ts reads `.credentials.json`), so getStatus stays cheap enough to
- * call inside the GET `.map()` without ever blocking the event loop. Missing or
- * malformed hosts.yml → `{ ready: false }`.
+ * Off disk, never via `gh` or the network (mirrors accounts.ts reading
+ * `.credentials.json`), so getStatus stays cheap enough for the GET `.map()`.
  */
-function readHostsUser(configDir: string): { username?: string; ready: boolean } {
-  const path = join(configDir, "hosts.yml");
+export function parseHostsUsers(yaml: string): { username?: string; usernames: string[]; ready: boolean } {
+  const parsed = parseYaml(yaml);
+  if (!isYamlMapping(parsed)) return { usernames: [], ready: false };
+  const host = parsed["github.com"];
+  if (!isYamlMapping(host)) return { usernames: [], ready: false };
+
+  const active = typeof host.user === "string" ? host.user.trim() : "";
+  // `users:` entries are keys with null values — the values carry nothing.
+  const listed = isYamlMapping(host.users) ? Object.keys(host.users).map((u) => u.trim()).filter(Boolean) : [];
+  const usernames = [...new Set([active, ...listed].filter(Boolean))]; // active first: the UI leads with it
+
+  const token = typeof host.oauth_token === "string" ? host.oauth_token.trim() : "";
+  const ready = Boolean(usernames.length || token);
+  return active ? { username: active, usernames, ready } : { usernames, ready };
+}
+
+function readHostsUser(configDir: string): { username?: string; usernames: string[]; ready: boolean } {
   try {
-    const parsed = parseYaml(readFileSync(path, "utf-8"));
-    if (!isYamlMapping(parsed)) return { ready: false };
-    const host = parsed["github.com"];
-    if (!isYamlMapping(host)) return { ready: false };
-    const user = typeof host.user === "string" ? host.user.trim() : "";
-    const token = typeof host.oauth_token === "string" ? host.oauth_token.trim() : "";
-    const ready = Boolean(user || token);
-    return user ? { username: user, ready } : { ready };
+    return parseHostsUsers(readFileSync(join(configDir, "hosts.yml"), "utf-8"));
   } catch {
-    return { ready: false };
+    return { usernames: [], ready: false };
   }
 }
 
@@ -160,9 +166,10 @@ export function getStatus(id: string): GithubAccountWithStatus | null {
   // `default` maps to the system gh config; every other id owns a dir under
   // GITHUB_ACCOUNTS_DIR.
   const configDir = githubAccountConfigDir(id) ?? SYSTEM_GH_CONFIG_DIR;
-  const { username, ready } = readHostsUser(configDir);
+  const { username, usernames, ready } = readHostsUser(configDir);
   const status: GithubAccountWithStatus = { ...account, ready };
   if (username) status.username = username;
+  if (usernames.length) status.usernames = usernames;
   return status;
 }
 
