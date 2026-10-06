@@ -6,6 +6,9 @@
 // did neither — so the same call rendered differently before and after a run
 // finished, which is what made the thread jump. Both now call these.
 
+import type { ThreadItem } from "./thread-types";
+import type { SseToolEvent } from "@agent-office/domain/types";
+
 const SPAWN_TOOL_NAMES = new Set(["Task", "Agent"]);
 
 function isClaudeBashSpawn(command: string): boolean {
@@ -74,4 +77,27 @@ export function parseStoredToolInput(stored: string): unknown {
   } catch {
     return stored;
   }
+}
+
+export const newId = (): string => `i_${Math.random().toString(36).slice(2, 10)}`;
+
+/** Fold one `tool` SSE event into the thread. Every call is reported twice (an
+ *  empty `content_block_start`, then the assistant message) and the whole log is
+ *  replayed on reconnect — hence an upsert on `toolUseId`. See the test file. */
+export function applyToolEvent(thread: ThreadItem[], data: SseToolEvent): ThreadItem[] {
+  const isSameCall = (it: ThreadItem): it is Extract<ThreadItem, { kind: "agent-tool" }> =>
+    it.kind === "agent-tool" && it.id === data.toolUseId;
+  const existing = data.toolUseId === undefined ? undefined : thread.find(isSameCall);
+  if (isSubAgentSpawnTool(data.name, data.input)) {
+    // Spawns render as their own card. Detecting a `claude -p --agent` one needs
+    // the command, so the input-less first fire already added a plain row.
+    return existing ? thread.filter((it) => it !== existing) : thread;
+  }
+  const arg = formatToolArg(data.input);
+  if (!existing) {
+    return [...thread, { kind: "agent-tool", id: data.toolUseId ?? newId(), name: data.name, arg, runId: data.runId }];
+  }
+  // An empty input must never blank out an arg the other fire already supplied.
+  if (arg === undefined || arg === existing.arg) return thread;
+  return thread.map((it) => (isSameCall(it) ? { ...it, name: data.name, arg } : it));
 }

@@ -455,7 +455,7 @@ export interface SsePermissionRequestEvent {
 }
 
 export interface SseChunkEvent { runId: string; text: string }
-export interface SseToolEvent { runId: string; name: string; input?: unknown }
+export interface SseToolEvent { runId: string; name: string; input?: unknown; toolUseId?: string }
 export interface SseUsageEvent {
   runId: string;
   tokensIn: number;
