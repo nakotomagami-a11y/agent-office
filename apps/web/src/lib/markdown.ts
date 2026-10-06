@@ -81,7 +81,25 @@ export function splitProse(text: string): ProseItem[] {
     last = m.index + m[0].length;
   }
   if (last < text.length) {
-    for (const line of text.slice(last).split("\n")) lines.push(line);
+    const tail = text.slice(last);
+    const open = openFence(tail);
+    if (open) {
+      for (const line of tail.slice(0, open.index).split("\n")) lines.push(line);
+      lines.push({ type: "code", lang: open.lang || "text", body: open.body });
+    } else {
+      for (const line of tail.replace(/(?:^|\n)`{2,3}\w*$/, "").split("\n")) lines.push(line);
+    }
   }
   return mergeTables(lines);
+}
+
+// Unclosed fence → code block (CommonMark). Each clause guards a streaming frame — see markdown.test.ts.
+function openFence(tail: string): { index: number; lang: string; body: string } | null {
+  const m = /(?:^|\n)```(\w*)[^\S\n]*\n([\s\S]*)$/.exec(tail);
+  if (!m) return null;
+  return {
+    index: m.index === 0 ? 0 : m.index + 1,
+    lang: m[1] ?? "",
+    body: (m[2] ?? "").replace(/\n`{1,2}$/, "").replace(/\n$/, ""),
+  };
 }

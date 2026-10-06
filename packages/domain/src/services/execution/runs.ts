@@ -474,7 +474,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
       run.currentTool = toolName;
       broadcast(run, {
         name: "tool",
-        data: { runId: run.id, name: toolName, input: ev.content_block.input },
+        data: { runId: run.id, name: toolName, input: ev.content_block.input, toolUseId: ev.content_block.id },
       });
       db.insertToolCall(run.id, toolName, ev.content_block.input, Date.now(), ev.content_block.id);
       // Do NOT call spawnSubAgentRecord here — input is always {} at content_block_start.
@@ -500,7 +500,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
         }
         broadcast(run, {
           name: "tool",
-          data: { runId: run.id, name: toolName, input: block.input },
+          data: { runId: run.id, name: toolName, input: block.input, toolUseId: block.id },
         });
         db.insertToolCall(run.id, toolName, block.input, Date.now(), block.id);
         const spawn = detectSubAgentSpawn(toolName, block.input, run.agentId);

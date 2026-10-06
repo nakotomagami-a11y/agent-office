@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { formatToolArg, isSubAgentSpawnTool } from "./tool-item";
+import { applyToolEvent, newId } from "./tool-item";
 import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
@@ -25,7 +25,7 @@ const attachedSchema = z.object({
 });
 
 const chunkSchema = z.object({ runId: z.string(), text: z.string() });
-const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional() });
+const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional(), toolUseId: z.string().optional() });
 const usageSchema = z.object({
   runId: z.string(),
   tokensIn: z.number(),
@@ -123,23 +123,11 @@ export function applySseEvent(
         error: null,
       };
     case "tool": {
-      const { data } = event;
-      // Sub-agent spawns get their own card via the dedicated `subagent` event,
-      // so suppress the raw tool card here to avoid a duplicate. Covers native
-      // Task/Agent tools and Bash `claude -p --agent` spawns, and both the empty
-      // content_block_start fire and the full assistant fire.
-      if (isSubAgentSpawnTool(data.name, data.input)) {
-        return { thread: prev.thread, usage: prev.usage, done: false, error: null };
-      }
-      return {
-        thread: closeStreaming([
-          ...prev.thread,
-          { kind: "agent-tool" as const, id: newId(), name: data.name, arg: formatToolArg(data.input), runId: data.runId },
-        ]),
-        usage: prev.usage,
-        done: false,
-        error: null,
-      };
+      const next = applyToolEvent(prev.thread, event.data);
+      // A *new* row ends the text bubble above it; updating one must not, since
+      // an assistant message can stream more text after its tool_use block.
+      const thread = next.length > prev.thread.length ? closeStreaming(next) : next;
+      return { thread, usage: prev.usage, done: false, error: null };
     }
     case "subagent": {
       const { data } = event;
@@ -287,8 +275,6 @@ export function applySseEvent(
       return assertNever(event);
   }
 }
-
-const newId = (): string => `i_${Math.random().toString(36).slice(2, 10)}`;
 
 function appendTextChunk(thread: ThreadItem[], text: string): ThreadItem[] {
   const last = thread[thread.length - 1];
