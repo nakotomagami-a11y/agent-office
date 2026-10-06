@@ -24,7 +24,8 @@ import {
   type DragRef,
 } from "@/modules/office/hooks/use-office-drag";
 import { isTauri, closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/lib/tauri-window";
-import { RosterGroup } from "./roster-group";
+import { RosterGroup, type RosterGroupData } from "./roster-group";
+import { splitRoster } from "@/modules/office/derive/split-roster";
 import { useRosterDisplay, type RosterRow } from "@/modules/office/hooks/use-roster-display";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
@@ -108,18 +109,12 @@ export function Sidebar() {
     [pinnedGroups, activeProjectId],
   );
 
-  // Pinned/rest split: a "Pinned" header only appears when something is
-  // pinned, and the remaining section reads "All agents" in that case, or
-  // plain "Agents" when nothing is pinned.
-  const { pinnedList, restList } = useMemo(() => {
-    const base = filter
-      ? rosterGroups.filter((g) => g.agent.name.toLowerCase().includes(filter.toLowerCase()))
-      : rosterGroups;
-    return {
-      pinnedList: base.filter((g) => pinnedIds.includes(g.agentId)),
-      restList: base.filter((g) => !pinnedIds.includes(g.agentId)),
-    };
-  }, [rosterGroups, filter, pinnedIds]);
+  // Each section draws its own header only when it has rows, so an empty one
+  // never leaves a heading promising a list that is not there.
+  const { pinnedList, councilList, restList } = useMemo(
+    () => splitRoster({ groups: rosterGroups, filter, pinnedIds }),
+    [rosterGroups, filter, pinnedIds],
+  );
 
   const onRemove = useCallback((row: RosterRow) => {
     if (!activeProjectId || !row.instance) return;
@@ -159,7 +154,30 @@ export function Sidebar() {
     setRenamingInstanceId(null);
   }, []);
 
-  const totalCount = project ? pinnedList.length + restList.length : filtered.length;
+  const renderGroup = (group: RosterGroupData, pinned: boolean) => (
+    <RosterGroup
+      key={group.agentId}
+      group={group}
+      runs={runs}
+      projectId={activeProjectId ?? ""}
+      selectedInstanceId={selectedInstanceId}
+      renamingInstanceId={renamingInstanceId}
+      onSelect={(instanceId) => select(group.agent.id, { instanceId })}
+      onSpawn={onSpawn}
+      onRemove={onRemoveById}
+      onToggle={() => activeProjectId && toggleGroup(activeProjectId, group.agentId)}
+      onRenameStart={onRenameStart}
+      onRenameCommit={onRenameCommit}
+      onRenameCancel={onRenameCancel}
+      spendByInstance={spendByInstance}
+      pinned={pinned}
+      onTogglePin={() => activeProjectId && togglePin(activeProjectId, group.agentId)}
+    />
+  );
+
+  const totalCount = project
+    ? pinnedList.length + councilList.length + restList.length
+    : filtered.length;
   const tauri = isTauri();
 
   return (
@@ -221,53 +239,29 @@ export function Sidebar() {
               {pinnedList.length > 0 && (
                 <>
                   <RosterHeader label={t("sidebar.header_pinned")} count={pinnedList.length} pinned />
-                  {pinnedList.map((group) => (
-                    <RosterGroup
-                      key={group.agentId}
-                      group={group}
-                      runs={runs}
-                      projectId={activeProjectId ?? ""}
-                      selectedInstanceId={selectedInstanceId}
-                      renamingInstanceId={renamingInstanceId}
-                      onSelect={(instanceId) => select(group.agent.id, { instanceId })}
-                      onSpawn={onSpawn}
-                      onRemove={onRemoveById}
-                      onToggle={() => activeProjectId && toggleGroup(activeProjectId, group.agentId)}
-                      onRenameStart={onRenameStart}
-                      onRenameCommit={onRenameCommit}
-                      onRenameCancel={onRenameCancel}
-                      spendByInstance={spendByInstance}
-                      pinned
-                      onTogglePin={() => activeProjectId && togglePin(activeProjectId, group.agentId)}
-                    />
-                  ))}
+                  {pinnedList.map((group) => renderGroup(group, true))}
                 </>
               )}
-              <RosterHeader
-                label={pinnedList.length > 0 ? t("sidebar.header_all_agents") : t("sidebar.header_agents")}
-                count={restList.length}
-              />
-              {restList.map((group) => (
-                <RosterGroup
-                  key={group.agentId}
-                  group={group}
-                  runs={runs}
-                  projectId={activeProjectId ?? ""}
-                  selectedInstanceId={selectedInstanceId}
-                  renamingInstanceId={renamingInstanceId}
-                  onSelect={(instanceId) => select(group.agent.id, { instanceId })}
-                  onSpawn={onSpawn}
-                  onRemove={onRemoveById}
-                  onToggle={() => activeProjectId && toggleGroup(activeProjectId, group.agentId)}
-                  onRenameStart={onRenameStart}
-                  onRenameCommit={onRenameCommit}
-                  onRenameCancel={onRenameCancel}
-                  spendByInstance={spendByInstance}
-                  pinned={false}
-                  onTogglePin={() => activeProjectId && togglePin(activeProjectId, group.agentId)}
-                />
-              ))}
-              {pinnedList.length === 0 && restList.length === 0 && (
+              {councilList.length > 0 && (
+                <>
+                  <RosterHeader label={t("sidebar.header_council")} count={councilList.length} />
+                  {councilList.map((group) => renderGroup(group, false))}
+                </>
+              )}
+              {restList.length > 0 && (
+                <>
+                  <RosterHeader
+                    label={
+                      pinnedList.length > 0 || councilList.length > 0
+                        ? t("sidebar.header_all_agents")
+                        : t("sidebar.header_agents")
+                    }
+                    count={restList.length}
+                  />
+                  {restList.map((group) => renderGroup(group, false))}
+                </>
+              )}
+              {pinnedList.length === 0 && councilList.length === 0 && restList.length === 0 && (
                 <div className="text-txt-3 px-[14px] py-2 text-[11px]">{t("common.no_matches", { query: filter })}</div>
               )}
             </>

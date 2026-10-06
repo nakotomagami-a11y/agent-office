@@ -1,5 +1,7 @@
 import type { ApiAgent } from "@agent-office/domain/types";
 
+export const COUNCIL_ROOM = "Council";
+
 /**
  * Derive a coarse-grained "department" tag for an agent so the gallery can
  * filter by team. Honours the agent's `room` frontmatter when set, otherwise
@@ -38,6 +40,7 @@ export function categoryColor(cat: string): string {
     "AI & Data": "#8b5cf6", Security: "#ef4444", Docs: "#f59e0b",
     Marketing: "#f97316", Research: "#06b6d4", Strategy: "#8b5cf6",
     Build: "#e95420", Boardroom: "#f59e0b", Product: "#10b981",
+    [COUNCIL_ROOM]: "#a855f7",
   };
   return m[cat] ?? "#8A8079";
 }

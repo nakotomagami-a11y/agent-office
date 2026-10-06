@@ -83,7 +83,7 @@ const MODELS = MODEL_IDS.map((id) => {
   };
 });
 
-const CLASS_OPTIONS = ["Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
+const CLASS_OPTIONS = ["Council", "Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
 
 const PM_ICONS: Record<(typeof PERMISSION_MODE_OPTS)[number], IconName> = {
   default: "help-circle",

@@ -2,7 +2,7 @@
 // as comma-separated strings for ergonomics; the wire shape (`AgentBody`) wants
 // arrays. Pure helpers - no React imports - so they can be unit-tested.
 
-import type { AgentBody, ApiAgent } from "@agent-office/domain/types";
+import type { AgentBody, ApiAgent, PanelSeat } from "@agent-office/domain/types";
 
 export interface AgentFormValues {
   id: string;
@@ -17,6 +17,8 @@ export interface AgentFormValues {
   /** Avatar override in `"<faction>/<kind>"` form, or empty for auto. */
   unit: string;
   body: string;
+  /** Not editable here. Held so a save does not drop a council's seats. */
+  panel?: PanelSeat[];
 }
 
 export const EMPTY_FORM: AgentFormValues = {
@@ -64,6 +66,7 @@ export function fromApi(agent: ApiAgent, body: string): AgentFormValues {
     room: agent.room ?? "",
     unit: agent.unit ?? "",
     body,
+    panel: agent.panel,
   };
 }
 
@@ -80,6 +83,7 @@ export function toBody(values: AgentFormValues): AgentBody {
     body: values.body,
     room: values.room.trim() || undefined,
     unit: values.unit.trim() || undefined,
+    panel: values.panel,
   };
 }
 

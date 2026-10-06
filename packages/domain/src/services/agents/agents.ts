@@ -13,10 +13,10 @@
 
 import { readdirSync, readFileSync, existsSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
+import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, PanelSeat, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { parseFrontmatter, stringifyYaml, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
 import { buildSkillsBundle } from "../skills/skills";
 import { unknownTools, retiredToolHints } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
@@ -47,6 +47,24 @@ export function asPermissionMode(v: unknown): string | undefined {
   if ((PERMISSION_MODE_OPTS as readonly string[]).includes(canonical)) return canonical;
   log.warn("agents.invalid_permission_mode", { value: s });
   return undefined;
+}
+
+/** Frontmatter is hand-edited, so a seat's `agent` could be anything. An id that
+ *  is not a usable slug would reach a spawn verbatim and come back as silence
+ *  rather than an error, so drop the seat instead of dispatching it. */
+export function asPanel(v: unknown): PanelSeat[] {
+  if (!Array.isArray(v)) return [];
+  const seats: PanelSeat[] = [];
+  for (const entry of v) {
+    if (!isYamlMapping(entry)) continue;
+    const agent = asString(entry.agent);
+    if (!agent || !isValidIdSegment(agent)) {
+      log.warn("agents.invalid_panel_seat", { agent: String(entry.agent) });
+      continue;
+    }
+    seats.push({ agent, seat: asString(entry.seat) ?? "" });
+  }
+  return seats;
 }
 
 function asStringList(v: unknown): string[] {
@@ -84,6 +102,7 @@ export function readAgent(name: string): { info: ApiAgent; body: string } | null
     room: asString(fm.room),
     addDirs: asStringList(fm["add-dirs"] ?? fm["addDirs"]),
     unit: asString(fm.unit),
+    panel: asPanel(fm.panel),
   };
   return { info, body: body.trim() };
 }
@@ -126,6 +145,7 @@ export function writeAgent(b: AgentBody): string {
   if (label && label !== id) fm["display-name"] = label;
   if (b.room) fm.room = b.room;
   if (b.unit && b.unit.trim()) fm.unit = b.unit.trim();
+  if (b.panel?.length) fm.panel = b.panel as unknown as YamlValue;
   const content = `---\n${stringifyYaml(fm).trim()}\n---\n\n${b.body}\n`;
   writeFileAtomic(file, content);
   return id;
