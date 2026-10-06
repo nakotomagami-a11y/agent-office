@@ -28,6 +28,7 @@ import { RefreshButton } from "./refresh-button";
 import { PerformanceToggle } from "./performance-toggle";
 import { SkillUpdatesBell } from "./skill-updates-bell";
 import { UpdateBell } from "./update-bell";
+import { VersionBadge } from "./version-badge";
 import { DevMenu } from "@/components/dev/dev-menu";
 
 /**
@@ -380,6 +381,9 @@ export function MainTopBar() {
       {/* Update available — renders nothing until UpdateBell detects a
           newer build; occupies the top-bar slot the Docs button used to. */}
       <UpdateBell />
+
+      {/* Which build is actually running — the bell is silent when up to date. */}
+      <VersionBadge />
 
       {/* Performance toggle — reflects the rendering budget and surfaces
           auto (power-source) switches so they're never silent. */}
