@@ -1,9 +1,14 @@
 /**
  * Starter-data agents are what a NEW user gets. `agent-surface.test.ts` gates
  * `listAgents()` — the user's own `~/.claude/agents` — so the shipped copies
- * were never checked, and 30 of them declared `Grep`/`Glob` for months. Those
- * tools do not exist in CLI v2.1.278; a declared tool that does not exist
- * grants nothing, silently.
+ * were never checked, and 30 of them declared tools the catalog did not list.
+ * A declared tool the CLI does not know grants nothing, silently.
+ *
+ * `Grep`/`Glob` were the original offenders here and have since been confirmed
+ * REAL on CLI v2.1.277 — `claude -p --agent <name>` grants `Grep` to an agent
+ * that declares it. They are now in `KNOWN_TOOLS`, so this test no longer
+ * flags them. The guarantee it enforces is unchanged: every declared name must
+ * appear in the catalog.
  *
  * Regenerate the catalog after a CLI upgrade — see config/tools.ts.
  */

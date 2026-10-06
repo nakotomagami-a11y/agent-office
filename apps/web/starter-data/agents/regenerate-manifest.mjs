@@ -26,6 +26,18 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANIFEST_PATH = join(HERE, "MANIFEST.json");
 
+// Read an agent file with line endings normalised to LF.
+//
+// Everything downstream — the frontmatter test, the parser and the hash — must
+// see the same bytes on every platform. With `core.autocrlf=true` and no
+// `.gitattributes` (the default on Windows) these files check out as CRLF, and
+// an un-normalised read breaks the manifest two ways: `/^---\n/` never matches
+// so EVERY agent is filtered out, and the hash differs from the same content on
+// Linux. Normalising here keeps the manifest reproducible across checkouts.
+function readAgentFile(file) {
+  return readFileSync(join(HERE, file), "utf8").replace(/\r\n/g, "\n");
+}
+
 function shortHash(buf) {
   return createHash("sha256").update(buf).digest("hex").slice(0, 16);
 }
@@ -81,11 +93,11 @@ const files = readdirSync(HERE)
   // Exclude the directory README and any doc without agent frontmatter, so a
   // plain markdown file is never shipped as a bogus "README" agent.
   .filter((f) => f.toLowerCase() !== "readme.md")
-  .filter((f) => /^---\n[\s\S]*?\n---\n?/.test(readFileSync(join(HERE, f), "utf8")))
+  .filter((f) => /^---\n[\s\S]*?\n---\n?/.test(readAgentFile(f)))
   .sort();
 
 const agents = files.map((file) => {
-  const raw = readFileSync(join(HERE, file), "utf8");
+  const raw = readAgentFile(file);
   const fm = parseFrontmatterSubset(raw);
   return {
     file,

@@ -6,12 +6,17 @@
  * simply never gets that capability. This catalog exists so that failure is
  * detectable instead of invisible.
  *
- * VERIFIED EMPIRICALLY against CLI v2.1.278 by reading the `tools` array on the
+ * VERIFIED EMPIRICALLY against CLI v2.1.277 by reading the `tools` array on the
  * `init` event of `claude -p --output-format stream-json --verbose`. That is the
  * authoritative list — do not add names from memory or from older docs.
  *
  *   claude -p --permission-mode bypassPermissions --model haiku \
- *     --output-format stream-json --verbose "ok" | head -1 | jq -r '.tools[]'
+ *     --output-format stream-json --verbose "ok" \
+ *     | jq -r 'select(.subtype=="init").tools[]'
+ *
+ * NOTE: `init` is not always the first event — a SessionStart hook emits
+ * `hook_started`/`hook_response` ahead of it, so `head -1` can miss it. Select on
+ * `.subtype == "init"` instead.
  *
  * Re-run that check when the CLI is upgraded; `KNOWN_TOOLS` is a snapshot, and a
  * stale snapshot produces false "unknown tool" warnings (visible, never silent).
@@ -28,11 +33,17 @@ export const KNOWN_TOOLS = [
   "Edit",
   "EnterWorktree",
   "ExitWorktree",
+  "Glob",
+  "Grep",
   "ListAgents",
+  "ListMcpResourcesTool",
   "Monitor",
   "NotebookEdit",
+  "PowerShell",
   "PushNotification",
   "Read",
+  "ReadMcpResourceDirTool",
+  "ReadMcpResourceTool",
   "RemoteTrigger",
   "ReportFindings",
   "ScheduleWakeup",
@@ -59,8 +70,6 @@ export type KnownTool = (typeof KNOWN_TOOLS)[number];
  * from "unknown" so the warning can say *why* it is wrong and what replaced it.
  */
 export const RETIRED_TOOLS: Record<string, string> = {
-  Grep: "no equivalent — search via Bash (`grep`/`rg`)",
-  Glob: "no equivalent — discover files via Bash (`find`/`ls`)",
   TodoWrite: "use TaskCreate / TaskUpdate / TaskList",
   TodoRead: "use TaskGet / TaskList",
   BashOutput: "use Monitor",
