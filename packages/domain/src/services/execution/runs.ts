@@ -24,9 +24,17 @@ import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "../infra/sleep-inhibit";
-import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent } from "./runs/types";
+import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent, SubAgentRecord } from "./runs/types";
 import { buildRateLimitEvent, classifyResultError, classifySpawnError, detectRateLimitResult } from "./runs/errors";
-import { detectSubAgentSpawn, stringifyToolResult } from "./runs/subagent-parse";
+import {
+  detectSubAgentSpawn,
+  isAsyncTaskLaunchAck,
+  parseTaskNotification,
+  parseTaskStarted,
+  stringifyToolResult,
+  type TaskCompletion,
+  type TaskStarted,
+} from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
 import { isBackgroundBashInput, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
@@ -561,6 +569,20 @@ function handleStreamLine(run: LiveRun, line: string): void {
     return;
   }
 
+  // An async `Task` spawn reports progress out-of-band on `system` events, not
+  // through the tool_use/tool_result pair — `task_notification` is the only
+  // place a backgrounded sub-agent's real outcome ever appears.
+  if (evt.type === "system") {
+    const started = parseTaskStarted(evt);
+    if (started) {
+      noteTaskStarted(run, started);
+      return;
+    }
+    const completed = parseTaskNotification(evt);
+    if (completed) finalizeSubAgentFromTask(run, completed);
+    return;
+  }
+
   if (evt.type === "rate_limit_event") {
     const event = buildRateLimitEvent(evt.rate_limit_info, run.id);
     if (event) {
@@ -734,21 +756,21 @@ function spawnSubAgentRecord(
 }
 
 /**
- * Terminal update for a sub-agent driven by the parent stream's `tool_result`.
- * This is the only completion signal for native Task/Agent and Bash children,
- * which never register in `liveRuns` so `bridgeChildToParent` stays dormant.
+ * Terminal update for a sub-agent that never registers in `liveRuns` (native
+ * Task/Agent and Bash `claude -p` children), so `bridgeChildToParent` stays
+ * dormant and nothing else would ever settle the card.
+ *
+ * Tokens and cost stay at zero deliberately: a native sub-agent's usage is
+ * already billed inside the parent session's `result.total_cost_usd`, so
+ * attributing it to the child row too would double-count it in analytics.
  */
-function finalizeSubAgentFromResult(
+function finalizeSubAgent(
   parentRun: LiveRun,
-  toolUseId: string,
-  block: { content?: unknown; is_error?: boolean },
+  record: SubAgentRecord,
+  outcome: { status: SubAgentStatus; output: string; durMs: number },
 ): void {
-  const record = parentRun.subAgents.get(toolUseId);
-  if (!record || record.status !== "running") return;
-
-  const output = stringifyToolResult(block.content);
+  const { status, output, durMs } = outcome;
   const lastLine = output ? output.trimEnd().split("\n").pop()?.trim() || undefined : undefined;
-  const status: SubAgentStatus = block.is_error ? "error" : "done";
   record.status = status;
 
   try {
@@ -759,7 +781,7 @@ function finalizeSubAgentFromResult(
       tokensIn: 0,
       tokensOut: 0,
       costUsd: 0,
-      durMs: Math.max(0, Date.now() - record.startTs),
+      durMs,
       endedAt: Date.now(),
     });
   } catch (err) {
@@ -778,6 +800,72 @@ function finalizeSubAgentFromResult(
       lastOutputLine: lastLine,
     },
   });
+}
+
+/** Synchronous spawns only — an async spawn's `tool_result` is a launch receipt
+ *  and is deliberately dropped, including its "do not quote this" boilerplate. */
+function finalizeSubAgentFromResult(
+  parentRun: LiveRun,
+  toolUseId: string,
+  block: { content?: unknown; is_error?: boolean },
+): void {
+  const record = parentRun.subAgents.get(toolUseId);
+  if (!record || record.status !== "running") return;
+
+  const output = stringifyToolResult(block.content);
+  if (record.backgrounded || isAsyncTaskLaunchAck(output)) {
+    record.backgrounded = true;
+    return;
+  }
+
+  finalizeSubAgent(parentRun, record, {
+    status: block.is_error ? "error" : "done",
+    output,
+    durMs: Math.max(0, Date.now() - record.startTs),
+  });
+}
+
+function noteTaskStarted(parentRun: LiveRun, started: TaskStarted): void {
+  const record = started.toolUseId ? parentRun.subAgents.get(started.toolUseId) : undefined;
+  if (!record) return;
+  record.taskId = started.taskId;
+  if (started.backgrounded) record.backgrounded = true;
+}
+
+function findSubAgentForTask(parentRun: LiveRun, task: TaskCompletion): SubAgentRecord | undefined {
+  const byToolUse = task.toolUseId ? parentRun.subAgents.get(task.toolUseId) : undefined;
+  if (byToolUse) return byToolUse;
+  for (const record of parentRun.subAgents.values()) {
+    if (record.taskId === task.taskId) return record;
+  }
+  return undefined;
+}
+
+/** The real outcome of an async spawn. `summary` is the CLI's own recap of the
+ *  child's final message; its full transcript stays in `outputFile`, which is
+ *  deliberately not inlined (it is raw JSONL and would bloat the card). */
+function finalizeSubAgentFromTask(parentRun: LiveRun, task: TaskCompletion): void {
+  const record = findSubAgentForTask(parentRun, task);
+  if (!record || record.status !== "running") return;
+
+  finalizeSubAgent(parentRun, record, {
+    status: task.status,
+    output: task.summary ?? "",
+    durMs: task.durationMs ?? Math.max(0, Date.now() - record.startTs),
+  });
+}
+
+/** A backgrounded child whose notification never arrived (parent killed, CLI
+ *  exited first) would otherwise leave a card spinning forever. */
+function sweepUnfinishedSubAgents(run: LiveRun): void {
+  for (const record of run.subAgents.values()) {
+    if (record.status !== "running") continue;
+    finalizeSubAgent(run, record, {
+      status: "cancelled",
+      output: "",
+      durMs: Math.max(0, Date.now() - record.startTs),
+    });
+  }
 }
 
 
@@ -799,6 +887,8 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
       broadcast(run, { name: "error", data: { runId: run.id, ...cls } });
     }
   }
+
+  sweepUnfinishedSubAgents(run);
 
   run.status = exitCode === 0 ? "done" : "error";
   run.exitCode = exitCode;

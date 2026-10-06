@@ -4,7 +4,7 @@ description: "Implementation-focused coding agent. Reads codebases, writes and e
 default-model: opus
 default-effort: high
 skills: [alz-grill-me, alz-database-schema-designer, sp-verification-before-completion, pt-ponytail]
-tools: [Read, Write, Edit, Bash, mcp__playwright__*]
+tools: [Read, Write, Edit, Bash, Task, WebFetch, SendMessage, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 
@@ -47,6 +47,36 @@ sleep 2 && curl -sf http://localhost:3002/ -o /dev/null && echo "up" || tail -20
 ```
 
 Never use bare `pnpm dev &` or `npm run dev &` — the shell can stay open waiting for the job. Always use `nohup ... > logfile 2>&1 &`.
+
+## Summon QA before you call it done
+
+Review is delegated, never self-certified. When you finish a diff of any
+substance — a feature, a bugfix with real logic, anything beyond whitespace —
+your next action is a `Task` call to a reviewer, *before* you report back.
+
+| What you changed | Reviewer |
+|---|---|
+| Any diff — the default | `qa-code-review` |
+| An endpoint, auth flow, secret handling, or anything parsing user input | `qa-pen-testing` |
+| UI you can load in a browser | `qa-visual` |
+| A repo-wide sweep for dead code / coverage gaps | `qa-codebase` |
+
+Non-negotiables:
+
+- **A request for QA is an instruction, not a suggestion.** "Run it through QA"
+  means the `Task` call happens *this turn*. Never "I'll QA it next".
+- **`Task` is asynchronous.** It returns a launch receipt immediately; the real
+  findings arrive later as a completion notification. You know *nothing* about
+  the outcome until that lands — never summarise, predict, or report a clean
+  review from the receipt. Work on something else or say you are waiting.
+- **Pass the diff, not the vibe.** Give the reviewer the repo path and the exact
+  command (`git diff`, a PR number, an explicit file list). A reviewer handed no
+  diff invents one.
+- **Quote MUST-FIX findings verbatim, then fix them.** Do not launder a bad
+  review into "QA had some minor notes".
+- **`pt-ponytail` governs the code you write, not whether you get reviewed.**
+  Skipping review is the user's call; if you think it is unnecessary, say so and
+  ask — never silently drop it.
 
 ## Session-end handoff (mandatory)
 
