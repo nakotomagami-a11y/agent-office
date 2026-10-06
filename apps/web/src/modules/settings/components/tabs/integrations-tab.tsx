@@ -488,6 +488,11 @@ function GithubAccountRow({ account, onDelete }: { account: GithubAccountWithSta
           <div className="flex items-center gap-[9px]">
             <span className="text-[13px] font-bold whitespace-nowrap">{account.label}</span>
             {account.username ? <span className="font-mono text-[11px] text-txt-3 whitespace-nowrap">@{account.username}</span> : null}
+            {(account.usernames ?? []).filter((u) => u !== account.username).map((u) => (
+              <span key={u} title={t("github_inactive_login")} className="font-mono text-[11px] text-txt-4 whitespace-nowrap">
+                @{u}
+              </span>
+            ))}
             {!account.ready ? (
               <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] text-red whitespace-nowrap">
                 {t("needs_login")}

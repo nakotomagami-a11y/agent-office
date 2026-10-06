@@ -233,8 +233,9 @@ export interface GithubAccount {
 }
 
 export interface GithubAccountWithStatus extends GithubAccount {
-  /** Username reported by `gh api user`, when available. */
+  /** The ACTIVE login — `gh auth switch` changes it. A dir can hold several. */
   username?: string;
+  usernames?: string[];
   /** True when `gh` reports an authenticated user for this config dir. */
   ready: boolean;
 }

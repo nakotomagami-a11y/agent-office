@@ -577,6 +577,7 @@
     "remove_aria": "Remove {name}",
     "claude_shared_path": "~/.claude (shared)",
     "github_system_path": "~/.config/gh (system)",
+    "github_inactive_login": "Signed in on this machine, not the active account",
     "empty_accounts": "No accounts yet. Add one to route this project through it.",
     "health_connected": "Connected",
     "health_on": "On",
