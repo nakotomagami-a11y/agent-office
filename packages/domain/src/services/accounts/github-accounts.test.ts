@@ -1,9 +1,12 @@
 /**
  * `hosts.yml` holds N logins per config dir, not one. Reading only the active
- * `user:` key hid every other account: a machine authenticated as both
- * `chaosandcurves` and `nakotomagami-a11y` showed one of them, and the missing
- * one looked like it had never been added — while being the only account with
- * push rights. The fixtures below are the real shapes `gh` 2.x writes.
+ * `user:` key hid every other account: a machine authenticated as two users
+ * showed one of them, and the missing one looked like it had never been added
+ * — while being the only account with push rights.
+ *
+ * Fixtures are the real shapes `gh` 2.x writes, with GitHub's own sample logins
+ * (`octocat`/`hubot`) — never a real account name, which is user data and does
+ * not belong in a public repo.
  */
 import assert from "node:assert";
 import { test } from "node:test";
@@ -12,29 +15,29 @@ import { parseHostsUsers } from "./github-accounts";
 const TWO_LOGINS = `github.com:
     git_protocol: https
     users:
-        chaosandcurves:
-        nakotomagami-a11y:
-    user: chaosandcurves
+        octocat:
+        hubot:
+    user: octocat
 `;
 
 const ONE_LOGIN = `github.com:
     git_protocol: https
     users:
-        chaosandcurves:
-    user: chaosandcurves
+        octocat:
+    user: octocat
 `;
 
 test("every login in a dir is reported, active one first", () => {
   const { username, usernames, ready } = parseHostsUsers(TWO_LOGINS);
-  assert.equal(username, "chaosandcurves", "active login");
-  assert.deepEqual(usernames, ["chaosandcurves", "nakotomagami-a11y"]);
+  assert.equal(username, "octocat", "active login");
+  assert.deepEqual(usernames, ["octocat", "hubot"]);
   assert.equal(ready, true);
 });
 
 test("a single-login dir is unchanged — no phantom second entry", () => {
   assert.deepEqual(parseHostsUsers(ONE_LOGIN), {
-    username: "chaosandcurves",
-    usernames: ["chaosandcurves"],
+    username: "octocat",
+    usernames: ["octocat"],
     ready: true,
   });
 });
@@ -46,10 +49,10 @@ test("the active login is never duplicated when `users:` also lists it", () => {
 
 test("a non-active login still surfaces when `user:` is absent", () => {
   const { username, usernames, ready } = parseHostsUsers(
-    "github.com:\n    users:\n        nakotomagami-a11y:\n",
+    "github.com:\n    users:\n        hubot:\n",
   );
   assert.equal(username, undefined, "nothing is active");
-  assert.deepEqual(usernames, ["nakotomagami-a11y"], "but the login is still there");
+  assert.deepEqual(usernames, ["hubot"], "but the login is still there");
   assert.equal(ready, true);
 });
 
@@ -78,7 +81,7 @@ test("empty, malformed and wrong-host files never claim readiness", () => {
  *  (which keeps quotes on keys) is never asked to handle one. */
 test("the login characters gh can actually write all survive", () => {
   const { usernames } = parseHostsUsers(
-    "github.com:\n    users:\n        nakotomagami-a11y:\n        A1:\n    user: A1\n",
+    "github.com:\n    users:\n        hubot:\n        A1:\n    user: A1\n",
   );
-  assert.deepEqual(usernames, ["A1", "nakotomagami-a11y"]);
+  assert.deepEqual(usernames, ["A1", "hubot"]);
 });
