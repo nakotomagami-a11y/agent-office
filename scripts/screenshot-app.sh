@@ -27,7 +27,7 @@ echo "==> Rebuilding isolated showcase HOME ($SHOT_HOME)"
 bash "$ROOT/scripts/screenshot-app-setup-home.sh"
 
 echo "==> Starting scratch dev server on :$SHOT_PORT (distDir=$SHOT_DIST_DIR)"
-( cd "$WEB_DIR" && HOME="$SHOT_HOME" NEXT_DIST_DIR="$SHOT_DIST_DIR" nohup npx next dev -p "$SHOT_PORT" > "$LOG" 2>&1 & disown )
+( cd "$WEB_DIR" && HOME="$SHOT_HOME" NEXT_DIST_DIR="$SHOT_DIST_DIR" nohup npx next dev -p "$SHOT_PORT" -H 127.0.0.1 > "$LOG" 2>&1 & disown )
 
 cleanup() {
   if [[ "$KEEP" == "false" ]]; then

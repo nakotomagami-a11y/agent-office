@@ -343,9 +343,14 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ## CSRF / security model
 
-`apps/web/src/middleware.ts` guards every `/api/*` route. Safe methods (`GET`, `HEAD`, `OPTIONS`) pass unconditionally. For state-changing methods, if an `Origin` header is present its host must equal the `Host` header — otherwise the request is rejected with `403`. Requests without an `Origin` header (same-origin navigations, server-to-server) pass.
+`apps/web/src/proxy.ts` guards every request, on every path, in two steps:
 
-The check trusts the `Host` header, so it defends against cross-site requests but not DNS rebinding, where both `Origin` and `Host` resolve to an attacker domain. Since `/api/summon` spawns `claude -p` with `bypassPermissions`, deployments exposed beyond localhost should pin `Host` to a literal allowlist.
+1. **Host allowlist (DNS rebinding).** The `Host` header must literally be `localhost`, `127.0.0.1` or `[::1]`, with any port. Anything else gets `403 host_not_allowed`. A rebinding page sends its own name as `Host`, and its `Origin` matches that name, so this is the only check that stops it. Since `/api/summon` spawns `claude -p` with `bypassPermissions`, this is the line between "a web page" and "a shell". `AO_BASE_URL` must therefore stay a loopback URL, otherwise the permission bridge's callbacks are refused.
+2. **Origin check (CSRF).** Safe methods (`GET`, `HEAD`, `OPTIONS`) skip it. On a state-changing method, an `Origin` header that is present must match `Host`, otherwise `403 forbidden`. A write with no `Origin` passes on purpose: curl, the CLI and server-to-server callers send none.
+
+Not covered by the proxy:
+- In `next dev`, Next answers its own `__nextjs_*` endpoints before the proxy runs. Release builds have no such endpoints.
+- A `Host` header is not access control against **network peers**, which can send any Host. Only the listen address keeps them out, so every launch path binds `127.0.0.1`: `pnpm dev` and Tauri's `beforeDevCommand` (`-H 127.0.0.1`), `pnpm start` (`HOSTNAME=127.0.0.1`), and the desktop app (`lib.rs`).
 
 ---
 
