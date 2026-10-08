@@ -123,6 +123,21 @@ pub fn run() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 
+    // NVIDIA proprietary driver on a Wayland session: its explicit-sync handling
+    // makes WebKitGTK's DMABUF path abort with `Gdk Error 71 (Protocol error)`.
+    // The usual workaround — WEBKIT_DISABLE_DMABUF_RENDERER=1 — "fixes" the crash
+    // by putting the whole webview on the CPU (measured on RTX 5070 / driver
+    // 615.71 / GNOME 51: 14 fps at 100% of a core, GPU idle). Turning explicit
+    // sync off instead keeps the GPU path (60 fps at ~27% of a core). Never
+    // overrides a value the user set themselves.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some()
+        && std::path::Path::new("/proc/driver/nvidia").exists()
+        && std::env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none()
+    {
+        std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
+    }
+
     let server: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let server_setup = server.clone();
     let server_close = server.clone();
