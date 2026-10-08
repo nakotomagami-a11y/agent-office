@@ -546,6 +546,12 @@ const EVENTS: DocsExport["events"] = [
       "Fired TWICE per tool call (name + input payload): once at content_block_start with an empty input, once from the assistant message with the real one — collapse the pair on toolUseId; also persisted to the tool_calls table and replayed from eventLog",
   },
   {
+    name: "tool-done",
+    payload_type: "SseToolDoneEvent",
+    description:
+      "A tool call's result arrived (toolUseId + server timestamp); persisted as tool_calls.done_ts and replayed from eventLog",
+  },
+  {
     name: "usage",
     payload_type: "SseUsageEvent",
     description:

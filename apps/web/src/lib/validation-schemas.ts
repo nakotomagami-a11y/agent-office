@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
+import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
 
 export const agentBodySchema = z.object({
   name: z.string().min(1),
@@ -221,6 +222,16 @@ export const summonRequestSchema = z.object({
 export const conversationQuerySchema = z.object({
   agentId: z.string().min(1),
   instanceId: z.string().optional(),
+});
+
+export const generatedImagesQuerySchema = z.object({
+  name: z.string().regex(GENERATED_IMAGE_SLUG),
+  since: z.coerce.number().int().min(1).max(8.64e15),
+  until: z.coerce.number().int().min(1).max(8.64e15).optional(),
+  seeds: z
+    .string()
+    .regex(new RegExp(`^\\d{1,10}(,\\d{1,10}){0,${MAX_IMAGES_PER_JOB - 1}}$`))
+    .optional(),
 });
 
 // ─── Context & Cost tab ───────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 // Pure helpers for rendering chat messages: duration, image extraction,
 // attachment cleanup, and lightweight syntax/inline-markdown highlighting.
 
+import { GENERATED_IMAGE_EXT } from "@agent-office/domain/config/generated-images";
+import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { escapeHtml } from "@/lib/markdown";
 import { parseJson, strField } from "@/lib/json-narrow";
 
@@ -85,6 +87,9 @@ export function pathToUrl(rawPath: string): string | null {
   if (projM && IMG_EXT.test(projM[2]!)) {
     return `/api/projects/${encodeURIComponent(projM[1]!)}/uploads/${encodeURIComponent(projM[2]!)}`;
   }
+  // imggen output: ~/Documents/Generated Images/{YYYY-MM-DD}/{filename}
+  const genM = raw.match(/\/Generated Images\/(\d{4}-\d{2}-\d{2})\/([^/\s]+)$/);
+  if (genM && GENERATED_IMAGE_EXT.test(genM[2]!)) return API_ROUTES.generatedImage(genM[1]!, genM[2]!);
   // Plain HTTP/HTTPS image URL
   if (/^https?:\/\/.+/i.test(raw) && IMG_EXT.test(raw.split("?")[0]!)) {
     return raw;
@@ -103,6 +108,16 @@ export function extractImages(text: string): string[] {
     const raw = m[1]!;
     if (!IMG_EXT.test(raw)) continue;
     const url = pathToUrl(raw);
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  }
+  // The folder name contains a space, which the pattern above splits on. Anchored on the
+  // literal: a leading `[^\s]*` made this quadratic on long slash-heavy tokens.
+  const genRe = /\/Generated Images\/\d{4}-\d{2}-\d{2}\/[^\s,'"`*<>()[\]]{1,255}/g;
+  while ((m = genRe.exec(text)) !== null) {
+    let end = m[0].length;
+    // A loop, not /[.:;!?]+$/: that regex is quadratic on a long run of dots mid-token.
+    while (end > 0 && ".:;!?".includes(m[0][end - 1]!)) end--;
+    const url = pathToUrl(m[0].slice(0, end));
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   }
   // HTTP/HTTPS URLs

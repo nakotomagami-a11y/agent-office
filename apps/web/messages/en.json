@@ -958,5 +958,12 @@
     "attention_missing_instance": "The target agent no longer exists. Reassign it.",
     "attention_bridge_missing": "The app's permission bridge is missing — reinstall. Reassigning will not help.",
     "attention_retry_exceeded": "Still rate-limited after 5 retries. Run manually when ready."
+  },
+  "image_job": {
+    "generating": "Generating {done}/{count}",
+    "finished": "{done, plural, one {# image} other {# images}}{missing, plural, =0 {} other { · # not generated}}",
+    "lookup_failed": "Couldn't check for the images",
+    "slot_generating": "Generating…",
+    "slot_missing": "Not generated"
   }
 }

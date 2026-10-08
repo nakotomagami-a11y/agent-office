@@ -7,6 +7,8 @@ import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { useExpandedState } from "./expanded-state";
 import { highlight } from "@/components/ui/highlight";
 import { prettyPrintToolArg } from "../format/message-format";
+import { imggenJobsFromToolArg } from "../format/imggen-command";
+import { ImageJobCard } from "./image-job-card";
 
 /**
  * Grouped tool-call row for a message bubble. Renders one contiguous run
@@ -103,9 +105,11 @@ const COLLAPSE_THRESHOLD = 8;
 
 type ToolGroupRowProps = {
   id: string;
-  tools: Array<{ id: string; name: string; arg?: string }>;
+  tools: Array<{ id: string; name: string; arg?: string; ts?: number; doneTs?: number }>;
   agent: OfficeAgent;
   running?: boolean;
+  /** The turn holding this chain is still streaming (any row, not just this one). */
+  turnLive?: boolean;
   hideAvatar?: boolean;
 };
 
@@ -114,10 +118,14 @@ function ToolGroupRowImpl({
   tools,
   agent,
   running = false,
+  turnLive = false,
   hideAvatar = false,
 }: ToolGroupRowProps) {
   const longChain = tools.length > COLLAPSE_THRESHOLD;
   const [open, toggle] = useExpandedState(id, !longChain);
+  const imageJobs = tools.flatMap(({ id: toolId, name, arg, ts, doneTs }) =>
+    ts === undefined ? [] : imggenJobsFromToolArg(name, arg).map((job, k) => ({ key: `${toolId}-${k}`, job, ts, doneTs })),
+  );
   return (
     <div className="flex items-start gap-[12px] relative group/msg">
       {hideAvatar ? (
@@ -140,6 +148,9 @@ function ToolGroupRowImpl({
             ))}
           </div>
         )}
+        {imageJobs.map(({ key, job, ts, doneTs }) => (
+          <ImageJobCard key={key} job={job} ts={ts} doneTs={doneTs} turnLive={turnLive} />
+        ))}
       </div>
     </div>
   );
@@ -149,19 +160,19 @@ function ToolGroupRowImpl({
  * Memoized like MessageBubble so a streaming re-render doesn't re-render every
  * completed tool chain. ChatThread rebuilds the `tools` array on every render
  * (`row.tools.map(...)`), so the default shallow compare would never hit —
- * hence a custom comparator that compares the tools element-wise (id/name/arg)
+ * hence a custom comparator that compares the tools element-wise (id/name/arg/ts/doneTs)
  * plus the scalar props. `agent` is referentially stable (a ChatThread prop),
  * so a reference check is enough for it.
  */
 function toolGroupRowsEqual(a: ToolGroupRowProps, b: ToolGroupRowProps): boolean {
-  if (a.id !== b.id || a.running !== b.running || a.hideAvatar !== b.hideAvatar || a.agent !== b.agent) {
+  if (a.id !== b.id || a.running !== b.running || a.turnLive !== b.turnLive || a.hideAvatar !== b.hideAvatar || a.agent !== b.agent) {
     return false;
   }
   if (a.tools.length !== b.tools.length) return false;
   for (let i = 0; i < a.tools.length; i++) {
     const ta = a.tools[i]!;
     const tb = b.tools[i]!;
-    if (ta.id !== tb.id || ta.name !== tb.name || ta.arg !== tb.arg) return false;
+    if (ta.id !== tb.id || ta.name !== tb.name || ta.arg !== tb.arg || ta.ts !== tb.ts || ta.doneTs !== tb.doneTs) return false;
   }
   return true;
 }

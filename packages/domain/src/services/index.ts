@@ -31,6 +31,7 @@ export * as save from "./projects/save";
 export * as processes from "./execution/processes";
 export * as gitStatus from "./projects/git-status";
 export * as paths from "./infra/paths";
+export * as generatedImages from "./infra/generated-images";
 export * as events from "./infra/events";
 export * as docs from "./docs/docs";
 export * as cleanup from "./projects/cleanup";

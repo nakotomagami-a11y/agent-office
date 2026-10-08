@@ -87,6 +87,15 @@ export function insertToolCall(
   }
 }
 
+/** First result wins: the CLI never sends two, and a replay must not move it later. */
+export function markToolCallDone(toolUseId: string, doneTs: number): void {
+  try {
+    getDb().prepare("UPDATE tool_calls SET done_ts = ? WHERE id = ? AND done_ts IS NULL").run(doneTs, toolUseId);
+  } catch (err) {
+    log.warn("toolcall.done_failed", { toolUseId, err: String(err) });
+  }
+}
+
 /** Deletes tool_calls rows older than `olderThanTs` — the 48h retention
  *  timer for the historical tool-call trail (see PersistedRun.toolCalls'
  *  doc comment). Called from execution/runs.ts's existing minutely `gc()`. */

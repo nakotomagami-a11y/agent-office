@@ -229,7 +229,7 @@ function rowToRun(row: RunRow): PersistedRun {
   };
 }
 
-interface ToolCallRow { id: string; run_id: string; name: string; input: string | null; ts: number }
+interface ToolCallRow { id: string; run_id: string; name: string; input: string | null; ts: number; done_ts: number | null }
 
 /**
  * Every persisted tool_call for the given run ids, oldest first — one extra
@@ -243,7 +243,7 @@ function toolCallRowsByRun(runIds: string[]): Map<string, ToolCallRow[]> {
   if (runIds.length === 0) return out;
   const placeholders = runIds.map(() => "?").join(",");
   const rows = getDb()
-    .prepare(`SELECT id, run_id, name, input, ts FROM tool_calls WHERE run_id IN (${placeholders}) ORDER BY ts ASC`)
+    .prepare(`SELECT id, run_id, name, input, ts, done_ts FROM tool_calls WHERE run_id IN (${placeholders}) ORDER BY ts ASC`)
     .all(...runIds) as ToolCallRow[];
   for (const row of rows) {
     const list = out.get(row.run_id);
@@ -279,7 +279,7 @@ export function listConversationTurns(conversationId: string): PersistedRun[] {
     const command = backgroundTaskCommandFromRows(trows);
     if (command) run.backgroundTaskCommand = command;
     if (trows && trows.length > 0) {
-      run.toolCalls = trows.map((r) => ({ id: r.id, name: r.name, input: r.input ?? "", ts: r.ts }));
+      run.toolCalls = trows.map((r) => ({ id: r.id, name: r.name, input: r.input ?? "", ts: r.ts, ...(r.done_ts !== null && { doneTs: r.done_ts }) }));
     }
     return run;
   });

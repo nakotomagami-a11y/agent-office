@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { applyToolEvent, newId } from "./tool-item";
+import { applyToolDoneEvent, applyToolEvent, newId } from "./tool-item";
 import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
@@ -25,7 +25,8 @@ const attachedSchema = z.object({
 });
 
 const chunkSchema = z.object({ runId: z.string(), text: z.string() });
-const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional(), toolUseId: z.string().optional() });
+const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional(), toolUseId: z.string().optional(), ts: z.number().optional() });
+const toolDoneSchema = z.object({ runId: z.string(), toolUseId: z.string(), ts: z.number() });
 const usageSchema = z.object({
   runId: z.string(),
   tokensIn: z.number(),
@@ -70,6 +71,7 @@ const eventSchemas = {
   attached: attachedSchema,
   chunk: chunkSchema,
   tool: toolSchema,
+  "tool-done": toolDoneSchema,
   usage: usageSchema,
   done: doneSchema,
   error: errorSchema,
@@ -129,6 +131,8 @@ export function applySseEvent(
       const thread = next.length > prev.thread.length ? closeStreaming(next) : next;
       return { thread, usage: prev.usage, done: false, error: null };
     }
+    case "tool-done":
+      return { thread: applyToolDoneEvent(prev.thread, event.data), usage: prev.usage, done: false, error: null };
     case "subagent": {
       const { data } = event;
       // Find the most recent agent-subagent item without a subRunId (created by the tool event)

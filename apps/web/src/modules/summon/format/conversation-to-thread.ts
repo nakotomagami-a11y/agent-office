@@ -25,7 +25,7 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
       // Sub-agent spawns render as their own card, exactly as the live path
       // suppresses them — otherwise a finished run grows duplicate rows.
       if (isSubAgentSpawnTool(tc.name, input)) continue;
-      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: formatToolArg(input), runId: turn.id });
+      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: formatToolArg(input), runId: turn.id, ts: tc.ts, doneTs: tc.doneTs });
     }
   } else if (turn.backgroundTaskCommand) {
     // Fallback for the rare case the tool_calls row already aged out but the

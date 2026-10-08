@@ -115,7 +115,7 @@ export interface PersistedRun {
    *  after `TOOL_CALL_RETENTION_MS` (48h, see execution/runs.ts's `gc()`), so
    *  this simply stops appearing once a call ages out — no separate
    *  client-side expiry check needed. */
-  toolCalls?: Array<{ id: string; name: string; input: string; ts: number }>;
+  toolCalls?: Array<{ id: string; name: string; input: string; ts: number; doneTs?: number }>;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────
@@ -451,7 +451,7 @@ export interface ScheduledJob {
   updatedAt: number;
 }
 
-export type SseEventName = "chunk" | "tool" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
+export type SseEventName = "chunk" | "tool" | "tool-done" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
 
 /** A tool call parked awaiting the operator's approval. Unanswered ones are
  *  denied by the server after a timeout — the client never has to. */
@@ -464,7 +464,8 @@ export interface SsePermissionRequestEvent {
 }
 
 export interface SseChunkEvent { runId: string; text: string }
-export interface SseToolEvent { runId: string; name: string; input?: unknown; toolUseId?: string }
+export interface SseToolEvent { runId: string; name: string; input?: unknown; toolUseId?: string; ts?: number }
+export interface SseToolDoneEvent { runId: string; toolUseId: string; ts: number }
 export interface SseUsageEvent {
   runId: string;
   tokensIn: number;
@@ -523,6 +524,7 @@ export type RunStreamEvent =
   | { name: "permission-request"; data: SsePermissionRequestEvent }
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
+  | { name: "tool-done"; data: SseToolDoneEvent }
   | { name: "usage"; data: SseUsageEvent }
   | { name: "done"; data: SseDoneEvent }
   | { name: "error"; data: SseErrorEvent }

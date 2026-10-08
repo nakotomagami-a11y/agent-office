@@ -14,6 +14,7 @@ import type {
   SseSubAgentEvent,
   SseSubAgentUpdateEvent,
   SseToolEvent,
+  SseToolDoneEvent,
   SseUsageEvent,
   SubAgentStatus,
   MessageOrigin,
@@ -24,6 +25,7 @@ export type SseEvent =
   | { name: "permission-request"; data: SsePermissionRequestEvent }
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
+  | { name: "tool-done"; data: SseToolDoneEvent }
   | { name: "usage"; data: SseUsageEvent }
   | { name: "done"; data: SseDoneEvent }
   | { name: "error"; data: SseErrorEvent }
@@ -36,7 +38,7 @@ export type SseEmit = (event: SseEvent) => void | Promise<void>;
 // `rate-limit` is replayable so the limit card survives an SSE reconnect or a
 // chat re-open. Without it, a reconnect replays only the streamed text chunk and
 // the card degrades back to a plain "You've hit your session limit" bubble.
-export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "usage" | "subagent" | "rate-limit" }>;
+export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "tool-done" | "usage" | "subagent" | "rate-limit" }>;
 
 export interface SubAgentRecord {
   subRunId: string;

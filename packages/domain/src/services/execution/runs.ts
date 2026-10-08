@@ -408,6 +408,7 @@ function broadcast(run: LiveRun, event: SseEvent): void {
   if (
     event.name === "chunk" ||
     event.name === "tool" ||
+    event.name === "tool-done" ||
     event.name === "usage" ||
     event.name === "subagent" ||
     event.name === "rate-limit"
@@ -480,11 +481,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
     if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
       const toolName = ev.content_block.name ?? "tool";
       run.currentTool = toolName;
+      const ts = Date.now();
       broadcast(run, {
         name: "tool",
-        data: { runId: run.id, name: toolName, input: ev.content_block.input, toolUseId: ev.content_block.id },
+        data: { runId: run.id, name: toolName, input: ev.content_block.input, toolUseId: ev.content_block.id, ts },
       });
-      db.insertToolCall(run.id, toolName, ev.content_block.input, Date.now(), ev.content_block.id);
+      db.insertToolCall(run.id, toolName, ev.content_block.input, ts, ev.content_block.id);
       // Do NOT call spawnSubAgentRecord here — input is always {} at content_block_start.
       // Sub-agent records are created in the assistant event handler where input is complete.
       return;
@@ -506,11 +508,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
         if (process.env.AO_DEBUG_TOOLS) {
           log.info("tool.debug", { runId: run.id, name: toolName, input: block.input });
         }
+        const ts = Date.now();
         broadcast(run, {
           name: "tool",
-          data: { runId: run.id, name: toolName, input: block.input, toolUseId: block.id },
+          data: { runId: run.id, name: toolName, input: block.input, toolUseId: block.id, ts },
         });
-        db.insertToolCall(run.id, toolName, block.input, Date.now(), block.id);
+        db.insertToolCall(run.id, toolName, block.input, ts, block.id);
         const spawn = detectSubAgentSpawn(toolName, block.input, run.agentId);
         if (spawn) {
           spawnSubAgentRecord(run, block.id, spawn);
@@ -558,6 +561,9 @@ function handleStreamLine(run: LiveRun, line: string): void {
   if (evt.type === "user" && evt.message?.content) {
     for (const block of evt.message.content) {
       if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
+        const doneTs = Date.now();
+        db.markToolCallDone(block.tool_use_id, doneTs);
+        broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs } });
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
         const pending = run.pendingBackgroundBash.get(block.tool_use_id);
         if (pending) {
