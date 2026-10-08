@@ -95,9 +95,9 @@ export function applyToolEvent(thread: ThreadItem[], data: SseToolEvent): Thread
   }
   const arg = formatToolArg(data.input);
   if (!existing) {
-    return [...thread, { kind: "agent-tool", id: data.toolUseId ?? newId(), name: data.name, arg, runId: data.runId }];
+    return [...thread, { kind: "agent-tool", id: data.toolUseId ?? newId(), name: data.name, arg, runId: data.runId, ts: data.ts }];
   }
   // An empty input must never blank out an arg the other fire already supplied.
   if (arg === undefined || arg === existing.arg) return thread;
-  return thread.map((it) => (isSameCall(it) ? { ...it, name: data.name, arg } : it));
+  return thread.map((it) => (isSameCall(it) ? { ...it, name: data.name, arg, ts: data.ts ?? it.ts } : it));
 }

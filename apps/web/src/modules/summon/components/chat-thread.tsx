@@ -9,6 +9,8 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { SystemNotice } from "./system-notice";
 import type { MessageOrigin } from "@agent-office/domain/types";
 import { ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
+import { ShownImagesContext } from "./inline-image";
+import { createShownImages } from "../format/shown-images";
 import { MsgActions } from "./msg-actions";
 import { LiveStatus, type ChatPhase } from "./live-status";
 import { agentDisplayName } from "@/lib/agent-display-name";
@@ -163,6 +165,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
 
   // ── Auto-follow state ──
   const [followTail, setFollowTail] = useState(true);
+  const [shownImages] = useState(createShownImages);
   const [hasNewBelow, setHasNewBelow] = useState(false);
   // visibleCount: number of *turns* (one user ask + everything it triggered)
   // to show — not items, not rows. A turn with a dozen tool calls still counts as one.
@@ -345,6 +348,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
 
   return (
     <ExpandedStateContext.Provider value={expandedCtx}>
+    <ShownImagesContext.Provider value={shownImages}>
     <div className="relative min-h-0 flex-1 overflow-hidden flex flex-col">
     <div className="overflow-y-auto overscroll-contain px-[16px] pt-[18px] pb-[20px] flex-1" ref={scrollRef}>
       {items.length === 0 && phase === "idle" ? (
@@ -475,10 +479,11 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                           <ToolGroupRow
                             key={row.id + "tgr_" + rowIdx}
                             id={row.id}
-                            tools={row.tools.map((tl) => ({ id: tl.id, name: tl.name, arg: tl.arg }))}
+                            tools={row.tools.map((tl) => ({ id: tl.id, name: tl.name, arg: tl.arg, ts: tl.ts }))}
                             agent={agent}
                             hideAvatar
                             running={running}
+                            turnLive={isLastTurn && LIVE_PHASES.has(phase)}
                           />
                         );
                       })}
@@ -587,6 +592,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
       </div>
     ) : null}
     </div>
+    </ShownImagesContext.Provider>
     </ExpandedStateContext.Provider>
   );
 }

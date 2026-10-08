@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { assertNever } from "@/lib/assert-never";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
@@ -25,6 +25,7 @@ import {
 } from "../format/message-format";
 import { ExpandedStateContext, useExpandedState } from "./expanded-state";
 import { ToolGroupRow } from "./tool-group-row";
+import { ImageStrip } from "./inline-image";
 import { SubAgentCard } from "./sub-agent-card";
 import { RateLimitCard } from "./rate-limit-card";
 import { ScheduleResumeMenu } from "./schedule-resume-menu";
@@ -41,67 +42,7 @@ import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 // Re-export so `chat-thread` and any other consumer keeps its existing
 // `from "./message-bubble"` imports working. Actual definitions live in
 // their own files (see expanded-state.tsx, tool-group-row.tsx).
-export { ExpandedStateContext, ToolGroupRow };
-
-// ── Lightbox ──────────────────────────────────────────────────────────────────
-function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center cursor-zoom-out [animation:ao-lb-in_0.15s_ease]"
-      onClick={onClose}
-      role="dialog"
-      aria-modal
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt="Attachment preview"
-        className="max-w-[min(90vw,1400px)] max-h-[90vh] w-auto h-auto rounded-[10px] shadow-[0_24px_80px_rgba(0,0,0,0.6)] cursor-default"
-        onClick={(e) => e.stopPropagation()}
-      />
-      <button
-        className="fixed top-[20px] right-[24px] w-[36px] h-[36px] rounded-full bg-white/[0.12] border border-white/[0.2] text-white text-[16px] cursor-pointer flex items-center justify-center transition-[background] duration-[120ms] hover:bg-white/[0.22]"
-        onClick={onClose}
-        aria-label="Close"
-      >✕</button>
-    </div>
-  );
-}
-
-// ── Inline image thumbnail ────────────────────────────────────────────────────
-function InlineImage({ src }: { src: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        className="block p-0 border border-ao-line-1 rounded-[8px] overflow-hidden cursor-zoom-in bg-ao-bg-3 transition-[border-color,box-shadow] duration-[120ms] shrink-0"
-        onClick={() => setOpen(true)}
-        aria-label="View image"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="Attachment" className="block max-w-[180px] max-h-[140px] w-auto h-auto object-cover" />
-      </button>
-      {open && <Lightbox src={src} onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-// ── Image strip (row of thumbnails) ──────────────────────────────────────────
-export function ImageStrip({ urls }: { urls: string[] }) {
-  if (urls.length === 0) return null;
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {urls.map((url) => <InlineImage key={url} src={url} />)}
-    </div>
-  );
-}
+export { ExpandedStateContext, ImageStrip, ToolGroupRow };
 
 function copyText(text: string) {
   if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -629,7 +570,7 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
             <div className="ao-prose">
               <ProseBlock items={proseItems} streaming={item.streaming} />
             </div>
-            <ImageStrip urls={agentImgs} />
+            <ImageStrip urls={agentImgs} agentProse />
             {showClarify ? (
               <ClarifyInput agentId={agent.id} projectId={projectId} onReply={onReply} />
             ) : !item.streaming ? (

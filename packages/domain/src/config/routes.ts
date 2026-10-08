@@ -37,6 +37,9 @@ export const API_ROUTES = {
   agentUploads: (id: string) => `/api/agents/${encodeURIComponent(id)}/uploads`,
   agentUploadFile: (id: string, filename: string) =>
     `/api/agents/${encodeURIComponent(id)}/uploads/${encodeURIComponent(filename)}`,
+  generatedImages: "/api/generated-images",
+  generatedImage: (date: string, filename: string) =>
+    `/api/generated-images/${encodeURIComponent(date)}/${encodeURIComponent(filename)}`,
   agentContextCost: (id: string) => `/api/agents/${encodeURIComponent(id)}/context-cost`,
   agentContextCostMeasure: (id: string) => `/api/agents/${encodeURIComponent(id)}/context-cost/measure`,
 

@@ -138,4 +138,6 @@ export const queryKeys = {
     all: ["loops"] as const,
     detail: (id: string) => [...queryKeys.loops.all, "detail", id] as const,
   },
+
+  generatedImages: (slug: string, by: string) => ["generated-images", slug, by] as const,
 } as const;

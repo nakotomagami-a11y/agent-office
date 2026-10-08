@@ -480,11 +480,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
     if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
       const toolName = ev.content_block.name ?? "tool";
       run.currentTool = toolName;
+      const ts = Date.now();
       broadcast(run, {
         name: "tool",
-        data: { runId: run.id, name: toolName, input: ev.content_block.input, toolUseId: ev.content_block.id },
+        data: { runId: run.id, name: toolName, input: ev.content_block.input, toolUseId: ev.content_block.id, ts },
       });
-      db.insertToolCall(run.id, toolName, ev.content_block.input, Date.now(), ev.content_block.id);
+      db.insertToolCall(run.id, toolName, ev.content_block.input, ts, ev.content_block.id);
       // Do NOT call spawnSubAgentRecord here — input is always {} at content_block_start.
       // Sub-agent records are created in the assistant event handler where input is complete.
       return;
@@ -506,11 +507,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
         if (process.env.AO_DEBUG_TOOLS) {
           log.info("tool.debug", { runId: run.id, name: toolName, input: block.input });
         }
+        const ts = Date.now();
         broadcast(run, {
           name: "tool",
-          data: { runId: run.id, name: toolName, input: block.input, toolUseId: block.id },
+          data: { runId: run.id, name: toolName, input: block.input, toolUseId: block.id, ts },
         });
-        db.insertToolCall(run.id, toolName, block.input, Date.now(), block.id);
+        db.insertToolCall(run.id, toolName, block.input, ts, block.id);
         const spawn = detectSubAgentSpawn(toolName, block.input, run.agentId);
         if (spawn) {
           spawnSubAgentRecord(run, block.id, spawn);

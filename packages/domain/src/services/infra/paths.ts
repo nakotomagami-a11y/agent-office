@@ -79,6 +79,9 @@ export const AGENT_UPLOADS_DIR = join(AGENTS_DIR, "_uploads");
 export const PROJECT_UPLOADS_ROOT = PROJECTS_DIR; // per-project: <root>/<id>/_uploads
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
+// Written by the external `imggen` CLI as <root>/YYYY-MM-DD/<file>; this app only reads it.
+export const GENERATED_IMAGES_DIR = join(HOME, "Documents", "Generated Images");
+
 export function agentUploadsDir(agentId: string): string {
   return join(AGENT_UPLOADS_DIR, agentId);
 }
