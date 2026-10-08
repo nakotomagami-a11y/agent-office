@@ -20,7 +20,7 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
   // path uses — the claim that these "render identically either way" was false:
   // live formatted the arg and dropped sub-agent spawns, this did neither.
   if (turn.toolCalls && turn.toolCalls.length > 0) {
-    // Unclosed calls (crash): the reap time is loose, but death time isn't recorded.
+    // A crashed run's calls stay open; its end is the (possibly late) reap time.
     const turnEnd = turn.status === "running" ? undefined : turn.ts + turn.durMs;
     for (const tc of turn.toolCalls) {
       const input = parseStoredToolInput(tc.input);

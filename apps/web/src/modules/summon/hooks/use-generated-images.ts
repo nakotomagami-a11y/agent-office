@@ -31,7 +31,8 @@ export function useGeneratedImages(job: ImggenJob, sinceMs: number, untilMs: num
       );
       return res.images;
     },
-    // `until` joins the key when the call returns; keep its images on screen meanwhile.
+    // `until` joins or moves in the key when the call returns (one extra fetch);
+    // keep its images on screen meanwhile.
     placeholderData: (prev) => prev,
     refetchOnMount: (query) =>
       incomplete(query.state.data) && !settled(query.state.dataUpdatedAt) ? "always" : false,
