@@ -12,7 +12,7 @@ export type ThreadItem =
   | { kind: "agent-text"; id: string; text: string; streaming: boolean }
   // `runId` is the run that made this tool call — only read by the
   // background-task pill, to check via /api/processes if its shell is alive.
-  | { kind: "agent-tool"; id: string; name: string; arg?: string; runId?: string; ts?: number; doneTs?: number }
+  | { kind: "agent-tool"; id: string; name: string; arg?: string; runId?: string; ts?: number; doneTs?: number; backgrounded?: boolean }
   | { kind: "agent-thinking"; id: string; text: string }
   | { kind: "agent-subagent"; id: string; name: string; prompt: string; status: SubAgentStatus; startTs: number; durationMs?: number; subRunId?: string; currentTool?: string; tokensIn?: number; tokensOut?: number; cost?: number; lastOutputLine?: string }
   | { kind: "system-error"; id: string; code: RunErrorCode; detail?: string; interrupted?: boolean }

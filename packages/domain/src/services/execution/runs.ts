@@ -37,7 +37,7 @@ import {
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
-import { isBackgroundBashInput, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
+import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -559,11 +559,14 @@ function handleStreamLine(run: LiveRun, line: string): void {
   // Agent and Bash `claude -p` children run outside liveRuns, so the live bridge
   // never fires for them).
   if (evt.type === "user" && evt.message?.content) {
+    const results = evt.message.content.filter((b) => b.type === "tool_result").length;
     for (const block of evt.message.content) {
       if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
         const doneTs = Date.now();
-        db.markToolCallDone(block.tool_use_id, doneTs);
-        broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs } });
+        const structured = results === 1 ? evt.tool_use_result : undefined;
+        const backgrounded = isBackgroundedBashResult(structured, stringifyToolResult(block.content));
+        db.markToolCallDone(block.tool_use_id, doneTs, backgrounded);
+        broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs, backgrounded } });
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
         const pending = run.pendingBackgroundBash.get(block.tool_use_id);
         if (pending) {
@@ -900,6 +903,9 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
   run.exitCode = exitCode;
   run.finishedAt = Date.now();
   releaseInhibit();
+  for (const toolUseId of db.closeOpenToolCalls(run.id, run.finishedAt)) {
+    broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId, ts: run.finishedAt } });
+  }
 
   log.info("run.end", { runId: run.id, exitCode, durMs: run.finishedAt - run.startTs, cost: run.cost });
 

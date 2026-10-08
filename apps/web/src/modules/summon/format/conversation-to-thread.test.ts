@@ -84,4 +84,16 @@ check("turnsToThreadItems flattens multiple turns in order", () => {
   );
 });
 
+check("a finished turn ends calls that never got a result; a running one does not", () => {
+  const toolCalls = [
+    { id: "t1", name: "Bash", input: "{}", ts: 1100, doneTs: 1200 },
+    { id: "t2", name: "Bash", input: "{}", ts: 1300 },
+    { id: "t3", name: "Bash", input: "{}", ts: 1400, doneTs: 1450, backgrounded: true },
+  ];
+  const tools = (turn: PersistedRun) =>
+    turnToThreadItems(turn).flatMap((i) => (i.kind === "agent-tool" ? [[i.doneTs, i.backgrounded]] : []));
+  assert.deepEqual(tools({ ...baseTurn, status: "error", durMs: 900, toolCalls }), [[1200, undefined], [1900, undefined], [1450, true]]);
+  assert.deepEqual(tools({ ...baseTurn, status: "running", toolCalls }), [[1200, undefined], [undefined, undefined], [1450, true]]);
+});
+
 console.log(`\n${passed} passed`);

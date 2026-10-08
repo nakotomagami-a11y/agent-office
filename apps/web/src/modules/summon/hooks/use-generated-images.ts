@@ -18,7 +18,11 @@ const POLL_MS = 1500;
 export function useGeneratedImages(job: ImggenJob, sinceMs: number, untilMs: number | undefined, live: boolean) {
   const seeds = job.seeds ? `&seeds=${job.seeds.join(",")}` : "";
   const until = untilMs === undefined ? "" : `&until=${untilMs}`;
-  const incomplete = (data: GeneratedImageRef[] | undefined) => (data?.length ?? 0) < job.offset + job.count;
+  // A seeded lookup returns only this job's seeds; a seedless one, every same-slug file.
+  const need = job.seeds ? job.count : job.offset + job.count;
+  const incomplete = (data: GeneratedImageRef[] | undefined) => (data?.length ?? 0) < need;
+  // Fetched after `untilMs`, the answer can no longer change.
+  const settled = (updatedAt: number) => untilMs !== undefined && updatedAt > untilMs;
   return useQuery({
     queryKey: queryKeys.generatedImages(job.slug, `${sinceMs}${until}${seeds}@${job.offset}`),
     queryFn: async () => {
@@ -27,9 +31,11 @@ export function useGeneratedImages(job: ImggenJob, sinceMs: number, untilMs: num
       );
       return res.images;
     },
-    // `until` joins the key when the call returns; keep its images on screen meanwhile.
+    // `until` joins or moves in the key when the call returns (one extra fetch);
+    // keep its images on screen meanwhile.
     placeholderData: (prev) => prev,
-    refetchOnMount: (query) => (incomplete(query.state.data) ? "always" : false),
+    refetchOnMount: (query) =>
+      incomplete(query.state.data) && !settled(query.state.dataUpdatedAt) ? "always" : false,
     refetchInterval: (query) =>
       live && query.state.status !== "error" && incomplete(query.state.data) ? POLL_MS : false,
   });

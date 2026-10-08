@@ -115,7 +115,7 @@ export interface PersistedRun {
    *  after `TOOL_CALL_RETENTION_MS` (48h, see execution/runs.ts's `gc()`), so
    *  this simply stops appearing once a call ages out — no separate
    *  client-side expiry check needed. */
-  toolCalls?: Array<{ id: string; name: string; input: string; ts: number; doneTs?: number }>;
+  toolCalls?: Array<{ id: string; name: string; input: string; ts: number; doneTs?: number; backgrounded?: boolean }>;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────
@@ -465,7 +465,7 @@ export interface SsePermissionRequestEvent {
 
 export interface SseChunkEvent { runId: string; text: string }
 export interface SseToolEvent { runId: string; name: string; input?: unknown; toolUseId?: string; ts?: number }
-export interface SseToolDoneEvent { runId: string; toolUseId: string; ts: number }
+export interface SseToolDoneEvent { runId: string; toolUseId: string; ts: number; backgrounded?: boolean }
 export interface SseUsageEvent {
   runId: string;
   tokensIn: number;
