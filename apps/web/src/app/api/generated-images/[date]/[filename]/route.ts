@@ -2,8 +2,8 @@
 // CLI wrote under ~/Documents/Generated Images. Read-only; raster formats only.
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
-import { GENERATED_IMAGE_DATE, GENERATED_IMAGE_EXT } from "@agent-office/domain/config/generated-images";
-import { GENERATED_IMAGES_DIR, MAX_UPLOAD_BYTES } from "@agent-office/domain/services/infra/paths";
+import { GENERATED_IMAGE_DATE, GENERATED_IMAGE_EXT, MAX_GENERATED_IMAGE_BYTES } from "@agent-office/domain/config/generated-images";
+import { GENERATED_IMAGES_DIR } from "@agent-office/domain/services/infra/paths";
 import { badRequest, handleServeUpload, notFound, validateIdParam } from "@/lib/api-helpers";
 
 type Params = { params: Promise<{ date: string; filename: string }> };
@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: Params) {
   // A symlink dropped in the folder must not serve a file from outside it.
   if (!existsSync(file) || !realpathSync(file).startsWith(realpathSync(GENERATED_IMAGES_DIR) + sep)) return notFound();
   // The serve is a blocking read: a FIFO would hang the server, a huge file exhaust it.
-  const st = statSync(file);
-  if (!st.isFile() || st.size > MAX_UPLOAD_BYTES) return notFound();
+  const st = statSync(file, { throwIfNoEntry: false });
+  if (!st?.isFile() || st.size > MAX_GENERATED_IMAGE_BYTES) return notFound();
   return handleServeUpload(dir, nameCheck.value);
 }

@@ -340,14 +340,15 @@ data: <json>
 |---|---|---|
 | `attached` | `runId, output, tokensIn, tokensOut, cost, status, startTs` | Immediately on subscribe — delivers current run state |
 | `chunk` | `runId, text` | Each text delta and completed assistant block |
-| `tool` | `runId, name, input?` | Each `tool_use` content block start |
+| `tool` | `runId, name, input?, toolUseId?, ts?` | Each `tool_use` content block start |
+| `tool-done` | `runId, toolUseId, ts, backgrounded?` | That call's result arrived, or its run ended without one |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message usage update and final result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Process exit — run finalised in SQLite |
 | `error` | `runId, message` | Spawn error, rate limit, or `is_error` result |
 
 ### Replay behaviour
 
-Events `chunk`, `tool`, and `usage` are stored in an in-memory `eventLog` and replayed to late subscribers. `done` and `error` are not stored in the eventLog — if you connect after a run finishes, `attached` delivers the final state and `done` is synthesised from the persisted record.
+Events `chunk`, `tool`, `tool-done` and `usage` are stored in an in-memory `eventLog` and replayed to late subscribers. `done` and `error` are not stored in the eventLog — if you connect after a run finishes, `attached` delivers the final state and `done` is synthesised from the persisted record.
 
 ### Keepalive
 

@@ -18,7 +18,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
 import { createSchema } from "./migrations";
-import { insertToolCall, markToolCallDone } from "./messages";
+import { closeOpenToolCalls, insertToolCall, markToolCallDone } from "./messages";
 import { insertRun } from "./runs";
 
 const mem = new Database(":memory:");
@@ -104,4 +104,18 @@ test("the first result time sticks: a replayed tool_result cannot move done_ts l
   markToolCallDone("toolu_03DONE", 9000);
   const row = mem.prepare("SELECT done_ts FROM tool_calls WHERE id = ?").get("toolu_03DONE") as { done_ts: number };
   assert.equal(row.done_ts, 5000);
+});
+
+test("a finished run closes only the calls that never got a result", () => {
+  const run = freshRun();
+  insertToolCall(run, "Bash", { command: "a" }, 1000, "toolu_close_A");
+  insertToolCall(run, "Bash", { command: "b" }, 1100, "toolu_close_B");
+  markToolCallDone("toolu_close_A", 2000, true);
+  assert.deepEqual(closeOpenToolCalls(run, 5000), ["toolu_close_B"]);
+  assert.deepEqual(closeOpenToolCalls(run, 6000), []);
+  const got = mem.prepare("SELECT id, done_ts, backgrounded FROM tool_calls WHERE run_id = ? ORDER BY id").all(run);
+  assert.deepEqual(got, [
+    { id: "toolu_close_A", done_ts: 2000, backgrounded: 1 },
+    { id: "toolu_close_B", done_ts: 5000, backgrounded: 0 },
+  ]);
 });

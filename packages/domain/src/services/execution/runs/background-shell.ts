@@ -20,6 +20,11 @@ export interface PendingBackgroundBash {
 }
 
 /** Type guard for a Bash tool input that requested a backgrounded shell. */
+/** The call returned but its command runs on (background, timeout, or interrupted by a message). */
+export function isBackgroundedBashResult(resultText: string): boolean {
+  return /moved to the background \(ID: |running in background with ID: /.test(resultText);
+}
+
 export function isBackgroundBashInput(input: unknown): input is { command: string; description?: unknown } {
   if (!input || typeof input !== "object") return false;
   const r = input as Record<string, unknown>;

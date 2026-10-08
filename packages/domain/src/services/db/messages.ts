@@ -87,12 +87,28 @@ export function insertToolCall(
   }
 }
 
-/** First result wins: the CLI never sends two, and a replay must not move it later. */
-export function markToolCallDone(toolUseId: string, doneTs: number): void {
+/** First result wins: the CLI never sends two, and a replay must not move it later.
+ *  `backgrounded`: the call returned but its command is still running. */
+export function markToolCallDone(toolUseId: string, doneTs: number, backgrounded = false): void {
   try {
-    getDb().prepare("UPDATE tool_calls SET done_ts = ? WHERE id = ? AND done_ts IS NULL").run(doneTs, toolUseId);
+    getDb()
+      .prepare("UPDATE tool_calls SET done_ts = ?, backgrounded = ? WHERE id = ? AND done_ts IS NULL")
+      .run(doneTs, backgrounded ? 1 : 0, toolUseId);
   } catch (err) {
     log.warn("toolcall.done_failed", { toolUseId, err: String(err) });
+  }
+}
+
+/** Ends every call of a finished run that never got a result (abort, crash); returns their ids. */
+export function closeOpenToolCalls(runId: string, doneTs: number): string[] {
+  try {
+    const rows = getDb()
+      .prepare("UPDATE tool_calls SET done_ts = ? WHERE run_id = ? AND done_ts IS NULL RETURNING id")
+      .all(doneTs, runId) as Array<{ id: string }>;
+    return rows.map((r) => r.id);
+  } catch (err) {
+    log.warn("toolcall.close_failed", { runId, err: String(err) });
+    return [];
   }
 }
 

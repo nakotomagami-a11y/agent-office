@@ -143,6 +143,13 @@ test("a quoted prompt that starts with < or > is the prompt, not a redirect", ()
   assert.equal(one(`imggen "<b>bold</b> fox"`).slug, "b-bold-b-fox");
 });
 
+test("a redirect to a quoted target is still a redirect", () => {
+  assert.equal(one(`imggen "a cat" >"/tmp/log.txt"`).slug, "a-cat");
+  assert.equal(one(`imggen "a cat" 2>"$LOG"`).slug, "a-cat");
+  assert.equal(one(`imggen --name cat - <"prompt.txt"`).slug, "cat");
+  assert.deepEqual(parseImggenCommand(`imggen --name x 2>"err.log"`), [], "no prompt left: argparse rejects it");
+});
+
 test("one command yields at most 8 jobs, so injected text can't fan out requests", () => {
   assert.equal(parseImggenCommand("imggen a --seed 1 -c 8;".repeat(10_000)).length, 8);
 });

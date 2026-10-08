@@ -3,6 +3,8 @@ export const GENERATED_IMAGE_EXT = /\.(png|jpe?g|webp|gif)$/i;
 export const GENERATED_IMAGE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** imggen's filename slug: lowercase, `[a-z0-9-]`, at most 40 chars. */
 export const GENERATED_IMAGE_SLUG = /^[a-z0-9-]{1,40}$/;
+/** imggen's own MAX_PNG: it never writes a larger file. */
+export const MAX_GENERATED_IMAGE_BYTES = 64 * 1024 * 1024;
 /** imggen's own `--count` limit (1..8). */
 export const MAX_IMAGES_PER_JOB = 8;
 /** imggen accepts `--seed` 0..2**32 - count, so the last image's seed is at most this. */

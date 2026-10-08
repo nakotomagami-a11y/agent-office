@@ -477,6 +477,10 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   (db) => {
     db.exec(`ALTER TABLE tool_calls ADD COLUMN done_ts INTEGER;`);
   },
+  // v23 -> v24: the call returned but its command ran on, so done_ts doesn't end its files.
+  (db) => {
+    db.exec(`ALTER TABLE tool_calls ADD COLUMN backgrounded INTEGER NOT NULL DEFAULT 0;`);
+  },
 ];
 
 /**
@@ -565,5 +569,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 21) { MIGRATIONS[20]!(db); v = 21; db.pragma("user_version = 21"); }
     if (v < 22) { MIGRATIONS[21]!(db); v = 22; db.pragma("user_version = 22"); }
     if (v < 23) { MIGRATIONS[22]!(db); v = 23; db.pragma("user_version = 23"); }
+    if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
   })();
 }

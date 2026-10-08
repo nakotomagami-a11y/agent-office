@@ -20,12 +20,14 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
   // path uses — the claim that these "render identically either way" was false:
   // live formatted the arg and dropped sub-agent spawns, this did neither.
   if (turn.toolCalls && turn.toolCalls.length > 0) {
+    // A run killed by a crash or restart never closed its calls; none outlived it.
+    const turnEnd = turn.status === "running" ? undefined : turn.ts + turn.durMs;
     for (const tc of turn.toolCalls) {
       const input = parseStoredToolInput(tc.input);
       // Sub-agent spawns render as their own card, exactly as the live path
       // suppresses them — otherwise a finished run grows duplicate rows.
       if (isSubAgentSpawnTool(tc.name, input)) continue;
-      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: formatToolArg(input), runId: turn.id, ts: tc.ts, doneTs: tc.doneTs });
+      items.push({ kind: "agent-tool", id: tc.id, name: tc.name, arg: formatToolArg(input), runId: turn.id, ts: tc.ts, doneTs: tc.doneTs ?? turnEnd, backgrounded: tc.backgrounded });
     }
   } else if (turn.backgroundTaskCommand) {
     // Fallback for the rare case the tool_calls row already aged out but the

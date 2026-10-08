@@ -107,5 +107,5 @@ export function applyToolEvent(thread: ThreadItem[], data: SseToolEvent): Thread
 export function applyToolDoneEvent(thread: ThreadItem[], data: SseToolDoneEvent): ThreadItem[] {
   const row = thread.find((it) => it.kind === "agent-tool" && it.id === data.toolUseId);
   if (row?.kind !== "agent-tool" || row.doneTs !== undefined) return thread;
-  return thread.map((it) => (it === row ? { ...row, doneTs: data.ts } : it));
+  return thread.map((it) => (it === row ? { ...row, doneTs: data.ts, backgrounded: data.backgrounded } : it));
 }

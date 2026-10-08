@@ -252,7 +252,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `attached` | `runId, output, tokensIn, tokensOut, cost, status, startTs` | Late subscriber joins an in-progress run; replays event log |
 | `chunk` | `runId, text` | Each text delta from claude's stdout |
 | `tool` | `runId, name, input?, toolUseId?, ts?` | Tool use block detected |
-| `tool-done` | `runId, toolUseId, ts` | That tool call's result arrived — bounds the files an imggen card may claim |
+| `tool-done` | `runId, toolUseId, ts, backgrounded?` | That tool call's result arrived, or its run ended without one — bounds the files an imggen card may claim |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message and on result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Run finalized (success or failure) |
 | `error` | `runId, code, detail?` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
@@ -280,7 +280,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v23**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v24**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned. Pipelines with no still-live run → `status='error', interrupted=1`.
 
 ### Tables
@@ -289,7 +289,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 |-------|------------|-------|
 | `runs` | id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at, parent_run_id, account_id, owner_pid, rate_limited_resets_at, conversation_id, cache_creation_tokens, cache_read_tokens, origin | Core run record. `origin` is `user` or `system` — Agent Office writes into conversations through the same path the reply box uses, so without it its own messages rendered as the user's. `parent_run_id` links sub-agents |
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
-| `tool_calls` | id, run_id, name, input, ts, done_ts | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
+| `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
 | `transcripts` | PK(agent_id, instance_id), items, active_run_id, session_id, updated_at, queued_messages | Legacy full chat thread as a JSON array — superseded by `conversations` + `queued_messages` (below). The v14 migration (`backfillConversations`) created one `conversations` row per pre-existing (agent, instance) slot that lacked one, carrying over its session id |
 | `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to |

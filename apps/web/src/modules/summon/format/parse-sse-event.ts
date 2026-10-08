@@ -26,7 +26,7 @@ const attachedSchema = z.object({
 
 const chunkSchema = z.object({ runId: z.string(), text: z.string() });
 const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional(), toolUseId: z.string().optional(), ts: z.number().optional() });
-const toolDoneSchema = z.object({ runId: z.string(), toolUseId: z.string(), ts: z.number() });
+const toolDoneSchema = z.object({ runId: z.string(), toolUseId: z.string(), ts: z.number(), backgrounded: z.boolean().optional() });
 const usageSchema = z.object({
   runId: z.string(),
   tokensIn: z.number(),

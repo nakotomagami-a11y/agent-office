@@ -21,12 +21,13 @@ function slotImages(job: ImggenJob, found: GeneratedImageRef[]): Array<Generated
 
 /** Polling, the final catch-up fetch, and registering what's shown for dedupe.
  *  A foreground job is over once its tool call returns (`doneTs`), and no file
- *  after that is its own; a backgrounded one outlives the call, so it gets neither. */
+ *  after that is its own; a backgrounded one outlives the call, so its deadline
+ *  bounds it instead. */
 function useImageJob(job: ImggenJob, ts: number, doneTs: number | undefined, turnLive: boolean) {
   const deadline = ts + BACKGROUND_BASE_MS + job.count * BACKGROUND_MS_PER_IMAGE;
   const backgroundLive = job.background && Date.now() < deadline;
   const live = job.background ? turnLive || backgroundLive : turnLive && doneTs === undefined;
-  const untilMs = job.background ? undefined : doneTs;
+  const untilMs = job.background ? deadline : doneTs;
   const { data, isError, isFetched, isFetching, refetch } = useGeneratedImages(job, ts, untilMs, live);
 
   // The last image can land between the final poll and the job ending.

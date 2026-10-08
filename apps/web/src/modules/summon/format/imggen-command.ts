@@ -25,7 +25,8 @@ interface Token {
   text: string;
   /** Contains an expansion (`$…`, backticks) whose value only the shell knows. */
   dynamic: boolean;
-  quoted: boolean;
+  /** First character came from a quote, so a leading `<`/`>` is text, not a redirect. */
+  startsQuoted: boolean;
 }
 
 const LONG_FLAGS = ["--prompt-file", "--negative", "--name", "--width", "--height", "--steps", "--cfg", "--sampler", "--scheduler", "--seed", "--count", "--profile", "--profiles", "--help"];
@@ -77,10 +78,9 @@ function tokenize(cmd: string): Token[] | null {
   const heredocs: Array<{ delim: string; stripTabs: boolean }> = [];
   let cur: Token | null = null;
   const add = (s: string, dynamic = false, quoted = false) => {
-    cur = cur ?? { text: "", dynamic: false, quoted: false };
+    cur = cur ?? { text: "", dynamic: false, startsQuoted: quoted };
     cur.text += s;
     cur.dynamic ||= dynamic;
-    cur.quoted ||= quoted;
   };
   const flush = () => {
     if (cur) out.push(cur);
@@ -112,7 +112,7 @@ function tokenize(cmd: string): Token[] | null {
     } else if (/\s/.test(c) || ";&|".includes(c)) {
       flush();
       const op = operatorAt(cmd, i);
-      if (op) out.push({ text: op, dynamic: false, quoted: false });
+      if (op) out.push({ text: op, dynamic: false, startsQuoted: false });
       if (op === "&&" || op === "||") i++;
       if (c === "\n") heredocs.splice(0).forEach((h) => (i = skipHeredoc(cmd, i + 1, h.delim, h.stripTabs) - 1));
     } else {
@@ -150,12 +150,12 @@ function parseArgs(args: Token[], background: boolean): ImggenJob | null {
   const values = new Map<string, Token>();
   for (let i = 0; i < args.length; i++) {
     const tok = args[i]!;
-    if (!tok.quoted && REDIRECT.test(tok.text)) {
+    if (!tok.startsQuoted && REDIRECT.test(tok.text)) {
       if (BARE_REDIRECT.test(tok.text)) i++;
       continue;
     }
     if (tok.text === "--") {
-      positional.push(...args.slice(i + 1).filter((a) => a.quoted || !REDIRECT.test(a.text)));
+      positional.push(...args.slice(i + 1).filter((a) => a.startsQuoted || !REDIRECT.test(a.text)));
       break;
     }
     if (!tok.text.startsWith("-") || tok.text === "-" || /^-\d/.test(tok.text)) {
