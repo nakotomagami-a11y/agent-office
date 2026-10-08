@@ -5,10 +5,10 @@
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/with-clean-env.mjs __NEXT_PRIVATE_STANDALONE_CONFIG -- next dev --turbopack",
+    "dev": "node scripts/with-clean-env.mjs __NEXT_PRIVATE_STANDALONE_CONFIG -- next dev --turbopack -H 127.0.0.1",
     "build": "node scripts/with-clean-env.mjs __NEXT_PRIVATE_STANDALONE_CONFIG -- next build && node scripts/copy-standalone-assets.mjs",
     "build:release": "node scripts/with-clean-env.mjs __NEXT_PRIVATE_STANDALONE_CONFIG -- next build --webpack",
-    "start": "node scripts/with-clean-env.mjs HOSTNAME -- node .next/standalone/apps/web/server.js",
+    "start": "node scripts/with-clean-env.mjs HOSTNAME --set HOSTNAME=127.0.0.1 -- node .next/standalone/apps/web/server.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
