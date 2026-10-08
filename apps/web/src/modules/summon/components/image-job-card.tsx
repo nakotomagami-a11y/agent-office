@@ -5,12 +5,9 @@ import { useTranslations } from "next-intl";
 import { API_ROUTES } from "@agent-office/domain/config/routes";
 import type { GeneratedImageRef } from "@agent-office/domain/config/generated-images";
 import type { ImggenJob } from "../format/imggen-command";
+import { imageJobWindow } from "../format/image-job-window";
 import { useGeneratedImages } from "../hooks/use-generated-images";
 import { InlineImage, ShownImagesContext } from "./inline-image";
-
-// A backgrounded job outlives its turn; keep looking for about as long as it can take.
-const BACKGROUND_MS_PER_IMAGE = 45_000;
-const BACKGROUND_BASE_MS = 120_000;
 
 /** Slot i of the job: by seed when seeds are known, else in write order. */
 function slotImages(job: ImggenJob, found: GeneratedImageRef[]): Array<GeneratedImageRef | undefined> {
@@ -19,15 +16,11 @@ function slotImages(job: ImggenJob, found: GeneratedImageRef[]): Array<Generated
   );
 }
 
-/** Polling, the final catch-up fetch, and registering what's shown for dedupe.
- *  A foreground job is over once its tool call returns (`doneTs`), and no file
- *  after that is its own; a backgrounded one outlives the call, so its deadline
- *  bounds it instead. */
+/** Polling, the final catch-up fetch, and registering what's shown for dedupe. */
 function useImageJob(job: ImggenJob, ts: number, doneTs: number | undefined, turnLive: boolean) {
-  const deadline = ts + BACKGROUND_BASE_MS + job.count * BACKGROUND_MS_PER_IMAGE;
-  const backgroundLive = job.background && Date.now() < deadline;
-  const live = job.background ? turnLive || backgroundLive : turnLive && doneTs === undefined;
-  const untilMs = job.background ? deadline : doneTs;
+  const now = Date.now();
+  const { untilMs, live, deadline } = imageJobWindow(job, ts, doneTs, turnLive, now);
+  const backgroundLive = deadline !== undefined && now < deadline;
   const { data, isError, isFetched, isFetching, refetch } = useGeneratedImages(job, ts, untilMs, live);
 
   // The last image can land between the final poll and the job ending.
@@ -41,7 +34,7 @@ function useImageJob(job: ImggenJob, ts: number, doneTs: number | undefined, tur
   const [, expire] = useState(0);
   useEffect(() => {
     if (!backgroundLive) return;
-    const timer = setTimeout(() => expire(1), deadline - Date.now() + 50);
+    const timer = setTimeout(() => expire(1), deadline! - Date.now() + 50);
     return () => clearTimeout(timer);
   }, [backgroundLive, deadline]);
 

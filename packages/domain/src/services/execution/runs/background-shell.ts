@@ -19,12 +19,17 @@ export interface PendingBackgroundBash {
   childPidsBefore: Set<number>;
 }
 
-/** Type guard for a Bash tool input that requested a backgrounded shell. */
-/** The call returned but its command runs on (background, timeout, or interrupted by a message). */
-export function isBackgroundedBashResult(resultText: string): boolean {
+/** The call returned but its command runs on (background, timeout, or a message
+ *  arriving). Bash's structured output says so; the prose is the fallback when
+ *  it is missing, so a Read of this very file is not misread. */
+export function isBackgroundedBashResult(toolUseResult: unknown, resultText: string): boolean {
+  if (toolUseResult && typeof toolUseResult === "object") {
+    return typeof (toolUseResult as { backgroundTaskId?: unknown }).backgroundTaskId === "string";
+  }
   return /moved to the background \(ID: |running in background with ID: /.test(resultText);
 }
 
+/** Type guard for a Bash tool input that requested a backgrounded shell. */
 export function isBackgroundBashInput(input: unknown): input is { command: string; description?: unknown } {
   if (!input || typeof input !== "object") return false;
   const r = input as Record<string, unknown>;

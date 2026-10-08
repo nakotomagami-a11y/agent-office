@@ -8,6 +8,15 @@ import { badRequest, handleServeUpload, notFound, validateIdParam } from "@/lib/
 
 type Params = { params: Promise<{ date: string; filename: string }> };
 
+/** Null when the file vanished after the existence check. */
+function tryRealpath(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(_request: Request, { params }: Params) {
   const { date, filename } = await params;
   if (!GENERATED_IMAGE_DATE.test(date)) return badRequest("invalid_date");
@@ -18,7 +27,8 @@ export async function GET(_request: Request, { params }: Params) {
   const dir = join(GENERATED_IMAGES_DIR, date);
   const file = join(dir, nameCheck.value);
   // A symlink dropped in the folder must not serve a file from outside it.
-  if (!existsSync(file) || !realpathSync(file).startsWith(realpathSync(GENERATED_IMAGES_DIR) + sep)) return notFound();
+  const real = existsSync(file) ? tryRealpath(file) : null;
+  if (!real?.startsWith(realpathSync(GENERATED_IMAGES_DIR) + sep)) return notFound();
   // The serve is a blocking read: a FIFO would hang the server, a huge file exhaust it.
   const st = statSync(file, { throwIfNoEntry: false });
   if (!st?.isFile() || st.size > MAX_GENERATED_IMAGE_BYTES) return notFound();

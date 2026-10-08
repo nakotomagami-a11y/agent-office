@@ -559,10 +559,12 @@ function handleStreamLine(run: LiveRun, line: string): void {
   // Agent and Bash `claude -p` children run outside liveRuns, so the live bridge
   // never fires for them).
   if (evt.type === "user" && evt.message?.content) {
+    const results = evt.message.content.filter((b) => b.type === "tool_result").length;
     for (const block of evt.message.content) {
       if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
         const doneTs = Date.now();
-        const backgrounded = isBackgroundedBashResult(stringifyToolResult(block.content));
+        const structured = results === 1 ? evt.tool_use_result : undefined;
+        const backgrounded = isBackgroundedBashResult(structured, stringifyToolResult(block.content));
         db.markToolCallDone(block.tool_use_id, doneTs, backgrounded);
         broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs, backgrounded } });
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
