@@ -18,7 +18,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
 import { createSchema } from "./migrations";
-import { insertToolCall } from "./messages";
+import { insertToolCall, markToolCallDone } from "./messages";
 import { insertRun } from "./runs";
 
 const mem = new Database(":memory:");
@@ -95,4 +95,13 @@ test("the same tool-use id in a DIFFERENT run does not collide", () => {
   insertToolCall(b, "Bash", { command: "second" }, 2000, "toolu_05SHARED");
   // The id is globally unique in practice; this pins what happens if it is not.
   assert.equal(rows(a).length + rows(b).length, 1, "a shared id is one row by construction");
+});
+
+test("the first result time sticks: a replayed tool_result cannot move done_ts later", () => {
+  const run = freshRun();
+  insertToolCall(run, "Bash", { command: "imggen x" }, 1000, "toolu_03DONE");
+  markToolCallDone("toolu_03DONE", 5000);
+  markToolCallDone("toolu_03DONE", 9000);
+  const row = mem.prepare("SELECT done_ts FROM tool_calls WHERE id = ?").get("toolu_03DONE") as { done_ts: number };
+  assert.equal(row.done_ts, 5000);
 });

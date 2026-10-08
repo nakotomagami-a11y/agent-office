@@ -17,6 +17,9 @@ import { GENERATED_IMAGES_DIR } from "./paths";
 export interface GeneratedImageQuery {
   slug: string;
   sinceMs: number;
+  /** When that tool call returned: a later file belongs to some later run. Unset
+   *  while it runs, and for a backgrounded job, which outlives its call. */
+  untilMs?: number;
   /** Known seeds, one per slot; null when imggen chose a random one. */
   seeds: number[] | null;
 }
@@ -63,8 +66,9 @@ function mtimeOf(path: string): number {
 }
 
 /**
- * This job's files: written at or after `sinceMs` (at most a week back), so an
- * older run or a later re-run of the same slug+seed never stands in for it.
+ * This job's files: written in [`sinceMs`, `untilMs`] (`sinceMs` at most a week
+ * back), so an older run or a later re-run of the same slug+seed never stands in
+ * for it — though with no `untilMs` yet, a re-run's file can until it arrives.
  * Seeds known: the oldest such file per seed, in seed order. Seeds unknown: the
  * oldest such files of this slug, in write order. Two same-slug jobs that start
  * together (parallel tool calls, or one still running in the background) can't be
@@ -76,11 +80,13 @@ export function findGeneratedImages(query: GeneratedImageQuery, root = GENERATED
   // Refused rather than clamped: moving `since` forward would match a later run.
   if (query.sinceMs < Date.now() - MAX_SINCE_AGE_MS) return [];
   const sinceMs = query.sinceMs;
+  const untilMs = query.untilMs ?? Infinity;
   const oldestDate = new Date(sinceMs - DAY_MS).toISOString().slice(0, 10);
+  const newestDate = new Date(Math.min(untilMs, Date.now()) + DAY_MS).toISOString().slice(0, 10);
   const files = dateDirsNewestFirst(root)
-    .filter((date) => date >= oldestDate)
+    .filter((date) => date >= oldestDate && date <= newestDate)
     .flatMap((date) => jobFiles(root, date, re).map((f) => ({ ...f, date, mtime: mtimeOf(join(root, date, f.filename)) })))
-    .filter((f) => f.mtime >= sinceMs)
+    .filter((f) => f.mtime >= sinceMs && f.mtime <= untilMs)
     .sort((a, b) => a.mtime - b.mtime);
   const picked = query.seeds
     ? query.seeds.slice(0, MAX_IMAGES_PER_JOB).flatMap((seed) => files.find((f) => f.seed === seed) ?? [])

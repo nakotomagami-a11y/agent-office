@@ -1,6 +1,6 @@
 /**
  * The chat draws one placeholder per image from the Bash command alone, so the
- * parse must agree with imggen's argparse: a command imggen would reject, or whose
+ * parse must agree with imggen's argparse (~/.local/bin/imggen): a command imggen would reject, or whose
  * name/seed only the shell knows, must yield no job (placeholders that never fill),
  * and a mention of "imggen" that isn't a run (grep, heredoc, comment) must not count.
  *
@@ -35,6 +35,19 @@ test("the command used in this repo's first real run", () => {
   assert.deepEqual(parseImggenCommand(cmd), [{ slug: "treasure-chest", count: 1, seeds: [2026], background: false, offset: 0 }]);
 });
 
+test("the form every agent is told to use: --profile, --name, --prompt-file", () => {
+  assert.deepEqual(one(`imggen --profile general --name fox --prompt-file /tmp/imggen-abc.txt`), { slug: "fox", count: 1, seeds: null, background: false, offset: 0 });
+  assert.equal(one(`imggen -p tinyswords --name fox "a fox"`).slug, "fox");
+  assert.equal(one(`imggen --prompt=/tmp/p.txt --name=fox`).slug, "fox", "--prompt abbreviates --prompt-file");
+  assert.equal(one(`echo "a fox" | imggen - --name fox -c 2`).count, 2);
+});
+
+test("a prompt from a file or stdin without --name has a slug only imggen knows", () => {
+  assert.deepEqual(parseImggenCommand(`imggen --prompt-file /tmp/p.txt`), []);
+  assert.deepEqual(parseImggenCommand(`echo fox | imggen -`), []);
+  assert.deepEqual(parseImggenCommand(`imggen --prompt-file /tmp/p.txt --name ""`), []);
+});
+
 test("count and seed give one placeholder and one known seed per image", () => {
   assert.deepEqual(one(`imggen 'a cat' --name cats -c 3 --seed 10`).seeds, [10, 11, 12]);
   assert.deepEqual(one(`imggen "a cat" --count=2 --name=Cats`), { slug: "cats", count: 2, seeds: null, background: false, offset: 0 });
@@ -47,13 +60,13 @@ test("argparse's unique-prefix abbreviations are honoured; ambiguous ones are re
 });
 
 test("without --name the slug comes from the prompt, like imggen", () => {
-  const job = one(`imggen "Minimal Logo: a FOX head!!" -W 768 -H 512 -n "blurry, text"`);
+  const job = one(`imggen "Minimal Logo: a FOX head!!" -W 768 -H 512 --negative "blurry, text"`);
   assert.equal(job.slug, "minimal-logo-a-fox-head");
   assert.equal(job.seeds, null);
 });
 
 test("value flags don't steal the prompt and escaped quotes stay in it", () => {
-  assert.equal(one(`imggen --steps 20 --cfg 6.5 "say \\"hi\\"" --checkpoint x.safetensors`).slug, "say-hi");
+  assert.equal(one(`imggen --steps 20 --cfg 6.5 "say \\"hi\\"" -p general`).slug, "say-hi");
   assert.equal(one(`imggen -- "-dash prompt" `).slug, "dash-prompt");
 });
 
@@ -74,6 +87,8 @@ test("chained runs each become a job; prefixes and env assignments are allowed",
 
 test("a trailing & or run_in_background marks the job as background", () => {
   assert.equal(one(`nohup imggen x --seed 1 > /dev/null 2>&1 &`).background, true);
+  assert.equal(one(`imggen "a fox" &>/dev/null`).background, false, "&> is a redirect");
+  assert.equal(one(`imggen "a fox" &>> /tmp/log --seed 2`).seeds![0], 2);
   const arg = JSON.stringify({ command: `imggen x --seed 1`, run_in_background: true });
   assert.equal(imggenJobsFromToolArg("Bash", arg)[0]!.background, true);
 });
@@ -84,6 +99,7 @@ test("mentions that are not a run are ignored", () => {
   assert.deepEqual(parseImggenCommand(`cat > gen.sh <<'EOF'\nimggen "fox" --name fox --seed 7\nEOF\necho done`), []);
   assert.deepEqual(parseImggenCommand(`cat <<-EOF > x\n\timggen "fox" --seed 7\n\tEOF`), []);
   assert.deepEqual(parseImggenCommand(`echo hi # imggen "fox" --seed 9`), []);
+  assert.deepEqual(parseImggenCommand(`cat > gen.sh <<\\EOF\nimggen "fox" --name leak\nEOF`), []);
 });
 
 test("a heredoc body is skipped but the command after it still counts", () => {
@@ -102,6 +118,12 @@ test("commands argparse or imggen would reject yield no job", () => {
   assert.deepEqual(parseImggenCommand(`imggen x --seed`), []);
   assert.deepEqual(parseImggenCommand(`imggen x --seed abc`), []);
   assert.deepEqual(parseImggenCommand(`imggen x -c 0`), [], "range(0) writes nothing");
+  assert.deepEqual(parseImggenCommand(`imggen x -c 9`), [], "imggen allows 1..8");
+  assert.deepEqual(parseImggenCommand(`imggen "a fox" -n blurry`), [], "no -n in imggen");
+  assert.deepEqual(parseImggenCommand(`imggen "a fox" --checkpoint x`), []);
+  assert.deepEqual(parseImggenCommand(`imggen "a fox" --prompt-file p.txt`), [], "prompt and --prompt-file together");
+  assert.deepEqual(parseImggenCommand(`imggen --profiles`), []);
+  assert.deepEqual(parseImggenCommand(`imggen x --profiles`), []);
 });
 
 test("names and seeds only the shell knows yield no job", () => {
@@ -112,17 +134,22 @@ test("names and seeds only the shell knows yield no job", () => {
   assert.equal(one(`imggen 'literal $PROMPT' --seed 3`).slug, "literal-prompt");
 });
 
-test("absurd counts are clamped", () => {
-  assert.equal(one(`imggen x -c 500`).count, 16);
+test("an unterminated quote is a bash syntax error, so nothing runs", () => {
+  assert.deepEqual(parseImggenCommand(`imggen "a fox --name fox`), []);
+  assert.deepEqual(parseImggenCommand(`imggen 'a fox --name fox`), []);
+});
+
+test("a quoted prompt that starts with < or > is the prompt, not a redirect", () => {
+  assert.equal(one(`imggen "<b>bold</b> fox"`).slug, "b-bold-b-fox");
 });
 
 test("one command yields at most 8 jobs, so injected text can't fan out requests", () => {
-  assert.equal(parseImggenCommand("imggen a --seed 1 -c 16;".repeat(10_000)).length, 8);
+  assert.equal(parseImggenCommand("imggen a --seed 1 -c 8;".repeat(10_000)).length, 8);
 });
 
-test("a seed range past what the lookup accepts falls back to time matching", () => {
-  assert.equal(one(`imggen x --seed 9999999990 -c 16`).seeds, null);
-  assert.deepEqual(one(`imggen x --seed 9999999998 -c 2`).seeds, [9999999998, 9999999999]);
+test("seeds past imggen's 0..2**32 - count yield no job", () => {
+  assert.deepEqual(parseImggenCommand(`imggen x --seed 4294967295 -c 2`), []);
+  assert.deepEqual(one(`imggen x --seed 4294967294 -c 2`).seeds, [4294967294, 4294967295]);
 });
 
 test("tool args: only Bash, malformed JSON is not an error, oversized args are skipped", () => {
@@ -135,9 +162,11 @@ test("tool args: only Bash, malformed JSON is not an error, oversized args are s
   assert.deepEqual(imggenJobsFromToolArg("Bash", big), []);
 });
 
-test("same-slug seedless jobs in one command take consecutive slices of the shared lookup", () => {
+test("same-slug jobs in one command take consecutive slices of the shared lookup", () => {
   const jobs = parseImggenCommand(`imggen "a" -c 3; imggen "b" -c 1; imggen "a" -c 2; imggen "a" --seed 9`);
-  assert.deepEqual(jobs.map((j) => [j.slug, j.offset]), [["a", 0], ["b", 0], ["a", 3], ["a", 0]]);
+  assert.deepEqual(jobs.map((j) => [j.slug, j.offset]), [["a", 0], ["b", 0], ["a", 3], ["a", 5]]);
+  const after = parseImggenCommand(`imggen a --name cat --seed 5; imggen b --name cat`);
+  assert.equal(after[1]!.offset, 1, "a seeded job's file comes first in the seedless lookup too");
 });
 
 test("an empty --name falls back to the prompt, like imggen's `a.name or a.prompt`", () => {

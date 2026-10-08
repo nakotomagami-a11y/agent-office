@@ -479,7 +479,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                           <ToolGroupRow
                             key={row.id + "tgr_" + rowIdx}
                             id={row.id}
-                            tools={row.tools.map((tl) => ({ id: tl.id, name: tl.name, arg: tl.arg, ts: tl.ts }))}
+                            tools={row.tools.map((tl) => ({ id: tl.id, name: tl.name, arg: tl.arg, ts: tl.ts, doneTs: tl.doneTs }))}
                             agent={agent}
                             hideAvatar
                             running={running}

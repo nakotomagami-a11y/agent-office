@@ -227,6 +227,7 @@ export const conversationQuerySchema = z.object({
 export const generatedImagesQuerySchema = z.object({
   name: z.string().regex(GENERATED_IMAGE_SLUG),
   since: z.coerce.number().int().min(1).max(8.64e15),
+  until: z.coerce.number().int().min(1).max(8.64e15).optional(),
   seeds: z
     .string()
     .regex(new RegExp(`^\\d{1,10}(,\\d{1,10}){0,${MAX_IMAGES_PER_JOB - 1}}$`))

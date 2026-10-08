@@ -50,6 +50,18 @@ test("seeded: a later re-run of the same slug+seed does not replace this job's f
   assert.equal(rerun[0]!.filename, "10-05-00_cats_10.png");
 });
 
+test("a file written after the job's tool call returned belongs to a retry, not to it", () => {
+  const failed = { slug: "cats", sinceMs: NOW - 3 * MIN, untilMs: NOW - 2.5 * MIN };
+  assert.deepEqual(findGeneratedImages({ ...failed, seeds: null }, root), []);
+  assert.deepEqual(findGeneratedImages({ ...failed, seeds: [10] }, root), []);
+  assert.equal(findGeneratedImages({ ...failed, untilMs: NOW - 2 * MIN, seeds: [10] }, root).length, 1, "inclusive bound");
+});
+
+test("a date folder past tomorrow is never scanned", () => {
+  put(day(400), "10-00-00_future_1.png", NOW);
+  assert.deepEqual(findGeneratedImages({ slug: "future", sinceMs: NOW - MIN, seeds: null }, root), []);
+});
+
 test("seeded: a file from before the job started never fills its slot", () => {
   assert.deepEqual(findGeneratedImages({ slug: "cats", sinceMs: NOW - MIN, seeds: [10, 11] }, root), []);
 });

@@ -473,6 +473,10 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       ALTER TABLE runs ADD COLUMN origin TEXT NOT NULL DEFAULT 'user';
     `);
   },
+  // v22 -> v23: bounds an imggen card's files, so a failed run never shows its retry's.
+  (db) => {
+    db.exec(`ALTER TABLE tool_calls ADD COLUMN done_ts INTEGER;`);
+  },
 ];
 
 /**
@@ -560,5 +564,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 20) { MIGRATIONS[19]!(db); v = 20; db.pragma("user_version = 20"); }
     if (v < 21) { MIGRATIONS[20]!(db); v = 21; db.pragma("user_version = 21"); }
     if (v < 22) { MIGRATIONS[21]!(db); v = 22; db.pragma("user_version = 22"); }
+    if (v < 23) { MIGRATIONS[22]!(db); v = 23; db.pragma("user_version = 23"); }
   })();
 }

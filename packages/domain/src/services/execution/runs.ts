@@ -408,6 +408,7 @@ function broadcast(run: LiveRun, event: SseEvent): void {
   if (
     event.name === "chunk" ||
     event.name === "tool" ||
+    event.name === "tool-done" ||
     event.name === "usage" ||
     event.name === "subagent" ||
     event.name === "rate-limit"
@@ -560,6 +561,9 @@ function handleStreamLine(run: LiveRun, line: string): void {
   if (evt.type === "user" && evt.message?.content) {
     for (const block of evt.message.content) {
       if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
+        const doneTs = Date.now();
+        db.markToolCallDone(block.tool_use_id, doneTs);
+        broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs } });
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
         const pending = run.pendingBackgroundBash.get(block.tool_use_id);
         if (pending) {

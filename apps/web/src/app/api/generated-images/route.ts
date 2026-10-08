@@ -1,4 +1,4 @@
-// GET /api/generated-images?name=<slug>&since=<epoch-ms>[&seeds=1,2,3] — which
+// GET /api/generated-images?name=<slug>&since=<epoch-ms>[&until=<epoch-ms>][&seeds=1,2,3] — which
 // images of one imggen job exist so far. Polled by the chat's image-job card.
 import { generatedImages } from "@agent-office/domain/services";
 import { tryService } from "@/lib/api-helpers";
@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     images: generatedImages.findGeneratedImages({
       slug: data.name,
       sinceMs: data.since,
+      untilMs: data.until,
       seeds: data.seeds ? data.seeds.split(",").map(Number) : null,
     }),
   }));

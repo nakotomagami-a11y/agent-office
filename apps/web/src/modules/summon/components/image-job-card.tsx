@@ -8,9 +8,6 @@ import type { ImggenJob } from "../format/imggen-command";
 import { useGeneratedImages } from "../hooks/use-generated-images";
 import { InlineImage, ShownImagesContext } from "./inline-image";
 
-// `ts` is stamped server-side before the command runs; the slack only absorbs
-// filesystem mtime granularity.
-const SINCE_SLACK_MS = 2_000;
 // A backgrounded job outlives its turn; keep looking for about as long as it can take.
 const BACKGROUND_MS_PER_IMAGE = 45_000;
 const BACKGROUND_BASE_MS = 120_000;
@@ -22,14 +19,17 @@ function slotImages(job: ImggenJob, found: GeneratedImageRef[]): Array<Generated
   );
 }
 
-/** Polling, the final catch-up fetch, and registering what's shown for dedupe. */
-function useImageJob(job: ImggenJob, ts: number, turnLive: boolean) {
+/** Polling, the final catch-up fetch, and registering what's shown for dedupe.
+ *  A foreground job is over once its tool call returns (`doneTs`), and no file
+ *  after that is its own; a backgrounded one outlives the call, so it gets neither. */
+function useImageJob(job: ImggenJob, ts: number, doneTs: number | undefined, turnLive: boolean) {
   const deadline = ts + BACKGROUND_BASE_MS + job.count * BACKGROUND_MS_PER_IMAGE;
   const backgroundLive = job.background && Date.now() < deadline;
-  const live = turnLive || backgroundLive;
-  const { data, isError, isFetched, isFetching, refetch } = useGeneratedImages(job, ts - SINCE_SLACK_MS, turnLive, deadline);
+  const live = job.background ? turnLive || backgroundLive : turnLive && doneTs === undefined;
+  const untilMs = job.background ? undefined : doneTs;
+  const { data, isError, isFetched, isFetching, refetch } = useGeneratedImages(job, ts, untilMs, live);
 
-  // The last image can land between the final poll and the turn ending.
+  // The last image can land between the final poll and the job ending.
   const wasLive = useRef(live);
   useEffect(() => {
     if (wasLive.current && !live) void refetch();
@@ -60,12 +60,13 @@ function useImageJob(job: ImggenJob, ts: number, turnLive: boolean) {
 
 /**
  * One placeholder per requested image, each swapped for the real image as soon as
- * imggen finishes it. Rendered under the Bash tool call that ran imggen; `ts` is
- * that call's start, `turnLive` whether its turn is still streaming.
+ * imggen finishes it. Rendered under the Bash tool call that ran imggen; `ts` /
+ * `doneTs` are when that call started and returned, `turnLive` whether its turn
+ * is still streaming.
  */
-export function ImageJobCard({ job, ts, turnLive }: { job: ImggenJob; ts: number; turnLive: boolean }) {
+export function ImageJobCard({ job, ts, doneTs, turnLive }: { job: ImggenJob; ts: number; doneTs?: number; turnLive: boolean }) {
   const t = useTranslations("image_job");
-  const { slots, done, pending, lookupFailed } = useImageJob(job, ts, turnLive);
+  const { slots, done, pending, lookupFailed } = useImageJob(job, ts, doneTs, turnLive);
   return (
     <div className="ml-[29px] mr-[14px] mb-[8px]">
       <div className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-ao-fg-3 mb-[6px]">

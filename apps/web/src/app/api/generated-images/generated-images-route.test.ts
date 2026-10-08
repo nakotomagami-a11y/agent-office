@@ -1,10 +1,11 @@
 /**
  * Serves only dated raster files inside the images root; traversal, hidden files, SVG,
- * and symlinks that leave the root are all refused.
+ * symlinks that leave the root, and non-regular files (FIFOs) are all refused.
  *
  *   pnpm exec tsx --test src/app/api/generated-images/generated-images-route.test.ts
  */
 import assert from "node:assert";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,6 +20,7 @@ writeFileSync(join(day, "ok.png"), "png-bytes");
 writeFileSync(join(day, "a.svg"), "<svg/>");
 writeFileSync(join(home, "secret.txt"), "secret");
 symlinkSync(join(home, "secret.txt"), join(day, "leak.png"));
+execFileSync("mkfifo", [join(day, "pipe.png")]);
 
 const status = async (date: string, filename: string): Promise<number> => {
   const { GET } = await import("./[date]/[filename]/route");
@@ -47,4 +49,8 @@ test("malformed dates, traversal, hidden files and svg are 400", async () => {
 
 test("a symlink pointing outside the root is not served", async () => {
   assert.equal(await status("2026-10-08", "leak.png"), 404);
+});
+
+test("a FIFO is not served: reading it would block the whole server", async () => {
+  assert.equal(await status("2026-10-08", "pipe.png"), 404);
 });

@@ -1,11 +1,12 @@
 // Reads the imggen invocations out of a Bash tool call so the chat can show one
-// placeholder per image before any file exists. Mirrors imggen's argparse: a
-// command argparse would reject, or one whose name/seed is only known at run time
-// ($VAR, `cmd`), yields no job rather than placeholders that can never fill.
+// placeholder per image before any file exists. Mirrors imggen's argparse
+// (~/.local/bin/imggen): a command it would reject, or one whose name/seed is only
+// known at run time ($VAR, `cmd`, a prompt from a file or stdin with no --name),
+// yields no job rather than placeholders that can never fill.
 // Not recognised as a run (false negatives only): `bash -c`, `xargs`, `timeout`,
 // and imggen inside if/for/while bodies or ( ) { } groups.
 
-import { MAX_IMAGES_PER_JOB, MAX_JOBS_PER_COMMAND, imggenSlug } from "@agent-office/domain/config/generated-images";
+import { MAX_IMAGES_PER_JOB, MAX_JOBS_PER_COMMAND, MAX_SEED, imggenSlug } from "@agent-office/domain/config/generated-images";
 import { asRecord, parseJson, strField } from "@/lib/json-narrow";
 
 export interface ImggenJob {
@@ -15,8 +16,8 @@ export interface ImggenJob {
   seeds: number[] | null;
   /** Detached from the tool call (`&` or run_in_background): may outlive the turn. */
   background: boolean;
-  /** Seedless only: images earlier seedless jobs of the same slug in this command
-   *  write first, since all of them share one start time and match by write order. */
+  /** Images earlier same-slug jobs in this command write first: they share one
+   *  start time, so a seedless job's files are found by write order after theirs. */
   offset: number;
 }
 
@@ -24,14 +25,17 @@ interface Token {
   text: string;
   /** Contains an expansion (`$…`, backticks) whose value only the shell knows. */
   dynamic: boolean;
+  quoted: boolean;
 }
 
-const LONG_FLAGS = ["--negative", "--name", "--width", "--height", "--steps", "--cfg", "--sampler", "--scheduler", "--seed", "--count", "--checkpoint", "--help"];
-const SHORT_FLAGS: Record<string, string> = { "-n": "--negative", "-W": "--width", "-H": "--height", "-c": "--count", "-h": "--help" };
+const LONG_FLAGS = ["--prompt-file", "--negative", "--name", "--width", "--height", "--steps", "--cfg", "--sampler", "--scheduler", "--seed", "--count", "--profile", "--profiles", "--help"];
+const SHORT_FLAGS: Record<string, string> = { "-W": "--width", "-H": "--height", "-c": "--count", "-p": "--profile", "-h": "--help" };
+const NO_RUN_FLAGS = new Set(["--help", "--profiles"]);
 const CONTROL = new Set([";", "&&", "||", "|", "&"]);
 const PREFIXES = new Set(["nohup", "time", "exec", "env"]);
 const MAX_ARG_CHARS = 16_000;
-const MAX_SEED = 9_999_999_999;
+const REDIRECT = /^(\d*|&)[<>]/;
+const BARE_REDIRECT = /^(\d*|&)[<>]+&?$/;
 
 /** End of a heredoc body that starts after index `from`: the index just past its delimiter line. */
 function skipHeredoc(cmd: string, from: number, delim: string, stripTabs: boolean): number {
@@ -45,15 +49,16 @@ function skipHeredoc(cmd: string, from: number, delim: string, stripTabs: boolea
   return i;
 }
 
-/** Body of a double-quoted word starting after index `i`; returns the closing quote's index. */
-function readDoubleQuoted(cmd: string, i: number, add: (s: string, dynamic?: boolean) => void): number {
+/** Body of a double-quoted word starting after index `i`; returns the closing quote's
+ *  index, or `cmd.length` when it is unterminated. */
+function readDoubleQuoted(cmd: string, i: number, add: (s: string, dynamic?: boolean, quoted?: boolean) => void): number {
   let j = i + 1;
   for (; j < cmd.length && cmd[j] !== '"'; j++) {
     if (cmd[j] === "\\" && cmd[j + 1] === "\n") j++;
-    else if (cmd[j] === "\\" && '"\\$`'.includes(cmd[j + 1] ?? "")) add(cmd[++j]!);
-    else add(cmd[j]!, cmd[j] === "$" || cmd[j] === "`");
+    else if (cmd[j] === "\\" && '"\\$`'.includes(cmd[j + 1] ?? "")) add(cmd[++j]!, false, true);
+    else add(cmd[j]!, cmd[j] === "$" || cmd[j] === "`", true);
   }
-  add("");
+  add("", false, true);
   return j;
 }
 
@@ -65,15 +70,17 @@ function operatorAt(cmd: string, i: number): string | null {
 }
 
 /** Shell-ish split. Control operators and newlines become their own tokens; quotes,
- *  escapes, line continuations, comments and heredoc bodies are honoured. */
-function tokenize(cmd: string): Token[] {
+ *  escapes, line continuations, comments and heredoc bodies are honoured. Null for an
+ *  unterminated quote: bash would refuse the whole command. */
+function tokenize(cmd: string): Token[] | null {
   const out: Token[] = [];
   const heredocs: Array<{ delim: string; stripTabs: boolean }> = [];
   let cur: Token | null = null;
-  const add = (s: string, dynamic = false) => {
-    cur = cur ?? { text: "", dynamic: false };
+  const add = (s: string, dynamic = false, quoted = false) => {
+    cur = cur ?? { text: "", dynamic: false, quoted: false };
     cur.text += s;
     cur.dynamic ||= dynamic;
+    cur.quoted ||= quoted;
   };
   const flush = () => {
     if (cur) out.push(cur);
@@ -81,30 +88,31 @@ function tokenize(cmd: string): Token[] {
   };
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i]!;
-    const heredoc = c === "<" && cmd[i + 1] === "<" && cmd[i + 2] !== "<" ? /^<<(-?)\s*(['"]?)([A-Za-z_]\w*)\2/.exec(cmd.slice(i)) : null;
+    const heredoc = c === "<" && cmd[i + 1] === "<" && cmd[i + 2] !== "<" ? /^<<(-?)\s*\\?(['"]?)([A-Za-z_]\w*)\2/.exec(cmd.slice(i)) : null;
     if (heredoc) {
       flush();
       heredocs.push({ delim: heredoc[3]!, stripTabs: heredoc[1] === "-" });
       i += heredoc[0].length - 1;
     } else if (c === "'") {
       const end = cmd.indexOf("'", i + 1);
-      const stop = end === -1 ? cmd.length : end;
-      add(cmd.slice(i + 1, stop));
-      i = stop;
+      if (end === -1) return null;
+      add(cmd.slice(i + 1, end), false, true);
+      i = end;
     } else if (c === '"') {
       i = readDoubleQuoted(cmd, i, add);
+      if (i >= cmd.length) return null;
     } else if (c === "\\") {
       if (cmd[i + 1] !== "\n" && i + 1 < cmd.length) add(cmd[i + 1]!);
       i++;
     } else if (c === "#" && cur === null) {
       const nl = cmd.indexOf("\n", i);
       i = (nl === -1 ? cmd.length : nl) - 1;
-    } else if (c === "&" && cur !== null && /[<>]$/.test((cur as Token).text)) {
+    } else if (c === "&" && ((cur !== null && /[<>]$/.test((cur as Token).text)) || cmd[i + 1] === ">")) {
       add(c);
     } else if (/\s/.test(c) || ";&|".includes(c)) {
       flush();
       const op = operatorAt(cmd, i);
-      if (op) out.push({ text: op, dynamic: false });
+      if (op) out.push({ text: op, dynamic: false, quoted: false });
       if (op === "&&" || op === "||") i++;
       if (c === "\n") heredocs.splice(0).forEach((h) => (i = skipHeredoc(cmd, i + 1, h.delim, h.stripTabs) - 1));
     } else {
@@ -142,40 +150,41 @@ function parseArgs(args: Token[], background: boolean): ImggenJob | null {
   const values = new Map<string, Token>();
   for (let i = 0; i < args.length; i++) {
     const tok = args[i]!;
-    if (/^\d*[<>]/.test(tok.text)) {
-      if (/^\d*[<>]+&?$/.test(tok.text)) i++;
+    if (!tok.quoted && REDIRECT.test(tok.text)) {
+      if (BARE_REDIRECT.test(tok.text)) i++;
       continue;
     }
     if (tok.text === "--") {
-      positional.push(...args.slice(i + 1).filter((a) => !/^\d*[<>]/.test(a.text)));
+      positional.push(...args.slice(i + 1).filter((a) => a.quoted || !REDIRECT.test(a.text)));
       break;
     }
-    if (!tok.text.startsWith("-") || /^-\d/.test(tok.text)) {
+    if (!tok.text.startsWith("-") || tok.text === "-" || /^-\d/.test(tok.text)) {
       positional.push(tok);
       continue;
     }
     const { flag, inline } = splitFlag(tok.text);
-    if (flag === null || flag === "--help") return null;
-    const value = inline !== undefined ? { text: inline, dynamic: tok.dynamic } : args[++i];
+    if (flag === null || NO_RUN_FLAGS.has(flag)) return null;
+    const value = inline !== undefined ? { ...tok, text: inline } : args[++i];
     if (!value) return null;
     values.set(flag, value);
   }
-  if (positional.length !== 1) return null;
+  if (positional.length > 1 || (positional.length === 1) === values.has("--prompt-file")) return null;
 
-  const label = values.get("--name")?.text ? values.get("--name")! : positional[0]!;
-  if (label.dynamic) return null;
+  // A prompt from a file or stdin (`-`) is only known at run time.
+  const prompt = positional[0]?.text === "-" ? undefined : positional[0];
+  const label = values.get("--name")?.text ? values.get("--name")! : prompt;
+  if (!label || label.dynamic) return null;
   const countTok = values.get("--count");
   const count = countTok ? toInt(countTok) : 1;
-  if (count === null || count < 1) return null;
+  if (count === null || count < 1 || count > MAX_IMAGES_PER_JOB) return null;
   const seedTok = values.get("--seed");
   const seed = seedTok ? toInt(seedTok) : null;
-  if (seedTok && seed === null) return null;
+  if (seedTok && (seed === null || seed > MAX_SEED + 1 - count)) return null;
 
-  const shown = Math.min(count, MAX_IMAGES_PER_JOB);
   return {
     slug: imggenSlug(label.text),
-    count: shown,
-    seeds: seed === null || seed + shown - 1 > MAX_SEED ? null : Array.from({ length: shown }, (_, k) => seed + k),
+    count,
+    seeds: seed === null ? null : Array.from({ length: count }, (_, k) => seed + k),
     background,
     offset: 0,
   };
@@ -191,16 +200,17 @@ function atCommandPosition(tokens: Token[], i: number): boolean {
 /** Every imggen job in a shell command line, in order. */
 export function parseImggenCommand(command: string, runInBackground = false): ImggenJob[] {
   const tokens = tokenize(command);
+  if (!tokens) return [];
   const jobs: ImggenJob[] = [];
   for (let i = 0; i < tokens.length && jobs.length < MAX_JOBS_PER_COMMAND; i++) {
     if (!/(^|\/)imggen$/.test(tokens[i]!.text) || tokens[i]!.dynamic || !atCommandPosition(tokens, i)) continue;
     let end = i + 1;
     while (end < tokens.length && !CONTROL.has(tokens[end]!.text)) end++;
     const job = parseArgs(tokens.slice(i + 1, end), runInBackground || tokens[end]?.text === "&");
-    if (job?.seeds === null) {
-      job.offset = jobs.filter((j) => j.seeds === null && j.slug === job.slug).reduce((n, j) => n + j.count, 0);
+    if (job) {
+      job.offset = jobs.filter((j) => j.slug === job.slug).reduce((n, j) => n + j.count, 0);
+      jobs.push(job);
     }
-    if (job) jobs.push(job);
     i = end;
   }
   return jobs;
