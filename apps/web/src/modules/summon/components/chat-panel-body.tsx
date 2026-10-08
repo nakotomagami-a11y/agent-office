@@ -1,5 +1,6 @@
 "use client";
 
+import type { MessageOrigin } from "@agent-office/domain/types";
 import { ChatHead } from "./chat-head";
 import { WorkflowPill } from "./workflow-pill";
 import { PermissionCard } from "./permission-card";
@@ -32,7 +33,8 @@ export type ChatPanelBodyProps = {
    *  parked on a failure. */
   currentFailureItemId: string | null;
   activeRunId: string | null;
-  queuedMessages: Array<{ id: string; text: string }>;
+  /** ChatThread reads `origin` to pick a user bubble vs a SystemNotice. */
+  queuedMessages: Array<{ id: string; text: string; origin?: MessageOrigin }>;
   onCancelQueuedMessage: (id: string) => void;
   /** Hide a thread item from THIS view only (rate-limit "Continue" dismiss,
    *  own-message delete) — cosmetic, not persisted; see
