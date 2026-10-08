@@ -245,6 +245,8 @@
     "win_min": "Minimise window",
     "win_max": "Maximise window",
     "refresh_label": "Refresh view",
+    "version_title": "Agent Office {version} · build {commit} — open releases",
+    "version_aria": "Agent Office {version}, open the releases page",
     "refresh_tooltip": "Refresh (Ctrl+R) — reloads the frontend, servers keep running",
     "documentation_title": "Documentation — ⌘/",
     "toggle_theme_title": "Toggle theme"
