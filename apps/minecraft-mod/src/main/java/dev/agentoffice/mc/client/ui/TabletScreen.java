@@ -27,7 +27,7 @@ public abstract class TabletScreen extends Screen {
     /** Vanilla's plain window panel (the demo screen's), 248×166 in a 256² texture, 4-px border. */
     private static final ResourceLocation PANEL = ResourceLocation.withDefaultNamespace("textures/gui/demo_background.png");
     /** The dark well content sits in (the chat, the roster, other screens' whole content). */
-    protected static final int WELL = 0xFF101114;
+    protected static final int WELL = Theme.CANVAS;
     /** Text on the grey panel, as vanilla's container titles: dark, no shadow. */
     protected static final int PANEL_TEXT = 0x404040;
     protected static final int PAD = 8;

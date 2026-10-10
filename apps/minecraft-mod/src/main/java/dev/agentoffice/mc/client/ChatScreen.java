@@ -702,12 +702,12 @@ public final class ChatScreen extends WorkspaceScreen {
         int x0 = left + 5;
         int x1 = right - 5;
         if (attentionY >= 0) {
-            g.fill(x0, attentionY, x1, attentionY + ATTENTION_BAR, 0x1AFBBF24);
+            g.fill(x0, attentionY, x1, attentionY + ATTENTION_BAR, Theme.withAlpha(Theme.AMBER, 0x1A));
             g.fill(x0, attentionY, x0 + 2, attentionY + ATTENTION_BAR, Theme.AMBER);
         }
         for (PermissionCard card : cards) {
-            g.fill(x0, card.y(), x1, card.y() + card.h(), 0x1FFBBF24);
-            g.renderOutline(x0, card.y(), x1 - x0, card.h(), 0x4DFBBF24);
+            g.fill(x0, card.y(), x1, card.y() + card.h(), Theme.withAlpha(Theme.AMBER, 0x1F));
+            g.renderOutline(x0, card.y(), x1 - x0, card.h(), Theme.withAlpha(Theme.AMBER, 0x4D));
         }
     }
 

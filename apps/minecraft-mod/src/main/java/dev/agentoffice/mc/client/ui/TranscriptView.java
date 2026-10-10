@@ -3,6 +3,8 @@ package dev.agentoffice.mc.client.ui;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Images;
 import dev.agentoffice.mc.core.Markdown;
+import dev.agentoffice.mc.core.Review;
+import dev.agentoffice.mc.core.Syntax;
 import dev.agentoffice.mc.core.Transcript;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -243,7 +245,7 @@ public final class TranscriptView {
             case Transcript.AgentText text -> agentParts(text, labeled, width);
             case Transcript.Tool tool -> List.of(new ToolPart(tool));
             case Transcript.Done done -> List.of(new DividerPart(doneText(done), done.exitCode() == 0 ? Theme.TXT_4 : Theme.RED));
-            case Transcript.Failure f -> List.of(card(0x1AF87171, Theme.RED, width, inner -> {
+            case Transcript.Failure f -> List.of(card(Theme.withAlpha(Theme.RED, 0x1A), Theme.RED, width, inner -> {
                 List<Part> p = new ArrayList<>();
                 p.add(lines(Component.literal("Error · " + errorText(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
                 if (f.detail() != null) p.add(lines(Component.literal(f.detail()).withColor(Theme.TXT_2), inner, 0));
@@ -259,7 +261,7 @@ public final class TranscriptView {
                 if (detail != null) p.add(lines(Component.literal(detail).withColor(Theme.TXT_4), inner, 0));
                 return p;
             }));
-            case Transcript.RateLimit rl -> List.of(card(0x1AFBBF24, rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
+            case Transcript.RateLimit rl -> List.of(card(Theme.withAlpha(Theme.AMBER, 0x1A), rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
                     lines(Component.literal(rl.limit() ? "Rate limit reached" : "Rate limit warning")
                             .withStyle(s -> s.withColor(rl.limit() ? Theme.RED : Theme.AMBER).withBold(true)), inner, 0),
                     lines(Component.literal(rl.message()).withColor(Theme.TXT_2), inner, 0))));
@@ -529,10 +531,16 @@ public final class TranscriptView {
         CodePart(Markdown.Code code, int width) {
             this.width = width;
             String[] raw = code.body().split("\n", -1);
-            header = code.lang() + "  ·  " + raw.length + (raw.length == 1 ? " line" : " lines");
-            Style mono = Style.EMPTY.withColor(Theme.TXT_2);
+            header = Review.visible(code.lang()) + "  ·  " + raw.length + (raw.length == 1 ? " line" : " lines");
+            // Coloured like the editor: the fence names the language.
+            Syntax.Lang lang = Syntax.forName(code.lang());
+            boolean inComment = false;
             for (String line : raw) {
-                List<FormattedCharSequence> wrapped = font.split(Component.literal(line.replace("\t", "    ")).withStyle(mono), Math.max(20, width - 12));
+                // Cleaned like a diff line (tabs, §, controls): CodeText measures and draws it consistently then.
+                String text = Review.visible(line);
+                Syntax.Result syntax = Syntax.line(text, lang, inComment);
+                inComment = syntax.inBlockComment();
+                List<FormattedCharSequence> wrapped = CodeText.wrap(font, text, syntax.spans(), Theme.TXT, Math.max(20, width - 12));
                 lines.addAll(wrapped.isEmpty() ? List.of(FormattedCharSequence.EMPTY) : wrapped);
             }
         }
@@ -549,7 +557,7 @@ public final class TranscriptView {
             g.fill(x, y + HEAD - 1, x + width, y + HEAD, Theme.EDGE_2);
             g.renderOutline(x, y, width, height(), Theme.EDGE_2);
             g.drawString(font, header, x + 6, y + 3, Theme.TXT_3, false);
-            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + 6, y + HEAD + 3 + i * LINE, Theme.TXT_2, false);
+            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + 6, y + HEAD + 3 + i * LINE, Theme.TXT, false);
         }
     }
 

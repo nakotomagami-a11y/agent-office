@@ -13,8 +13,8 @@ import net.minecraft.network.chat.Component;
 public class FlatButton extends Button {
     public enum Kind { NORMAL, PRIMARY, DANGER, GHOST }
 
-    /** RGB only: vanilla adds the widget's alpha. */
-    private static final int PRIMARY_TEXT = Theme.ACCENT_SOFT & 0xFFFFFF;
+    /** RGB only: vanilla adds the widget's alpha. Light enough to read on the stone face. */
+    private static final int PRIMARY_TEXT = 0xD6CEFF;
     private static final int DANGER_TEXT = 0xFF5555;
 
     private final Kind kind;

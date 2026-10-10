@@ -461,7 +461,8 @@ final class ReviewScreen extends TabletScreen {
             int mw = font.width(minus);
             g.drawString(font, minus, leftX1 - 3 - mw, y + 2, Theme.RED, false);
             g.drawString(font, plus, leftX1 - 6 - mw - pw, y + 2, Theme.GREEN, false);
-            g.drawString(font, cut(Review.visible(f.name()), w - 24 - pw - mw), leftX0 + 15, y + 2, Theme.TXT, false);
+            // Only the open file is bright: a list of equally white names is what made this side loud.
+            g.drawString(font, cut(Review.visible(f.name()), w - 24 - pw - mw), leftX0 + 15, y + 2, i == fileIndex ? Theme.TXT : Theme.TXT_2, false);
             g.drawString(font, cut(Review.visible(f.dir()), w - 18), leftX0 + 15, y + 11, Theme.TXT_4, false);
             y += FILE_ROW;
         }

@@ -69,10 +69,11 @@ function sprite(w, h, { chamfer = 0, rings, fill }) {
 const K = "#000000";
 /** 6×6 status dots, drawn 1:1 (no mcmeta): black ring, fill, a glint top-left and shade bottom-right. */
 for (const [name, [fill, hi, sh]] of Object.entries({
-  dot_idle: ["#3A3F52", "#50566C", "#2A2E3D"],
-  dot_running: ["#4EB96F", "#8EE0A6", "#2F7D47"],
-  dot_running_dim: ["#2F7D47", "#4EB96F", "#1F5530"],
-  dot_attention: ["#FBBF24", "#FDE68A", "#B7860F"],
+  // Theme.OK, Theme.AMBER and a neutral grey: the same soft palette as the text around them.
+  dot_idle: ["#4A4A4A", "#626262", "#383838"],
+  dot_running: ["#5FAE78", "#8FCFA2", "#3F7F55"],
+  dot_running_dim: ["#3F7F55", "#5FAE78", "#2C5A3C"],
+  dot_attention: ["#E2C08D", "#F0D8B3", "#A8895A"],
 })) {
   const px = sprite(6, 6, { chamfer: 1, fill, rings: [K] });
   for (const [x, y] of [[1, 1], [2, 1], [1, 2]]) px[y][x] = hex(hi);
