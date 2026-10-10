@@ -5,7 +5,7 @@
  * in-progress `.part` files, and it must stay bounded and quiet on odd folder
  * contents because it is polled every 1.5s.
  *
- *   pnpm exec tsx --test src/services/infra/generated-images.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/infra/generated-images.test.ts
  */
 import assert from "node:assert";
 import { mkdirSync, mkdtempSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";

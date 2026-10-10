@@ -14,6 +14,8 @@ export * from "./scheduled-jobs";
 export * from "./messages";
 export * from "./transcripts";
 export * from "./ui-settings";
+export * from "./loop-lease";
+export * from "./pr-links";
 export * from "./workflows";
 export * from "./background-shells";
 export * from "./agent-context-measurements";

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import {
   EMPTY_FORM,
   type AgentFormValues,

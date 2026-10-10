@@ -1,8 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
+import { apiFetch } from "@/lib/api/fetch";
+import { queryKeys } from "@/lib/api/query-keys";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 /**
  * Client for the agent-migration diff endpoint (`/api/starter/agent-diff`).
@@ -71,7 +72,7 @@ export interface AgentDiffApplyResponse {
 export function useAgentDiff(enabled = true) {
   return useQuery({
     queryKey: queryKeys.agents.migrationDiff(),
-    queryFn: () => apiFetch<AgentDiffResponse>("/api/starter/agent-diff"),
+    queryFn: () => apiFetch<AgentDiffResponse>(API_ROUTES.starterAgentDiff),
     enabled,
     // Migration diff is manifest-driven and doesn't shift under our feet
     // outside of an explicit user action. Long stale time avoids refetch
@@ -87,7 +88,7 @@ export function useApplyAgentDiff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: AgentDiffApplyRequest) =>
-      apiFetch<AgentDiffApplyResponse>("/api/starter/agent-diff", {
+      apiFetch<AgentDiffApplyResponse>(API_ROUTES.starterAgentDiff, {
         method: "POST",
         body,
       }),

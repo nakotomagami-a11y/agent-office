@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import type { Tab, TabsState } from "@agent-office/domain/types";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 
 /**

@@ -39,6 +39,12 @@ jobs:
       - name: Test (web)
         run: pnpm --filter @agent-office/web test
 
+      - name: Test (server)
+        run: pnpm --filter @agent-office/server test
+
+      - name: Test (api-contract)
+        run: pnpm --filter @agent-office/api-contract test
+
       # The Arch recipe carries its own pkgver. It was not part of
       # set-version.mjs, so it silently lagged and built the previous version.
       - name: Version consistency
@@ -64,3 +70,25 @@ jobs:
         run: |
           node apps/web/scripts/prepare-bundle.mjs
           node apps/web/scripts/verify-bundle.mjs
+
+  # The Minecraft mod (Gradle, not pnpm). Its Java DTOs mirror api-contract, so a
+  # server-side schema change can break it; nothing else here would notice.
+  minecraft-mod:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/minecraft-mod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # The wrapper jar is committed: make sure it is Gradle's before running it.
+      - uses: gradle/actions/wrapper-validation@v4
+
+      - name: Test and build
+        run: ./gradlew build --no-daemon

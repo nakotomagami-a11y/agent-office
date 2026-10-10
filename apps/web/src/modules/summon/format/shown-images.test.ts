@@ -3,7 +3,7 @@
  * URL, and one unmounting must not make the closing message's copy vanish or reappear
  * wrongly.
  *
- *   pnpm exec tsx --test src/modules/summon/format/shown-images.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/shown-images.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

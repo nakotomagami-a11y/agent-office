@@ -3,13 +3,14 @@
 // Dev-only harness for eyeballing the loop pill against real rows. Not linked
 // from anywhere; `/dev/*` already exists for this purpose.
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
+import { apiFetch } from "@/lib/api/fetch";
 import { LoopPill } from "@/modules/loops/components/loop-pill";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 export default function DevLoopPage() {
   const { data: ids } = useQuery({
     queryKey: ["dev", "loop-ids"],
-    queryFn: () => apiFetch<string[]>("/api/dev/loop-ids"),
+    queryFn: () => apiFetch<string[]>(API_ROUTES.devLoopIds),
   });
   return (
     <div className="p-8 flex flex-col gap-6">

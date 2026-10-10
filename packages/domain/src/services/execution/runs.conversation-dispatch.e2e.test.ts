@@ -14,15 +14,15 @@
  * Same throwaway-HOME + stub-claude-on-PATH technique as runs.auth-e2e.test.ts
  * (required so buildAugmentedPath()'s nvm-bin auto-injection can't find the
  * REAL claude ahead of the stub):
- *   HOME=$(mktemp -d) PATH="<stubdir>:$PATH" npx tsx packages/domain/src/services/execution/runs.conversation-dispatch.e2e.test.ts
+ *   PATH="<stubdir>:$PATH" pnpm --filter @agent-office/domain test src/services/execution/runs.conversation-dispatch.e2e.test.ts
  */
 import assert from "node:assert";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { execSync } from "node:child_process";
 import { startRun, registerRunFinishedListener } from "./runs";
 
 const HOME = homedir();
-assert(HOME.startsWith("/tmp") || HOME.includes("tmp"), "refusing to run outside a throwaway HOME");
+assert.notEqual(HOME, userInfo().homedir, "refusing to run outside a throwaway HOME");
 
 // Sanity: whichever `claude` PATH resolves to must be OUR stub, not the real
 // nvm-installed CLI (this is the whole point of the throwaway HOME — it

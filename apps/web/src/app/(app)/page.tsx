@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { usePerformanceStore } from "@/lib/performance-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";

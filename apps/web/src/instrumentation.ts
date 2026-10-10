@@ -5,8 +5,8 @@
  * minimal and route to a node-only side file via dynamic import,
  * gated on `NEXT_RUNTIME` so the edge bundle can statically skip it.
  *
- * The node-only side file (`./instrumentation-node`) does the actual
- * starter-kit install.
+ * The node-only side file (`./instrumentation-node`) boots the embedded
+ * API server (`@agent-office/server`).
  */
 export async function register() {
   if (process.env["NEXT_RUNTIME"] === "nodejs") {

@@ -3,8 +3,8 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { apiFetch, ApiError } from "@agent-office/domain/hooks/api";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch, ApiError } from "@/lib/api/fetch";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { exportProject, importState } from "@/lib/api/save";
 import type { Project } from "@agent-office/domain/types";
 import type { PendingDangerAction } from "../components/project-danger-zone";

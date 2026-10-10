@@ -1,0 +1,426 @@
+import { z } from "zod";
+import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
+import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
+import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
+
+export const agentBodySchema = z.object({
+  name: z.string().min(1),
+  id: z.string().min(1),
+  desc: z.string().default(""),
+  skills: z.array(z.string()).default([]),
+  tools: z.array(z.string()).default([]),
+  // The only schema that WRITES `permission-mode` to disk. `"ask"` was never
+  // a CLI value; it round-tripped to unset via readAgent dropping it.
+  pm: z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)).default("default"),
+  model: z.string().default("sonnet"),
+  effort: z.string().default("medium"),
+  body: z.string().default(""),
+  room: z.string().optional(),
+  unit: z.string().optional(),
+  // Zod strips unknown keys, so a council saved through the editor would lose
+  // its seats here even though the form carries them.
+  panel: z.array(z.object({ agent: z.string(), seat: z.string().default("") })).optional(),
+});
+
+export const agentBodyListSchema = z.array(agentBodySchema);
+
+export const settingsPatchSchema = z.object({
+  projectsRoot: z.string().min(1),
+  excluded: z.array(z.string()).default([]),
+});
+
+// Partial merge-patch for PATCH /api/settings — feature flags, integration
+// toggles, and first-run re-arm.
+export const settingsMergePatchSchema = z.object({
+  features: z.object({ multiInstance: z.boolean().optional() }).optional(),
+  integrations: z.record(z.string(), z.boolean()).optional(),
+  firstRunComplete: z.boolean().optional(),
+});
+
+export const settingsScanQuerySchema = z.object({
+  root: z.string().default(""),
+  excluded: z.string().default(""),
+  includeExcluded: z.string().optional(),
+});
+
+const rgbTriple = z.tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)]);
+
+const planetConfigSchema = z.object({
+  type: z.enum(["gas-giant", "rocky", "terran", "ringed-terran", "toxic", "ice", "islands", "lava", "ice-moon", "eclipse", "black-hole", "galaxy", "star", "asteroid", "comet"]),
+  seed: z.number().int(),
+  paletteIdx: z.number().int().min(0),
+  pixels: z.number().int().min(10).max(1000).optional(),
+  rotation: z.number().optional(),
+  dither: z.boolean().optional(),
+  customPalette: z.array(z.array(rgbTriple)).optional(),
+  params: z.record(z.string(), z.number()).optional(),
+});
+
+export const projectMetaPatchSchema = z.object({
+  meta: z
+    .object({
+      name: z.string().optional(),
+      description: z.string().optional(),
+      planet: planetConfigSchema.optional(),
+      // No `roster`: a whole-array write from a stale client drops instances
+      // it never knew about. Use /roster and /roster/[instanceId].
+      // Multi-account: null clears back to the default account.
+      accountId: z.string().min(1).nullable().optional(),
+      // Per-project github account: null clears back to the default (system gh).
+      githubAccountId: z.string().min(1).nullable().optional(),
+      // Shelved projects are hidden from the default picker view.
+      shelved: z.boolean().optional(),
+    })
+    .optional(),
+  memory: z.string().optional(),
+  /** Rev the client believes it is editing; a mismatch is refused with 409. */
+  expectedRev: z.string().min(1).optional(),
+});
+
+export const accountCreateSchema = z.object({
+  label: z.string().min(1).max(80),
+});
+
+export const accountPatchSchema = z.object({
+  label: z.string().min(1).max(80),
+});
+
+export const accountLoginCodeSchema = z.object({
+  code: z.string().trim().min(1),
+});
+
+export const githubAccountCreateSchema = z.object({
+  label: z.string().min(1).max(80),
+});
+
+export const githubAccountPatchSchema = z.object({
+  label: z.string().min(1).max(80),
+});
+
+const ENV_NAME = z
+  .string()
+  .min(1)
+  .max(120)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be a valid env var name");
+
+export const secretCreateSchema = z.object({
+  name: ENV_NAME,
+  label: z.string().max(80).optional(),
+  value: z.string().min(1).max(20000),
+  expiresAt: z.number().int().positive().nullable().optional(),
+  testCmd: z.string().max(2000).nullable().optional(),
+  verifyBeforeRun: z.boolean().optional(),
+});
+
+export const secretPatchSchema = z.object({
+  name: ENV_NAME.optional(),
+  label: z.string().max(80).optional(),
+  // Empty value on patch = keep existing (never overwrites with blank).
+  value: z.string().max(20000).optional(),
+  expiresAt: z.number().int().positive().nullable().optional(),
+  testCmd: z.string().max(2000).nullable().optional(),
+  verifyBeforeRun: z.boolean().optional(),
+});
+
+export const projectSecretLinkSchema = z.object({
+  secretId: z.string().min(1),
+});
+
+export const createProjectSchema = z.object({
+  // Reaches mkdirSync via createProject — must not contain path separators.
+  id: z.string().regex(/^[a-z0-9][a-z0-9._-]*$/i, "invalid_id").optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  roster: z.array(z.unknown()).optional(),
+});
+
+export const rosterAddSchema = z.object({
+  agentId: z.string().min(1),
+  // When true, the caller has acknowledged the soft-cap warning and wants to
+  // proceed despite the instance count being above the soft limit.
+  force: z.boolean().optional(),
+  init: z
+    .object({
+      label: z.string().optional(),
+      model: z.string().optional(),
+      effort: z.string().optional(),
+      permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
+      room: z.string().optional(),
+    })
+    .optional(),
+});
+
+export const rosterPatchSchema = z.object({
+  label: z.string().optional(),
+  model: z.string().optional(),
+  effort: z.string().optional(),
+  permissionMode: z.union([z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)), z.literal("")]).optional(),
+  playwrightEnabled: z.boolean().optional(),
+  room: z.string().optional(),
+});
+
+export const skillInstallSchema = z.object({
+  source: z.string().min(1),
+  ref: z.string().min(1),
+  path: z.string().min(1),
+  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+});
+
+export const skillCreateSchema = z.object({
+  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  description: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+  body: z.string().min(1),
+  overwrite: z.boolean().optional(),
+});
+
+export const skillImportSchema = z.object({
+  content: z.string().min(1),
+});
+
+export const skillSourceAddSchema = z.object({
+  input: z.string().min(1),
+});
+
+export const skillCustomizationSchema = z.object({
+  disabledSections: z.array(z.string()),
+});
+
+export const skillIconSetSchema = z.object({
+  key: z.string().min(1),
+  seed: z.string().optional(),
+  iconClass: z.string().optional(),
+  /** Explicit "build it yourself" part overrides, namespaced per weapon
+   *  class — e.g. { blades: { profile: "katana" } }. Opaque pass-through. */
+  parts: z.record(z.string(), z.record(z.string(), z.union([z.string(), z.boolean()]))).optional(),
+});
+
+export const starterAgentsImportSchema = z.object({
+  agentIds: z.array(z.string()),
+});
+
+export const promptPostSchema = z.object({
+  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
+});
+
+export const summonRequestSchema = z.object({
+  agentId: z.string().min(1),
+  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
+  model: z.string().optional(),
+  effort: z.string().optional(),
+  maxBudgetUsd: z.number().positive().optional(),
+  cwd: z.string().optional(),
+  projectId: z.string().optional(),
+  instanceId: z.string().optional(),
+  resumeSessionId: z.string().optional(),
+  contextProfile: z.enum(["tight", "balanced", "deep"]).optional(),
+  conversationId: z.string().optional(),
+});
+
+// ─── Conversations (server-authoritative chat, see docs/chat-refactor.md) ────
+
+export const conversationQuerySchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
+});
+
+export const generatedImagesQuerySchema = z.object({
+  name: z.string().regex(GENERATED_IMAGE_SLUG),
+  since: z.coerce.number().int().min(1).max(8.64e15),
+  until: z.coerce.number().int().min(1).max(8.64e15).optional(),
+  seeds: z
+    .string()
+    .regex(new RegExp(`^\\d{1,10}(,\\d{1,10}){0,${MAX_IMAGES_PER_JOB - 1}}$`))
+    .optional(),
+});
+
+// ─── Context & Cost tab ───────────────────────────────────────────────────────
+
+export const contextCostQuerySchema = z.object({
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+// The measured CC-base/tools/MCP split is agent-level, but the probe still
+// runs from the instance's own worktree cwd (so CLAUDE.md discovery matches),
+// hence instanceId is accepted.
+export const contextCostMeasureBodySchema = z.object({
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+export const conversationCreateSchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+});
+
+export const conversationMessageSchema = z.object({
+  text: z.string().min(1).max(MAX_PROMPT_BYTES),
+  // Only meaningful when this send happens to start a session-less turn
+  // (StartRunInput.contextProfile's doc comment) — harmless to send always.
+  contextProfile: z.enum(["tight", "balanced", "deep"]).optional(),
+});
+
+export const createScheduleSchema = z.object({
+  fireAt: z.number().int().positive(),
+  summonRequest: summonRequestSchema,
+  reason: z.enum(["manual", "rate-limit"]).optional(),
+  label: z.string().max(200).optional(),
+});
+
+export const reassignScheduleSchema = z.object({
+  agentId: z.string().min(1).optional(),
+  projectId: z.string().optional(),
+  instanceId: z.string().optional(),
+});
+
+export const runsQuerySchema = z.object({
+  agent: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .optional(),
+  project: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .optional(),
+  instance: z
+    .string()
+    .regex(/^[A-Za-z0-9._-]+$/)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+export const skillsRegistryQuerySchema = z.object({
+  refresh: z
+    .string()
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
+});
+
+export const healthQuerySchema = z.object({
+  force: z
+    .string()
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
+});
+
+export const broadcastRequestSchema = z.object({
+  projectId: z.string().min(1),
+  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
+  model: z.string().optional(),
+  effort: z.string().optional(),
+  cwd: z.string().optional(),
+});
+
+export const workflowCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(5000),
+  category: z.string().optional(),
+});
+
+export const workflowsBulkSchema = z.object({
+  workflows: z.array(
+    z.object({
+      title: z.string().min(1).max(200),
+      body: z.string().min(1).max(5000),
+      category: z.string().min(1),
+    })
+  ).min(1),
+});
+
+export const workflowsQuerySchema = z.object({
+  q: z.string().optional(),
+  category: z.string().optional(),
+});
+
+/** Body payload for creating / updating a doc. Owner + slug live in the URL. */
+export const docUpsertSchema = z.object({
+  title: z.string().min(1).max(200),
+  category: z.enum([
+    "architecture",
+    "plan",
+    "notes",
+    "postmortem",
+    "context",
+    "reference",
+  ]),
+  body: z.string().max(256 * 1024),
+});
+
+export const bootstrapProjectSchema = z.object({
+  name: z.string().min(1).max(100),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).max(60).optional(),
+  description: z.string().max(500).optional(),
+  frontend: z.enum(["none", "next", "vite", "react"]),
+  backend: z.enum(["none", "node", "python"]),
+  initGit: z.boolean().optional(),
+});
+
+// POST /api/save/import — an exported project bundle. `project.meta` is arbitrary
+// serialized frontmatter, so it stays an open record (validated as an object).
+export const saveFileSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  project: z.object({
+    id: z.string(),
+    meta: z.record(z.string(), z.unknown()),
+    memory: z.string(),
+  }),
+  agents: z.array(z.object({ id: z.string(), content: z.string(), memory: z.string() })),
+  office: z.object({
+    grid: z.string().nullable(),
+    decorations: z.string().nullable(),
+    agents: z.string().nullable(),
+    grassColor: z.string().nullable(),
+  }),
+  history: z.array(z.object({ agentId: z.string(), instanceId: z.string(), transcript: z.string() })).optional(),
+});
+
+/** MCP bridge -> host: a tool call awaiting approval. */
+export const permissionRequestSchema = z.object({
+  tool: z.string().min(1).max(200),
+  input: z.unknown().optional(),
+});
+
+/** Chat UI -> host: the operator's answer. */
+export const permissionDecisionSchema = z.object({
+  id: z.string().min(1).max(100),
+  decision: z.enum(["allow", "deny"]),
+});
+
+
+/** The app owns these: an agent that could widen its own ceiling owns the
+ *  loop. Upper bounds are deliberate — `maxRounds: 1e9` is not a ceiling. */
+export const startLoopSchema = z.object({
+  agentId: z.string().min(1),
+  reviewerAgentId: z.string().min(1),
+  instanceId: z.string().optional(),
+  projectId: z.string().optional(),
+  conversationId: z.string().optional(),
+  cwd: z.string().optional(),
+  goal: z.string().min(1).max(MAX_PROMPT_BYTES),
+  maxRounds: z.number().int().positive().max(20),
+  budgetUsd: z.number().positive().finite().max(1000).optional(),
+  wallClockMs: z.number().int().positive().max(24 * 60 * 60 * 1000).optional(),
+});
+
+export const loopActionSchema = z.object({
+  action: z.enum(["stop", "acceptAsIs", "allowOneMore"]),
+});
+
+// ─── Client-persisted shapes (UI drafts, drag payloads) ───────────────────────
+
+export const wizardDraftSchema = z.object({
+  step: z.string(),
+  root: z.string().default(""),
+  excluded: z.array(z.string()).default([]),
+  selectedAgents: z.array(z.string()).default([]),
+  chosenFolderIds: z.array(z.string()).default([]),
+  projectName: z.string().default(""),
+});
+
+export const dragRefSchema = z.object({
+  agentId: z.string().min(1),
+  instanceId: z.string().optional(),
+});

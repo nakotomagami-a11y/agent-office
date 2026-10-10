@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { queryKeys } from "@/lib/api/query-keys";
+import { API_ROUTES, parseJson, wizardDraftSchema } from "@agent-office/api-contract";
 import type { AppSettings, ScannedEntry, Project, HealthInfo } from "@agent-office/domain/types";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -19,8 +19,6 @@ import { AgentsStep } from "./first-run-wizard-steps/agents-step";
 import { ProjectStep } from "./first-run-wizard-steps/project-step";
 import { IntegrationsStep } from "./first-run-wizard-steps/integrations-step";
 import { INTEGRATIONS } from "@agent-office/domain/config/integrations";
-import { parseJson } from "@/lib/json-narrow";
-import { wizardDraftSchema } from "@/lib/validation-schemas";
 
 const DEFAULT_EXCLUDED = [
   "node_modules",
@@ -145,7 +143,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
 
   const starterQ = useQuery({
     queryKey: ["starter-agents"],
-    queryFn: () => apiFetch<StarterAgent[]>("/api/starter/agents"),
+    queryFn: () => apiFetch<StarterAgent[]>(API_ROUTES.starterAgents),
   });
   const starter = useMemo(() => starterQ.data ?? [], [starterQ.data]);
 
@@ -196,7 +194,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
       });
 
       if (selectedAgents.size > 0) {
-        await apiFetch<{ imported: number }>("/api/starter/agents", {
+        await apiFetch<{ imported: number }>(API_ROUTES.starterAgents, {
           method: "POST",
           body: { agentIds: [...selectedAgents] },
         });

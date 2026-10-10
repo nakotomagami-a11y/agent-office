@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
+import { apiFetch } from "@/lib/api/fetch";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
 import { useActiveProjectStore } from "@/lib/active-project-store";
@@ -22,6 +22,7 @@ import {
   groupByProject,
   type ProcessGroup,
 } from "../format/process-format";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 type Scope = "project" | "all";
 
@@ -243,7 +244,7 @@ export function ProcessesModal() {
     setKilling((prev) => new Set(prev).add(pid));
     setKillError(null);
     try {
-      await apiFetch(`/api/processes/${pid}`, { method: "DELETE" });
+      await apiFetch(API_ROUTES.process(pid), { method: "DELETE" });
       queryClient.setQueryData<ProcessInfo[]>(["processes"], (old) =>
         old ? old.filter((p) => p.pid !== pid) : old
       );

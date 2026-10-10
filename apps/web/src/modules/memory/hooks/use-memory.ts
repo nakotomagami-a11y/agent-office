@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assertNever } from "@/lib/assert-never";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 // ─── Scope type ───────────────────────────────────────────────────────────────
 

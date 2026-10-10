@@ -3,7 +3,7 @@
  * NOT a valid quota-reset period — `parseLimits` never produces it, so a
  * persisted limits config can't accidentally disable the reset cycle.
  */
-import { parseJson, asRecord } from "@/lib/json-narrow";
+import { parseJson, asRecord } from "@agent-office/api-contract";
 
 export type LimitsPeriod = "daily" | "week" | "month" | "all";
 export type HardCap = "off" | "warn" | "block";

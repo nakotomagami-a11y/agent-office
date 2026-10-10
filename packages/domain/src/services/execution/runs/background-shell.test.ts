@@ -3,7 +3,7 @@
  * treated as finished: its imggen card would stop looking for the rest of its
  * images. Field and wording taken from the CLI 2.1.294 binary.
  *
- *   pnpm exec tsx --test src/services/execution/runs/background-shell.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/execution/runs/background-shell.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

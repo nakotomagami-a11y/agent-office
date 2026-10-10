@@ -9,7 +9,7 @@ import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
 import { categorize, categoryColor } from "@/modules/agents/form/categorize";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { familyOf, MODEL_CATALOG } from "@agent-office/domain/config/models";
 import { useAddInstance, useProject, useProjects } from "../hooks/use-projects";
 import { Button } from "@/components/ui/button";

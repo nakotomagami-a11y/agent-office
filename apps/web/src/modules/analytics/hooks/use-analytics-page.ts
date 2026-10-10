@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { queryKeys } from "@/lib/api/query-keys";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 // Contracts live in @agent-office/domain/types; re-exported so the analytics
 // components can keep importing them from this hook. `AnalyticsPageData` is the

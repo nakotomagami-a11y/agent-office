@@ -18,6 +18,7 @@ import { join } from "node:path";
 // $HOME must point at a sandbox BEFORE importing anything that resolves paths.
 const sandbox = mkdtempSync(join(tmpdir(), "ao-projwrite-"));
 process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 
 const claudeDir = join(sandbox, ".claude");
 const projectsDir = join(claudeDir, "projects");

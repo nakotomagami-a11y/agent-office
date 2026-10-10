@@ -20,7 +20,7 @@ import { CardHeader } from "@/components/ui/card-header";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { AboutYouRenderer } from "./about-you-renderer";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
+import { queryKeys } from "@/lib/api/query-keys";
 import { formatRelative } from "@/modules/runs/format/format-run-meta";
 import { useRun } from "@/modules/runs/hooks/use-runs";
 import { POLL } from "@/lib/polling";

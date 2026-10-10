@@ -30,8 +30,9 @@ import {
 import { sumHistoryTokens } from "../format/derive-chat-phase";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "../components/live-status";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import type { ContextProfile, ConversationView } from "@agent-office/domain/types";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 type UseConversationChatModelInput = {
   agent: OfficeAgent;
@@ -275,7 +276,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       // becoming an untracked orphan run.
       conversationId: view?.id,
     };
-    await fetch("/api/schedules", {
+    await fetch(API_ROUTES.schedules, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

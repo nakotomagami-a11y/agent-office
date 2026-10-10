@@ -1,0 +1,18 @@
+// POST /api/runs/abort-all — abort every currently-running run.
+import { runs as runsService } from "@agent-office/domain/services";
+
+export async function POST(req: Request) {
+  let body: { projectId?: string } = {};
+  try { body = await req.json() as typeof body; } catch { /* no body */ }
+
+  const running = runsService.getRunningRuns();
+  const toAbort = body.projectId
+    ? running.filter((r) => r.projectId === body.projectId)
+    : running;
+
+  for (const run of toAbort) {
+    runsService.abortRun(run.id);
+  }
+
+  return Response.json({ aborted: toAbort.length });
+}

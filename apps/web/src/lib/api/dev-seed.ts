@@ -3,7 +3,7 @@
  * developer menu consumes this.
  */
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 
 export type SeedAction = "clear-all-runs" | "fix-orphans" | "showcase" | "clear-showcase";

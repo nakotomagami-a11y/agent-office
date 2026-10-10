@@ -1,7 +1,7 @@
 // Groups a flat transcript into render rows: consecutive agent-tool calls
 // collapse into a single "tool-chain" rail. Pure — no React.
 
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 /** Either a single thread item or a consecutive run of agent-tool calls.
  *  Grouping happens at the thread layer so a chain of tool invocations reads

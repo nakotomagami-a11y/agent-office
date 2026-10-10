@@ -4,7 +4,7 @@
  * no start time during a run and only appeared after the turn was rebuilt from
  * history — all images at once, no loading phase.
  *
- *   pnpm exec tsx --test src/modules/summon/format/parse-sse-event.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/parse-sse-event.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

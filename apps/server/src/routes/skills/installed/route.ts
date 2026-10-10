@@ -1,0 +1,13 @@
+// GET /api/skills/installed — list installed skill packs.
+import { skills } from "@agent-office/domain/services";
+import { log } from "@agent-office/domain/services/infra/log";
+import { serverError } from "../../../lib/api-helpers";
+
+export async function GET() {
+  try {
+    return Response.json(skills.listInstalled());
+  } catch (e) {
+    log.warn("skills.installed_failed", { err: String(e) });
+    return serverError("skill_list_failed");
+  }
+}

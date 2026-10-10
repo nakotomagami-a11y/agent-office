@@ -481,6 +481,21 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   (db) => {
     db.exec(`ALTER TABLE tool_calls ADD COLUMN backgrounded INTEGER NOT NULL DEFAULT 0;`);
   },
+  // v24 -> v25: which agent opened which pull request, so review feedback reaches its chat.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS pr_links (
+        repo TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        project_id TEXT,
+        agent_id TEXT NOT NULL,
+        instance_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (repo, number)
+      );
+    `);
+  },
 ];
 
 /**
@@ -570,5 +585,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 22) { MIGRATIONS[21]!(db); v = 22; db.pragma("user_version = 22"); }
     if (v < 23) { MIGRATIONS[22]!(db); v = 23; db.pragma("user_version = 23"); }
     if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
+    if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
   })();
 }

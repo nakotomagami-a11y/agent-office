@@ -46,7 +46,7 @@ const nextConfig = {
   // Hide the default `X-Powered-By: Next.js` header — fingerprint
   // suppression, defense-in-depth.
   poweredByHeader: false,
-  transpilePackages: ["@agent-office/domain", "@agent-office/pixel-icons", "@agent-office/pixel-planets"],
+  transpilePackages: ["@agent-office/domain", "@agent-office/api-contract", "@agent-office/server", "@agent-office/pixel-icons", "@agent-office/pixel-planets"],
   // better-sqlite3 is a native module; `bindings` is its runtime resolver.
   // Both must stay external so they load from node_modules at runtime instead
   // of being bundled into the server graph (Turbopack honours this for RSC).

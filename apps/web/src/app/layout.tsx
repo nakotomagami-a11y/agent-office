@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { db } from "@agent-office/domain/services";
+import { readTheme } from "@agent-office/server/render";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -40,8 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // Read the stored theme server-side so the correct value is embedded in the
   // initial HTML, avoiding any client-side flash before React hydrates.
-  const storedTheme = db.getUiSetting("theme");
-  const initialTheme = storedTheme === "dark" || storedTheme === "light" ? storedTheme : "dark";
+  const initialTheme = readTheme();
 
   return (
     <html lang={locale} data-theme={initialTheme} className={`${plusJakartaSans.variable} ${jetBrainsMono.variable}`}>

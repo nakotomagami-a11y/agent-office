@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { useProcesses } from "@/modules/processes/hooks/use-processes";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import { isBackgroundShellAlive, findLatestBackgroundTask, type BackgroundTask } from "./background-task-logic";
 
 export type { BackgroundTask };

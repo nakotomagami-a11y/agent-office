@@ -6,7 +6,7 @@
 // did neither — so the same call rendered differently before and after a run
 // finished, which is what made the thread jump. Both now call these.
 
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import type { SseToolDoneEvent, SseToolEvent } from "@agent-office/domain/types";
 
 const SPAWN_TOOL_NAMES = new Set(["Task", "Agent"]);

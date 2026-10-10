@@ -2,9 +2,8 @@
 // attachment cleanup, and lightweight syntax/inline-markdown highlighting.
 
 import { GENERATED_IMAGE_EXT } from "@agent-office/domain/config/generated-images";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
 import { escapeHtml } from "@/lib/markdown";
-import { parseJson, strField } from "@/lib/json-narrow";
+import { API_ROUTES, parseJson, strField } from "@agent-office/api-contract";
 
 /** Wall-clock "you" item ids are `y_<epoch-ms>` — extract a real HH:MM from
  *  them for the turn timeline. Returns undefined for non-`y_`-prefixed ids
@@ -80,12 +79,12 @@ export function pathToUrl(rawPath: string): string | null {
   // Agent uploads: ~/.claude/agents/_uploads/{agentId}/{filename}
   const agentM = raw.match(/\.claude\/agents\/_uploads\/([^/\s]+)\/([^/\s]+)$/);
   if (agentM && IMG_EXT.test(agentM[2]!)) {
-    return `/api/agents/${encodeURIComponent(agentM[1]!)}/uploads/${encodeURIComponent(agentM[2]!)}`;
+    return API_ROUTES.agentUploadFile(agentM[1]!, agentM[2]!);
   }
   // Project uploads: ~/.claude/projects/{projectId}/_uploads/{filename}
   const projM = raw.match(/\.claude\/projects\/([^/\s]+)\/_uploads\/([^/\s]+)$/);
   if (projM && IMG_EXT.test(projM[2]!)) {
-    return `/api/projects/${encodeURIComponent(projM[1]!)}/uploads/${encodeURIComponent(projM[2]!)}`;
+    return API_ROUTES.projectUploadFile(projM[1]!, projM[2]!);
   }
   // imggen output: ~/Documents/Generated Images/{YYYY-MM-DD}/{filename}
   const genM = raw.match(/\/Generated Images\/(\d{4}-\d{2}-\d{2})\/([^/\s]+)$/);

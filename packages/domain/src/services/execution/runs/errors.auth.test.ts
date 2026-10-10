@@ -5,7 +5,7 @@
  * OAuth session surfaces the in-app Sign-in card instead of a generic error.
  * This locks in that the exact CLI error strings classify as `auth_expired`.
  *
- *   npx tsx packages/domain/src/services/runs/errors.auth.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/execution/runs/errors.auth.test.ts
  */
 import assert from "node:assert";
 import { classifyResultError } from "./errors";

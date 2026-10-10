@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 import { CLEANUP_KINDS, type CleanupKind } from "@agent-office/domain/config/cleanup";
 import type { CleanupResult } from "@agent-office/domain/services/projects/cleanup";

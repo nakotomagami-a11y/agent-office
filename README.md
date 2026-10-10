@@ -113,18 +113,25 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **framer-motion** for page + modal transitions
 - **zod** for validation at every trust boundary
 - **Tauri v2** for desktop bundling
-- Backend runs in-process inside Next.js; shells out to `claude -p` per summon and streams stdout back over SSE
+- The API (`apps/server`) is web-standard Request/Response handlers: the desktop app mounts them inside Next.js, `pnpm server` runs them headless. It shells out to `claude -p` per summon and streams stdout back over SSE
 
 ## Monorepo
 
 ```
 apps/
-  web/            Next.js app (UI + API routes + SSE runner)
+  server/         @agent-office/server — the HTTP API + SSE runner (routes, boot tasks, standalone entry)
+  web/            @agent-office/web — the UI (Next.js), which also hosts the server in the desktop app
+  minecraft-mod/  NeoForge mod — a second client of the same API (Gradle, not part of the pnpm workspace)
 packages/
-  domain/         Types, DB layer, services (runs, agents, pipelines, skills, worktrees, accounts, ...) — imported as @agent-office/domain
+  domain/         @agent-office/domain — the brains: types, DB layer, services (runs, agents, pipelines, skills, worktrees, accounts, ...)
+  api-contract/   @agent-office/api-contract — API paths + request schemas shared by the server and every client
 ```
 
-The workspace globs `packages/*` but `domain` is the only one. The two
+Dependencies point one way: `web` → `api-contract` (+ domain types) → `domain`, and
+`server` → `api-contract`, `domain`. The UI never calls domain services; it talks to
+the server over HTTP like any other client. Lint enforces it (`docs/conventions.md`).
+
+The two
 procedural-icon renderers used to live here and are now standalone
 repositories, pinned by commit as git dependencies in `apps/web/package.json`:
 [`pixel-planets-generator`](https://github.com/nakotomagami-a11y/pixel-planets-generator)
@@ -135,7 +142,7 @@ repositories, pinned by commit as git dependencies in `apps/web/package.json`:
 Inside `apps/web/src`:
 
 - `app/(app)/` - pages: office (root `/`), activity, analytics, projects, agents, runs, search, memory, skills, docs, settings
-- `app/api/` - REST + SSE endpoints: summon, runs, agents, processes, pipeline, broadcast, workflows, skills, memory, transcripts, drafts, ui-settings, save (export/import), templates, projects, settings, analytics, accounts, github-accounts, agent-docs, cleanup, account, health
+- `app/api/[...path]/` - mounts `@agent-office/server`; the endpoints themselves live in `apps/server/src/routes/`
 - `components/layout/` - window chrome, titlebar, sidebar, project switcher, mobile nav
 - `components/ui/` - design-system atoms (Icon, StatusDot, Button, Modal, Tabs, ...)
 - `components/command-palette/` - Cmd+K palette
@@ -157,6 +164,7 @@ pnpm dev              # → http://localhost:3000
 
 pnpm build            # next build of apps/web
 pnpm start            # production server
+pnpm server           # the API alone, no UI (http://127.0.0.1:3001)
 pnpm typecheck        # tsc --noEmit across the workspace
 pnpm lint
 ```

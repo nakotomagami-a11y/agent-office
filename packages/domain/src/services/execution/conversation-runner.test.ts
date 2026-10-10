@@ -4,7 +4,7 @@
  * e2e dispatch test (runs.conversation-dispatch.e2e.test.ts) and by the
  * pre-existing runs.auth-e2e.test.ts.
  *
- *   npx tsx packages/domain/src/services/execution/conversation-runner.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/execution/conversation-runner.test.ts
  */
 import assert from "node:assert";
 import { buildSummonRequest } from "./conversation-runner";

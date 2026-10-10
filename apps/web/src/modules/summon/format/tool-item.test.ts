@@ -9,7 +9,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import { applyToolEvent, formatToolArg, isSubAgentSpawnTool, parseStoredToolInput } from "./tool-item";
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 /** What the live path renders (input arrives already parsed). */
 const live = (input: unknown) => formatToolArg(input);

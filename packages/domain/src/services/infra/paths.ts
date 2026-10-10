@@ -2,11 +2,39 @@
 // values so existing user data still loads.
 
 import { existsSync, readdirSync } from "node:fs";
-import { homedir, platform } from "node:os";
-import { delimiter, dirname, join } from "node:path";
+import { homedir, platform, userInfo } from "node:os";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { absoluteSearchPath } from "./search-path";
 
 export const HOME = homedir();
+
+// A test that resolves the real profile can delete real user data (it did, on
+// Windows, where HOME is ignored and USERPROFILE wins). Fail before any path is used.
+// userInfo() reads the OS account, so env overrides cannot fool it. NODE_TEST_CONTEXT
+// is unset when a test file is run directly (`tsx x.test.ts`), hence the argv check.
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => (platform() === "win32" ? resolve(p).toLowerCase() : resolve(p));
+  return norm(a) === norm(b);
+}
+function realAccountHome(): string | null {
+  try {
+    return userInfo().homedir;
+  } catch {
+    return null;
+  }
+}
+const underTest =
+  !!process.env.NODE_TEST_CONTEXT ||
+  process.execArgv.includes("--test") ||
+  /\.test\.[cm]?[jt]sx?$/.test(process.argv[1] ?? "");
+const accountHome = underTest ? realAccountHome() : null;
+if (accountHome !== null && samePath(HOME, accountHome)) {
+  throw new Error(
+    "test_uses_real_home: tests must not touch the real ~/.claude. Run them through `pnpm test` " +
+      "(scripts/run-tests.mjs), or set both HOME and USERPROFILE to a temp dir before importing.",
+  );
+}
 export const CLAUDE_DIR = join(HOME, ".claude");
 export const AGENTS_DIR = join(CLAUDE_DIR, "agents");
 export const GLOBAL_MEMORY_PATH = join(AGENTS_DIR, "_global.memory.md");
@@ -42,6 +70,8 @@ export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
 export const DB_PATH = join(APP_STATE_DIR, "db.sqlite");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
 export const DOCS_GLOBAL_OWNER = "_global";
+// Where local clients (the Minecraft mod) find running servers: one <pid>.json each (random ports).
+export const DISCOVERY_DIR = join(APP_STATE_DIR, "servers");
 
 // Multi-account: per-account CLAUDE_CONFIG_DIR roots. The `default` account
 // id has no dir under here — it maps to CLAUDE_DIR directly.
@@ -119,7 +149,7 @@ export function buildAugmentedPath(): string {
   const existing = process.env.PATH ?? process.env.Path ?? "";
   if (platform() === "win32") {
     // Windows' inherited PATH already has the global npm bin dir.
-    return existing;
+    return absoluteSearchPath(existing, "win32");
   }
 
   const extra: string[] = [];
@@ -145,5 +175,5 @@ export function buildAugmentedPath(): string {
 
   const parts = [...extra, ...existing.split(delimiter).filter(Boolean)];
   // Deduplicate while preserving order
-  return [...new Set(parts)].join(delimiter);
+  return absoluteSearchPath([...new Set(parts)].join(delimiter), platform());
 }

@@ -3,7 +3,7 @@
  * builds) exposed under `/api/processes`.
  */
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 import type { ProcessInfo } from "@agent-office/domain/types";
 

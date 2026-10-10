@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/ui/page-header";
 import { AgentList } from "@/modules/agents/components/agent-list";
 import { ACCENT_BTN } from "@/components/ui/button";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 
 export default async function AgentsPage() {
   const t = await getTranslations();

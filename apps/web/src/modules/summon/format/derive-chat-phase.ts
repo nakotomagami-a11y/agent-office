@@ -1,5 +1,5 @@
 import type { ChatPhase } from "../components/live-status";
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 /**
  * Pure phase-derivation logic shared by the ChatPanel presentation layer.

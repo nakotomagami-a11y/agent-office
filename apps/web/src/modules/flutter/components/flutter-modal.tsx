@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/flutter";
 import { useFlutterDevices } from "../hooks/use-flutter-devices";
 import type { FlutterDevice } from "../hooks/use-flutter-devices";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                                */
@@ -150,7 +151,7 @@ function ScreenPanel({ deviceId }: { deviceId: string | null }) {
   const [error, setError] = useState(false);
 
   const screenshotUrl = deviceId
-    ? `/api/flutter/screenshot?deviceId=${encodeURIComponent(deviceId)}&t=${ts}`
+    ? `${API_ROUTES.flutterScreenshot}?deviceId=${encodeURIComponent(deviceId)}&t=${ts}`
     : null;
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useAccounts } from "@/modules/accounts/hooks/use-accounts";
 import { PlanBadge } from "@/modules/accounts/components/plan-badge";
 import { useUpdateProject } from "../hooks/use-projects";

@@ -16,7 +16,7 @@ import { LiveStatus, type ChatPhase } from "./live-status";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { extractImages, fmtClockTime, fmtDuration, fmtTok, stripAttachmentFooter } from "../format/message-format";
 import { fmtElapsedColon } from "../format/phase-format";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { groupRows, groupTurns, looksLikeQuestion, type Turn } from "../format/thread-rows";
 import { dedupeThread } from "../format/dedupe-thread";

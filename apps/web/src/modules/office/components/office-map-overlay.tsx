@@ -19,8 +19,7 @@ import {
   type AgentPositions,
   type VisibleRange,
 } from "./office-map";
-import { parseJson } from "@/lib/json-narrow";
-import { dragRefSchema } from "@/lib/validation-schemas";
+import { dragRefSchema, parseJson } from "@agent-office/api-contract";
 
 // Compute the CSS box position + size for a unit so its feet align with the
 // same ground line used by the PixiJS canvas (TARGET_FEET_Y = (TILE+AGENT_SIZE)/2).

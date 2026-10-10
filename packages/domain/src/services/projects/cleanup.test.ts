@@ -21,15 +21,22 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
-import { createSchema } from "../db/migrations";
-import { deleteRunsByAgent, deleteRunsForInstance } from "../db/runs";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
+
+// everything() sweeps the default ~/.claude dirs — on a real profile it deleted
+// installed skills. Own sandbox, set before any module resolves paths.
+const sandbox = mkdtempSync(join(tmpdir(), "ao-cleanup-home-"));
+process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
+
+const { createSchema } = await import("../db/migrations");
+const { deleteRunsByAgent, deleteRunsForInstance } = await import("../db/runs");
+const {
   everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache,
   RUN_FK_REFS, PIPELINE_CHILD_TABLES,
-} from "./cleanup";
+} = await import("./cleanup");
 
 const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ApiError } from "@agent-office/domain/hooks/api";
+import { ApiError } from "@/lib/api/fetch";
 import { Icon } from "@/components/ui/icon";
 import { useLoop, useLoopAction, type LoopAction } from "../hooks/use-loop";
 import { availableActions, ceilingPressure, phaseLabel, sortedOpen } from "../format/loop-view";

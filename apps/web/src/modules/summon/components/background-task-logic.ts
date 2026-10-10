@@ -1,6 +1,6 @@
 import type { ProcessInfo } from "@agent-office/domain/types";
 import { extractBashCommand, isBackgroundBash } from "../format/message-format";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 export type BackgroundTask = { id: string; command: string; runId?: string };
 

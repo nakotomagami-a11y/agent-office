@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
+import { apiFetch } from "@/lib/api/fetch";
 import { POLL } from "@/lib/polling";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 export interface ProjectSpendData {
   byInstance: Record<string, number>;
@@ -19,7 +20,7 @@ export function useProjectSpend(projectId: string | null) {
     queryKey: ["projects", "spend", projectId ?? "__none"],
     queryFn: () =>
       apiFetch<ProjectSpendData>(
-        `/api/projects/${encodeURIComponent(projectId!)}/spend`,
+        API_ROUTES.projectSpend(projectId!),
       ),
     enabled: !!projectId,
     // Driven by the app-wide SSE "spend:changed" event; slow reconnect safety net.

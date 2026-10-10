@@ -1,0 +1,27 @@
+// /api/accounts — registry of Claude Code accounts (each its own CLAUDE_CONFIG_DIR)
+// that agent-office can spawn `claude` under. GET lists them with status; POST
+// provisions a new empty one for the user to log into.
+import { accounts } from "@agent-office/domain/services";
+import { validateBody } from "../../lib/validation";
+import { accountCreateSchema } from "@agent-office/api-contract";
+
+// Returns every registered account with its plan + ready flag so the settings
+// page can render the status badges in one round-trip.
+export async function GET() {
+  const enriched = accounts
+    .list()
+    .map((a) => accounts.getStatus(a.id))
+    .filter(<T>(v: T | null): v is T => v !== null);
+  return Response.json(enriched);
+}
+
+// Create a new (empty) account. The dir is provisioned with symlinks to shared
+// assets; the credentials file lands there when the user runs
+// `CLAUDE_CONFIG_DIR=<dir> claude` — polled via `/api/accounts/<id>/status`.
+export async function POST(request: Request) {
+  const raw: unknown = await request.json();
+  const { data, error } = validateBody(accountCreateSchema, raw);
+  if (error) return error;
+  const account = accounts.create({ label: data.label });
+  return Response.json(account, { status: 201 });
+}

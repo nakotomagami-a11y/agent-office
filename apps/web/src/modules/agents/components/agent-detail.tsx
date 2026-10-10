@@ -11,7 +11,7 @@ import { CodeBlock } from "@/components/ui/code-block";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { agentDisplayName } from "@/lib/agent-display-name";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useAgent, useAgentBody, useAgentMemory, useWriteAgentMemory } from "../hooks/use-agents";
 import { ActivityFeed } from "@/modules/runs/components/activity-feed";
 import { useSummonStore } from "@/modules/summon/hooks/use-summon-store";
