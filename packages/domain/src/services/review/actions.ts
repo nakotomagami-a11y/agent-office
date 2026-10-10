@@ -112,10 +112,11 @@ export function submitReview(project: Project, number: number, sub: ReviewSubmis
   return attempt(async () => {
     const p = await readPull(gh, number);
     assertOpen(p, sub.headRefOid);
+    // Before the GitHub write: a failure reading it afterwards would turn a posted review into an error.
+    const link = linkOf(project, p);
     const files = sub.comments.length ? await readDiff(gh, number) : [];
     checkComments(files, sub.comments);
     await postReview(gh, p, sub.event, sub.body, sub.comments);
-    const link = linkOf(project, p);
     const notified = await notify(link, reviewMessage(ref(p), sub.event, sub.body, sub.comments, files), deps.send ?? sendMessage);
     return { link, notified };
   });
@@ -212,12 +213,13 @@ export function rejectPull(project: Project, number: number, r: Rejection, deps:
   return attempt(async () => {
     const p = await readPull(gh, number);
     assertOpen(p, r.headRefOid);
+    // Before the GitHub write: a failure reading it afterwards would turn a closed PR into an error.
+    const link = linkOf(project, p);
     const files = r.comments.length ? await readDiff(gh, number) : [];
     checkComments(files, r.comments);
     // Close first: a retry after a failure then stops at pr_not_open instead of posting twice.
     await gh.run(["pr", "close", String(number)]);
     const feedbackPosted = await postRejectionFeedback(gh, p, r);
-    const link = linkOf(project, p);
     const notified = await notify(link, rejectedMessage(ref(p), r.reason, r.comments, files), deps.send ?? sendMessage);
     return { link, notified, feedbackPosted };
   });

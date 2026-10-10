@@ -4,7 +4,7 @@ Library research for the next phase (UI frameworks, version choice, integrations
 PR review in the world (Review Lectern): `minecraft-review-lectern.md`.
 
 Status: **phase 1 built, awaiting the user's proof run** (`apps/minecraft-mod/`). Target: Minecraft
-**1.21.1**, **NeoForge 21.1** (ModDevGradle 2), Java 21 — ported from Forge 1.20.1 on 2026-10-10 (why: `minecraft-mod-libraries.md`). App change 1 (discovery) done; 3 partly (the monorepo split, 2026-10-10, added `packages/api-contract` and a standalone `apps/server` — contract tests not written); 2 and 4 not started.
+**1.21.1**, **NeoForge 21.1** (ModDevGradle 2), Java 21 — ported from Forge 1.20.1 on 2026-10-10 (why: `minecraft-mod-libraries.md`). App change 1 (discovery) done; 3 partly (the monorepo split, 2026-10-10, added `packages/api-contract` and a standalone `apps/server`; contract tests in `apps/server/src/contract.test.ts`); 2 and 4 not started.
 
 ## Shape (as built, phase 1)
 
@@ -14,7 +14,7 @@ Status: **phase 1 built, awaiting the user's proof run** (`apps/minecraft-mod/`)
 - **Client-only** (`@Mod(dist = CLIENT)`, no network channels registered): servers never need the mod, other players never see or
   reach your agents, prompts and replies never touch the Minecraft server.
 - `K` opens the agent picker (every project roster seat). In a world each seat has **Place/Move**.
-- **Bodies are client-only villagers** (`AgentBody`, negative entity ids, nothing registered). Clicks
+- **Bodies are client-only villagers** (`AgentBody`, negative entity ids, nothing registered), drawn as players with their agent's skin (see "agents look like people" below). Clicks
   on them are handled and cancelled client-side, so no packet about them reaches the server.
   Positions persist in `<gameDir>/config/agentoffice-bodies.json` per world + dimension. Dismissing a
   body never touches Agent Office. Nameplate status is polled (read-only GET) every 5 s.

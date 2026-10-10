@@ -55,7 +55,7 @@ function accountLines(accountId: string | undefined): string[] {
  *  over HTTPS both need to authenticate as this account, not whatever the OS
  *  credential store cached. Fixed indices (0/1) are safe here, unlike the
  *  spawn path, since this file always starts from a clean unset rather than
- *  appending to an inherited GIT_CONFIG_COUNT. */
+ *  appending to an inherited GIT_CONFIG_COUNT. Keeps GH_TOKEN: the user's shell would lose it for good. */
 function githubAccountLines(githubAccountId: string | undefined, projectId: string | null): string[] {
   if (!githubAccountId || githubAccountId === DEFAULT_GITHUB_ACCOUNT_ID) return [];
   const githubAccount = githubAccounts.get(githubAccountId);

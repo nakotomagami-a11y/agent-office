@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ScheduledJob, SummonRequest } from "../../types/index";
 import * as db from "../db";
+import { isLiveServer } from "../infra/discovery";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
 import * as runs from "./runs";
@@ -32,7 +33,7 @@ function instanceBusy(req: SummonRequest): boolean {
   const key = instanceKey(req.agentId, req.instanceId);
   if (runs.getRunningRuns().some((r) => instanceKey(r.agentId, r.instanceId) === key)) return true;
   return db.runningOwnerPidsForInstance(req.agentId, req.instanceId ?? "default")
-    .some((pid) => pid !== process.pid && db.isPidAlive(pid));
+    .some((pid) => pid !== process.pid && isLiveServer(pid));
 }
 
 function markAttention(job: ScheduledJob, attention: ScheduledJob["attention"]): void {

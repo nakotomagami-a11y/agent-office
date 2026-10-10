@@ -6,11 +6,20 @@
  *   pnpm --filter @agent-office/domain test src/services/infra/discovery.test.ts
  */
 import assert from "node:assert";
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { appBaseUrl, pruneDeadServers, readDiscoveryFiles, removeDiscoveryFile, writeDiscoveryFile } from "./discovery";
+import {
+  appBaseUrl,
+  discoveryFile,
+  isLiveServer,
+  pruneDeadServers,
+  readDiscoveryFiles,
+  removeDiscoveryFile,
+  SERVER_STALE_MS,
+  writeDiscoveryFile,
+} from "./discovery";
 
 const freshDir = () => join(mkdtempSync(join(tmpdir(), "discovery-")), "servers");
 
@@ -69,4 +78,34 @@ test("malformed entries are skipped, not fatal", () => {
   writeDiscoveryFile(dir, { baseUrl: "http://127.0.0.1:3000", pid: 3, startedAt: 3 });
   assert.deepEqual(readDiscoveryFiles(dir).map((s) => s.pid), [3]);
   assert.deepEqual(readDiscoveryFiles(join(dir, "missing")), []);
+});
+
+test("a server is live while its entry is fresh, and dead once stale even if its pid was reused", () => {
+  const dir = freshDir();
+  writeDiscoveryFile(dir, { baseUrl: "http://127.0.0.1:1", pid: 4242, startedAt: 1 });
+  const alive = () => true;
+  const now = Date.now();
+  assert.equal(isLiveServer(4242, dir, now, alive, now), true);
+  const old = (now - SERVER_STALE_MS - 1000) / 1000;
+  utimesSync(discoveryFile(dir, 4242), old, old);
+  assert.equal(isLiveServer(4242, dir, now, alive, now), false, "crashed server, pid now someone else's");
+  writeDiscoveryFile(dir, { baseUrl: "http://127.0.0.1:1", pid: 4242, startedAt: 1 });
+  assert.equal(isLiveServer(4242, dir, Date.now(), () => false, Date.now()), false, "fresh entry, process gone");
+});
+
+test("without an entry (an older server, or a failed write) the pid's liveness decides", () => {
+  const dir = freshDir();
+  assert.equal(isLiveServer(4343, dir, Date.now(), () => true), true);
+  assert.equal(isLiveServer(4343, dir, Date.now(), () => false), false);
+  assert.equal(isLiveServer(null, dir), false);
+  assert.equal(isLiveServer(process.pid, dir, Date.now(), () => false), true, "this process is always live");
+});
+
+test("while this server's own beat is late (just woke from sleep), a stale entry is not judged dead", () => {
+  const dir = freshDir();
+  writeDiscoveryFile(dir, { baseUrl: "http://127.0.0.1:1", pid: 4444, startedAt: 1 });
+  const now = Date.now();
+  const old = (now - SERVER_STALE_MS - 1000) / 1000;
+  utimesSync(discoveryFile(dir, 4444), old, old);
+  assert.equal(isLiveServer(4444, dir, now, () => true, now - SERVER_STALE_MS), true);
 });

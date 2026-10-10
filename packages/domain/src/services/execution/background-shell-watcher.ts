@@ -19,6 +19,7 @@
  * up in the transcript without the user lifting a finger.
  */
 import * as db from "../db";
+import { isLiveServer } from "../infra/discovery";
 import { log } from "../infra/log";
 import { sendMessage } from "./conversation";
 import { productionConversationRunner } from "./conversation-runner";
@@ -70,7 +71,7 @@ export async function sendWake(
 function ownsWake(runId: string, orphanLease: () => boolean): boolean {
   const owner = db.getRunOwnerPid(runId);
   if (owner === process.pid) return true;
-  return !db.isPidAlive(owner) && orphanLease();
+  return !isLiveServer(owner) && orphanLease();
 }
 
 let ticking = false;

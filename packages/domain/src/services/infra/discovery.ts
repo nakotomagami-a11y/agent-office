@@ -4,7 +4,7 @@
 // last server started (or stopped) hide every other one. Readers try entries
 // newest first and confirm with GET /api/health, so a stale entry is harmless.
 
-import { readdirSync, readFileSync, rmSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { writeFileAtomic } from "./fs-atomic";
 import { DISCOVERY_DIR } from "./paths";
@@ -32,7 +32,33 @@ export function writeDiscoveryFile(dir: string = DISCOVERY_DIR, info?: Partial<D
     startedAt: info?.startedAt ?? Date.now(),
   };
   writeFileAtomic(discoveryFile(dir, full.pid), JSON.stringify(full, null, 2) + "\n");
+  if (full.pid === process.pid) ownBeatAt = Date.now();
   return full;
+}
+
+export const HEARTBEAT_MS = 30_000;
+export const SERVER_STALE_MS = 90_000;
+let ownBeatAt = 0;
+
+/** Windows soon reuses a crashed server's pid, so a fresh entry is required, except with no entry
+ *  (an older server) or our own beat late (just woke). Never use it to fail a run. */
+export function isLiveServer(
+  pid: number | null | undefined,
+  dir: string = DISCOVERY_DIR,
+  now: number = Date.now(),
+  alive: (pid: number) => boolean = isPidAlive,
+  selfBeatAt: number = ownBeatAt,
+): boolean {
+  if (pid == null || pid <= 0) return false;
+  if (pid === process.pid) return true;
+  if (now - selfBeatAt > 2 * HEARTBEAT_MS) return alive(pid);
+  let mtime: number;
+  try {
+    mtime = statSync(discoveryFile(dir, pid)).mtimeMs;
+  } catch {
+    return alive(pid);
+  }
+  return now - mtime <= SERVER_STALE_MS && alive(pid);
 }
 
 /** On shutdown. Best effort: a killed process never gets here, which pruneDeadServers covers. */

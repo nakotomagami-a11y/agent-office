@@ -113,10 +113,24 @@ export async function boot({ serve }: BootOptions): Promise<void> {
   // Out-of-process clients (the Minecraft mod) find this server's random port here.
   try {
     discovery.pruneDeadServers();
-    discovery.writeDiscoveryFile();
+    const advertised = discovery.writeDiscoveryFile();
+    // The heartbeat other servers read: a stale entry means this server is gone (discovery.isLiveServer).
+    setInterval(() => {
+      try {
+        discovery.writeDiscoveryFile(undefined, advertised);
+      } catch (err) {
+        console.warn("[discovery] heartbeat failed:", err);
+      }
+    }, discovery.HEARTBEAT_MS).unref();
     process.once("exit", () => {
       discovery.removeDiscoveryFile();
-      db.releaseLoopLeases();
+      // Only if the DB is already open: exit must not open it (and migrate) or wait on a lock.
+      if (!globalThis.__agentOfficeDb) return;
+      try {
+        db.releaseLoopLeases();
+      } catch (err) {
+        console.warn("[loops] could not release leases on exit:", err);
+      }
     });
   } catch (err) {
     console.warn("[discovery] failed to advertise this server:", err);
