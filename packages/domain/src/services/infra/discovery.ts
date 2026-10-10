@@ -32,13 +32,20 @@ export function writeDiscoveryFile(dir: string = DISCOVERY_DIR, info?: Partial<D
     startedAt: info?.startedAt ?? Date.now(),
   };
   writeFileAtomic(discoveryFile(dir, full.pid), JSON.stringify(full, null, 2) + "\n");
-  if (full.pid === process.pid) ownBeatAt = Date.now();
+  if (full.pid === process.pid) {
+    const now = Date.now();
+    // A long gap: the machine slept, and other servers' beats may still be due.
+    if (ownBeatAt && now - ownBeatAt > 2 * HEARTBEAT_MS) wokeUntil = now + SERVER_STALE_MS;
+    ownBeatAt = now;
+  }
   return full;
 }
 
 export const HEARTBEAT_MS = 30_000;
 export const SERVER_STALE_MS = 90_000;
+// Module state: only boot's import of the domain services sees these beats.
 let ownBeatAt = 0;
+let wokeUntil = 0;
 
 /** Windows soon reuses a crashed server's pid, so a fresh entry is required, except with no entry
  *  (an older server) or our own beat late (just woke). Never use it to fail a run. */
@@ -48,10 +55,11 @@ export function isLiveServer(
   now: number = Date.now(),
   alive: (pid: number) => boolean = isPidAlive,
   selfBeatAt: number = ownBeatAt,
+  unsureUntil: number = wokeUntil,
 ): boolean {
   if (pid == null || pid <= 0) return false;
   if (pid === process.pid) return true;
-  if (now - selfBeatAt > 2 * HEARTBEAT_MS) return alive(pid);
+  if (now - selfBeatAt > 2 * HEARTBEAT_MS || now < unsureUntil) return alive(pid);
   let mtime: number;
   try {
     mtime = statSync(discoveryFile(dir, pid)).mtimeMs;

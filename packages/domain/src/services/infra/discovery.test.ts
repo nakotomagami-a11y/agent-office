@@ -109,3 +109,13 @@ test("while this server's own beat is late (just woke from sleep), a stale entry
   utimesSync(discoveryFile(dir, 4444), old, old);
   assert.equal(isLiveServer(4444, dir, now, () => true, now - SERVER_STALE_MS), true);
 });
+
+test("just after this server woke, the other servers' late beats are not judged yet", () => {
+  const dir = freshDir();
+  writeDiscoveryFile(dir, { baseUrl: "http://127.0.0.1:1", pid: 4545, startedAt: 1 });
+  const now = Date.now();
+  const old = (now - SERVER_STALE_MS - 1000) / 1000;
+  utimesSync(discoveryFile(dir, 4545), old, old);
+  assert.equal(isLiveServer(4545, dir, now, () => true, now, now + 1000), true, "our beat is fresh, but we just woke");
+  assert.equal(isLiveServer(4545, dir, now, () => true, now, now - 1), false, "the woke window is over");
+});
