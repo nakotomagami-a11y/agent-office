@@ -31,6 +31,7 @@ abstract class WorkspaceScreen extends TabletScreen {
     private static final int TABS = 22;
     private static final int ROW = 15;
     private static final int MIN_TAB = 44;
+    private static final int MANAGE_W = 52;
     private static final int REFRESH_TICKS = 100;
     private static final long STALE_MS = 4_000;
     /** Projects, the app's tabs and every tab's roster; the shown project is polled more often. */
@@ -48,7 +49,10 @@ abstract class WorkspaceScreen extends TabletScreen {
     private static String problem;
     /** What "+ New session" is doing or why it failed; refreshes leave it alone. */
     private static String addNote;
-    private static boolean adding;
+    private static long addingSince;
+    private static long addNoteUntil;
+    /** SeatAdder gives up within about four minutes; a confirm screen dropped meanwhile never calls back. */
+    private static final long ADD_EXPIRES_MS = 240_000;
     private static long loadedAt;
     private static long fullLoadedAt;
     private static boolean loading;
@@ -67,6 +71,10 @@ abstract class WorkspaceScreen extends TabletScreen {
                           Map<String, List<Api.Instance>> rosters, Map<String, String> statuses) {}
 
     private int wsTicks;
+
+    private static boolean adding() {
+        return addingSince > 0 && System.currentTimeMillis() - addingSince < ADD_EXPIRES_MS;
+    }
     private final Map<Integer, Api.Slot> sessionRows = new HashMap<>();
     private List<FormattedCharSequence> noteLines = List.of();
 
@@ -114,11 +122,14 @@ abstract class WorkspaceScreen extends TabletScreen {
         Minecraft mc = Minecraft.getInstance();
         AgentOfficeClient c = client;
         if (c == null) return;
-        if (mc.screen instanceof WorkspaceScreen ws && ws.activeSlot() != null
-                && ws.activeSlot().instanceId().equals(slot.instanceId())) return; // already open: keep its draft
         if (moveBody) {
             Api.Slot standing = Bodies.seatOf(mc, slot);
             if (standing != null && !standing.instanceId().equals(slot.instanceId())) Bodies.switchSeat(mc, slot);
+        }
+        if (mc.screen instanceof WorkspaceScreen ws && ws.activeSlot() != null
+                && ws.activeSlot().instanceId().equals(slot.instanceId())) {
+            ws.rebuildWidgets(); // already open: keep its draft, show where the body is now
+            return;
         }
         mc.setScreen(new ChatScreen(null, c, slot));
     }
@@ -153,8 +164,14 @@ abstract class WorkspaceScreen extends TabletScreen {
         if (System.currentTimeMillis() - fullLoadedAt > FULL_STALE_MS) refresh(current, true);
         else if (age > STALE_MS) refresh(current, false);
 
-        addTabs(current);
-        if (sidebarWidth() == 0) return;
+        boolean narrow = sidebarWidth() == 0;
+        addTabs(current, narrow ? MANAGE_W + 4 : 0);
+        if (narrow) {
+            // No sidebar: the old screen still lists every session (Chat) and manages agents.
+            addRenderableWidget(new FlatButton(right - PAD - MANAGE_W, frameTop + 4, MANAGE_W, 14, "Manage", FlatButton.Kind.GHOST,
+                    b -> minecraft.setScreen(new OfficeScreen())));
+            return;
+        }
 
         String note = addNote != null ? addNote : problem;
         noteLines = note == null ? List.of() : font.split(Component.literal(note), SIDEBAR - 12);
@@ -167,7 +184,7 @@ abstract class WorkspaceScreen extends TabletScreen {
         int visible = Math.max(1, (rowsBottom - y0) / ROW);
         int scroll = Math.max(0, Math.min(scrolls.getOrDefault(current, 0), Math.max(0, entries.size() - visible)));
         scrolls.put(current, scroll);
-        Api.Slot body = active != null ? Bodies.seatOf(Minecraft.getInstance(), active) : null;
+        Map<String, Api.Slot> bodies = new HashMap<>();
         for (int i = scroll; i < Math.min(entries.size(), scroll + visible); i++) {
             int y = y0 + (i - scroll) * ROW;
             Entry e = entries.get(i);
@@ -181,13 +198,14 @@ abstract class WorkspaceScreen extends TabletScreen {
                         }).alignLeft());
             } else if (e instanceof Session s) {
                 boolean on = active != null && active.instanceId().equals(s.slot().instanceId());
+                Api.Slot body = bodies.computeIfAbsent(s.slot().agentId(), k -> Bodies.seatOf(Minecraft.getInstance(), s.slot()));
                 boolean hasBody = body != null && body.instanceId().equals(s.slot().instanceId());
                 addRenderableWidget(new FlatButton(x + 8, y, w - 8, ROW - 2, sessionName(s.slot()) + (hasBody ? " ⌂" : ""),
                         on ? FlatButton.Kind.NORMAL : FlatButton.Kind.GHOST, b -> openSlot(s.slot(), true)).alignLeft());
                 sessionRows.put(y, s.slot());
             } else if (e instanceof Add a) {
-                addRenderableWidget(new FlatButton(x + 8, y, w - 8, ROW - 2, adding ? "Adding…" : "+ New session", FlatButton.Kind.GHOST,
-                        b -> addSession(current, a.agentId())).alignLeft()).active = !adding;
+                addRenderableWidget(new FlatButton(x + 8, y, w - 8, ROW - 2, adding() ? "Adding…" : "+ New session", FlatButton.Kind.GHOST,
+                        b -> addSession(current, a.agentId())).alignLeft()).active = !adding();
             }
         }
         addRenderableWidget(new FlatButton(x, bottom - 20, w, 16, "Manage agents", FlatButton.Kind.GHOST,
@@ -195,9 +213,9 @@ abstract class WorkspaceScreen extends TabletScreen {
     }
 
     /** Every tab shrinks before any is dropped, and the shown project's tab is never the one dropped. */
-    private void addTabs(String current) {
+    private void addTabs(String current, int reserved) {
         List<Api.Project> tabs = tabProjects(current);
-        int avail = right - PAD - (frameLeft + PAD);
+        int avail = right - PAD - (frameLeft + PAD) - reserved;
         while (tabs.size() > 1 && tabs.size() * (MIN_TAB + 4) > avail) {
             int drop = tabs.size() - 1;
             if (tabs.get(drop).id().equals(current)) drop--;
@@ -269,12 +287,13 @@ abstract class WorkspaceScreen extends TabletScreen {
 
     private void addSession(String projectId, String agentId) {
         Api.Project project = projects.stream().filter(p -> p.id().equals(projectId)).findFirst().orElse(null);
-        if (project == null || client == null || adding) return;
-        adding = true;
+        if (project == null || client == null || adding()) return;
+        addingSince = System.currentTimeMillis();
+        addNoteUntil = Long.MAX_VALUE;
         addNote = "Adding a " + agentId + " session… (making a git worktree can take a while)";
         rebuildWidgets();
         SeatAdder.add(this, client, project, agentId, slot -> {
-            adding = false;
+            addingSince = 0;
             addNote = null;
             generation++;
             refresh(projectId, false);
@@ -282,8 +301,9 @@ abstract class WorkspaceScreen extends TabletScreen {
             if (mc.screen == this) openSlot(slot, true);
             else mc.gui.setOverlayMessage(Component.literal("Added a " + agentId + " session to " + project.name()), false);
         }, msg -> {
-            adding = false;
+            addingSince = 0;
             addNote = msg;
+            addNoteUntil = System.currentTimeMillis() + 10_000;
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof WorkspaceScreen ws) ws.rebuildWidgets();
             else mc.gui.setOverlayMessage(Component.literal(msg), false);
@@ -298,10 +318,12 @@ abstract class WorkspaceScreen extends TabletScreen {
         if (loading) return;
         loading = true;
         int gen = generation;
+        List<Api.Project> knownProjects = projects;
+        List<String> knownTabs = openTabs;
         Connection.client().thenApplyAsync(c -> {
             try {
-                List<Api.Project> ps = full || projects.isEmpty() ? c.projects() : projects;
-                List<String> tabs = openTabs;
+                List<Api.Project> ps = full || knownProjects.isEmpty() ? c.projects() : knownProjects;
+                List<String> tabs = knownTabs;
                 if (full) {
                     try {
                         tabs = c.openTabs();
@@ -367,7 +389,12 @@ abstract class WorkspaceScreen extends TabletScreen {
     @Override
     public void tick() {
         super.tick();
-        if (++wsTicks % REFRESH_TICKS == 0) refresh(projectId(), false);
+        long now = System.currentTimeMillis();
+        if (++wsTicks % REFRESH_TICKS == 0) refresh(projectId(), now - fullLoadedAt > FULL_STALE_MS);
+        if (addNote != null && now > addNoteUntil) {
+            addNote = null;
+            rebuildWidgets();
+        }
     }
 
     @Override
