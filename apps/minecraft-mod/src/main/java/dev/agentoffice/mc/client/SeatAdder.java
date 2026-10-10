@@ -14,7 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Adding a seat for an agent in a project (POST roster), shared by the egg's setup and the chat's seat
+ * Adding a seat for an agent in a project (POST roster), shared by the egg's setup and the tablet's roster
  * picker. Adding can make a git worktree, so it is slow and may time out while the server is still
  * making the seat: then the seat that appears (within two minutes) is used, rather than a second one made.
  */

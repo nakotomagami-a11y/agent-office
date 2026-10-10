@@ -44,7 +44,7 @@ import org.lwjgl.glfw.GLFW;
  * player already left. A run that just ended is never followed again straight away — when another
  * Agent Office process owns it, its stream ends at once, and re-following would spin.
  */
-public final class ChatScreen extends TabletScreen {
+public final class ChatScreen extends WorkspaceScreen {
     private static final int MIN_BACKOFF_MS = 1_000;
     private static final int MAX_BACKOFF_MS = 30_000;
     private static final int HEADER = 30;
@@ -71,8 +71,6 @@ public final class ChatScreen extends TabletScreen {
     private List<Api.Permission> pending = List.of();
     private final Set<String> answering = new HashSet<>();
     private Api.Instance seat;
-    /** How many seats this agent has in the project; the body stands for all of them (SeatPickerScreen). */
-    private int seatCount;
     private Api.Agent agent;
     private final JsonObject unsentSeat = new JsonObject();
     private int seatPatchIn;
@@ -112,6 +110,16 @@ public final class ChatScreen extends TabletScreen {
     }
 
     @Override
+    protected String projectId() {
+        return slot.projectId();
+    }
+
+    @Override
+    protected Api.Slot activeSlot() {
+        return slot;
+    }
+
+    @Override
     protected void init() {
         super.init();
         int x0 = left + PAD;
@@ -132,20 +140,14 @@ public final class ChatScreen extends TabletScreen {
         addRenderableWidget(new FlatButton(hx, top + 7, 34, 14, "New", FlatButton.Kind.GHOST, b -> act("new")))
                 .active = conversation != null && !busy;
         if (seat != null) {
-            // Which of this agent's seats the chat (and its body) talks to; the agent is one body per project.
-            String seats = seatCount > 1 ? "Seats " + seatCount : "Seats";
-            int sw = font.width(seats) + 12;
-            hx -= 4 + sw;
-            addRenderableWidget(new FlatButton(hx, top + 7, sw, 14, seats, FlatButton.Kind.GHOST,
-                    b -> Minecraft.getInstance().setScreen(new SeatPickerScreen(this, parent, client, slot))))
-                    .setTooltip(Tooltip.create(Component.literal("Switch to another " + slot.agentId() + " seat in this project, or add one")));
-            hx -= 4 + 104;
-            addRenderableWidget(new FlatCycle<>(hx, top + 7, 104, 14, Api.EFFORTS, nz(seat.effort()),
-                    v -> "Effort: " + (v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v))
+            // Compact chips, as in Agent Office: an unset value shows the agent's default.
+            hx -= 4 + 74;
+            addRenderableWidget(new FlatCycle<>(hx, top + 7, 74, 14, Api.EFFORTS, nz(seat.effort()),
+                    v -> "effort " + (v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v))
                     .onChange(v -> changeSeat("effort", v)));
-            hx -= 4 + 104;
-            addRenderableWidget(new FlatCycle<>(hx, top + 7, 104, 14, Api.MODELS, nz(seat.model()),
-                    v -> "Model: " + (v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v))
+            hx -= 4 + 56;
+            addRenderableWidget(new FlatCycle<>(hx, top + 7, 56, 14, Api.MODELS, nz(seat.model()),
+                    v -> v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v)
                     .onChange(v -> changeSeat("model", v)));
         }
         headerRight = hx;
@@ -282,12 +284,9 @@ public final class ChatScreen extends TabletScreen {
         SEAT_QUEUE.execute(() -> {
             try {
                 Api.Instance found = null;
-                int siblings = 0;
                 for (Api.Instance i : c.instances(new Api.Project(slot.projectId(), slot.projectName(), 0))) {
                     if (i.slot().instanceId().equals(slot.instanceId())) found = i;
-                    if (i.slot().agentId().equals(slot.agentId())) siblings++;
                 }
-                int count = siblings;
                 Api.Agent def = null;
                 for (Api.Agent a : c.agents()) {
                     if (a.name().equals(slot.agentId())) def = a;
@@ -304,7 +303,6 @@ public final class ChatScreen extends TabletScreen {
                         shown = new Api.Instance(shown.slot(), shown.model(), unsentSeat.get("effort").getAsString(), shown.permissionMode());
                     }
                     seat = shown;
-                    seatCount = count;
                     agent = d;
                     rebuildWidgets();
                 });
@@ -644,9 +642,9 @@ public final class ChatScreen extends TabletScreen {
         int x0 = left + PAD;
         int x1 = right - PAD;
         // The agent, then which of its seats this is.
-        Component name = Component.literal(slot.agentId()).withStyle(s -> s.withBold(true));
+        FormattedCharSequence name = bold(slot.agentId(), headerRight - x0 - 6);
         g.drawString(font, name, x0, top + 6, Theme.TXT, false);
-        String which = slot.label() != null && !slot.label().isBlank() ? slot.label() : slot.instanceId();
+        String which = sessionName(slot);
         g.drawString(font, font.plainSubstrByWidth("  " + which, Math.max(0, headerRight - x0 - 6 - font.width(name))),
                 x0 + font.width(name), top + 6, Theme.TXT_4, false);
         String sub = slot.projectName() + "  ·  " + (flashTicks > 0 && flash != null ? flash : status);
@@ -740,7 +738,7 @@ public final class ChatScreen extends TabletScreen {
     }
 
     private static String def(String agentDefault) {
-        return agentDefault == null || agentDefault.isEmpty() ? "default" : agentDefault + " (agent)";
+        return agentDefault == null || agentDefault.isEmpty() ? "default" : agentDefault;
     }
 
     private static String cap(String s) {

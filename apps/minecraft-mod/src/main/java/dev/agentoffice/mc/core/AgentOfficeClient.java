@@ -118,6 +118,23 @@ public final class AgentOfficeClient {
         });
     }
 
+    /** Project ids of the desktop app's open tabs, in order; empty if it has none. */
+    public List<String> openTabs() throws IOException {
+        return parse(() -> {
+            JsonObject settings = call(get("/api/ui-settings")).getAsJsonObject();
+            List<String> out = new ArrayList<>();
+            String raw = str(settings, "tabs-state");
+            if (raw == null) return out;
+            JsonElement state = JsonParser.parseString(raw);
+            if (!state.isJsonObject() || !state.getAsJsonObject().has("tabs")) return out;
+            for (JsonElement t : state.getAsJsonObject().getAsJsonArray("tabs")) {
+                String id = t.isJsonObject() ? str(t.getAsJsonObject(), "projectId") : null;
+                if (id != null && !out.contains(id)) out.add(id);
+            }
+            return out;
+        });
+    }
+
     public List<Api.Slot> roster(Api.Project project) throws IOException {
         return instances(project).stream().map(Api.Instance::slot).toList();
     }
