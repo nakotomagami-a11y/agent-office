@@ -271,6 +271,20 @@ The web UI has no per-seat model picker yet; the mod would be the first user of 
   lands on a real project seat.
 - `BodyStore.Body` carries `shell` (id) when `slot` is null; old files (no `shell`) load unchanged.
 
+### Changed (0.5.0, 2026-10-10) — agents look like people (player model + skins)
+
+User: wants agents like AgentCraft's cast sheet. AgentCraft draws agents with the vanilla player model and 64x64
+two-layer skins; we do the same.
+- A set-up body is still a client-only villager to the game, but `AgentBodyRenderer` (cancels `RenderLivingEvent.Pre`)
+  draws it with `PlayerModel` (wide or slim) and the agent's skin. Shells stay nitwit villagers.
+- Skin, first found wins (`AgentSkins`): `config/agentoffice-skins/<agentId>.slim.png` or `<agentId>.png` (64x64,
+  the folder is made with a README; F3+T re-reads it) → built-in character by agent-name prefix (`core/AgentLooks`) →
+  a Minecraft default skin picked from the agent name.
+- Built-in cast: AgentCraft's six skins (MIT, `assets/agentoffice/textures/entity/agent/LICENSE-agentcraft.txt`):
+  Kit (developer, devops, …), Rowan (qa-*, security, sre), Tove (tech-writer, qa-visual, web-qa), Wren (designer,
+  frontend*), Marlow (orchestrator, planner, cs-*, product-manager), Juniper (explore, researchers, analysts).
+- Later: a real 3D outer layer (voxels, like the 3D Skin Layers mod, which only does players) in our own renderer.
+
 ### Changed (0.5.0, 2026-10-10) — one body per agent per project
 
 User: "there wouldnt be 5 developers, instead its 1 developer that manages all developer instances in this project".

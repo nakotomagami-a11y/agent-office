@@ -12,7 +12,8 @@ import net.minecraft.world.level.Level;
  * entity type, so nothing is registered and servers never need the mod. It has no server twin,
  * so it must never move by physics or be pushed; it only turns its head (see Bodies).
  *
- * A shell (from an Agent Spawn Egg, not set up yet) has no slot and wears the nitwit's green robe.
+ * Once set up it is drawn as a player wearing its agent's skin ({@link AgentBodyRenderer}). A shell
+ * (from an Agent Spawn Egg, not set up yet) has no slot and stays a villager in the nitwit's green robe.
  */
 final class AgentBody extends Villager {
     /** Null for a shell. */

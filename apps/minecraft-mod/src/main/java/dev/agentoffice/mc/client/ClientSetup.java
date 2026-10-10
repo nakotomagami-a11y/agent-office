@@ -10,6 +10,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.EntityHitResult;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
@@ -47,8 +48,11 @@ public final class ClientSetup {
         modBus.addListener(ClientSetup::registerKeys);
         modBus.addListener(ClientSetup::itemColors);
         modBus.addListener(ClientSetup::blockColors);
+        modBus.addListener(AgentBodyRenderer::rebuild);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onInteract);
+        // First, so other listeners never see the villager draw that is replaced.
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, AgentBodyRenderer::drawInstead);
     }
 
     /**

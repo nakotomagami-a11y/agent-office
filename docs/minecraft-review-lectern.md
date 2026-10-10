@@ -1,7 +1,7 @@
 # Review Lectern — PR review in Minecraft
 
 Status: **phase 1 (backend) and phase 2 (read-only lectern, mod 0.5.0) built 2026-10-10**; phases 3–4 not started. Idea from AgentCraft's merge-review screen
-(`docs/img/readme/diff.jpg` in blendi-remade/agentcraft). That repo has no license: re-implement, never copy.
+(`docs/img/readme/diff.jpg` in blendi-remade/agentcraft). That repo is MIT (LICENSE added 2026-10-03): files copied from it must keep its notice (see `assets/agentoffice/textures/entity/agent/LICENSE-agentcraft.txt` in the mod).
 
 ## Decisions (user, 2026-10-10)
 
