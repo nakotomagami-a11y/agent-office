@@ -81,7 +81,7 @@ public final class ClientSetup {
     /** The tablet's home screen; from the K key or using an Agent Tablet. */
     static void openOffice() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen == null) mc.setScreen(new OfficeScreen());
+        if (mc.screen == null) WorkspaceScreen.openHome(mc);
     }
 
     /** Main thread only: one pending open at a time, however fast the player clicks. */
