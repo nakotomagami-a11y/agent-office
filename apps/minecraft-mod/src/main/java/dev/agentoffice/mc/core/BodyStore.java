@@ -13,14 +13,17 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Where the player placed which agent. Bodies exist only on this client, so their positions live
+ * Where the player placed which agent: one body per agent per project, talking to one of that agent's
+ * seats (switched from the chat). Bodies exist only on this client, so their positions live
  * here (one JSON file in the game's config dir), keyed by world and dimension. Removing a body
  * never touches Agent Office: the agent, its seat and its conversation stay.
  *
@@ -94,7 +97,7 @@ public final class BodyStore {
         return bodies.stream().filter(b -> b.world().equals(world) && b.dimension().equals(dimension)).toList();
     }
 
-    /** One body per agent seat per world: placing again moves it. */
+    /** One body per agent per project per world: placing again (any of its seats) moves it. */
     public synchronized Body place(Body body) {
         bodies.removeIf(b -> b.world().equals(body.world()) && b.key().equals(body.key()));
         bodies.add(body);
@@ -112,8 +115,8 @@ public final class BodyStore {
     }
 
     /**
-     * Setting up a shell: it becomes that seat's body where it stands, and a body the seat already
-     * had in this world goes (one body per seat). Null if the shell is gone.
+     * Setting up a shell: it becomes the body of {@code slot}'s agent where it stands, and a body the agent
+     * already had in this project and world goes (one body per agent per project). Null if the shell is gone.
      */
     public synchronized Body assign(String world, String shell, Api.Slot slot) {
         Body found = bodies.stream().filter(b -> b.world().equals(world) && shell.equals(b.shell())).findFirst().orElse(null);
@@ -123,9 +126,22 @@ public final class BodyStore {
         return place(new Body(world, found.dimension(), found.x(), found.y(), found.z(), found.yaw(), slot));
     }
 
-    public synchronized boolean has(String world, Api.Slot slot) {
+    /** The agent's body in this world now talks to {@code slot}, where it stands. Null if it has no body here. */
+    public synchronized Body retarget(String world, Api.Slot slot) {
         String key = slotKey(slot);
-        return bodies.stream().anyMatch(b -> b.world().equals(world) && b.key().equals(key));
+        Body found = bodies.stream().filter(b -> b.world().equals(world) && b.key().equals(key)).findFirst().orElse(null);
+        if (found == null) return null;
+        return place(new Body(world, found.dimension(), found.x(), found.y(), found.z(), found.yaw(), slot));
+    }
+
+    public synchronized boolean has(String world, Api.Slot slot) {
+        return seatOf(world, slot) != null;
+    }
+
+    /** The seat {@code anySeat}'s agent's body in this world talks to; null if it has no body here. */
+    public synchronized Api.Slot seatOf(String world, Api.Slot anySeat) {
+        String key = slotKey(anySeat);
+        return bodies.stream().filter(b -> b.world().equals(world) && b.key().equals(key)).map(Body::slot).findFirst().orElse(null);
     }
 
     private boolean removeKey(String world, String key) {
@@ -135,8 +151,12 @@ public final class BodyStore {
         return removed;
     }
 
+    /**
+     * A body is an agent in a project, not one seat: "developer" stands for every developer seat there,
+     * and the chat switches which seat it talks to ({@link #retarget}). So two seats of one agent share a key.
+     */
     static String slotKey(Api.Slot slot) {
-        return slot.projectId() + "/" + slot.instanceId();
+        return slot.projectId() + "/agent:" + slot.agentId();
     }
 
     private void load() {
@@ -158,16 +178,20 @@ public final class BodyStore {
         } catch (CharacterCodingException | RuntimeException e) {
             throw new Corrupt(e);
         }
-        List<Body> out = new ArrayList<>();
+        // Files from before one-body-per-agent hold a body per seat: the last placed (place() appends) wins.
+        Map<String, Body> out = new LinkedHashMap<>();
         for (JsonElement el : arr) {
             try {
                 Body body = body(el.getAsJsonObject());
-                if (body != null) out.add(body);
+                if (body == null) continue;
+                String key = body.world() + "|" + body.key();
+                out.remove(key);
+                out.put(key, body);
             } catch (RuntimeException e) {
                 LOG.warn("skipping unreadable agent body in {}: {}", file, e.toString());
             }
         }
-        return out;
+        return new ArrayList<>(out.values());
     }
 
     private static Body body(JsonObject o) {

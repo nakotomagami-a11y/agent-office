@@ -264,12 +264,26 @@ The web UI has no per-seat model picker yet; the mod would be the first user of 
   lavender spots `#B49BE0` (vanilla: tan `#BD8B72`). Spawn Eggs tab; recipe egg + emerald + redstone (shapeless).
   Used on a block (vanilla SpawnEggItem placement rule) → an unassigned **shell**: client-only body, nitwit robe,
   nameplate "Unassigned agent · right-click to set up". The egg is used up outside creative (server half).
-- A shell has no seat, so it can never open a chat: right-click → `AgentSetupScreen`: agent (filter) → project →
-  existing seats of that agent there ("Use"; warns when that seat's body elsewhere will move) or "+ New seat"
-  (POST roster, 409 soft-cap confirm). The shell then becomes that seat's body in place (`BodyStore.assign`) and the
-  chat opens. "Remove shell" deletes it. Why a project at all: a projectless agent chat runs with no cwd (wherever
-  the app process runs), so setup always lands on a real project seat.
+- A shell has no seat, so it can never open a chat: right-click → `AgentSetupScreen`: agent (filter) → project.
+  It talks to that agent's first seat there, or a new one when it has none (POST roster, 409 soft-cap confirm). The
+  shell then becomes the agent's body in place (`BodyStore.assign`) and the chat opens. "Remove shell" deletes it.
+  Why a project at all: a projectless agent chat runs with no cwd (wherever the app process runs), so setup always
+  lands on a real project seat.
 - `BodyStore.Body` carries `shell` (id) when `slot` is null; old files (no `shell`) load unchanged.
+
+### Changed (0.5.0, 2026-10-10) — one body per agent per project
+
+User: "there wouldnt be 5 developers, instead its 1 developer that manages all developer instances in this project".
+- The egg setup no longer asks for a seat (above). Bodies are keyed `projectId/agent:agentId`. A shell set up for an
+  agent already standing in that world moves that body here, still talking to the same seat (an overlay says so).
+- Old `agentoffice-bodies.json` files (a body per seat) load as one body per agent: the last placed wins.
+- Tablet rows: **Place** (no body), **Move** (the seat the body talks to), **Use** (another of its seats: moves the body
+  and switches it to this seat). Removing a seat (✕) takes the body only if the body talks to that seat.
+- The chat header's **Seats N** button (`SeatPickerScreen`) lists the agent's seats in the project with their status,
+  marking "this chat" and "body". **Use** switches the chat, and the body keeps standing where it is
+  (`BodyStore.retarget`). Back/Esc returns to the same chat (draft kept). **+ New seat** adds one (`SeatAdder`,
+  shared with the egg setup: soft-cap confirm, and after a timeout it waits up to 2 min for the seat to appear, since
+  the server makes the worktree before listing the seat, rather than letting a retry make a second).
 
 
 

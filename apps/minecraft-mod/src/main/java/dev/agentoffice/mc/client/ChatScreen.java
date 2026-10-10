@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -70,6 +71,8 @@ public final class ChatScreen extends TabletScreen {
     private List<Api.Permission> pending = List.of();
     private final Set<String> answering = new HashSet<>();
     private Api.Instance seat;
+    /** How many seats this agent has in the project; the body stands for all of them (SeatPickerScreen). */
+    private int seatCount;
     private Api.Agent agent;
     private final JsonObject unsentSeat = new JsonObject();
     private int seatPatchIn;
@@ -129,6 +132,13 @@ public final class ChatScreen extends TabletScreen {
         addRenderableWidget(new FlatButton(hx, top + 7, 34, 14, "New", FlatButton.Kind.GHOST, b -> act("new")))
                 .active = conversation != null && !busy;
         if (seat != null) {
+            // Which of this agent's seats the chat (and its body) talks to; the agent is one body per project.
+            String seats = seatCount > 1 ? "Seats " + seatCount : "Seats";
+            int sw = font.width(seats) + 12;
+            hx -= 4 + sw;
+            addRenderableWidget(new FlatButton(hx, top + 7, sw, 14, seats, FlatButton.Kind.GHOST,
+                    b -> Minecraft.getInstance().setScreen(new SeatPickerScreen(this, parent, client, slot))))
+                    .setTooltip(Tooltip.create(Component.literal("Switch to another " + slot.agentId() + " seat in this project, or add one")));
             hx -= 4 + 104;
             addRenderableWidget(new FlatCycle<>(hx, top + 7, 104, 14, Api.EFFORTS, nz(seat.effort()),
                     v -> "Effort: " + (v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v))
@@ -272,9 +282,12 @@ public final class ChatScreen extends TabletScreen {
         SEAT_QUEUE.execute(() -> {
             try {
                 Api.Instance found = null;
+                int siblings = 0;
                 for (Api.Instance i : c.instances(new Api.Project(slot.projectId(), slot.projectName(), 0))) {
                     if (i.slot().instanceId().equals(slot.instanceId())) found = i;
+                    if (i.slot().agentId().equals(slot.agentId())) siblings++;
                 }
+                int count = siblings;
                 Api.Agent def = null;
                 for (Api.Agent a : c.agents()) {
                     if (a.name().equals(slot.agentId())) def = a;
@@ -291,6 +304,7 @@ public final class ChatScreen extends TabletScreen {
                         shown = new Api.Instance(shown.slot(), shown.model(), unsentSeat.get("effort").getAsString(), shown.permissionMode());
                     }
                     seat = shown;
+                    seatCount = count;
                     agent = d;
                     rebuildWidgets();
                 });
@@ -629,7 +643,12 @@ public final class ChatScreen extends TabletScreen {
         super.render(g, mouseX, mouseY, partialTick);
         int x0 = left + PAD;
         int x1 = right - PAD;
-        g.drawString(font, Component.literal(slot.displayName()).withStyle(s -> s.withBold(true)), x0, top + 6, Theme.TXT, false);
+        // The agent, then which of its seats this is.
+        Component name = Component.literal(slot.agentId()).withStyle(s -> s.withBold(true));
+        g.drawString(font, name, x0, top + 6, Theme.TXT, false);
+        String which = slot.label() != null && !slot.label().isBlank() ? slot.label() : slot.instanceId();
+        g.drawString(font, font.plainSubstrByWidth("  " + which, Math.max(0, headerRight - x0 - 6 - font.width(name))),
+                x0 + font.width(name), top + 6, Theme.TXT_4, false);
         String sub = slot.projectName() + "  ·  " + (flashTicks > 0 && flash != null ? flash : status);
         g.drawString(font, font.plainSubstrByWidth(sub, headerRight - x0 - 6), x0, top + 18,
                 flashTicks > 0 ? Theme.ACCENT_SOFT : statusColor(), false);

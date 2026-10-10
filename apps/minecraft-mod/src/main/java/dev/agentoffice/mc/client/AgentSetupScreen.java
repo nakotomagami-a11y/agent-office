@@ -13,18 +13,18 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Setting up an agent shell (placed from an Agent Spawn Egg): which agent is it, which project does
- * it work on, and — if that project already has seats for the agent — which seat. A shell can't be
- * chatted with until this is done; finishing turns it into that seat's body and opens its chat.
+ * Setting up an agent shell (placed from an Agent Spawn Egg): which agent is it, and which project
+ * does it work on. The body is that agent in that project — every seat it has there — so there is no
+ * seat to pick: it starts on the agent's first seat (or a new one if it has none), and the chat's Seats
+ * picker switches between them. A shell can't be chatted with until this is done.
  */
 final class AgentSetupScreen extends TabletScreen {
     private static final int ROW = 26;
 
-    private enum Step { AGENT, PROJECT, SEAT }
+    private enum Step { AGENT, PROJECT }
 
     /** One choice in the current step's list. */
     private record Row(String title, String meta, String detail, String button, Runnable action) {}
@@ -34,7 +34,6 @@ final class AgentSetupScreen extends TabletScreen {
     private Step step = Step.AGENT;
     private List<Api.Agent> agents = List.of();
     private List<Api.Project> projects = List.of();
-    private List<Api.Instance> existing = List.of();
     private Api.Agent agent;
     private Api.Project project;
     private EditBox filter;
@@ -63,7 +62,7 @@ final class AgentSetupScreen extends TabletScreen {
             });
         }
         filter.setPosition(x1 - 150, top + 8);
-        if (step != Step.SEAT) addRenderableWidget(filter);
+        addRenderableWidget(filter);
 
         List<Row> rows = rows();
         int listTop = top + 34;
@@ -80,13 +79,10 @@ final class AgentSetupScreen extends TabletScreen {
             Bodies.removeShell(Minecraft.getInstance(), shell);
             onClose();
         })).active = !busy;
-        if (step == Step.SEAT) {
-            addRenderableWidget(new FlatButton(x1 - 110, by, 110, 16, "+ New seat", FlatButton.Kind.PRIMARY, b -> createSeat(false))).active = !busy;
-        }
         if (step != Step.AGENT) {
             addRenderableWidget(new FlatButton(x0 + 96, by, 60, 16, "Back", FlatButton.Kind.GHOST, b -> back())).active = !busy;
         }
-        if (step != Step.SEAT) setInitialFocus(filter);
+        setInitialFocus(filter);
 
         if (!started) {
             started = true;
@@ -126,14 +122,6 @@ final class AgentSetupScreen extends TabletScreen {
                     out.add(new Row(p.name(), meta, null, "Choose", () -> chooseProject(p)));
                 }
             }
-            case SEAT -> {
-                for (Api.Instance seat : existing) {
-                    Api.Slot slot = seat.slot();
-                    boolean placed = Bodies.placed(Minecraft.getInstance(), slot);
-                    out.add(new Row(slot.displayName(), slot.instanceId(),
-                            placed ? "Already has a body in this world — it moves here." : null, "Use", () -> finish(slot)));
-                }
-            }
         }
         return out;
     }
@@ -147,7 +135,7 @@ final class AgentSetupScreen extends TabletScreen {
         rebuildWidgets();
     }
 
-    /** A project that already seats this agent offers those seats; otherwise a new seat is made. */
+    /** The agent's first seat in the project, or a new one if it has none there yet. */
     private void chooseProject(Api.Project p) {
         project = p;
         busy = true;
@@ -155,98 +143,38 @@ final class AgentSetupScreen extends TabletScreen {
         rebuildWidgets();
         Api.Agent chosen = agent;
         Connection.IO.execute(() -> {
-            List<Api.Instance> seats;
+            List<Api.Slot> seats;
             try {
-                seats = seatsOf(p, chosen);
+                seats = SeatAdder.seats(client, p, chosen.name());
             } catch (IOException | RuntimeException e) {
-                Minecraft.getInstance().execute(() -> {
-                    busy = false;
-                    status = "Couldn't read " + p.name() + ": " + e.getMessage();
-                    if (minecraft.screen == this) rebuildWidgets();
-                });
+                Minecraft.getInstance().execute(() -> fail("Couldn't read " + p.name() + ": " + e.getMessage()));
                 return;
             }
             Minecraft.getInstance().execute(() -> {
-                busy = false;
-                // Left, went back or picked something else meanwhile: never create a seat on a stale choice.
-                if (minecraft.screen != this || step != Step.PROJECT || project != p || agent != chosen) return;
-                if (seats.isEmpty()) {
-                    createSeat(false);
+                // Left, went back or picked something else meanwhile: never act on a stale choice.
+                if (minecraft.screen != this || step != Step.PROJECT || project != p || agent != chosen) {
+                    busy = false;
+                    if (minecraft.screen == this) rebuildWidgets();
                     return;
                 }
-                showSeats(seats, "");
+                if (!seats.isEmpty()) {
+                    // Already standing somewhere in this world: it moves here and keeps talking to the same seat.
+                    Api.Slot standing = Bodies.seatOf(minecraft, seats.get(0));
+                    finish(seats.stream().filter(s -> standing != null && s.instanceId().equals(standing.instanceId()))
+                            .findFirst().orElse(seats.get(0)));
+                    return;
+                }
+                status = "Adding " + chosen.name() + " to " + p.name() + "… (making a git worktree can take a while)";
+                rebuildWidgets();
+                SeatAdder.add(this, client, p, chosen.name(), this::finish, this::fail);
             });
         });
     }
 
-    private List<Api.Instance> seatsOf(Api.Project p, Api.Agent a) throws IOException {
-        return client.instances(p).stream().filter(i -> a.name().equals(i.slot().agentId())).toList();
-    }
-
-    private void showSeats(List<Api.Instance> seats, String message) {
-        existing = seats;
-        step = Step.SEAT;
+    private void fail(String message) {
+        busy = false;
         status = message;
-        scroll = 0;
-        rebuildWidgets();
-    }
-
-    private void createSeat(boolean force) {
-        if (busy && !force) return;
-        busy = true;
-        status = "Adding " + agent.name() + " to " + project.name() + "… (making a git worktree can take a while)";
-        rebuildWidgets();
-        Api.Project p = project;
-        Api.Agent a = agent;
-        Connection.IO.execute(() -> {
-            try {
-                String instanceId = client.addInstance(p.id(), a.name(), force);
-                Api.Slot slot = new Api.Slot(p.id(), p.name(), a.name(), instanceId, null);
-                Minecraft.getInstance().execute(() -> finish(slot));
-            } catch (Api.ApiException e) {
-                Minecraft.getInstance().execute(() -> {
-                    busy = false;
-                    // Only the soft cap can be overridden; at the hard cap the server always says no.
-                    if ("INSTANCE_CAP_EXCEEDED".equals(e.code) && e.softCap && !force && minecraft.screen == this) {
-                        confirmOverCap();
-                    } else {
-                        status = "INSTANCE_CAP_EXCEEDED".equals(e.code)
-                                ? p.name() + " has as many agents as Agent Office allows. Remove one first, or use an existing seat."
-                                : "Couldn't add the seat: " + e.getMessage();
-                        if (minecraft.screen == this) rebuildWidgets();
-                    }
-                });
-            } catch (IOException | RuntimeException e) {
-                // Maybe a timeout while the server still made the seat: show what exists instead of inviting a
-                // second "+ New seat" that would make a second one.
-                List<Api.Instance> seats;
-                try {
-                    seats = seatsOf(p, a);
-                } catch (IOException | RuntimeException again) {
-                    seats = null;
-                }
-                List<Api.Instance> found = seats;
-                Minecraft.getInstance().execute(() -> {
-                    busy = false;
-                    if (minecraft.screen != this) return;
-                    if (found != null && !found.isEmpty()) {
-                        showSeats(found, "Adding didn't confirm (" + e.getMessage() + "). If it went through, the seat is listed here.");
-                    } else {
-                        status = "Couldn't add the seat: " + e.getMessage();
-                        rebuildWidgets();
-                    }
-                });
-            }
-        });
-    }
-
-    private void confirmOverCap() {
-        minecraft.setScreen(new ConfirmScreen(yes -> {
-            minecraft.setScreen(this);
-            if (yes) createSeat(true);
-        }, Component.literal(project.name() + " already has a lot of agents"),
-                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + agent.name() + " anyway?"),
-                Component.literal("Add anyway"), Component.literal("Cancel")));
+        if (minecraft.screen == this) rebuildWidgets();
     }
 
     /**
@@ -257,6 +185,7 @@ final class AgentSetupScreen extends TabletScreen {
         Minecraft mc = Minecraft.getInstance();
         busy = false;
         boolean here = mc.screen == this;
+        boolean moved = Bodies.placed(mc, slot);
         if (!Bodies.assignShell(mc, shell, slot)) {
             String gone = slot.agentId() + " is set up in " + slot.projectName() + ", but this shell is gone (removed, or another world is loaded).";
             if (here) {
@@ -267,12 +196,15 @@ final class AgentSetupScreen extends TabletScreen {
             }
             return;
         }
+        if (moved) {
+            mc.gui.setOverlayMessage(Component.literal(slot.agentId() + " in " + slot.projectName() + " moved here (one body per agent per project)"), false);
+        }
         if (here) mc.setScreen(new ChatScreen(null, client, slot));
-        else mc.gui.setOverlayMessage(Component.literal("Set up " + slot.agentId() + " in " + slot.projectName()), false);
+        else if (!moved) mc.gui.setOverlayMessage(Component.literal("Set up " + slot.agentId() + " in " + slot.projectName()), false);
     }
 
     private void back() {
-        step = step == Step.SEAT ? Step.PROJECT : Step.AGENT;
+        step = Step.AGENT;
         status = "";
         filter.setValue("");
         scroll = 0;
@@ -281,7 +213,7 @@ final class AgentSetupScreen extends TabletScreen {
 
     @Override
     protected GuiEventListener typingTarget() {
-        return step == Step.SEAT ? null : filter;
+        return filter;
     }
 
     @Override
@@ -312,11 +244,10 @@ final class AgentSetupScreen extends TabletScreen {
         String title = switch (step) {
             case AGENT -> "Set up this agent · which agent is it?";
             case PROJECT -> agent.name() + " · which project does it work on?";
-            case SEAT -> project.name() + " already has " + agent.name() + " — use a seat or add one";
         };
         g.drawString(font, bold(title, x1 - x0 - 160),
                 x0, top + 7, Theme.TXT, false);
-        String sub = "Step " + (step.ordinal() + 1) + (step == Step.SEAT ? " of 3" : " of 2–3") + (status.isEmpty() ? "" : "  ·  " + status);
+        String sub = "Step " + (step.ordinal() + 1) + " of 2" + (status.isEmpty() ? "" : "  ·  " + status);
         g.drawString(font, font.plainSubstrByWidth(sub, x1 - x0 - 160), x0, top + 18, Theme.TXT_3, false);
 
         List<Row> rows = rows();

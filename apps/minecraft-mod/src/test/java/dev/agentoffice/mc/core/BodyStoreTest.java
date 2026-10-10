@@ -48,6 +48,48 @@ class BodyStoreTest {
         assertEquals(9, store.in("sp:Dev", "minecraft:the_nether").get(0).x());
     }
 
+    private static final Api.Slot DEV_2 = new Api.Slot("p1", "Agent Office", "developer", "developer-c3", null);
+
+    @Test
+    void anAgentHasOneBodyPerProjectWhicheverSeatItTalksTo() {
+        BodyStore store = new BodyStore(dir.resolve("b.json"));
+        store.place(body("sp:Dev", "minecraft:overworld", DEV, 0));
+        store.place(body("sp:Dev", "minecraft:overworld", DEV_2, 4));
+        assertEquals(List.of(body("sp:Dev", "minecraft:overworld", DEV_2, 4)), store.in("sp:Dev", "minecraft:overworld"));
+        assertTrue(store.has("sp:Dev", DEV), "any of the agent's seats finds its body");
+        store.place(body("sp:Dev", "minecraft:overworld", new Api.Slot("p2", "Other", "developer", "developer-x", null), 8));
+        assertEquals(2, store.in("sp:Dev", "minecraft:overworld").size(), "the same agent in another project is another body");
+    }
+
+    @Test
+    void switchingSeatKeepsTheBodyWhereItStands() {
+        Path file = dir.resolve("b.json");
+        BodyStore store = new BodyStore(file);
+        store.place(body("sp:Dev", "minecraft:overworld", DEV, 3));
+        assertEquals(body("sp:Dev", "minecraft:overworld", DEV_2, 3), store.retarget("sp:Dev", DEV_2));
+        assertEquals(List.of(body("sp:Dev", "minecraft:overworld", DEV_2, 3)), new BodyStore(file).in("sp:Dev", "minecraft:overworld"));
+        assertEquals(null, store.retarget("sp:Other", DEV_2), "no body in that world: nothing to switch");
+    }
+
+    @Test
+    void anOldFileWithABodyPerSeatLoadsOneBodyPerAgentTheLastPlaced() throws IOException {
+        Path file = dir.resolve("b.json");
+        Files.writeString(file, """
+                [{"world":"sp:Dev","dimension":"minecraft:overworld","x":1,"y":64,"z":0,"yaw":0,
+                  "slot":{"projectId":"p1","agentId":"developer","instanceId":"developer-a1"}},
+                 {"world":"sp:Dev","dimension":"minecraft:the_nether","x":2,"y":64,"z":0,"yaw":0,
+                  "slot":{"projectId":"p1","agentId":"developer","instanceId":"developer-c3"}},
+                 {"world":"sp:Other","dimension":"minecraft:overworld","x":3,"y":64,"z":0,"yaw":0,
+                  "slot":{"projectId":"p1","agentId":"developer","instanceId":"developer-a1"}}]""");
+        BodyStore store = new BodyStore(file);
+        assertEquals(List.of(), store.in("sp:Dev", "minecraft:overworld"));
+        List<BodyStore.Body> nether = store.in("sp:Dev", "minecraft:the_nether");
+        assertEquals(1, nether.size());
+        assertEquals("developer-c3", nether.get(0).slot().instanceId());
+        assertEquals("developer-c3", store.seatOf("sp:Dev", DEV).instanceId(), "any seat of the agent finds which one the body talks to");
+        assertEquals(1, store.in("sp:Other", "minecraft:overworld").size(), "another world keeps its own body");
+    }
+
     @Test
     void aShellSurvivesAReloadAndSetupMakesItThatSeatsBodyWhereItStands() {
         Path file = dir.resolve("b.json");

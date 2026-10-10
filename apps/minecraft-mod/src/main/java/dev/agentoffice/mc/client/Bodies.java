@@ -52,8 +52,13 @@ final class Bodies {
     }
 
     static boolean placed(Minecraft mc, Api.Slot slot) {
+        return seatOf(mc, slot) != null;
+    }
+
+    /** Which seat the body of {@code anySeat}'s agent talks to in this world; null if it has none here. */
+    static Api.Slot seatOf(Minecraft mc, Api.Slot anySeat) {
         String world = worldKey(mc);
-        return world != null && store().has(world, slot);
+        return world == null ? null : store().seatOf(world, anySeat);
     }
 
     /** Puts the agent where the player is looking (or a few blocks ahead), facing the player. */
@@ -74,11 +79,26 @@ final class Bodies {
         sync(mc);
     }
 
+    /** The agent's body in this world talks to {@code slot} from now on (its nameplate and status follow). */
+    static void switchSeat(Minecraft mc, Api.Slot slot) {
+        String world = worldKey(mc);
+        if (world == null || store().retarget(world, slot) == null) return;
+        if (mc.level != null) despawn(mc.level, key(slot));
+        lastStatus.remove(key(slot));
+        sync(mc);
+    }
+
     static void dismiss(Minecraft mc, Api.Slot slot) {
         String world = worldKey(mc);
         if (world == null) return;
         store().remove(world, slot);
         if (mc.level != null) despawn(mc.level, key(slot));
+    }
+
+    /** {@code slot} is gone from Agent Office: its agent's body goes too, unless it talks to another seat. */
+    static void seatRemoved(Minecraft mc, Api.Slot slot) {
+        Api.Slot standing = seatOf(mc, slot);
+        if (standing != null && standing.instanceId().equals(slot.instanceId())) dismiss(mc, slot);
     }
 
     private static final Component SHELL_NAMEPLATE = Component.literal("Unassigned agent").withStyle(ChatFormatting.GRAY)
@@ -99,7 +119,7 @@ final class Bodies {
         if (mc.level != null) despawn(mc.level, "shell:" + shell);
     }
 
-    /** Set up: the shell becomes {@code slot}'s body where it stands (that seat's old body, if any, goes). */
+    /** Set up: the shell becomes the body of {@code slot}'s agent where it stands (its old body there, if any, goes). */
     static boolean assignShell(Minecraft mc, String shell, Api.Slot slot) {
         String world = worldKey(mc);
         if (world == null || store().assign(world, shell, slot) == null) return false;
@@ -180,10 +200,12 @@ final class Bodies {
         }, Connection.IO).whenComplete((found, err) -> mc.execute(() -> {
             polling = false;
             for (String key : snapshot.keySet()) {
+                AgentBody body = live.get(key);
+                // Switched to another seat meanwhile: this status is the old seat's.
+                if (body == null || !snapshot.get(key).equals(body.slot)) continue;
                 String status = err != null ? "offline" : found.get(key);
                 lastStatus.put(key, status);
-                AgentBody body = live.get(key);
-                if (body != null) body.setCustomName(nameplate(body.slot, status));
+                body.setCustomName(nameplate(body.slot, status));
             }
         }));
     }
@@ -204,8 +226,9 @@ final class Bodies {
         if (body != null && !body.isRemoved()) level.removeEntity(body.getId(), Entity.RemovalReason.DISCARDED);
     }
 
+    /** Same key as BodyStore: one body per agent per project, whichever seat it talks to. */
     private static String key(Api.Slot slot) {
-        return slot.projectId() + "/" + slot.instanceId();
+        return slot.projectId() + "/agent:" + slot.agentId();
     }
 
     private static String dimension(ClientLevel level) {

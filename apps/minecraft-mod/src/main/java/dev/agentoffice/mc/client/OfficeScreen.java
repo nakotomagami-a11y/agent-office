@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
 
@@ -82,11 +83,18 @@ public final class OfficeScreen extends TabletScreen {
                     b -> minecraft.setScreen(new SeatSettingsScreen(this, client, seat, agents.get(slot.agentId())))));
             if (inWorld) {
                 bx -= 44;
-                addRenderableWidget(new FlatButton(bx, y, 40, 14, Bodies.placed(Minecraft.getInstance(), slot) ? "Move" : "Place",
+                // One body per agent per project: on another of its seats, this moves it and switches it to this one.
+                Api.Slot standing = Bodies.seatOf(Minecraft.getInstance(), slot);
+                String label = standing == null ? "Place" : standing.instanceId().equals(slot.instanceId()) ? "Move" : "Use";
+                FlatButton placeButton = addRenderableWidget(new FlatButton(bx, y, 40, 14, label,
                         FlatButton.Kind.NORMAL, b -> {
                             Bodies.place(Minecraft.getInstance(), slot);
                             onClose();
                         }));
+                if (label.equals("Use")) {
+                    placeButton.setTooltip(Tooltip.create(Component.literal("Move " + slot.agentId()
+                            + "'s body here, talking to this seat instead of " + (standing.label() != null && !standing.label().isBlank() ? standing.label() : standing.instanceId()))));
+                }
             }
             bx -= 44;
             addRenderableWidget(new FlatButton(bx, y, 40, 14, "Chat", FlatButton.Kind.PRIMARY,
@@ -181,8 +189,8 @@ public final class OfficeScreen extends TabletScreen {
             Connection.IO.execute(() -> {
                 try {
                     c.removeInstance(slot);
-                    // Always, even if this screen is covered: a body must not outlive its seat.
-                    Minecraft.getInstance().execute(() -> Bodies.dismiss(Minecraft.getInstance(), slot));
+                    // Always, even if this screen is covered: a body must not outlive the seat it talks to.
+                    Minecraft.getInstance().execute(() -> Bodies.seatRemoved(Minecraft.getInstance(), slot));
                     onMain(() -> {
                         status = "Removed " + slot.displayName() + ".";
                         load();
