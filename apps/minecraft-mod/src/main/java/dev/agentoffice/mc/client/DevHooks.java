@@ -1,5 +1,6 @@
 package dev.agentoffice.mc.client;
 
+import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentOfficeMod;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.LecternStore;
@@ -28,6 +29,11 @@ import net.neoforged.fml.loading.FMLEnvironment;
  *   gradlew runClient -PaoOpen=office -PaoQuit=true                  (the tablet's home screen)
  *   gradlew runClient -PaoOpen=chat:projectId:instanceId:agentId
  *   gradlew runClient -PaoOpen=place:projectId:instanceId:agentId   (flat dev world, body ahead)
+ *   gradlew runClient -PaoOpen=dress:projectId:instanceId:agentId   (body ahead, in armor with a sword and shield)
+ *   gradlew runClient -PaoOpen=inventory:projectId:instanceId:agentId (dressed, then sneak-used: its inventory)
+ *   gradlew runServer, then runClient -PaoServer=localhost -PaoOpen=dress:p:i:a   (multiplayer: the owner)
+ *   gradlew runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2 -PaoOpen=observe|trespass:p:i:a
+ *       (a second player: look at the nearest agent; or, as a modified client would, sneak-use it and Dismiss its seat)
  *   gradlew runClient -PaoOpen=world                                 (just load it: bodies come back?)
  *   gradlew runClient -PaoOpen=interact                              (load it and right-click ahead)
  *   gradlew runClient -PaoOpen=hold                                  (load it with an Agent Tablet in hand)
@@ -55,6 +61,8 @@ final class DevHooks {
 
     private static final int SHOT_AFTER_TICKS = Integer.getInteger("agentoffice.dev.shotAfterTicks", 100);
     private static final String WORLD = System.getProperty("agentoffice.dev.world", "AgentOfficeDev");
+    /** Joins this server instead of the dev world. */
+    private static final String SERVER = System.getProperty("agentoffice.dev.server", "");
 
     private static boolean started;
     private static int inWorldTicks;
@@ -77,22 +85,60 @@ final class DevHooks {
         boolean tablet = OPEN.equals("hold") || OPEN.equals("tablet");
         boolean egg = OPEN.equals("egg") || OPEN.equals("shell");
         boolean lectern = OPEN.equals("lectern") || OPEN.equals("lecternview");
-        boolean worldMode = OPEN.startsWith("place:") || OPEN.equals("world") || OPEN.equals("interact") || tablet || egg || lectern;
+        boolean dress = OPEN.startsWith("dress:") || OPEN.startsWith("inventory:");
+        boolean observe = OPEN.equals("observe") || OPEN.startsWith("trespass:");
+        boolean worldMode = OPEN.startsWith("place:") || dress || observe || OPEN.equals("world") || OPEN.equals("interact") || tablet || egg || lectern;
         if (worldMode && started && ticksSinceAction < 0 && mc.player != null && mc.screen == null) {
             inWorldTicks++;
+            if (OPEN.startsWith("trespass:") && inWorldTicks == 30) {
+                // Within reach of the nearest agent (needs op on the server; op must not get past an agent's owner).
+                mc.player.connection.sendCommand("execute at @e[type=agentoffice:agent,limit=1,sort=nearest] run tp @s ~2 ~ ~");
+            }
+            if (observe && inWorldTicks == 40) {
+                mc.player.setXRot(0);
+                mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(32)).stream()
+                        .min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(mc.player)))
+                        .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(mc.player.position(), b.position())));
+                if (OPEN.equals("observe")) ticksSinceAction = 0;
+            } else if (OPEN.startsWith("trespass:") && inWorldTicks == 50) {
+                // What a modified client could send at another player's agent, bypassing ClientSetup: a sneak-use
+                // (its inventory) and a Dismiss of the seat. The server must refuse both.
+                mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(32)).stream()
+                        .min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(mc.player))).ifPresent(b -> mc.getConnection().send(
+                                net.minecraft.network.protocol.game.ServerboundInteractPacket.createInteractionPacket(b, true, net.minecraft.world.InteractionHand.MAIN_HAND)));
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.agentoffice.mc.AgentNet.Dismiss(slot(OPEN)));
+                KeyMapping.click(mc.options.keyUse.getKey()); // the honest client's own refusal, on screen
+                ticksSinceAction = 0;
+            }
+            if (dress && inWorldTicks == 60) {
+                dress(mc);
+                if (OPEN.startsWith("dress:")) ticksSinceAction = 0;
+                else mc.options.keyShift.setDown(true); // sneak-use: the inventory
+            } else if (OPEN.startsWith("inventory:") && inWorldTicks == 70) {
+                // The click is handled next tick, before the player's input (and so the sneak) is read again.
+                KeyMapping.click(mc.options.keyUse.getKey());
+                mc.options.keyShift.setDown(false);
+                ticksSinceAction = 0;
+            }
             if (inWorldTicks == 40) {
                 mc.player.setXRot(0);
-                if (OPEN.startsWith("place:")) Bodies.place(mc, slot(OPEN));
+                if (dress) {
+                    // Away from bodies earlier checks left: a clear view, and the use must hit this one.
+                    mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(16)).stream()
+                            .filter(b -> !b.agentId().equals(slot(OPEN).agentId())).findFirst()
+                            .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(b.position(), mc.player.position())));
+                }
+                if (OPEN.startsWith("place:") || dress) Bodies.place(mc, slot(OPEN));
                 if (OPEN.equals("interact")) KeyMapping.click(mc.options.keyUse.getKey());
                 if (tablet) give(mc, new ItemStack(AgentOfficeMod.TABLET.get()));
                 if (egg) give(mc, new ItemStack(AgentOfficeMod.AGENT_EGG.get()));
                 if (lectern) {
                     // Away from agent bodies left in the dev world by earlier checks: the use must hit the lectern.
-                    mc.level.getEntitiesOfClass(AgentBody.class, mc.player.getBoundingBox().inflate(16)).stream().findFirst()
-                            .ifPresent(b -> mc.player.setYRot(Bodies.yawTowards(b.position(), mc.player.position())));
+                    mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(16)).stream().findFirst()
+                            .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(b.position(), mc.player.position())));
                     placeLectern(mc);
                 }
-                if (!OPEN.equals("tablet") && !egg && !lectern) ticksSinceAction = 0;
+                if (!OPEN.equals("tablet") && !egg && !lectern && !dress) ticksSinceAction = 0;
             } else if (lectern && inWorldTicks == 60) {
                 mc.player.setXRot(55); // down at the lectern right ahead
                 if (OPEN.equals("lectern")) KeyMapping.click(mc.options.keyUse.getKey());
@@ -103,8 +149,8 @@ final class DevHooks {
                 ticksSinceAction = 0;
             } else if (egg && inWorldTicks == 60) {
                 // Away from any agent body nearby: the use must hit the ground, not open someone's chat.
-                mc.level.getEntitiesOfClass(AgentBody.class, mc.player.getBoundingBox().inflate(16)).stream().findFirst()
-                        .ifPresent(b -> mc.player.setYRot(Bodies.yawTowards(b.position(), mc.player.position())));
+                mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(16)).stream().findFirst()
+                        .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(b.position(), mc.player.position())));
                 mc.player.setXRot(35); // at the ground a few blocks ahead
                 KeyMapping.click(mc.options.keyUse.getKey());
                 if (OPEN.equals("egg")) ticksSinceAction = 0;
@@ -152,6 +198,9 @@ final class DevHooks {
                         return null;
                     });
             ticksSinceAction = 0;
+        } else if (!SERVER.isEmpty()) {
+            net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.screen, mc, net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(SERVER),
+                    new net.minecraft.client.multiplayer.ServerData("dev", SERVER, net.minecraft.client.multiplayer.ServerData.Type.OTHER), false, null);
         } else if (mc.getLevelSource().levelExists(WORLD)) {
             // onFail runs when the player backs out of a recover/backup prompt: it must leave that screen.
             Screen back = mc.screen;
@@ -188,6 +237,37 @@ final class DevHooks {
                 level.setBlockAndUpdate(pos, AgentOfficeMod.REVIEW_LECTERN.get().defaultBlockState()
                         .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, facing.getOpposite()));
             }
+        });
+    }
+
+    /** Dresses the first set-up agent within 16 blocks, through the integrated server: what a test should show on a body. */
+    private static void dress(Minecraft mc) {
+        IntegratedServer server = mc.getSingleplayerServer();
+        if (mc.player == null) return;
+        if (server == null) {
+            // A dedicated server (-PaoServer): the same through commands, so the dev player must be an op there.
+            String agent = "@e[type=agentoffice:agent,limit=1,sort=nearest]"; // the body just placed in front
+            for (String s : new String[] {"weapon.mainhand with minecraft:diamond_sword[enchantment_glint_override=true]",
+                    "weapon.offhand with minecraft:shield", "armor.head with minecraft:iron_helmet",
+                    "armor.chest with minecraft:diamond_chestplate", "armor.feet with minecraft:golden_boots"}) {
+                mc.player.connection.sendCommand("item replace entity " + agent + " " + s);
+            }
+            return;
+        }
+        java.util.UUID id = mc.player.getUUID();
+        server.execute(() -> {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player == null) return;
+            player.serverLevel().getEntitiesOfClass(AgentEntity.class, player.getBoundingBox().inflate(16)).stream()
+                    .filter(a -> a.seat() != null).findFirst().ifPresent(a -> {
+                        ItemStack sword = new ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD);
+                        sword.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                        a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, sword);
+                        a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(net.minecraft.world.item.Items.SHIELD));
+                        a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+                        a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+                        a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(net.minecraft.world.item.Items.GOLDEN_BOOTS));
+                    });
         });
     }
 

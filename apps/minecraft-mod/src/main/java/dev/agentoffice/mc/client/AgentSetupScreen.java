@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -30,7 +31,7 @@ final class AgentSetupScreen extends TabletScreen {
     private record Row(String title, String meta, String detail, String button, Runnable action) {}
 
     private final AgentOfficeClient client;
-    private final String shell;
+    private final UUID shell;
     private Step step = Step.AGENT;
     private List<Api.Agent> agents = List.of();
     private List<Api.Project> projects = List.of();
@@ -42,7 +43,7 @@ final class AgentSetupScreen extends TabletScreen {
     private boolean busy;
     private boolean started;
 
-    AgentSetupScreen(AgentOfficeClient client, String shell) {
+    AgentSetupScreen(AgentOfficeClient client, UUID shell) {
         super(Component.literal("Set up agent"));
         this.client = client;
         this.shell = shell;

@@ -1,9 +1,10 @@
 package dev.agentoffice.mc;
 
-import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -11,20 +12,18 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * Agent Spawn Egg: used on a block, an unassigned agent shell stands there (placed like a vanilla
- * spawn egg places its mob). The shell is client-side, reached through a hook; the server half only
- * uses up the egg outside creative.
+ * Agent Spawn Egg: used on a block, an unassigned agent shell, owned by whoever used it, stands there
+ * (placed like a vanilla spawn egg places its mob), facing them.
  */
 public final class AgentEggItem extends Item {
-    /** Set by the client setup; the item class must not reference client classes itself. */
-    public static Consumer<Vec3> placeShellOnClient = at -> { };
-
     public AgentEggItem(Properties properties) {
         super(properties);
     }
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
+        Player player = context.getPlayer();
+        if (player == null) return InteractionResult.PASS;
         Level level = context.getLevel();
         BlockPos clicked = context.getClickedPos();
         VoxelShape shape = level.getBlockState(clicked).getCollisionShape(level, clicked);
@@ -39,11 +38,11 @@ public final class AgentEggItem extends Item {
             // ... else next to the clicked face.
             at = Vec3.atBottomCenterOf(clicked.relative(context.getClickedFace()));
         }
-        if (level.isClientSide) {
-            placeShellOnClient.accept(at);
-        } else {
-            // Vanilla shrinks unconditionally too; creative puts the count back itself.
-            context.getItemInHand().shrink(1);
+        if (level instanceof ServerLevel server) {
+            // Used up only by a shell that stands (another mod may refuse the spawn); creative puts the count back itself.
+            if (AgentEntity.spawn(server, at, AgentEntity.yawTowards(at, player.position()), player.getUUID(), null) != null) {
+                context.getItemInHand().shrink(1);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

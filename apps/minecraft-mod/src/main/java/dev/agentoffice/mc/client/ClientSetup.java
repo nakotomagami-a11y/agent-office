@@ -1,23 +1,27 @@
 package dev.agentoffice.mc.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.agentoffice.mc.AgentEggItem;
+import dev.agentoffice.mc.AgentEntity;
+import dev.agentoffice.mc.AgentNet;
 import dev.agentoffice.mc.AgentOfficeMod;
 import dev.agentoffice.mc.ReviewLecternBlock;
 import dev.agentoffice.mc.TabletItem;
 import dev.agentoffice.mc.client.ui.ImageCache;
+import dev.agentoffice.mc.core.Api;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.EntityHitResult;
-import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.glfw.GLFW;
@@ -42,29 +46,37 @@ public final class ClientSetup {
 
     public static void init(IEventBus modBus, ModContainer container) {
         TabletItem.openOnClient = ClientSetup::openOffice;
-        AgentEggItem.placeShellOnClient = at -> Bodies.placeShell(Minecraft.getInstance(), at);
         ReviewLecternBlock.openOnClient = (pos, rebind) -> Lecterns.open(Minecraft.getInstance(), pos, rebind);
+        AgentNet.onPlaced = Bodies::onPlaced;
         container.registerConfig(ModConfig.Type.CLIENT, SPEC);
         modBus.addListener(ClientSetup::registerKeys);
         modBus.addListener(ClientSetup::itemColors);
         modBus.addListener(ClientSetup::blockColors);
-        modBus.addListener(AgentBodyRenderer::rebuild);
+        modBus.addListener((EntityRenderersEvent.RegisterRenderers e) -> e.registerEntityRenderer(AgentOfficeMod.AGENT.get(), AgentRenderer::new));
+        modBus.addListener((RegisterMenuScreensEvent e) -> e.register(AgentOfficeMod.AGENT_MENU.get(), AgentInventoryScreen::new));
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onInteract);
-        // First, so other listeners never see the villager draw that is replaced.
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, AgentBodyRenderer::drawInstead);
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn e) -> Bodies.joined());
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Bodies.left());
     }
 
     /**
-     * Bodies have no server twin: any click on one is handled here and cancelled, so no packet
-     * about an entity id the server never issued is sent.
+     * Using an agent opens its chat here, without telling the server; sneak-using it goes to the server,
+     * which opens its inventory ({@link AgentEntity#mobInteract}). Only its owner can do either.
      */
     private static void onInteract(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
-        if (!(mc.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof AgentBody body)) return;
+        if (!event.isUseItem() || !(mc.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof AgentEntity body)) return;
+        if (!body.isOwnedBy(mc.player)) {
+            event.setCanceled(true);
+            event.setSwingHand(false);
+            mc.gui.setOverlayMessage(Component.literal("That's another player's agent"), false);
+            return;
+        }
+        if (mc.player.isSecondaryUseActive() && !body.isShell()) return;
         event.setCanceled(true);
         event.setSwingHand(false);
-        if (!event.isUseItem() || opening) return;
+        if (opening) return;
         opening = true;
         Connection.client().whenComplete((client, err) -> mc.execute(() -> {
             opening = false;
@@ -73,7 +85,10 @@ public final class ClientSetup {
             } else if (mc.screen == null && mc.level != null) {
                 // The player may have opened something else or left the world while we connected.
                 // A shell has no seat yet: it can only be set up, never chatted with.
-                mc.setScreen(body.slot == null ? new AgentSetupScreen(client, body.shell) : new ChatScreen(null, client, body.slot));
+                Api.Slot seat = Bodies.seatOf(body);
+                if (body.isShell()) mc.setScreen(new AgentSetupScreen(client, body.getUUID()));
+                else if (seat != null) mc.setScreen(new ChatScreen(null, client, seat));
+                else mc.gui.setOverlayMessage(Component.literal("This world hasn't told us which seat it is yet: try again"), false);
             }
         }));
     }
