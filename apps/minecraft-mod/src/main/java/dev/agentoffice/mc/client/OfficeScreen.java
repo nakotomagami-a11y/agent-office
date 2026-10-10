@@ -220,9 +220,10 @@ public final class OfficeScreen extends TabletScreen {
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
         int sideRight = left + PAD + SIDEBAR;
-        g.fill(left, top, sideRight, bottom, Theme.CARD);
-        g.fill(sideRight, top, sideRight + 1, bottom, Theme.EDGE_2);
-        g.fill(left, top + HEADER, right, top + HEADER + 1, Theme.EDGE_2);
+        // Inside the well's 1-px bevel.
+        g.fill(left + 1, top + 1, sideRight, bottom - 1, Theme.CARD);
+        g.fill(sideRight, top + 1, sideRight + 1, bottom - 1, Theme.EDGE_2);
+        g.fill(left + 1, top + HEADER, right - 1, top + HEADER + 1, Theme.EDGE_2);
         int mx0 = sideRight + PAD;
         int mx1 = right - PAD;
         int listTop = top + HEADER + 4;
@@ -298,7 +299,7 @@ public final class OfficeScreen extends TabletScreen {
     }
 
     @Override
-    public void removed() {
+    protected void onRemoved() {
         closed = true;
     }
 

@@ -1,6 +1,7 @@
 package dev.agentoffice.mc.client.ui;
 
 import dev.agentoffice.mc.core.Review;
+import dev.agentoffice.mc.core.Syntax;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.Font;
@@ -11,7 +12,7 @@ import net.minecraft.util.FormattedCharSequence;
 
 /**
  * One file's diff as the Review Lectern shows it: a header bar, then hunk headers, folded gaps and
- * numbered lines tinted by kind, wrapped or cut. Owns its scroll position and wrap setting. Every
+ * numbered lines tinted by kind and coloured by syntax (Dark+), wrapped or cut. Owns its scroll position and wrap setting. Every
  * text it draws went through {@link Review#visible} first: PR content must not act as formatting.
  */
 public final class DiffView {
@@ -113,8 +114,8 @@ public final class DiffView {
             int y = top + (i - scroll) * LINE_H;
             Review.Row r = v.row();
             switch (r.kind()) {
-                case ADD -> g.fill(x0, y, x1, y + LINE_H, 0x2E34D399);
-                case DEL -> g.fill(x0, y, x1, y + LINE_H, 0x2EF87171);
+                case ADD -> g.fill(x0, y, x1, y + LINE_H, Theme.DIFF_ADD);
+                case DEL -> g.fill(x0, y, x1, y + LINE_H, Theme.DIFF_DEL);
                 case HUNK -> g.fill(x0, y, x1, y + LINE_H, Theme.CARD_2);
                 default -> { }
             }
@@ -155,15 +156,28 @@ public final class DiffView {
         builtWrap = wrap;
         List<VRow> out = new ArrayList<>();
         int fullW = x1 - x0 - 12;
+        Syntax.Lang lang = Syntax.forPath(file.path());
+        // The old and the new file each have their own comment state: deleted lines carry the old one,
+        // added lines the new one, context lines are both.
+        Syntax.Side oldSide = new Syntax.Side();
+        Syntax.Side newSide = new Syntax.Side();
         for (Review.Row r : Review.rows(file)) {
             boolean code = isCode(r);
             String text = Review.visible(r.kind() == Review.RowKind.GAP ? "⋯ " + r.text() : r.text());
-            if (code && wrap) {
-                List<FormattedCharSequence> parts = logical(font, text, textW);
+            if (!code) {
+                oldSide.reset();
+                newSide.reset();
+                out.add(new VRow(r, FormattedCharSequence.forward(cut(font, text, fullW), Style.EMPTY), false));
+                continue;
+            }
+            Syntax.Result syntax = (r.kind() == Review.RowKind.DEL ? oldSide : newSide).next(text, lang);
+            if (r.kind() == Review.RowKind.CONTEXT) oldSide.copyFrom(newSide);
+            if (wrap) {
+                List<FormattedCharSequence> parts = CodeText.wrap(font, text, syntax.spans(), Theme.TXT, textW);
                 if (parts.isEmpty()) parts = List.of(FormattedCharSequence.EMPTY);
                 for (int i = 0; i < parts.size(); i++) out.add(new VRow(r, parts.get(i), i > 0));
             } else {
-                out.add(new VRow(r, FormattedCharSequence.forward(cut(font, text, code ? textW : fullW), Style.EMPTY), false));
+                out.add(new VRow(r, CodeText.cut(font, text, syntax.spans(), Theme.TXT, textW, Theme.TXT_4), false));
             }
         }
         rows = out;

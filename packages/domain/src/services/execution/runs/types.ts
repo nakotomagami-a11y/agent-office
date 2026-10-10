@@ -89,6 +89,7 @@ export interface LiveRun {
   finishedAt?: number;
   parseFailures: number;
   sawStreamDelta: boolean;
+  toolSinceText: boolean;
   rateLimitResetsAt?: number;
   args: string[];
   stderrBuf: string;

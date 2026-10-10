@@ -3,6 +3,8 @@ package dev.agentoffice.mc.client.ui;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Images;
 import dev.agentoffice.mc.core.Markdown;
+import dev.agentoffice.mc.core.Review;
+import dev.agentoffice.mc.core.Syntax;
 import dev.agentoffice.mc.core.Transcript;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -12,14 +14,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
@@ -28,9 +32,23 @@ import net.minecraft.util.FormattedCharSequence;
  * previews. Layout is cached per item (items are immutable; a streamed reply replaces its item).
  */
 public final class TranscriptView {
-    private static final int LINE = 11;
-    private static final int ITEM_GAP = 7;
-    private static final int SCROLLBAR = 4;
+    /** 8-unit glyphs on a 12-unit line: the 4 units of leading keep dense prose apart. */
+    private static final int LINE = 12;
+    private static final int ITEM_GAP = 10;
+    /** Before a prompt: where one turn ends and the next starts. */
+    private static final int TURN_GAP = 16;
+    private static final int PARAGRAPH_GAP = 7;
+    private static final int HEADING_GAP = 12;
+    /** A heading sits close to what it introduces. */
+    private static final int AFTER_HEADING_GAP = 3;
+    private static final int LIST_ITEM_GAP = 3;
+    /** Text column cap (~100 characters): long lines across a wide tablet read as one block. */
+    private static final int MAX_COLUMN = 600;
+    private static final int SCROLLBAR = 6;
+    private static final ResourceLocation SCROLLER = ResourceLocation.withDefaultNamespace("widget/scroller");
+    private static final ResourceLocation SCROLLER_BACKGROUND = ResourceLocation.withDefaultNamespace("widget/scroller_background");
+    /** Marks inline code spans (Style insertion survives Font#split), so their boxes can be drawn. */
+    private static final String CODE = "agentoffice:code";
 
     private final Font font;
     private final Supplier<AgentOfficeClient> client;
@@ -46,12 +64,14 @@ public final class TranscriptView {
     private int w;
     private int h;
     private int scrollFromBottom;
+    /** Width code blocks and tables may take, from the prose column's left edge to the well's right. */
+    private int wide;
     /** From the last frame, so consecutive scrolls clamp before the next render. */
     private int maxScroll;
     /** Content height of the last frame: keeps what the reader looks at in place while text streams in. */
     private int lastTotal;
 
-    private record Laid(boolean labeled, int width, List<Part> parts) {}
+    private record Laid(boolean labeled, int width, int wide, List<Part> parts) {}
 
     private record Hit(Part part, int x, int y, int w, int h) {}
 
@@ -105,12 +125,20 @@ public final class TranscriptView {
         scrollFromBottom = 0;
     }
 
+    public boolean isEmpty() {
+        return rows.isEmpty();
+    }
+
     public boolean isMouseOver(double mx, double my) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
     public void render(GuiGraphics g, int mouseX, int mouseY) {
-        int cw = w - SCROLLBAR - 2;
+        int avail = w - SCROLLBAR - 4;
+        int cw = Math.min(avail, MAX_COLUMN);
+        int cx = x + (avail - cw) / 2;
+        // Code and tables aren't prose: they start with the column but may use the room to its right.
+        wide = x + avail - cx;
         List<List<Part>> laid = new ArrayList<>();
         int total = 0;
         Object prev = null;
@@ -135,8 +163,8 @@ public final class TranscriptView {
             for (Part p : laid.get(i)) {
                 int ph = p.height();
                 if (cy + ph >= y && cy <= y + h) {
-                    p.render(g, x, cy, cw, mouseX, mouseY);
-                    hits.add(new Hit(p, x, cy, cw, ph));
+                    p.render(g, cx, cy, cw, mouseX, mouseY);
+                    hits.add(new Hit(p, cx, cy, cw, ph));
                 }
                 cy += ph;
             }
@@ -144,10 +172,12 @@ public final class TranscriptView {
         g.disableScissor();
         if (maxScroll > 0) {
             int trackX = x + w - SCROLLBAR;
-            g.fill(trackX, y, trackX + SCROLLBAR, y + h, Theme.EDGE);
-            int thumbH = Math.max(12, h * h / total);
+            int thumbH = Math.max(Math.min(32, h), Math.min(h - 8, h * h / total));
             int thumbY = y + (int) ((long) (h - thumbH) * (maxScroll - scrollFromBottom) / maxScroll);
-            g.fill(trackX, thumbY, trackX + SCROLLBAR, thumbY + thumbH, Theme.BG_4);
+            RenderSystem.enableBlend();
+            g.blitSprite(SCROLLER_BACKGROUND, trackX, y, SCROLLBAR, h);
+            g.blitSprite(SCROLLER, trackX, thumbY, SCROLLBAR, thumbH);
+            RenderSystem.disableBlend();
         }
     }
 
@@ -188,7 +218,7 @@ public final class TranscriptView {
     private static int gapBefore(Object prev, Object item) {
         if (prev == null) return 0;
         if (isTools(prev) && isTools(item)) return 0;
-        return ITEM_GAP;
+        return item instanceof Transcript.You ? TURN_GAP : ITEM_GAP;
     }
 
     private static int height(List<Part> parts) {
@@ -209,13 +239,13 @@ public final class TranscriptView {
         Transcript.Item item = (Transcript.Item) row;
         boolean labeled = item instanceof Transcript.AgentText && !(prev instanceof Transcript.AgentText) && !isTools(prev);
         Laid laid = cache.get(item);
-        if (laid != null && laid.width == width && laid.labeled == labeled) return laid.parts;
+        if (laid != null && laid.width == width && laid.wide == wide && laid.labeled == labeled) return laid.parts;
         List<Part> parts = switch (item) {
             case Transcript.You you -> youParts(you, width);
             case Transcript.AgentText text -> agentParts(text, labeled, width);
             case Transcript.Tool tool -> List.of(new ToolPart(tool));
             case Transcript.Done done -> List.of(new DividerPart(doneText(done), done.exitCode() == 0 ? Theme.TXT_4 : Theme.RED));
-            case Transcript.Failure f -> List.of(card(0x1AF87171, Theme.RED, width, inner -> {
+            case Transcript.Failure f -> List.of(card(Theme.withAlpha(Theme.RED, 0x1A), Theme.RED, width, inner -> {
                 List<Part> p = new ArrayList<>();
                 p.add(lines(Component.literal("Error · " + errorText(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
                 if (f.detail() != null) p.add(lines(Component.literal(f.detail()).withColor(Theme.TXT_2), inner, 0));
@@ -223,7 +253,7 @@ public final class TranscriptView {
             }));
             case Transcript.Note n -> List.of(lines(Component.literal(n.text())
                     .withStyle(s -> s.withColor(n.warning() ? Theme.AMBER : Theme.TXT_3).withItalic(true)), width, 0));
-            case Transcript.SubAgent sub -> List.of(card(Theme.CARD, sub.running() ? Theme.OK : Theme.TXT_4, width, inner -> {
+            case Transcript.SubAgent sub -> List.of(card(Theme.SHADE, sub.running() ? Theme.OK : Theme.TXT_4, width, inner -> {
                 List<Part> p = new ArrayList<>();
                 p.add(lines(Component.literal("↳ " + sub.name()).withStyle(s -> s.withColor(Theme.TXT).withBold(true))
                         .append(Component.literal("  " + sub.status()).withStyle(s -> s.withColor(Theme.TXT_3).withBold(false))), inner, 0));
@@ -231,18 +261,18 @@ public final class TranscriptView {
                 if (detail != null) p.add(lines(Component.literal(detail).withColor(Theme.TXT_4), inner, 0));
                 return p;
             }));
-            case Transcript.RateLimit rl -> List.of(card(0x1AFBBF24, rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
+            case Transcript.RateLimit rl -> List.of(card(Theme.withAlpha(Theme.AMBER, 0x1A), rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
                     lines(Component.literal(rl.limit() ? "Rate limit reached" : "Rate limit warning")
                             .withStyle(s -> s.withColor(rl.limit() ? Theme.RED : Theme.AMBER).withBold(true)), inner, 0),
                     lines(Component.literal(rl.message()).withColor(Theme.TXT_2), inner, 0))));
         };
-        cache.put(item, new Laid(labeled, width, parts));
+        cache.put(item, new Laid(labeled, width, wide, parts));
         return parts;
     }
 
     private List<Part> youParts(Transcript.You you, int width) {
         List<Part> out = new ArrayList<>();
-        out.add(card(Theme.CARD_2, you.system() ? Theme.AMBER : Theme.ACCENT, width, inner -> {
+        out.add(card(Theme.SHADE_2, you.system() ? Theme.AMBER : Theme.ACCENT, width, inner -> {
             List<Part> p = new ArrayList<>();
             p.add(lines(Component.literal(you.system() ? "System" : "You")
                     .withStyle(s -> s.withColor(you.system() ? Theme.AMBER : Theme.ACCENT_SOFT).withBold(true)), inner, 0));
@@ -260,20 +290,24 @@ public final class TranscriptView {
         if (labeled) out.add(lines(Component.literal(agentName).withStyle(s -> s.withColor(Theme.GREEN).withBold(true)), width, 0));
         List<Markdown.Block> blocks = Markdown.blocks(text.text());
         for (int i = 0; i < blocks.size(); i++) {
-            if (i > 0) out.add(new Spacer(4));
+            if (i > 0) {
+                out.add(new Spacer(blocks.get(i) instanceof Markdown.Heading ? HEADING_GAP
+                        : blocks.get(i - 1) instanceof Markdown.Heading ? AFTER_HEADING_GAP : PARAGRAPH_GAP));
+            }
             switch (blocks.get(i)) {
                 case Markdown.Heading hd -> {
-                    if (i > 0) out.add(new Spacer(3));
                     out.add(lines(inline(hd.text(), Theme.TXT).withStyle(s -> s.withBold(true)), width, 0));
                 }
-                case Markdown.Paragraph p -> out.add(lines(inline(p.text(), Theme.TXT), width, 0));
+                case Markdown.Paragraph p -> out.add(lines(inline(p.text(), Theme.TXT_2), width, 0));
                 case Markdown.ListBlock list -> {
-                    for (Markdown.ListItem li : list.items()) {
-                        out.add(new ListItemPart(li.marker(), li.depth() * 12, inline(li.text(), Theme.TXT), width));
+                    for (int n = 0; n < list.items().size(); n++) {
+                        Markdown.ListItem li = list.items().get(n);
+                        if (n > 0) out.add(new Spacer(LIST_ITEM_GAP));
+                        out.add(new ListItemPart(li.marker(), li.depth() * 12, inline(li.text(), Theme.TXT_2), width));
                     }
                 }
-                case Markdown.Code code -> out.add(new CodePart(code, width));
-                case Markdown.Table table -> out.add(new TablePart(table, width));
+                case Markdown.Code code -> out.add(new CodePart(code, wide));
+                case Markdown.Table table -> out.add(new TablePart(table, wide));
             }
         }
         if (text.streaming()) out.add(new CursorPart());
@@ -301,13 +335,13 @@ public final class TranscriptView {
         };
     }
 
-    /** A message's inline markdown as styled text; code spans use the monospace-ish uniform font. */
+    /** A message's inline markdown as styled text; code spans are tinted and marked for their box. */
     static MutableComponent inline(String text, int color) {
         MutableComponent out = Component.empty();
         for (Markdown.Span s : Markdown.inline(text)) {
             Style st = Style.EMPTY.withColor(color);
-            if (s.code()) st = st.withFont(Minecraft.UNIFORM_FONT).withColor(Theme.ACCENT_SOFT);
-            if (s.bold()) st = st.withBold(true);
+            if (s.code()) st = st.withColor(Theme.ACCENT_SOFT).withInsertion(CODE);
+            if (s.bold()) st = st.withBold(true).withColor(s.code() ? Theme.ACCENT_SOFT : Theme.TXT);
             if (s.italic()) st = st.withItalic(true);
             if (s.link() != null && s.link().matches("(?i)https?://.+")) {
                 st = st.withColor(Theme.ACCENT).withUnderlined(true)
@@ -344,12 +378,42 @@ public final class TranscriptView {
         return new LinesPart(font.split(text, Math.max(20, width - indent)), indent);
     }
 
+    /** Where a line's inline code sits ({start, end} x pairs), so a box can be drawn under it. */
+    private List<int[]> codeRuns(FormattedCharSequence line) {
+        List<int[]> runs = new ArrayList<>();
+        int[] at = {0, -1};
+        line.accept((i, style, cp) -> {
+            boolean code = CODE.equals(style.getInsertion());
+            if (code && at[1] < 0) at[1] = at[0];
+            if (!code && at[1] >= 0) {
+                runs.add(new int[] {at[1], at[0]});
+                at[1] = -1;
+            }
+            at[0] += font.width(FormattedText.of(Character.toString(cp), style));
+            return true;
+        });
+        if (at[1] >= 0) runs.add(new int[] {at[1], at[0]});
+        return runs;
+    }
+
+    private List<List<int[]>> codeRuns(List<FormattedCharSequence> lines) {
+        List<List<int[]>> out = new ArrayList<>();
+        for (FormattedCharSequence line : lines) out.add(codeRuns(line));
+        return out;
+    }
+
+    private static void codeBoxes(GuiGraphics g, List<int[]> runs, int x, int y) {
+        for (int[] r : runs) g.fill(x + r[0] - 1, y - 1, x + r[1], y + 9, Theme.LINE);
+    }
+
     private final class LinesPart implements Part {
         private final List<FormattedCharSequence> lines;
+        private final List<List<int[]>> code;
         private final int indent;
 
         LinesPart(List<FormattedCharSequence> lines, int indent) {
             this.lines = lines.isEmpty() ? List.of(FormattedCharSequence.EMPTY) : lines;
+            this.code = codeRuns(this.lines);
             this.indent = indent;
         }
 
@@ -360,7 +424,10 @@ public final class TranscriptView {
 
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
-            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + indent, y + i * LINE + 1, Theme.TXT, false);
+            for (int i = 0; i < lines.size(); i++) {
+                codeBoxes(g, code.get(i), x + indent, y + i * LINE + 1);
+                g.drawString(font, lines.get(i), x + indent, y + i * LINE + 1, Theme.TXT, false);
+            }
         }
 
         @Override
@@ -423,12 +490,14 @@ public final class TranscriptView {
         private final int indent;
         private final int textX;
         private final List<FormattedCharSequence> lines;
+        private final List<List<int[]>> code;
 
         ListItemPart(String bullet, int indent, Component text, int width) {
             this.bullet = bullet;
             this.indent = indent;
             this.textX = indent + Math.max(12, font.width(bullet) + 6);
             this.lines = font.split(text, Math.max(20, width - textX));
+            this.code = codeRuns(lines);
         }
 
         @Override
@@ -439,7 +508,10 @@ public final class TranscriptView {
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
             g.drawString(font, bullet, x + indent + 2, y + 1, Theme.TXT_3, false);
-            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + textX, y + i * LINE + 1, Theme.TXT, false);
+            for (int i = 0; i < lines.size(); i++) {
+                codeBoxes(g, code.get(i), x + textX, y + i * LINE + 1);
+                g.drawString(font, lines.get(i), x + textX, y + i * LINE + 1, Theme.TXT, false);
+            }
         }
 
         @Override
@@ -454,13 +526,21 @@ public final class TranscriptView {
         private static final int HEAD = 13;
         private final String header;
         private final List<FormattedCharSequence> lines = new ArrayList<>();
+        private final int width;
 
         CodePart(Markdown.Code code, int width) {
+            this.width = width;
             String[] raw = code.body().split("\n", -1);
-            header = code.lang() + "  ·  " + raw.length + (raw.length == 1 ? " line" : " lines");
-            Style mono = Style.EMPTY.withFont(Minecraft.UNIFORM_FONT).withColor(Theme.TXT_2);
+            header = Review.visible(code.lang()) + "  ·  " + raw.length + (raw.length == 1 ? " line" : " lines");
+            // Coloured like the editor: the fence names the language.
+            Syntax.Lang lang = Syntax.forName(code.lang());
+            boolean inComment = false;
             for (String line : raw) {
-                List<FormattedCharSequence> wrapped = font.split(Component.literal(line.replace("\t", "    ")).withStyle(mono), Math.max(20, width - 12));
+                // Cleaned like a diff line (tabs, §, controls): CodeText measures and draws it consistently then.
+                String text = Review.visible(line);
+                Syntax.Result syntax = Syntax.line(text, lang, inComment);
+                inComment = syntax.inBlockComment();
+                List<FormattedCharSequence> wrapped = CodeText.wrap(font, text, syntax.spans(), Theme.TXT, Math.max(20, width - 12));
                 lines.addAll(wrapped.isEmpty() ? List.of(FormattedCharSequence.EMPTY) : wrapped);
             }
         }
@@ -472,12 +552,12 @@ public final class TranscriptView {
 
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
-            g.fill(x, y, x + w, y + height(), Theme.CARD_2);
-            g.fill(x, y, x + w, y + HEAD, 0x0AFFFFFF);
-            g.fill(x, y + HEAD - 1, x + w, y + HEAD, Theme.EDGE_2);
-            g.renderOutline(x, y, w, height(), Theme.EDGE_2);
+            g.fill(x, y, x + width, y + height(), Theme.SHADE_2);
+            g.fill(x, y, x + width, y + HEAD, 0x0AFFFFFF);
+            g.fill(x, y + HEAD - 1, x + width, y + HEAD, Theme.EDGE_2);
+            g.renderOutline(x, y, width, height(), Theme.EDGE_2);
             g.drawString(font, header, x + 6, y + 3, Theme.TXT_3, false);
-            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + 6, y + HEAD + 3 + i * LINE, Theme.TXT_2, false);
+            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), x + 6, y + HEAD + 3 + i * LINE, Theme.TXT, false);
         }
     }
 
@@ -495,18 +575,36 @@ public final class TranscriptView {
             List<List<String>> all = new ArrayList<>();
             all.add(t.header());
             all.addAll(t.rows());
+            // Each column: its natural width, and its longest word (capped, so a path can't eat the table).
             int[] natural = new int[cols];
-            for (List<String> r : all) {
-                for (int c = 0; c < r.size(); c++) natural[c] = Math.max(natural[c], font.width(inline(r.get(c), Theme.TXT)) + CELL_PAD * 2);
+            int[] min = new int[cols];
+            for (int r = 0; r < all.size(); r++) {
+                boolean head = r == 0;
+                for (int c = 0; c < all.get(r).size(); c++) {
+                    MutableComponent text = inline(all.get(r).get(c), Theme.TXT);
+                    if (head) text = text.withStyle(s -> s.withBold(true));
+                    natural[c] = Math.max(natural[c], font.width(text) + CELL_PAD * 2);
+                    for (String word : text.getString().split("\\s+")) {
+                        int ww = font.width(Component.literal(word).withStyle(s -> s.withBold(head)));
+                        min[c] = Math.max(min[c], Math.min(width / 3, ww) + CELL_PAD * 2);
+                    }
+                }
             }
-            int sum = 0;
-            for (int n : natural) sum += Math.max(n, 16);
+            int sumNatural = 0;
+            int sumMin = 0;
+            for (int c = 0; c < cols; c++) {
+                natural[c] = Math.max(natural[c], 16);
+                min[c] = Math.min(Math.max(min[c], 16), natural[c]);
+                sumNatural += natural[c];
+                sumMin += min[c];
+            }
             colW = new int[cols];
             colX = new int[cols];
             int cx = 0;
             for (int c = 0; c < cols; c++) {
-                int n = Math.max(natural[c], 16);
-                colW[c] = sum <= width ? n : Math.max(24, n * width / sum);
+                if (sumNatural <= width) colW[c] = natural[c];
+                else if (sumMin <= width) colW[c] = min[c] + (int) ((long) (width - sumMin) * (natural[c] - min[c]) / (sumNatural - sumMin));
+                else colW[c] = Math.max(24, min[c] * width / sumMin);
                 colX[c] = cx;
                 cx += colW[c];
             }
@@ -540,7 +638,7 @@ public final class TranscriptView {
             int tableW = colX[colX.length - 1] + colW[colW.length - 1];
             int cy = y;
             for (int r = 0; r < rows.size(); r++) {
-                if (r == 0) g.fill(x, cy, x + tableW, cy + rowH[r], Theme.CARD_3);
+                if (r == 0) g.fill(x, cy, x + tableW, cy + rowH[r], Theme.SHADE_2);
                 g.fill(x, cy, x + tableW, cy + 1, Theme.EDGE_2);
                 for (int c = 0; c < colW.length; c++) {
                     List<FormattedCharSequence> cell = rows.get(r).get(c);
@@ -573,14 +671,8 @@ public final class TranscriptView {
 
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
-            g.fill(x, y, x + w, y + 14, Theme.CARD);
-            g.fill(x, y, x + w, y + 1, Theme.EDGE);
-            int dot = Theme.TXT_4;
-            if (tool.running()) {
-                int a = 120 + (int) (135 * (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 250.0)));
-                dot = Theme.withAlpha(Theme.OK, a);
-            }
-            g.fill(x + 6, y + 5, x + 10, y + 9, dot);
+            g.fill(x, y, x + w, y + 14, Theme.SHADE);
+            g.blitSprite(Theme.dot(tool.running() ? "running" : null), x + 5, y + 4, 6, 6);
             String name = tool.name() == null ? "tool" : tool.name();
             int nameW = font.width(Component.literal(name).withStyle(s -> s.withBold(true)));
             g.drawString(font, Component.literal(name).withStyle(s -> s.withBold(true)), x + 15, y + 3, Theme.TXT, false);
@@ -621,9 +713,7 @@ public final class TranscriptView {
             boolean running = chain.tools().stream().anyMatch(Transcript.Tool::running);
             boolean open = openChains.contains(chain.key());
             boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + 14;
-            int dot = running ? Theme.withAlpha(Theme.OK, 120 + (int) (135 * (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 250.0))))
-                    : Theme.TXT_4;
-            g.fill(x + 6, y + 5, x + 10, y + 9, dot);
+            g.blitSprite(Theme.dot(running ? "running" : null), x + 5, y + 4, 6, 6);
             String label = chain.tools().size() + " TOOL CALLS  " + (open ? "▾" : "▸");
             g.drawString(font, label, x + 15, y + 3, hover ? Theme.TXT : Theme.TXT_3, false);
         }

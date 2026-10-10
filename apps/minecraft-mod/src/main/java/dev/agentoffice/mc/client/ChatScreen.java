@@ -4,7 +4,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.agentoffice.mc.client.ui.Composer;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.ImageScreen;
@@ -25,8 +24,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
@@ -47,9 +48,16 @@ import org.lwjgl.glfw.GLFW;
 public final class ChatScreen extends WorkspaceScreen {
     private static final int MIN_BACKOFF_MS = 1_000;
     private static final int MAX_BACKOFF_MS = 30_000;
-    private static final int HEADER = 30;
-    private static final int COMPOSER = 38;
-    private static final int ATTENTION_BAR = 20;
+    private static final int HEADER = 24;
+    /** The composer starts at one line and grows with the text up to this many. */
+    private static final int COMPOSER_LINES = 5;
+    private static final int ATTENTION_BAR = 22;
+    /** Header pickers drop their captions ("Model: ") before the title gets narrower than this. */
+    private static final int MIN_TITLE = 120;
+    /** Header text on the grey window: vanilla's title colour, then quieter and status shades that read on it. */
+    private static final int PANEL_MUTED = 0x555555;
+    private static final int PANEL_WORKING = 0x3F33A8;
+    private static final int PANEL_ATTENTION = 0x6E4700;
     private static final int PERMISSION_POLL_TICKS = 100;
     private static final int PERMISSION_LINES = 4;
     /** Approval cards never squeeze the transcript below this. */
@@ -64,7 +72,8 @@ public final class ChatScreen extends WorkspaceScreen {
     private final TranscriptView view;
     /** Replaced when Agent Office restarts on another port (see {@link #rediscover}). */
     private AgentOfficeClient client;
-    private Composer input;
+    private MultiLineEditBox input;
+    private int shownLines = 1;
     private Api.Conversation conversation;
     private List<Transcript.Item> history = List.of();
     private Transcript.Live live;
@@ -94,6 +103,8 @@ public final class ChatScreen extends WorkspaceScreen {
 
     // Layout from init(), read by the render methods.
     private int headerRight;
+    private int areaTop;
+    private int areaBottom;
     private int attentionY = -1;
     private final List<PermissionCard> cards = new ArrayList<>();
     private int hiddenApprovals;
@@ -122,77 +133,108 @@ public final class ChatScreen extends WorkspaceScreen {
     @Override
     protected void init() {
         super.init();
-        int x0 = left + PAD;
-        int x1 = right - PAD;
+        int x0 = left;
+        int x1 = right;
+        int wx0 = left + 5;
+        int wx1 = right - 5;
 
-        // Header: model / effort pickers (once the seat is known), New, Dismiss.
+        // Header, right to left: Dismiss (when a body is placed), New, then the effort and model pickers.
+        int hy = top;
         int hx = x1;
         if (Bodies.placed(Minecraft.getInstance(), slot)) {
-            hx -= 50;
+            int w = buttonWidth("Dismiss");
+            hx -= w;
             // Removes only the body in this world; the agent and its chat stay in Agent Office.
-            addRenderableWidget(new FlatButton(hx, top + 7, 50, 14, "Dismiss", FlatButton.Kind.GHOST, b -> {
+            addRenderableWidget(new FlatButton(hx, hy, w, 20, "Dismiss", FlatButton.Kind.NORMAL, b -> {
                 Bodies.dismiss(Minecraft.getInstance(), slot);
                 onClose();
             }));
             hx -= 4;
         }
-        hx -= 34;
-        addRenderableWidget(new FlatButton(hx, top + 7, 34, 14, "New", FlatButton.Kind.GHOST, b -> act("new")))
+        int newW = buttonWidth("New");
+        hx -= newW;
+        addRenderableWidget(new FlatButton(hx, hy, newW, 20, "New", FlatButton.Kind.NORMAL, b -> act("new")))
                 .active = conversation != null && !busy;
         if (seat != null) {
-            // Compact chips, as in Agent Office: an unset value shows the agent's default.
-            hx -= 4 + 74;
-            addRenderableWidget(new FlatCycle<>(hx, top + 7, 74, 14, Api.EFFORTS, nz(seat.effort()),
-                    v -> "effort " + (v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v))
-                    .onChange(v -> changeSeat("effort", v)));
-            hx -= 4 + 56;
-            addRenderableWidget(new FlatCycle<>(hx, top + 7, 56, 14, Api.MODELS, nz(seat.model()),
-                    v -> v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v)
-                    .onChange(v -> changeSeat("model", v)));
+            // Labelled like vanilla's options ("Model: opus"); unset shows the agent's default.
+            String modelDef = def(agent == null ? null : agent.defaultModel());
+            String effortDef = def(agent == null ? null : agent.defaultEffort());
+            Function<String, String> model = v -> "Model: " + (v.isEmpty() ? modelDef : v);
+            Function<String, String> effort = v -> "Effort: " + (v.isEmpty() ? effortDef : v);
+            if (titleRoom(hx, cycleWidth(Api.MODELS, seat.model(), model), cycleWidth(Api.EFFORTS, seat.effort(), effort), x0) < MIN_TITLE) {
+                model = v -> v.isEmpty() ? modelDef : v;
+                effort = v -> v.isEmpty() ? effortDef : v;
+            }
+            int ew = cycleWidth(Api.EFFORTS, seat.effort(), effort);
+            int mw = cycleWidth(Api.MODELS, seat.model(), model);
+            if (titleRoom(hx, ew, mw, x0) >= MIN_TITLE / 2) {
+                Tooltip hint = Tooltip.create(Component.literal("Click: next · Right-click: previous"));
+                hx -= 4 + ew;
+                addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, Api.EFFORTS, nz(seat.effort()), effort)
+                        .onChange(v -> changeSeat("effort", v))).setTooltip(hint);
+                hx -= 4 + mw;
+                addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, Api.MODELS, nz(seat.model()), model)
+                        .onChange(v -> changeSeat("model", v))).setTooltip(hint);
+            }
         }
         headerRight = hx;
 
-        // Composer. The same box across rebuilds keeps the cursor; a new width needs a new box
-        // (MultiLineEditBox fixes its wrap width when constructed).
-        int cy = bottom - PAD - COMPOSER;
-        int composerW = x1 - x0 - 58;
+        // Composer: one line that grows with the text; Send beside it, or Stop + Queue while a run works.
+        // The same box across rebuilds keeps the cursor; a new width needs a new box (MultiLineEditBox
+        // fixes its wrap width when constructed), so the width is the same running or not, and leaves
+        // room for the box's own scrollbar, which it draws outside itself.
         boolean running = conversation != null && conversation.running();
+        String sendLabel = running ? "Queue" : "Send";
+        int sendW = buttonWidth(sendLabel);
+        int stopW = buttonWidth("Stop");
+        int composerW = x1 - x0 - buttonWidth("Queue") - 4 - stopW - 4 - 8;
         if (input == null || input.getWidth() != composerW) {
             String text = input == null ? "" : input.getValue();
-            input = new Composer(font, x0, cy, composerW, COMPOSER,
-                    Component.literal("Message " + slot.displayName() + "…  (Enter sends, Shift+Enter new line)"));
+            input = new MultiLineEditBox(font, x0, 0, composerW, 20,
+                    Component.literal("Message " + slot.displayName() + "…  (Enter sends)"), Component.literal("Message"));
             input.setValue(text);
+            input.setValueListener(v -> {
+                if (composerLines() != shownLines) rebuildWidgets();
+            });
         }
-        input.setRectangle(composerW, COMPOSER, x0, cy);
+        shownLines = composerLines();
+        int composerH = 11 + 9 * shownLines;
+        int cy = bottom - composerH;
+        input.setRectangle(composerW, composerH, x0, cy);
         addRenderableWidget(input);
-        addRenderableWidget(new FlatButton(x1 - 54, cy, 54, running ? 18 : COMPOSER, running ? "Queue" : "Send",
-                FlatButton.Kind.PRIMARY, b -> send())).active = conversation != null;
+        int by = bottom - 20;
+        addRenderableWidget(new FlatButton(x1 - sendW, by, sendW, 20, sendLabel, FlatButton.Kind.PRIMARY, b -> send()))
+                .active = conversation != null;
         if (running) {
-            addRenderableWidget(new FlatButton(x1 - 54, cy + 20, 54, 18, "Stop", FlatButton.Kind.DANGER, b -> stop())).active = !busy;
+            addRenderableWidget(new FlatButton(x1 - sendW - 4 - stopW, by, stopW, 20, "Stop", FlatButton.Kind.DANGER, b -> stop()))
+                    .active = !busy;
         }
 
-        // Above the composer: needs-attention actions, then pending approvals.
-        int above = cy - 4;
+        // At the bottom of the transcript's well: needs-attention actions, then pending approvals.
+        areaBottom = cy - 6;
+        int above = areaBottom - 5;
         attentionY = -1;
         if (conversation != null && conversation.needsAttention()) {
             above -= ATTENTION_BAR;
             attentionY = above;
-            int bx = x1 - 4;
+            int bx = wx1 - 3;
             for (String action : new String[] {"skip", "resume", "retry"}) {
-                bx -= 50;
-                addRenderableWidget(new FlatButton(bx, above + 3, 48, 14, cap(action),
+                int w = buttonWidth(cap(action));
+                bx -= w;
+                addRenderableWidget(new FlatButton(bx, above + 3, w, 16, cap(action),
                         "retry".equals(action) ? FlatButton.Kind.PRIMARY : FlatButton.Kind.NORMAL, b -> act(action))).active = !busy;
+                bx -= 4;
             }
-            above -= 4;
+            above -= 6;
         }
         cards.clear();
-        int transcriptTop = top + HEADER + 4;
+        int transcriptTop = top + HEADER;
         // Oldest approvals first, as many as fit while the transcript keeps MIN_TRANSCRIPT; the rest wait.
         List<List<FormattedCharSequence>> cardLines = new ArrayList<>();
         int room = above - transcriptTop - MIN_TRANSCRIPT;
         int shown = 0;
         for (Api.Permission p : pending) {
-            List<FormattedCharSequence> detail = font.split(Component.literal(permissionDetail(p)), x1 - x0 - 12);
+            List<FormattedCharSequence> detail = font.split(Component.literal(permissionDetail(p)), wx1 - wx0 - 12);
             List<FormattedCharSequence> lines = new ArrayList<>(detail.subList(0, Math.min(PERMISSION_LINES, detail.size())));
             lines.add(Component.literal(detail.size() > PERMISSION_LINES ? "… hover for the full input" : "hover for the full input")
                     .withColor(Theme.TXT_4).getVisualOrderText());
@@ -208,7 +250,7 @@ public final class ChatScreen extends WorkspaceScreen {
             List<FormattedCharSequence> lines = cardLines.get(i);
             int h = 22 + lines.size() * 10;
             above -= h;
-            List<FormattedCharSequence> full = font.split(Component.literal(fullInput(p)), Math.max(120, (x1 - x0) / 2));
+            List<FormattedCharSequence> full = font.split(Component.literal(fullInput(p)), Math.max(120, (wx1 - wx0) / 2));
             if (full.size() > TOOLTIP_LINES) {
                 int rest = full.size() - TOOLTIP_LINES;
                 full = new ArrayList<>(full.subList(0, TOOLTIP_LINES));
@@ -216,12 +258,13 @@ public final class ChatScreen extends WorkspaceScreen {
             }
             cards.add(0, new PermissionCard(p, lines, full, above, h));
             boolean waiting = answering.contains(p.id());
-            addRenderableWidget(new FlatButton(x1 - 104, above + 4, 48, 14, "Deny", FlatButton.Kind.DANGER, b -> answer(p, false))).active = !waiting;
-            addRenderableWidget(new FlatButton(x1 - 52, above + 4, 48, 14, "Allow", FlatButton.Kind.PRIMARY, b -> answer(p, true))).active = !waiting;
-            above -= 4;
+            addRenderableWidget(new FlatButton(wx1 - 103, above + 4, 48, 16, "Deny", FlatButton.Kind.DANGER, b -> answer(p, false))).active = !waiting;
+            addRenderableWidget(new FlatButton(wx1 - 51, above + 4, 48, 16, "Allow", FlatButton.Kind.PRIMARY, b -> answer(p, true))).active = !waiting;
+            above -= 6;
         }
-        view.setBounds(x0, transcriptTop, x1 - x0, Math.max(0, above - transcriptTop));
-        setInitialFocus(input);
+        // The transcript fills the rest of its well.
+        areaTop = transcriptTop;
+        view.setBounds(wx0, areaTop + 5, wx1 - wx0, Math.max(0, above - (areaTop + 5)));
 
         if (!started) {
             started = true;
@@ -233,6 +276,32 @@ public final class ChatScreen extends WorkspaceScreen {
     @Override
     protected GuiEventListener typingTarget() {
         return input;
+    }
+
+    /** Every rebuild (a status change, the composer growing) gives the composer its focus back. */
+    @Override
+    protected void setInitialFocus() {
+        if (input != null) setInitialFocus(input);
+    }
+
+    private int composerLines() {
+        return Math.max(1, Math.min(COMPOSER_LINES, input.getInnerHeight() / 9));
+    }
+
+    /** What the header title gets left of the pickers: their gaps, the dot and the title margin. */
+    private static int titleRoom(int buttonsLeft, int effortW, int modelW, int x0) {
+        return buttonsLeft - 4 - effortW - 4 - modelW - 8 - (x0 + 10);
+    }
+
+    private int buttonWidth(String label) {
+        return Math.max(40, font.width(label) + 16);
+    }
+
+    /** Wide enough for every value, so cycling never resizes the picker. */
+    private int cycleWidth(List<String> values, String current, Function<String, String> label) {
+        int w = font.width(label.apply(nz(current)));
+        for (String v : values) w = Math.max(w, font.width(label.apply(v)));
+        return w + 16;
     }
 
     // ── loading and streaming ───────────────────────────────────────────────
@@ -620,38 +689,65 @@ public final class ChatScreen extends WorkspaceScreen {
 
     // ── drawing ─────────────────────────────────────────────────────────────
 
+    /** The roster's well (WorkspaceScreen), then the transcript's. */
+    @Override
+    protected void renderWells(GuiGraphics g) {
+        super.renderWells(g);
+        well(g, left, areaTop, right - left, areaBottom - areaTop);
+    }
+
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
-        g.fill(left, top + HEADER, right, top + HEADER + 1, Theme.EDGE_2);
-        int x0 = left + PAD;
-        int x1 = right - PAD;
+        int x0 = left + 5;
+        int x1 = right - 5;
         if (attentionY >= 0) {
-            g.fill(x0, attentionY, x1, attentionY + ATTENTION_BAR, 0x1AFBBF24);
+            g.fill(x0, attentionY, x1, attentionY + ATTENTION_BAR, Theme.withAlpha(Theme.AMBER, 0x1A));
             g.fill(x0, attentionY, x0 + 2, attentionY + ATTENTION_BAR, Theme.AMBER);
         }
         for (PermissionCard card : cards) {
-            g.fill(x0, card.y(), x1, card.y() + card.h(), 0x1FFBBF24);
-            g.renderOutline(x0, card.y(), x1 - x0, card.h(), 0x4DFBBF24);
+            g.fill(x0, card.y(), x1, card.y() + card.h(), Theme.withAlpha(Theme.AMBER, 0x1F));
+            g.renderOutline(x0, card.y(), x1 - x0, card.h(), Theme.withAlpha(Theme.AMBER, 0x4D));
         }
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
-        int x0 = left + PAD;
-        int x1 = right - PAD;
-        // The agent, then which of its seats this is.
-        FormattedCharSequence name = bold(slot.agentId(), headerRight - x0 - 6);
-        g.drawString(font, name, x0, top + 6, Theme.TXT, false);
+        int x0 = left + 5;
+        int x1 = right - 5;
+        // Status dot, the agent, which of its sessions this is, then the status, on the window like a
+        // container title. The project is the selected tab. Short of room, the status goes first, then
+        // the session, then the name is cut.
+        g.blitSprite(Theme.dot(conversation == null ? null : conversation.status()), left, top + 7, 6, 6);
+        int tx = left + 10;
+        int end = headerRight - 8;
+        int ty = top + 6;
+        FormattedCharSequence name = bold(slot.agentId(), end - tx);
+        g.drawString(font, name, tx, ty, PANEL_TEXT, false);
+        tx += font.width(name) + 6;
         String which = sessionName(slot);
-        g.drawString(font, font.plainSubstrByWidth("  " + which, Math.max(0, headerRight - x0 - 6 - font.width(name))),
-                x0 + font.width(name), top + 6, Theme.TXT_4, false);
-        String sub = slot.projectName() + "  ·  " + (flashTicks > 0 && flash != null ? flash : status);
-        g.drawString(font, font.plainSubstrByWidth(sub, headerRight - x0 - 6), x0, top + 18,
-                flashTicks > 0 ? Theme.ACCENT_SOFT : statusColor(), false);
+        if (end - tx >= font.width(which)) {
+            g.drawString(font, which, tx, ty, PANEL_MUTED, false);
+            tx += font.width(which) + 6;
+            String state = flashTicks > 0 && flash != null ? flash : status;
+            if (end - tx > 24) {
+                g.drawString(font, WorkspaceScreen.cut(font, state, end - tx), tx, ty, flashTicks > 0 ? PANEL_TEXT : statusColor(), false);
+            }
+        }
 
         view.render(g, mouseX, mouseY);
+        if (view.isEmpty()) {
+            int cx = (x0 + x1) / 2;
+            int cy = (areaTop + areaBottom) / 2;
+            if (conversation == null) {
+                g.drawCenteredString(font, WorkspaceScreen.cut(font, status, x1 - x0 - 16), cx, cy - 4, Theme.TXT_4);
+            } else {
+                g.drawCenteredString(font, Component.literal(slot.displayName()).withStyle(s -> s.withBold(true)), cx, cy - 16, Theme.GREEN);
+                g.drawCenteredString(font, "No messages yet", cx, cy - 2, Theme.TXT_3);
+                g.drawCenteredString(font, "Enter sends · Shift+Enter adds a line", cx, cy + 10, Theme.TXT_4);
+            }
+        }
         if (view.isMouseOver(mouseX, mouseY)) {
             Style style = view.styleAt(mouseX, mouseY);
             if (style != null) g.renderComponentHoverEffect(font, style, mouseX, mouseY);
@@ -675,10 +771,10 @@ public final class ChatScreen extends WorkspaceScreen {
     }
 
     private int statusColor() {
-        if (conversation == null) return Theme.TXT_3;
-        if (conversation.running()) return Theme.ACCENT_SOFT;
-        if (conversation.needsAttention()) return Theme.AMBER;
-        return Theme.TXT_3;
+        if (conversation == null) return PANEL_MUTED;
+        if (conversation.running()) return PANEL_WORKING;
+        if (conversation.needsAttention()) return PANEL_ATTENTION;
+        return PANEL_MUTED;
     }
 
     // ── lifecycle ───────────────────────────────────────────────────────────
@@ -690,8 +786,9 @@ public final class ChatScreen extends WorkspaceScreen {
 
     /** Also runs when an image or a link prompt opens on top; {@link #added} brings the chat back. */
     @Override
-    public void removed() {
+    protected void onRemoved() {
         closed = true;
+        super.onRemoved();
         closeStream();
         // A picker change still settling must not be lost because the screen went away.
         seatPatchIn = 0;

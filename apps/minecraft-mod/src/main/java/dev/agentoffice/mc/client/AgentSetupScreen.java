@@ -94,7 +94,7 @@ final class AgentSetupScreen extends TabletScreen {
                         agents = a;
                         projects = p;
                         status = a.size() + " agents";
-                        rebuildWidgets();
+                        if (minecraft.screen == this) rebuildWidgets();
                     });
                 } catch (IOException | RuntimeException e) {
                     Minecraft.getInstance().execute(() -> status = "Couldn't reach Agent Office: " + e.getMessage() + " — close and reopen to retry");
@@ -226,7 +226,7 @@ final class AgentSetupScreen extends TabletScreen {
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
-        g.fill(left, top + 30, right, top + 31, Theme.EDGE_2);
+        g.fill(left + 1, top + 30, right - 1, top + 31, Theme.EDGE_2);
         List<Row> rows = rows();
         int listTop = top + 34;
         int visible = Math.max(1, (bottom - PAD - 20 - listTop) / ROW);

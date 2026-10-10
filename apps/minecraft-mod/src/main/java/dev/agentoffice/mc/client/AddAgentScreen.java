@@ -71,7 +71,7 @@ final class AddAgentScreen extends TabletScreen {
                     Minecraft.getInstance().execute(() -> {
                         agents = found;
                         status = found.size() + " agents";
-                        rebuildWidgets();
+                        if (minecraft.screen == this) rebuildWidgets();
                     });
                 } catch (IOException e) {
                     Minecraft.getInstance().execute(() -> status = "Couldn't list agents: " + e.getMessage());
@@ -108,14 +108,14 @@ final class AddAgentScreen extends TabletScreen {
                         confirmOverCap(agent);
                     } else {
                         status = "Couldn't add: " + e.getMessage();
-                        rebuildWidgets();
+                        if (minecraft.screen == this) rebuildWidgets();
                     }
                 });
             } catch (IOException e) {
                 Minecraft.getInstance().execute(() -> {
                     adding = false;
                     status = "Couldn't add: " + e.getMessage();
-                    rebuildWidgets();
+                    if (minecraft.screen == this) rebuildWidgets();
                 });
             }
         });
@@ -140,7 +140,7 @@ final class AddAgentScreen extends TabletScreen {
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(g, mouseX, mouseY, partialTick);
-        g.fill(left, top + 30, right, top + 31, Theme.EDGE_2);
+        g.fill(left + 1, top + 30, right - 1, top + 31, Theme.EDGE_2);
         int listTop = top + 34;
         int visible = Math.max(1, (bottom - PAD - listTop) / ROW);
         List<Api.Agent> shown = shown();

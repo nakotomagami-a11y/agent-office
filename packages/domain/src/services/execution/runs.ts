@@ -40,6 +40,7 @@ import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
+import { noteToolCall, startTextBlock } from "./runs/text-blocks";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -166,6 +167,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     subscribers: new Set(),
     parseFailures: 0,
     sawStreamDelta: false,
+    toolSinceText: false,
     args: opts.args,
     stderrBuf: "",
     lastActivityAt: Date.now(),
@@ -481,7 +483,13 @@ function handleStreamLine(run: LiveRun, line: string): void {
       broadcast(run, { name: "chunk", data: { runId: run.id, text: ev.delta.text } });
       return;
     }
+    // Saved output only: live views already split blocks around their tool rows.
+    if (ev.type === "content_block_start" && ev.content_block?.type === "text") {
+      startTextBlock(run);
+      return;
+    }
     if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+      noteToolCall(run);
       const toolName = ev.content_block.name ?? "tool";
       run.currentTool = toolName;
       const ts = Date.now();
@@ -501,9 +509,11 @@ function handleStreamLine(run: LiveRun, line: string): void {
     for (const block of evt.message.content) {
       if (block.type === "text" && typeof block.text === "string" && !run.sawStreamDelta) {
         run.currentTool = undefined;
+        startTextBlock(run);
         run.output += block.text;
         broadcast(run, { name: "chunk", data: { runId: run.id, text: block.text } });
       } else if (block.type === "tool_use") {
+        noteToolCall(run);
         const toolName = block.name ?? "tool";
         run.currentTool = toolName;
         // Phase-0 ground-truth probe. Enable with AO_DEBUG_TOOLS=1 to capture the
