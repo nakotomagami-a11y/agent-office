@@ -49,9 +49,9 @@ export default [
         {
           patterns: [
             {
-              group: ["@/*"],
+              group: ["@/*", "@agent-office/server", "@agent-office/server/*", "@agent-office/api-contract", "@agent-office/web"],
               message:
-                "RULE arch.domain-no-app-imports (docs/conventions.md): packages/domain must not import app code. Dependencies point downward only — move the shared piece into packages/domain, or keep the logic in apps/web/src/lib/server/ if it genuinely needs the web runtime.",
+                "RULE arch.domain-no-app-imports (docs/conventions.md): packages/domain must not import app code. Dependencies point downward only — move the shared piece into packages/domain, or into apps/server if it is HTTP plumbing.",
             },
           ],
         },
@@ -81,5 +81,25 @@ export default [
     // Hand-run tsx test scripts report via console by design.
     files: ["src/**/*.test.ts"],
     rules: { "no-console": "off" },
+  },
+  {
+    // RULE arch.web-through-server: the browser bundle imports these three
+    // (allowlisted in apps/web/eslint.config.mjs — keep both lists in step), so
+    // they may value-import nothing but each other. Types are erased, so fine.
+    files: [
+      "src/services/execution/loop-machine.ts",
+      "src/services/execution/runs/errors.ts",
+      "src/services/execution/runs/reset-time.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", {
+        patterns: [{
+          regex: "^(?!\\./reset-time$)",
+          allowTypeImports: true,
+          message:
+            "RULE arch.web-through-server (docs/conventions.md): this module ships in the browser bundle — it may value-import only the other browser-safe modules listed in packages/domain/eslint.config.mjs.",
+        }],
+      }],
+    },
   },
 ];

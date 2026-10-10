@@ -4,7 +4,7 @@ import { assertNever } from "@/lib/assert-never";
 import { type LimitsPeriod, type HardCap, parseLimits as parseLimitsCore, periodStart, periodEnd } from "@/lib/claude-limits";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { getAccount } from "@/lib/api/account";
-import { parseJson, asRecord } from "@/lib/json-narrow";
+import { parseJson, asRecord } from "@agent-office/api-contract";
 
 export type { LimitsPeriod, HardCap };
 export { periodStart, periodEnd };

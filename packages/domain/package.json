@@ -16,8 +16,6 @@
     "./config/office": "./src/config/office.ts",
     "./config/project-templates": "./src/config/project-templates.ts",
     "./config/*": "./src/config/*.ts",
-    "./hooks/query-keys": "./src/hooks/query-keys.ts",
-    "./hooks/api": "./src/hooks/api.ts",
     "./services": "./src/services/index.ts",
     "./services/db": "./src/services/db/index.ts",
     "./services/*": "./src/services/*.ts"
@@ -25,8 +23,8 @@
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test $(find src -name \"*.test.ts\" ! -name \"*e2e*\")",
-    "test:e2e": "tsx --test $(find src -name \"*e2e*.test.ts\")"
+    "test": "node ../../scripts/run-tests.mjs",
+    "test:e2e": "node ../../scripts/run-tests.mjs --e2e"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -42,6 +40,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "zod": "^3.23.8"
   }
 }

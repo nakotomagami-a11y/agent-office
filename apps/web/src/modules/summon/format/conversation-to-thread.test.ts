@@ -1,7 +1,7 @@
 /**
  * Pure mapping test — PersistedRun turn → ThreadItem[]. No server, no DOM.
  *
- *   npx tsx apps/web/src/modules/summon/format/conversation-to-thread.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/conversation-to-thread.test.ts
  */
 import assert from "node:assert";
 import type { PersistedRun } from "@agent-office/domain/types";

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/cn";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
+import { queryKeys } from "@/lib/api/query-keys";
 import { AgentMigrationModal } from "@/modules/agents/components/agent-migration-modal";
 import {
   useAgentDiff,

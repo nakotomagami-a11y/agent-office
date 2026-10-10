@@ -13,6 +13,7 @@ import { useFpsMeterStore } from "@/lib/fps-meter-store";
 import { dumpStores, appStateSnapshot } from "./dev-instruments";
 import { isTauri } from "@/lib/tauri-window";
 import { requestUpdateCheck } from "@/lib/updater";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 const GIT_SHA = process.env.NEXT_PUBLIC_GIT_SHA || "";
 /** App boot time (module eval ≈ first client load). Used for the uptime readout. */
@@ -339,7 +340,7 @@ export function DevMenu() {
 
   async function resetOnboarding() {
     if (!window.confirm("Re-arm the first-run wizard? The app will reload.")) return;
-    await fetch("/api/settings", {
+    await fetch(API_ROUTES.settings, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ firstRunComplete: false }),

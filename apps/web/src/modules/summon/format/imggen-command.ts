@@ -7,7 +7,7 @@
 // and imggen inside if/for/while bodies or ( ) { } groups.
 
 import { MAX_IMAGES_PER_JOB, MAX_JOBS_PER_COMMAND, MAX_SEED, imggenSlug } from "@agent-office/domain/config/generated-images";
-import { asRecord, parseJson, strField } from "@/lib/json-narrow";
+import { asRecord, parseJson, strField } from "@agent-office/api-contract";
 
 export interface ImggenJob {
   slug: string;

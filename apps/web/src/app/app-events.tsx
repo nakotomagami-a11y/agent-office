@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
+import { API_ROUTES } from "@agent-office/api-contract";
+import { queryKeys } from "@/lib/api/query-keys";
 
 /** One app-wide `EventSource` on `/api/events`. Maps each coarse domain event
  *  to a React Query invalidation, replacing per-hook `refetchInterval` polling

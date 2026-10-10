@@ -14,16 +14,65 @@
 ---
 
 ## arch.domain-no-app-imports
-**`packages/domain` must never import from `@/` (app code).**
+**`packages/domain` must never import app code: not `@/`, not `@agent-office/server`,
+`api-contract` or `web`.**
 
 Dependencies point downward only: `route.ts` → `lib` → `packages/domain` → db/fs.
 Domain logic must be callable from the scheduler, a CLI, or another route without
-dragging in Next.js.
+dragging in HTTP.
 
-*Fix:* move the shared piece into `packages/domain`, or keep it in
-`apps/web/src/lib/server/` if it genuinely needs the web runtime.
+*Fix:* move the shared piece into `packages/domain`, or into `apps/server/src/lib/`
+if it is HTTP plumbing.
 
 > **enforced by** `no-restricted-imports` in `packages/domain/eslint.config.mjs`
+
+---
+
+## arch.server-no-ui
+**`apps/server` must not import UI or Next.js code (`next`, `react`, `@/`).**
+
+The same route handler runs inside Next (the desktop app) and in `main.ts` (the
+standalone server). A `NextResponse` or `next/headers` import works in the first and
+crashes the second. Handlers take a web `Request` and return a web `Response`.
+
+*Fix:* `Response.json(...)` for `NextResponse.json(...)`; `new Response(...)` for
+`new NextResponse(...)`; read headers and cookies off the `Request`.
+
+> **enforced by** `no-restricted-imports` in `apps/server/eslint.config.mjs`
+
+---
+
+## arch.web-through-server
+**`apps/web` reaches the brains over HTTP. It never value-imports
+`@agent-office/domain/services`, and imports `@agent-office/server` only in the
+embedding seam.**
+
+The UI is one client of the API; the Minecraft mod is another. A UI that calls a
+domain service in-process has a feature no other client can reach, and breaks the
+day the UI runs out of process. Domain *types* and *config* are fine.
+
+The seam (`docs/architecture.md`, "The embedding seam") is five files:
+`app/api/[...path]/route.ts`, `instrumentation-node.ts`, `proxy.ts`, `app/layout.tsx`
+and `app/(app)/agents/[id]/edit/page.tsx`.
+
+*Fix:* add or reuse an endpoint and call it via `API_ROUTES` from
+`@agent-office/api-contract`. A pure domain function the browser genuinely needs goes on
+the browser-safe allowlist, which is checked from both sides: web may import it, and the
+module itself may value-import only the other allowlisted modules (`loop-machine`,
+`runs/errors`, `runs/reset-time` today). No `eslint-disable`.
+
+> **enforced by** `@typescript-eslint/no-restricted-imports` in `apps/web/eslint.config.mjs`
+> and, for the allowlist, in `packages/domain/eslint.config.mjs`
+
+---
+
+## arch.contract-pure
+**`packages/api-contract` imports only zod and `@agent-office/domain` config/types.**
+
+Every client imports the contract, the browser bundle included, and the Java mod
+mirrors it. No `node:` modules, no domain services, no app code.
+
+> **enforced by** `no-restricted-imports` in `packages/api-contract/eslint.config.mjs`
 
 ---
 
@@ -48,8 +97,8 @@ guard for files.
 > New ones fail in both packages. Never add to the baseline by hand.
 >
 > Parse to `unknown`, then narrow: a real shape gets a schema in
-> `apps/web/src/lib/validation-schemas.ts` (a schema also supplies defaults);
-> a single field read gets a guard from `apps/web/src/lib/json-narrow.ts`.
+> `packages/api-contract/src/schemas.ts` (a schema also supplies defaults);
+> a single field read gets a guard from `packages/api-contract/src/json-narrow.ts`.
 
 ---
 

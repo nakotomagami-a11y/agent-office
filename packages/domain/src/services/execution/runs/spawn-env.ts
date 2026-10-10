@@ -7,6 +7,7 @@
 
 import type { StartRunOpts } from "./types";
 import { log } from "../../infra/log";
+import { deleteEnvKeys, GH_TOKEN_VARS } from "../../infra/env-keys";
 import { buildAugmentedPath, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID } from "../../infra/paths";
 import { readProject } from "../../projects/projects";
 import * as accounts from "../../accounts/accounts";
@@ -72,6 +73,8 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
     const githubAccount = githubAccounts.get(githubAccountId);
     if (githubAccount) {
       env.GH_CONFIG_DIR = githubAccount.configDir;
+      // An inherited token outranks GH_CONFIG_DIR in gh; a project secret token still wins (below).
+      deleteEnvKeys(env, GH_TOKEN_VARS);
       // GH_CONFIG_DIR only redirects the `gh` CLI. `git push/fetch` over HTTPS
       // authenticate via git's credential system, which ignores GH_CONFIG_DIR —
       // so without this, git falls back to whatever the machine's global git

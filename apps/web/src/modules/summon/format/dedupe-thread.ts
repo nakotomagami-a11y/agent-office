@@ -1,4 +1,4 @@
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 /**
  * Collapse consecutive identical user ("you") bubbles into one.

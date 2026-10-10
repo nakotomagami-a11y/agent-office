@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
 import { ACCENT_BTN } from "@/components/ui/button";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import {
   useBootstrapProject,
   type FrontendChoice,

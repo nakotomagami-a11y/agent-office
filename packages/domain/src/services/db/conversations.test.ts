@@ -3,7 +3,7 @@
  * throwaway in-memory SQLite (via the getDb() global override) so it never
  * touches the real app DB.
  *
- *   npx tsx packages/domain/src/services/db/conversations.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/db/conversations.test.ts
  */
 import assert from "node:assert";
 import Database from "better-sqlite3";

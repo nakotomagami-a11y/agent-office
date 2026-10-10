@@ -21,6 +21,7 @@ import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PlanetGalleryCard } from "./planet-gallery-card";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 const PLANET_TYPES = Object.keys(PLANET_TYPE_DEFS) as PlanetType[];
 const DEFAULT_PIXELS = 1000;
@@ -56,7 +57,7 @@ export function PlanetGalleryView() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/dev/planet-gallery")
+    fetch(API_ROUTES.devPlanetGallery)
       .then((r) => r.json())
       .then((data: { configs?: Partial<Record<string, PlanetConfig>> }) => {
         if (cancelled) return;
@@ -80,7 +81,7 @@ export function PlanetGalleryView() {
     setSaveState("saving");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      fetch("/api/dev/planet-gallery", {
+      fetch(API_ROUTES.devPlanetGallery, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ configs }),

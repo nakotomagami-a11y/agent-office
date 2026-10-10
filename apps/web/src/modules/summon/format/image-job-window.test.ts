@@ -2,7 +2,7 @@
  * Which files an image-job card may claim, and whether it still polls. A wrong
  * bound either hides the job's own late images or shows a retry's.
  *
- *   pnpm exec tsx --test src/modules/summon/format/image-job-window.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/image-job-window.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

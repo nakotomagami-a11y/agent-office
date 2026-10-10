@@ -1,12 +1,12 @@
 /**
  * Pure logic tests — no React renderer, no DOM.
  *
- *   npx tsx apps/web/src/modules/summon/components/background-task-indicator.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/components/background-task-indicator.test.ts
  */
 import assert from "node:assert";
 import type { ProcessInfo } from "@agent-office/domain/types";
 import { isBackgroundShellAlive, findLatestBackgroundTask } from "./background-task-logic";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 let passed = 0;
 function check(name: string, fn: () => void) {

@@ -1,0 +1,24 @@
+// GET/POST /api/agents/<id>/prompts — the agent's recent-prompt history
+// (GET reads the list; POST appends one, capped most-recent-first).
+import { store } from "@agent-office/domain/services";
+import { validateBody } from "../../../../lib/validation";
+import { promptPostSchema } from "@agent-office/api-contract";
+import { validateIdParam } from "../../../../lib/api-helpers";
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(_request: Request, { params }: Params) {
+  const { value: id, error } = validateIdParam((await params).id);
+  if (error) return error;
+  return Response.json(store.getRecentPrompts(id));
+}
+
+export async function POST(request: Request, { params }: Params) {
+  const { value: id, error: paramError } = validateIdParam((await params).id);
+  if (paramError) return paramError;
+  const raw: unknown = await request.json();
+  const { data, error } = validateBody(promptPostSchema, raw);
+  if (error) return error;
+  store.pushRecentPrompt(id, data.prompt);
+  return Response.json({ ok: true });
+}

@@ -2,7 +2,7 @@
  * imggen writes to `~/Documents/Generated Images/<date>/` — a folder name with a
  * space, which the generic absolute-path pattern splits on.
  *
- *   pnpm exec tsx --test src/modules/summon/format/message-format.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/message-format.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

@@ -4,7 +4,7 @@
  * and the open-folder / clear-cache shortcuts.
  */
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 import type { DetectedCommand, GitStatus } from "@agent-office/domain/types";
 

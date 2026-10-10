@@ -1,8 +1,8 @@
 /**
  * The app's ONLY origin check.
  *
- * `proxy.ts` (formerly `middleware.ts`) is the whole of the CSRF defence: the
- * API routes themselves do not check origin. It had no test, so a rename, a
+ * `proxy.ts` (formerly `middleware.ts`) runs `@agent-office/server/guard` on every
+ * path, pages included (the server's `handle()` runs it again on /api). It had no test, so a rename, a
  * matcher typo, or an inverted condition would remove the protection silently
  * and every other check in the repo would still pass.
  *

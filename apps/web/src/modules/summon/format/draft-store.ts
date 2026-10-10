@@ -1,6 +1,6 @@
 // Persists per-conversation composer draft text via /api/drafts.
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 
 function parseKey(key: string): { agentId: string; instanceId: string } {

@@ -8,6 +8,8 @@
     "dev": "pnpm --filter @agent-office/web dev",
     "build": "pnpm --filter @agent-office/web build",
     "start": "pnpm --filter @agent-office/web start",
+    "server": "pnpm --filter @agent-office/server start",
+    "server:dev": "pnpm --filter @agent-office/server dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "install:local": "bash scripts/install-local.sh",

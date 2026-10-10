@@ -114,6 +114,18 @@ export function getRun(id: string): PersistedRun | null {
   return row ? rowToRun(row) : null;
 }
 
+export function getRunOwnerPid(id: string): number | null {
+  const row = getDb().prepare("SELECT owner_pid FROM runs WHERE id = ?").get(id) as { owner_pid: number | null } | undefined;
+  return row?.owner_pid ?? null;
+}
+
+export function runningOwnerPidsForInstance(agentId: string, instanceId: string): number[] {
+  const rows = getDb()
+    .prepare("SELECT DISTINCT owner_pid FROM runs WHERE status = 'running' AND agent_id = ? AND instance_id = ? AND owner_pid IS NOT NULL")
+    .all(agentId, instanceId) as { owner_pid: number }[];
+  return rows.map((r) => r.owner_pid);
+}
+
 // ─── Rate-limit outcome (used by the scheduler to detect a repeat limit) ──────
 
 export function setRunRateLimitResetsAt(id: string, resetsAt: number): void {

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { queryKeys } from "@/lib/api/query-keys";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { POLL } from "@/lib/polling";
 import { toast } from "@/lib/toast-store";
 import type { AgentInstance, Project, ProjectMetaPatch, ProjectSummary } from "@agent-office/domain/types";

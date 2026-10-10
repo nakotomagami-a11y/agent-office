@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useGithubAccounts } from "@/modules/github-accounts/hooks/use-github-accounts";
 import { useUpdateProject } from "../hooks/use-projects";
 import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";

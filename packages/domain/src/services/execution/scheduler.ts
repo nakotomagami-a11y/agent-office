@@ -30,7 +30,9 @@ function instanceKey(agentId: string, instanceId?: string): string {
 /** Is a run for this job's target already live? Don't fire a second (Q6.1). */
 function instanceBusy(req: SummonRequest): boolean {
   const key = instanceKey(req.agentId, req.instanceId);
-  return runs.getRunningRuns().some((r) => instanceKey(r.agentId, r.instanceId) === key);
+  if (runs.getRunningRuns().some((r) => instanceKey(r.agentId, r.instanceId) === key)) return true;
+  return db.runningOwnerPidsForInstance(req.agentId, req.instanceId ?? "default")
+    .some((pid) => pid !== process.pid && db.isPidAlive(pid));
 }
 
 function markAttention(job: ScheduledJob, attention: ScheduledJob["attention"]): void {
@@ -91,6 +93,7 @@ async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
+    if (!db.holdLoopLease("scheduler")) return; // another live server fires due jobs
     const now = Date.now();
     for (const job of db.listActiveScheduledJobs()) {
       if (job.status === "firing") { reconcileFiring(job); continue; }

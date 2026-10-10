@@ -4,7 +4,7 @@
  * calls and inserts run rows — so the full send/queue/finish/fail/retry/skip
  * lifecycle is exercised end-to-end without spawning `claude`.
  *
- *   npx tsx packages/domain/src/services/execution/conversation.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/execution/conversation.test.ts
  */
 import assert from "node:assert";
 import Database from "better-sqlite3";

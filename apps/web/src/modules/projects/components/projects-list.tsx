@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { cn } from "@/lib/cn";
 import { useProjects } from "../hooks/use-projects";
 import { useRuns } from "@/modules/runs/hooks/use-runs";

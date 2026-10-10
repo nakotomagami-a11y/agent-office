@@ -15,7 +15,7 @@ import type { LiveStats } from "../format/derive-live-stats";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "./live-status";
 import type { ContextProfile } from "@agent-office/domain/types";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import type { useRunStream } from "../hooks/use-run-stream";
 
 type StreamState = ReturnType<typeof useRunStream>;

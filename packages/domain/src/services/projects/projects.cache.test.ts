@@ -2,7 +2,7 @@
  * Focused regression test for the readMetadata mtime cache (Fix #3).
  * Runs against a throwaway $HOME sandbox — never touches real project data.
  *
- *   npx tsx packages/domain/src/services/projects/projects.cache.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/projects/projects.cache.test.ts
  */
 import assert from "node:assert";
 import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, readFileSync } from "node:fs";
@@ -13,6 +13,7 @@ import { join } from "node:path";
 // (CLAUDE_DIR/PROJECTS_DIR/DB_PATH are computed from homedir() at import time).
 const sandbox = mkdtempSync(join(tmpdir(), "ao-projcache-"));
 process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 
 const claudeDir = join(sandbox, ".claude");
 const projectsDir = join(claudeDir, "projects");

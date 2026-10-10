@@ -14,6 +14,7 @@ import { test } from "node:test";
 
 const sandbox = mkdtempSync(join(tmpdir(), "ao-loopwire-"));
 process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 mkdirSync(join(sandbox, ".claude", "agent-office"), { recursive: true });
 
 const { registerRunFinishedListener } = await import("./runs");

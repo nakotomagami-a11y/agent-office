@@ -12,8 +12,45 @@ importers:
         specifier: ^1.62.0
         version: 1.62.0
 
+  apps/server:
+    dependencies:
+      '@agent-office/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
+      '@agent-office/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@hono/node-server':
+        specifier: ^1.19.0
+        version: 1.19.17(hono@4.13.13)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.3
+        version: 22.19.18
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.63.0
+        version: 8.67.0(@typescript-eslint/parser@8.67.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.63.0
+        version: 8.67.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.4(jiti@2.7.0)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   apps/web:
     dependencies:
+      '@agent-office/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
       '@agent-office/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -23,6 +60,9 @@ importers:
       '@agent-office/pixel-planets':
         specifier: github:nakotomagami-a11y/pixel-planets-generator#f708678006d4fb237e51982d6c855f520cb7888c
         version: pixel-planets@https://codeload.github.com/nakotomagami-a11y/pixel-planets-generator/tar.gz/f708678006d4fb237e51982d6c855f520cb7888c(react@19.2.6)
+      '@agent-office/server':
+        specifier: workspace:*
+        version: link:../server
       '@pixi/tilemap':
         specifier: ^5.0.2
         version: 5.0.2(pixi.js@8.19.0)
@@ -133,6 +173,34 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/api-contract:
+    dependencies:
+      '@agent-office/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.3
+        version: 22.19.18
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.63.0
+        version: 8.67.0(@typescript-eslint/parser@8.67.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.63.0
+        version: 8.67.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.15.0
+        version: 9.39.4(jiti@2.7.0)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   packages/domain:
     dependencies:
       better-sqlite3:
@@ -141,6 +209,9 @@ importers:
       cross-spawn:
         specifier: ^7.0.6
         version: 7.0.6
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
@@ -454,6 +525,12 @@ packages:
 
   '@formatjs/intl-localematcher@0.8.13':
     resolution: {integrity: sha512-kHEAFOkeJSPNi7c5PaKaRjxcBrJwzzt81ifUu+8uve1EDW/VJl83KsxmqgqNZLzcFEhSliZGvx3+pk/RH0IOmg==}
+
+  '@hono/node-server@1.19.17':
+    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1750,6 +1827,10 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
+    engines: {node: '>=16.9.0'}
+
   html-url-attributes@3.0.1:
     resolution: {integrity: sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ==}
 
@@ -2848,6 +2929,10 @@ snapshots:
   '@formatjs/intl-localematcher@0.8.13':
     dependencies:
       '@formatjs/fast-memoize': 3.1.7
+
+  '@hono/node-server@1.19.17(hono@4.13.13)':
+    dependencies:
+      hono: 4.13.13
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -4037,6 +4122,8 @@ snapshots:
   hermes-parser@0.25.1:
     dependencies:
       hermes-estree: 0.25.1
+
+  hono@4.13.13: {}
 
   html-url-attributes@3.0.1: {}
 

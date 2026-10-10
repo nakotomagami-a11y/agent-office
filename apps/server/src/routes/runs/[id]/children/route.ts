@@ -1,0 +1,12 @@
+// GET /api/runs/<id>/children — list sub-agent runs spawned by this run.
+import { store } from "@agent-office/domain/services";
+import { validateIdParam } from "../../../../lib/api-helpers";
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(_request: Request, { params }: Params) {
+  const { value: id, error } = validateIdParam((await params).id);
+  if (error) return error;
+  const children = store.getChildRuns(id);
+  return Response.json(children);
+}

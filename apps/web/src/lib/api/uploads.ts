@@ -7,7 +7,7 @@
  * `API_ROUTES.agentUploads` so the caller picks the right scope.
  */
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 
 export interface UploadedAttachment {

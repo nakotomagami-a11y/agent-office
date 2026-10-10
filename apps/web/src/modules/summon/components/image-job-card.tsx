@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useReducer, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import type { GeneratedImageRef } from "@agent-office/domain/config/generated-images";
 import type { ImggenJob } from "../format/imggen-command";
 import { imageJobWindow } from "../format/image-job-window";

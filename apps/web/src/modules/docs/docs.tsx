@@ -6,6 +6,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { DocsRender, extractHeadings, type DocHeading } from "./docs-render";
 import { PageHeader } from "@/components/ui/page-header";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 /**
  * `/docs` page — thin fetch-and-render shell.
@@ -50,7 +51,7 @@ function useDocsIndex(): DocsIndex | null {
   const [index, setIndex] = useState<DocsIndex | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/docs/content")
+    fetch(API_ROUTES.docsContent)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!cancelled && data && Array.isArray(data.tabs)) setIndex(data as DocsIndex);
@@ -78,7 +79,7 @@ function useTabContent(file: string | null): TabContentState {
     if (!file) return;
     let cancelled = false;
     setState({ markdown: "", loading: true, error: null });
-    fetch(`/api/docs/content?file=${encodeURIComponent(file)}`)
+    fetch(`${API_ROUTES.docsContent}?file=${encodeURIComponent(file)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const text = await r.text();

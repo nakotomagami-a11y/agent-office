@@ -21,6 +21,7 @@ import type { AppSettings } from "../../types/index";
 
 const sandbox = mkdtempSync(join(tmpdir(), "ao-worktree-"));
 process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 
 const claudeDir = join(sandbox, ".claude");
 const projectsRoot = join(sandbox, "root");

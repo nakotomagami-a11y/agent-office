@@ -116,6 +116,8 @@ export interface LiveRun {
    *  no input, only the id) can be paired back up. See `trackBackgroundShell`
    *  for what `childPidsBefore` is for. */
   pendingBackgroundBash: Map<string, { command: string; description?: string; childPidsBefore: Set<number> }>;
+  /** Bash tool_use ids running `gh pr create`; see runs/pr-create.ts. */
+  pendingPrCreate: Set<string>;
 }
 
 export interface StartRunOpts {

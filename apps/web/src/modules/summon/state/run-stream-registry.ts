@@ -1,8 +1,8 @@
 "use client";
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { applySseEvent, parseSseEvent, type SseEventName } from "../format/parse-sse-event";
-import type { RunPhase, ThreadItem, UsageMeter } from "../format/thread-types";
+import type { RunPhase, ThreadItem, UsageMeter } from "@agent-office/domain/types";
 
 /**
  * Global registry of live `EventSource`s per run id.

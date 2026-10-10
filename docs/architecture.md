@@ -8,11 +8,23 @@
 
 | Package | Description |
 |---------|-------------|
-| `apps/web` | Next.js app — UI, API routes, SSE runner. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
-| `packages/domain` | `@agent-office/domain` — types, DB layer, services, route config |
+| `packages/domain` | `@agent-office/domain` — **the brains**: types, DB layer, services, fixed value sets. Knows nothing about HTTP |
+| `packages/api-contract` | `@agent-office/api-contract` — the wire contract: `API_ROUTES` and the request schemas the server validates against. Pure (zod + domain config), so any client can import it |
+| `apps/server` | `@agent-office/server` — the HTTP API + SSE runner: route handlers, boot tasks, the origin guard. One web-standard `handle(Request): Response` |
+| `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
+| `apps/minecraft-mod` | NeoForge 1.21.1 mod, a second client of the same API. Gradle, not part of the pnpm workspace |
 
-The workspace globs `apps/*` and `packages/*`, but today only `apps/web` and
-`packages/domain` exist. `@agent-office/pixel-planets` and
+```
+apps/web ───────────┐
+apps/minecraft-mod ─┴─HTTP─► apps/server ──► packages/domain ──► db / fs
+
+apps/web, apps/server ──► packages/api-contract ──► packages/domain (config/types only)
+```
+
+Dependencies point one way, and lint holds the line (`docs/conventions.md`):
+`domain` imports none of the others; `api-contract` only domain config/types;
+`server` no UI or Next.js code; `web` no domain services, and no `server` code outside
+its embedding seam (below). `@agent-office/pixel-planets` and
 `@agent-office/pixel-icons` are still used — they moved out of `packages/` into
 standalone repos and are pinned by commit as git dependencies in
 `apps/web/package.json`. The office *scene* is PixiJS inside `apps/web`; those
@@ -22,17 +34,24 @@ two packages render the planet and weapon icons, not the scene.
 
 ## Process model
 
-Agent Office is a **single-process Next.js app**. There is no separate backend server. API routes (`apps/web/src/app/api/`) run in the same Node.js process. When a user summons an agent, the API route shells out to the `claude -p` CLI as a child process and proxies its stdout over Server-Sent Events back to the browser.
+The API is one handler, `handle(Request): Promise<Response>` from `@agent-office/server`, and it runs two ways:
+
+- **Embedded (the desktop app, `pnpm dev`, `pnpm start`).** `apps/web/src/app/api/[...path]/route.ts` hands every `/api/*` request to it, and the instrumentation hook calls the server's `boot()`. One Node process serves UI and API, so Tauri packaging is unchanged.
+- **Standalone (`pnpm server`).** `apps/server/src/main.ts` serves the same handler on `127.0.0.1:3001` (`AO_SERVER_PORT` overrides — not `PORT`, which every shell opened from Agent Office inherits from the desktop app) with no UI, e.g. for the Minecraft mod with the desktop app closed. Both modes advertise themselves in `~/.claude/agent-office/servers/<pid>.json`.
+
+Two servers share one `~/.claude` and one SQLite db, but a live run belongs to the process that spawned it: never drive one conversation from both. Background loops split ownership the same way. Each server wakes the background shells of its own runs; due scheduled jobs and the shells of a dead server's runs go to whichever server holds that loop's lease (`db.holdLoopLease`, a `_loop_owner:<loop>` row its ticks keep fresh), taken over when the owner dies or stops ticking for 90 s. The scheduler also treats an instance with a run alive in *any* server as busy.
+
+When a user summons an agent, the handler shells out to the `claude -p` CLI as a child process and proxies its stdout over Server-Sent Events back to the client.
 
 ```
-Browser ──SSE──► Next.js API routes (in-process)
+Browser ──SSE──► @agent-office/server (in the Next process, or standalone)
                         │
                    child_process.spawn("claude", args)
                         │
                    NDJSON stdout → broadcast over SSE
 ```
 
-The Tauri shell (optional) wraps this Next.js server and exposes it as a desktop window. In `pnpm dev` the server runs on **port 3000**; the Tauri dev shell uses port **5173**.
+The Tauri shell (optional) wraps the Next.js server and exposes it as a desktop window. In `pnpm dev` the server runs on **port 3000**; the Tauri dev shell uses port **5173**.
 
 ---
 
@@ -45,9 +64,10 @@ that logic belongs one layer down in `packages/domain`, not in the route file.
 ### Layer cake & dependency direction
 
 ```
-route.ts  (apps/web/src/app/api)   ── HTTP: parse, validate, shape response
+route.ts  (apps/server/src/routes) ── HTTP: parse, validate, shape response
    │  depends on
-lib helpers (@/lib/*)              ── validation, api-helpers, env
+apps/server/src/lib/*              ── validation, api-helpers, env, sse
+@agent-office/api-contract         ── request schemas, API_ROUTES
    │  depends on
 packages/domain services           ── business logic, HTTP-agnostic, reusable
    │  depends on
@@ -55,37 +75,64 @@ db / fs                            ── SQLite, ~/.claude on-disk layout
 ```
 
 **Rule:** dependencies point downward only. Routes import from `@agent-office/domain`;
-domain **never** imports from `@/` (app code). Domain logic must be callable from
-the scheduler, a CLI, or another route without dragging in Next.js.
+domain **never** imports app code. Domain logic must be callable from the scheduler,
+a CLI, or another route without dragging in HTTP.
+
+### Route files
+
+A route lives at `apps/server/src/routes/<path>/route.ts` and keeps Next's
+route-handler signature — `export async function GET(request: Request, { params })`
+with `params: Promise<{ ... }>` — returning a plain web `Response`. Nothing in
+`apps/server` may import `next`.
+
+`src/route-table.ts` lists every route file and is **generated**: after adding,
+moving or deleting a route run `pnpm --filter @agent-office/server routes`.
+`router.test.ts` fails while the table and the tree disagree. Matching follows
+Next: a static segment beats a dynamic one; HEAD falls back to GET; OPTIONS is
+answered for you; an unknown method is a 405 with `Allow`; a thrown handler is a
+500 `internal_error` (logged with its stack). Unlike Next, a malformed `%` escape is a
+404, not a 400. Catch-all, `(group)`, `_private` and `@slot` folders are not supported
+(the generator refuses them).
+
+### The embedding seam (apps/web → apps/server)
+
+The UI talks to the server over HTTP like any other client. Five web files may
+import `@agent-office/server`, and lint allows no others:
+`app/api/[...path]/route.ts` (mounts `handle`), `instrumentation-node.ts`
+(`boot`), `proxy.ts` (`guard`, for pages too), and two server-rendered pages
+that read through `@agent-office/server/render` before any API call could
+happen (the theme in `layout.tsx`, the agent in `agents/[id]/edit`). Keep
+`render.ts` to small reads: each one becomes a fetch if the UI ever runs out of process.
 
 ### Anatomy of a route
 
 Every handler follows the same four steps — keep them in this order:
 
 1. **Validate path params** — `validateIdParam(...)` *before* any `path.join` with user input.
-2. **Validate body** — `validateBody(schema, raw)` with a schema from `lib/validation-schemas.ts`.
+2. **Validate body** — `validateBody(schema, raw)` with a schema from `@agent-office/api-contract`.
 3. **Call a domain service** — the actual work.
-4. **Shape the response** — `NextResponse.json(...)` or a helper.
+4. **Shape the response** — `Response.json(...)` or a helper.
 
 Toolbox (already built — reach for these, don't reinvent):
 
 | Need | Use (from) |
 |------|-----------|
-| Validate an id path segment | `validateIdParam` (`@/lib/api-helpers`) |
-| Validate a JSON body | `validateBody(schema, raw)` (`@/lib/validation`) |
-| Error responses | `notFound` / `badRequest` / `serverError` / `payloadTooLarge` (`@/lib/api-helpers`) |
-| Map `ENOENT` → 404 automatically | `tryService(fn)` (`@/lib/api-helpers`) |
-| Read a size-capped text body | `readBoundedText(request, maxBytes)` (`@/lib/api-helpers`) |
+| Validate an id path segment | `validateIdParam` (`apps/server/src/lib/api-helpers.ts`) |
+| Validate a JSON body | `validateBody(schema, raw)` (`apps/server/src/lib/validation.ts`) |
+| Error responses | `notFound` / `badRequest` / `serverError` / `payloadTooLarge` (`apps/server/src/lib/api-helpers.ts`) |
+| Map `ENOENT` → 404 automatically | `tryService(fn)` (`apps/server/src/lib/api-helpers.ts`) |
+| Read a size-capped text body | `readBoundedText(request, maxBytes)` (`apps/server/src/lib/api-helpers.ts`) |
 
 ### Where things live
 
 | Concern | Home |
 |---------|------|
-| Request/response validation schemas | `lib/validation-schemas.ts` — always centralized. If it outgrows one file (~400 lines), split into `lib/schemas/<feature>.ts`. Never inline, never per-route. |
+| Request/response validation schemas | `packages/api-contract/src/schemas.ts` — always centralized. If it outgrows one file (~400 lines), split by feature inside `packages/api-contract/src/`. Never inline, never per-route. |
+| App paths | API: `API_ROUTES` in `packages/api-contract/src/routes.ts`. UI pages: `apps/web/src/lib/page-routes.ts`. External URLs: `packages/domain/src/config/routes.ts` |
 | Shared / domain types | `packages/domain/src/types` |
 | Constants, catalogs, fixed value sets (error codes, templates, integrations, setting-key maps) | `packages/domain/src/config/<name>.ts` — never a hardcoded array inside a route |
-| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `execution`, `infra`, `projects`, `skills`, `docs`, `db`); re-exported through the package barrel |
-| Logic that *needs* the web runtime (Next `Request`/`Response`, server-process store, OS-terminal spawn, port allocation) | `apps/web/src/lib/server/<feature>.ts` — **not** domain |
+| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `execution`, `infra`, `projects`, `review`, `skills`, `docs`, `db`); re-exported through the package barrel |
+| HTTP plumbing and server-process state (request helpers, SSE, server-process store, OS-terminal spawn, port allocation) | `apps/server/src/lib/<feature>.ts` — **not** domain |
 | A response DTO used by only one route | Inline in the route; promote to a local `types.ts` **only when a sibling route also needs it** |
 | Tiny route-local helper | An inline function in `route.ts` is fine |
 
@@ -98,9 +145,9 @@ Per-route satellite files (`types.ts` / `schemas.ts` next to a route) are the
 
 The ladder has been applied across the whole `api/` surface — the largest route is
 now ~90 lines (down from 300–390). Keep it that way: audit periodically with
-`find apps/web/src/app/api -name route.ts | xargs wc -l | sort -rn | head`, and when
+`find apps/server/src/routes -name route.ts | xargs wc -l | sort -rn | head`, and when
 a route climbs past ~1 screen of non-boilerplate, push the excess into a domain
-service or a `lib/server` helper before it grows further.
+service or an `apps/server/src/lib` helper before it grows further.
 
 ### Trust boundaries (untyped input)
 
@@ -142,18 +189,18 @@ export const isThing = (v: unknown): v is Thing =>
 Never hardcode the same list inside a route — a `const CLASSES = [...]` array that
 duplicates a union type declared elsewhere is the exact anti-pattern this replaces.
 
-### Domain vs. lib/server — where extracted logic goes
+### Domain vs. server lib — where extracted logic goes
 
 When logic leaves a route it goes to **exactly one** of two homes:
 
 - `packages/domain/src/services` — framework-agnostic (fs, git, spawn, db, pure
   computation). Must be callable from the scheduler or a CLI with no Next.js import.
-- `apps/web/src/lib/server` — needs the web runtime (server-process store, terminal
-  spawn, port allocation). Keeping these *out* of domain is what preserves domain's
+- `apps/server/src/lib` — HTTP plumbing or server-process state (server-process store,
+  terminal spawn, port allocation, SSE). Keeping these *out* of domain is what preserves domain's
   portability.
 
 Two sibling routes needing the same helper → extract once and import from both (build
-+ dev share `lib/server/terminal.ts` and `lib/server/project-runtime.ts`). Never
++ dev share `apps/server/src/lib/terminal.ts` and `project-runtime.ts`). Never
 copy-paste logic between routes.
 
 ### HTTP-agnostic services return discriminated results
@@ -165,7 +212,7 @@ returns a tagged result instead of throwing a string:
 type Result<T> = { ok: true; value: T } | { ok: false; error: string; status: number };
 ```
 
-The route maps `ok: false` → `NextResponse.json({ error }, { status })`. Status codes
+The route maps `ok: false` → `Response.json({ error }, { status })`. Status codes
 stay at the HTTP layer; the domain stays transport-free.
 
 
@@ -178,7 +225,7 @@ stay at the HTTP layer; the domain stays transport-free.
 - `params` is `Promise<{ ... }>` in App Router handlers → always `await params`.
 - `validateIdParam` (or `isValidIdSegment`) gates any user input used in a `path.join`.
 - No `any`. No `unknown` except at a validated trust boundary (above).
-- Read env via the `env` module (`@/lib/env`), never `process.env` directly.
+- Read env via the `env` module (`apps/server/src/lib/env.ts`), never `process.env` directly.
 
 ---
 
@@ -280,7 +327,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v24**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v25**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned. Pipelines with no still-live run → `status='error', interrupted=1`.
 
 ### Tables
@@ -307,6 +354,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
 | `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Plaintext values |
 | `project_secrets` | PK(project_id, secret_id) | Many-to-many link attaching a secret to projects |
+| `pr_links` | PK(repo, number), project_id, agent_id, instance_id, source, created_at | Which agent seat opened which GitHub PR (`source`: `recorded` when its `gh pr create` returned the URL, `branch` from an `agent/<instanceId>-…` head, `manual` when picked at the Review Lectern) — review feedback is routed to that seat's chat. `repo` is lowercase `owner/name` |
 
 ### Virtual table
 
@@ -344,7 +392,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ## CSRF / security model
 
-`apps/web/src/proxy.ts` guards every request, on every path, in two steps:
+`guard()` (`apps/server/src/guard.ts`) checks every request in two steps. The server's `handle()` applies it to every API call, embedded or standalone; in the desktop app `apps/web/src/proxy.ts` also runs it on every page:
 
 1. **Host allowlist (DNS rebinding).** The `Host` header must literally be `localhost`, `127.0.0.1` or `[::1]`, with any port. Anything else gets `403 host_not_allowed`. A rebinding page sends its own name as `Host`, and its `Origin` matches that name, so this is the only check that stops it. Since `/api/summon` spawns `claude -p` with `bypassPermissions`, this is the line between "a web page" and "a shell". `AO_BASE_URL` must therefore stay a loopback URL, otherwise the permission bridge's callbacks are refused.
 2. **Origin check (CSRF).** Safe methods (`GET`, `HEAD`, `OPTIONS`) skip it. On a state-changing method, an `Origin` header that is present must match `Host`, otherwise `403 forbidden`. A write with no `Origin` passes on purpose: curl, the CLI and server-to-server callers send none.
@@ -357,7 +405,7 @@ Not covered by the proxy:
 
 ## Environment variables
 
-Validated once at startup by `apps/web/src/lib/env.ts` (Zod schema). Read env through `env` from that module, never `process.env` directly.
+Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env through `env` from that module, never `process.env` directly.
 
 | Variable | Default | What it controls |
 |----------|---------|-----------------|

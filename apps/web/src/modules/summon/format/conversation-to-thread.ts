@@ -10,7 +10,7 @@
 // `useRunStream` exactly as before (see use-conversation-chat-model.ts) —
 // this function is only used for turns that have scrolled into history.
 import type { PersistedRun } from "@agent-office/domain/types";
-import type { ThreadItem } from "./thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import { formatToolArg, isSubAgentSpawnTool, parseStoredToolInput } from "./tool-item";
 
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {

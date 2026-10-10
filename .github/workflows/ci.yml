@@ -39,6 +39,12 @@ jobs:
       - name: Test (web)
         run: pnpm --filter @agent-office/web test
 
+      - name: Test (server)
+        run: pnpm --filter @agent-office/server test
+
+      - name: Test (api-contract)
+        run: pnpm --filter @agent-office/api-contract test
+
       # The Arch recipe carries its own pkgver. It was not part of
       # set-version.mjs, so it silently lagged and built the previous version.
       - name: Version consistency

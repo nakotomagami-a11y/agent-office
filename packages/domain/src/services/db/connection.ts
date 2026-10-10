@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { DB_PATH, APP_STATE_DIR } from "../infra/paths";
+import { isPidAlive } from "../infra/pid";
 import { createSchema } from "./migrations";
 
 declare global {
@@ -85,24 +86,7 @@ function reapOrphanedRuns(db: Database.Database): void {
   `).run({ now });
 }
 
-/**
- * `kill(pid, 0)` sends no signal - it only probes existence. ESRCH means gone,
- * EPERM means alive but owned by another user.
- *
- * ponytail: PIDs can be recycled, so a dead run whose PID got reused stays
- * "running" until the 4h wall-clock cap in runs.ts sweeps it. Swap for a
- * pid+boot-time pair if that ever bites.
- */
-export function isPidAlive(pid: number | null | undefined): boolean {
-  // NULL = row predates the owner_pid column; treat as orphaned (old behaviour).
-  if (pid == null || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
+export { isPidAlive };
 
 /** True when the row says "running" but the process that owned it is gone. */
 export function isRunOrphaned(id: string): boolean {

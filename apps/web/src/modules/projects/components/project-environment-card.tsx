@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { ProjectAccountPicker } from "./project-account-picker";
 import { ProjectGithubAccountPicker } from "./project-github-account-picker";
 import { ProjectSecretsControl } from "./project-secrets-control";

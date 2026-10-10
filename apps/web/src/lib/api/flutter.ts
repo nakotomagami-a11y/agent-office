@@ -4,7 +4,7 @@
  * own hook / <img> src and are not routed through here.
  */
 
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 
 export interface FlutterRunTarget {

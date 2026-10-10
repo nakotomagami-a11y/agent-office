@@ -6,15 +6,15 @@
  *
  * Uses a throwaway HOME and a stub `claude` on PATH so it never touches the
  * real environment:
- *   HOME=$(mktemp -d) PATH="<stubdir>:$PATH" npx tsx packages/domain/src/services/runs.auth-e2e.test.ts
+ *   PATH="<stubdir>:$PATH" pnpm --filter @agent-office/domain test src/services/execution/runs.auth-e2e.test.ts
  */
 import assert from "node:assert";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import { execSync } from "node:child_process";
 import { startRun, attachEmit, type SseEvent } from "./runs";
 
 const HOME = homedir();
-assert(HOME.startsWith("/tmp") || HOME.includes("tmp"), "refusing to run outside a throwaway HOME");
+assert.notEqual(HOME, userInfo().homedir, "refusing to run outside a throwaway HOME");
 
 // Sanity: the stub claude on PATH must reproduce the real failure shape.
 const stubStderr = (() => {

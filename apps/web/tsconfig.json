@@ -16,6 +16,21 @@
       ],
       "@agent-office/domain/*": [
         "../../packages/domain/src/*"
+      ],
+      "@agent-office/api-contract": [
+        "../../packages/api-contract/src/index.ts"
+      ],
+      "@agent-office/server": [
+        "../server/src/index.ts"
+      ],
+      "@agent-office/server/boot": [
+        "../server/src/boot.ts"
+      ],
+      "@agent-office/server/guard": [
+        "../server/src/guard.ts"
+      ],
+      "@agent-office/server/render": [
+        "../server/src/render.ts"
       ]
     }
   },

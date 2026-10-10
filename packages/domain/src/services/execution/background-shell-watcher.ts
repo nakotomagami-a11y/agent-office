@@ -65,13 +65,24 @@ export async function sendWake(
   );
 }
 
+/** The wake belongs to the server whose run started the shell: its live-run streams
+ *  are there. A shell whose server died goes to the orphan-shells lease holder. */
+function ownsWake(runId: string, orphanLease: () => boolean): boolean {
+  const owner = db.getRunOwnerPid(runId);
+  if (owner === process.pid) return true;
+  return !db.isPidAlive(owner) && orphanLease();
+}
+
 let ticking = false;
 async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
+    let lease: boolean | undefined;
+    const orphanLease = () => (lease ??= db.holdLoopLease("orphan-shells"));
     for (const row of db.listBackgroundShells()) {
       if (!shouldWake(db.isPidAlive(row.pid), db.getRun(row.runId)?.status)) continue;
+      if (!ownsWake(row.runId, orphanLease)) continue;
       // Consumed unconditionally (even if the send below fails) — never
       // fire twice for the same shell, same "own it or drop it" rule
       // `collectBackgroundShells` already applies to a dead PID.

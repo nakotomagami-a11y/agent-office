@@ -2,7 +2,7 @@
  * Locks in the exact failure modes from the chat incidents. Pure reducer, no
  * I/O — every reliability guarantee is asserted here.
  *
- *   npx tsx packages/domain/src/services/execution/conversation-machine.test.ts
+ *   pnpm --filter @agent-office/domain test src/services/execution/conversation-machine.test.ts
  */
 import assert from "node:assert";
 import type { MessageOrigin } from "../../types/index";

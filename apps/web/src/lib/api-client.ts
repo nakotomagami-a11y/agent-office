@@ -13,7 +13,7 @@
  */
 
 import axios, { type AxiosError } from "axios";
-import { ApiError } from "@agent-office/domain/hooks/api";
+import { ApiError } from "@/lib/api/fetch";
 
 export { ApiError };
 

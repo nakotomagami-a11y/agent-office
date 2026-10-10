@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ClipboardEvent, type DragEvent } from "react";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { uploadAttachment, fetchClipboardImage } from "@/lib/api/uploads";
 import { isTauri } from "@/lib/tauri-window";
 import { nextAttachmentId, type Attachment } from "../format/composer-config";

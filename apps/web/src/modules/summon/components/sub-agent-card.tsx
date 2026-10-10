@@ -8,7 +8,7 @@ import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { StatusBadge } from "@/modules/runs/components/status-badge";
 import { useExpandedState } from "./expanded-state";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 
 type SubAgentItem = Extract<ThreadItem, { kind: "agent-subagent" }>;
 

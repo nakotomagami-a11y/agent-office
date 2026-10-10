@@ -2,7 +2,7 @@
 // and broadcasts events to subscribed SSE writers.
 //
 // Each subscriber is a callback (`SseEmit`) instead of a websocket - works with
-// `apps/web/src/lib/sse.ts` writers and any other consumer.
+// `apps/server/src/lib/sse.ts` writers and any other consumer.
 //
 // This module owns the stateful run machine (the `liveRuns` singleton, spawn,
 // stream handling, sub-agent record-keeping, finalize). Pure helpers live
@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import type { PersistedRun, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
+import { appBaseUrl } from "../infra/discovery";
 import { denyAllForRun, type PermissionRequest } from "./permissions";
 import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
 import { appendRun as appendHistory } from "../projects/history";
@@ -38,6 +39,7 @@ import {
 import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
+import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -130,7 +132,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
   // The MCP permission bridge is spawned by the CLI and inherits this env; it
   // has no other way to know which run it is answering for.
   env.AO_RUN_ID = runId;
-  env.AO_BASE_URL = process.env.AO_BASE_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+  env.AO_BASE_URL = appBaseUrl();
   const proc = spawn("claude", opts.args, {
     stdio: [opts.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     cwd: opts.cwd,
@@ -173,6 +175,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     childRunIds: [],
     subAgents: new Map(),
     pendingBackgroundBash: new Map(),
+    pendingPrCreate: new Set(),
     origin: opts.origin ?? "user",
   };
   liveRuns.set(runId, run);
@@ -518,6 +521,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
         if (spawn) {
           spawnSubAgentRecord(run, block.id, spawn);
         }
+        notePrCreate(run, toolName, block.id, block.input);
         if (toolName === "Bash" && block.id && run.proc.pid && isBackgroundBashInput(block.input)) {
           run.pendingBackgroundBash.set(block.id, {
             command: block.input.command,
@@ -568,6 +572,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
         db.markToolCallDone(block.tool_use_id, doneTs, backgrounded);
         broadcast(run, { name: "tool-done", data: { runId: run.id, toolUseId: block.tool_use_id, ts: doneTs, backgrounded } });
         finalizeSubAgentFromResult(run, block.tool_use_id, block);
+        settlePrCreate(run, block.tool_use_id, block.is_error === true, () => stringifyToolResult(block.content));
         const pending = run.pendingBackgroundBash.get(block.tool_use_id);
         if (pending) {
           run.pendingBackgroundBash.delete(block.tool_use_id);

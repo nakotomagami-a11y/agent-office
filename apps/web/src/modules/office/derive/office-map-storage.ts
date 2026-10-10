@@ -4,7 +4,7 @@
 // decorations drift to different points in time). An unsaved edit stays dirty
 // and is retried by the periodic flush and the unload beacon; there is no
 // client-side copy, so nothing depends on the page origin.
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 import { parseGrid, parseDecorations, parseAgentPositions, makeSeedGrid } from "./office-scene-data";
 import { isGrassColor, DEFAULT_GRASS_COLOR, type GrassColor } from "../components/grass-colors";

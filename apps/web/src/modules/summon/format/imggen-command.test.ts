@@ -4,7 +4,7 @@
  * name/seed only the shell knows, must yield no job (placeholders that never fill),
  * and a mention of "imggen" that isn't a run (grep, heredoc, comment) must not count.
  *
- *   pnpm exec tsx --test src/modules/summon/format/imggen-command.test.ts
+ *   pnpm --filter @agent-office/web test src/modules/summon/format/imggen-command.test.ts
  */
 import assert from "node:assert";
 import { test } from "node:test";

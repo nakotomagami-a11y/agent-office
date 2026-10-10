@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { OfficeToolbar } from "./office-toolbar";
 import { OfficeHud } from "./office-hud";
 import { OfficeScene } from "./office-scene";

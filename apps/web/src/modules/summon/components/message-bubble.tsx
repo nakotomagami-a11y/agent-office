@@ -12,7 +12,7 @@ import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { SystemNotice } from "./system-notice";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
-import type { ThreadItem } from "../format/thread-types";
+import type { ThreadItem } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
 import { TableBlock } from "@/components/ui/table-block";
 import { splitProse, type ProseItem } from "@/lib/markdown";

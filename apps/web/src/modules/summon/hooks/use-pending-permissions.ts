@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { API_ROUTES } from "@agent-office/api-contract";
 
 export type PendingPermission = {
   id: string;
@@ -25,7 +26,7 @@ export function usePendingPermissions(runId: string | null, enabled = true) {
   const refresh = useCallback(async () => {
     if (!runId) return setPending([]);
     try {
-      const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/permission`, { cache: "no-store" });
+      const res = await fetch(API_ROUTES.runPermission(runId), { cache: "no-store" });
       if (!res.ok) return;
       const body = (await res.json()) as { pending?: PendingPermission[] };
       setPending(body.pending ?? []);
@@ -48,7 +49,7 @@ export function usePendingPermissions(runId: string | null, enabled = true) {
       // Optimistic: the agent is blocked, so the card must disappear instantly.
       setPending((p) => p.filter((x) => x.id !== id));
       try {
-        await fetch(`/api/runs/${encodeURIComponent(runId)}/permission`, {
+        await fetch(API_ROUTES.runPermission(runId), {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ id, decision }),

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { usePerformanceStore } from "@/lib/performance-store";
+import { API_ROUTES } from "@agent-office/api-contract";
 
-const POWER_ENDPOINT = "/api/power";
+const POWER_ENDPOINT = API_ROUTES.power;
 // WebKitGTK (the Tauri Linux webview) has no Battery Status API, so there is
 // no instant charging event to trigger a re-poll — fall back to a faster
 // interval there so AC/battery transitions engage within seconds, not up to 30s.

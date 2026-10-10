@@ -1,4 +1,654 @@
 {
+  "apps/server/src/boot.ts": {
+    "ratio": 0.4021,
+    "code": 97,
+    "comment": 39
+  },
+  "apps/server/src/lib/api-helpers.ts": {
+    "ratio": 0.0993,
+    "code": 151,
+    "comment": 15
+  },
+  "apps/server/src/lib/env.ts": {
+    "ratio": 0.9767,
+    "code": 43,
+    "comment": 42
+  },
+  "apps/server/src/lib/flutter.ts": {
+    "ratio": 0.0699,
+    "code": 186,
+    "comment": 13
+  },
+  "apps/server/src/lib/project-runtime.ts": {
+    "ratio": 0.2424,
+    "code": 33,
+    "comment": 8
+  },
+  "apps/server/src/lib/server-process-store.ts": {
+    "ratio": 0,
+    "code": 62,
+    "comment": 0
+  },
+  "apps/server/src/lib/sse.ts": {
+    "ratio": 0.0208,
+    "code": 48,
+    "comment": 1
+  },
+  "apps/server/src/lib/starter-data.ts": {
+    "ratio": 0.1164,
+    "code": 292,
+    "comment": 34
+  },
+  "apps/server/src/lib/terminal.ts": {
+    "ratio": 0.1695,
+    "code": 59,
+    "comment": 10
+  },
+  "apps/server/src/lib/validation.ts": {
+    "ratio": 0,
+    "code": 31,
+    "comment": 0
+  },
+  "apps/server/src/routes/account/route.ts": {
+    "ratio": 0.2647,
+    "code": 34,
+    "comment": 9
+  },
+  "apps/server/src/routes/accounts/[id]/login/code/route.ts": {
+    "ratio": 0.087,
+    "code": 23,
+    "comment": 2
+  },
+  "apps/server/src/routes/accounts/[id]/login/route.ts": {
+    "ratio": 0.24,
+    "code": 25,
+    "comment": 6
+  },
+  "apps/server/src/routes/accounts/[id]/route.ts": {
+    "ratio": 0.0606,
+    "code": 33,
+    "comment": 2
+  },
+  "apps/server/src/routes/accounts/[id]/status/route.ts": {
+    "ratio": 0.4545,
+    "code": 11,
+    "comment": 5
+  },
+  "apps/server/src/routes/accounts/route.ts": {
+    "ratio": 0.4444,
+    "code": 18,
+    "comment": 8
+  },
+  "apps/server/src/routes/agent-docs/[owner]/[slug]/route.ts": {
+    "ratio": 0.0968,
+    "code": 31,
+    "comment": 3
+  },
+  "apps/server/src/routes/agent-docs/route.ts": {
+    "ratio": 0.4,
+    "code": 5,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/[id]/body/history/[filename]/route.ts": {
+    "ratio": 0.2727,
+    "code": 11,
+    "comment": 3
+  },
+  "apps/server/src/routes/agents/[id]/body/history/route.ts": {
+    "ratio": 0.2222,
+    "code": 9,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/[id]/body/route.ts": {
+    "ratio": 0.1818,
+    "code": 33,
+    "comment": 6
+  },
+  "apps/server/src/routes/agents/[id]/context-cost/measure/route.ts": {
+    "ratio": 0.375,
+    "code": 16,
+    "comment": 6
+  },
+  "apps/server/src/routes/agents/[id]/context-cost/route.ts": {
+    "ratio": 0.45,
+    "code": 20,
+    "comment": 9
+  },
+  "apps/server/src/routes/agents/[id]/memory/route.ts": {
+    "ratio": 0.1111,
+    "code": 18,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/[id]/prompt-preview/route.ts": {
+    "ratio": 0.3784,
+    "code": 37,
+    "comment": 14
+  },
+  "apps/server/src/routes/agents/[id]/prompts/route.ts": {
+    "ratio": 0.1,
+    "code": 20,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/[id]/route.ts": {
+    "ratio": 0.0968,
+    "code": 31,
+    "comment": 3
+  },
+  "apps/server/src/routes/agents/[id]/uploads/[filename]/route.ts": {
+    "ratio": 0.1333,
+    "code": 15,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/[id]/uploads/route.ts": {
+    "ratio": 0.1429,
+    "code": 14,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/bulk/route.ts": {
+    "ratio": 0.0909,
+    "code": 22,
+    "comment": 2
+  },
+  "apps/server/src/routes/agents/route.ts": {
+    "ratio": 0.1429,
+    "code": 14,
+    "comment": 2
+  },
+  "apps/server/src/routes/analytics/page/route.ts": {
+    "ratio": 0.2667,
+    "code": 15,
+    "comment": 4
+  },
+  "apps/server/src/routes/analytics/per-account/route.ts": {
+    "ratio": 0.4,
+    "code": 5,
+    "comment": 2
+  },
+  "apps/server/src/routes/analytics/summary/route.ts": {
+    "ratio": 0.16,
+    "code": 25,
+    "comment": 4
+  },
+  "apps/server/src/routes/broadcast/route.ts": {
+    "ratio": 0.0317,
+    "code": 63,
+    "comment": 2
+  },
+  "apps/server/src/routes/cleanup/[kind]/route.ts": {
+    "ratio": 0.1818,
+    "code": 11,
+    "comment": 2
+  },
+  "apps/server/src/routes/clipboard-image/route.ts": {
+    "ratio": 0.1231,
+    "code": 65,
+    "comment": 8
+  },
+  "apps/server/src/routes/conversations/[id]/messages/route.ts": {
+    "ratio": 0.2667,
+    "code": 15,
+    "comment": 4
+  },
+  "apps/server/src/routes/conversations/[id]/new/route.ts": {
+    "ratio": 0.375,
+    "code": 8,
+    "comment": 3
+  },
+  "apps/server/src/routes/conversations/[id]/queue/[messageId]/route.ts": {
+    "ratio": 0.0909,
+    "code": 11,
+    "comment": 1
+  },
+  "apps/server/src/routes/conversations/[id]/queue/route.ts": {
+    "ratio": 0.375,
+    "code": 8,
+    "comment": 3
+  },
+  "apps/server/src/routes/conversations/[id]/resume/route.ts": {
+    "ratio": 0.25,
+    "code": 8,
+    "comment": 2
+  },
+  "apps/server/src/routes/conversations/[id]/retry/route.ts": {
+    "ratio": 0.25,
+    "code": 8,
+    "comment": 2
+  },
+  "apps/server/src/routes/conversations/[id]/route.ts": {
+    "ratio": 0.375,
+    "code": 8,
+    "comment": 3
+  },
+  "apps/server/src/routes/conversations/[id]/skip/route.ts": {
+    "ratio": 0.375,
+    "code": 8,
+    "comment": 3
+  },
+  "apps/server/src/routes/conversations/route.ts": {
+    "ratio": 0.1852,
+    "code": 27,
+    "comment": 5
+  },
+  "apps/server/src/routes/dev/backfill-planets/route.ts": {
+    "ratio": 0.0746,
+    "code": 67,
+    "comment": 5
+  },
+  "apps/server/src/routes/dev/planet-gallery/route.ts": {
+    "ratio": 0.0938,
+    "code": 32,
+    "comment": 3
+  },
+  "apps/server/src/routes/dev/seed/route.ts": {
+    "ratio": 0.0556,
+    "code": 54,
+    "comment": 3
+  },
+  "apps/server/src/routes/dev/seed/showcase.ts": {
+    "ratio": 0.123,
+    "code": 309,
+    "comment": 38
+  },
+  "apps/server/src/routes/docs/content/route.ts": {
+    "ratio": 0.2222,
+    "code": 63,
+    "comment": 14
+  },
+  "apps/server/src/routes/docs/export/route.ts": {
+    "ratio": 0.2,
+    "code": 5,
+    "comment": 1
+  },
+  "apps/server/src/routes/drafts/route.ts": {
+    "ratio": 0.0313,
+    "code": 32,
+    "comment": 1
+  },
+  "apps/server/src/routes/events/route.ts": {
+    "ratio": 0.2857,
+    "code": 21,
+    "comment": 6
+  },
+  "apps/server/src/routes/flutter/devices/route.ts": {
+    "ratio": 0.25,
+    "code": 8,
+    "comment": 2
+  },
+  "apps/server/src/routes/flutter/mirror/route.ts": {
+    "ratio": 0.125,
+    "code": 16,
+    "comment": 2
+  },
+  "apps/server/src/routes/flutter/run/route.ts": {
+    "ratio": 0.069,
+    "code": 29,
+    "comment": 2
+  },
+  "apps/server/src/routes/flutter/screenshot/route.ts": {
+    "ratio": 0.1538,
+    "code": 13,
+    "comment": 2
+  },
+  "apps/server/src/routes/github-accounts/[id]/route.ts": {
+    "ratio": 0.0556,
+    "code": 36,
+    "comment": 2
+  },
+  "apps/server/src/routes/github-accounts/[id]/status/route.ts": {
+    "ratio": 0.3846,
+    "code": 13,
+    "comment": 5
+  },
+  "apps/server/src/routes/github-accounts/route.ts": {
+    "ratio": 0.3043,
+    "code": 23,
+    "comment": 7
+  },
+  "apps/server/src/routes/health/route.ts": {
+    "ratio": 0.1,
+    "code": 10,
+    "comment": 1
+  },
+  "apps/server/src/routes/memory/global/route.ts": {
+    "ratio": 0.0714,
+    "code": 14,
+    "comment": 1
+  },
+  "apps/server/src/routes/power/route.ts": {
+    "ratio": 0.2308,
+    "code": 39,
+    "comment": 9
+  },
+  "apps/server/src/routes/processes/[pid]/logs/route.ts": {
+    "ratio": 0.0667,
+    "code": 15,
+    "comment": 1
+  },
+  "apps/server/src/routes/processes/[pid]/route.ts": {
+    "ratio": 0.0556,
+    "code": 18,
+    "comment": 1
+  },
+  "apps/server/src/routes/processes/[pid]/stdin/route.ts": {
+    "ratio": 0.0556,
+    "code": 18,
+    "comment": 1
+  },
+  "apps/server/src/routes/processes/route.ts": {
+    "ratio": 0.4,
+    "code": 5,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/build/route.ts": {
+    "ratio": 0.1034,
+    "code": 29,
+    "comment": 3
+  },
+  "apps/server/src/routes/projects/[id]/clear-cache/route.ts": {
+    "ratio": 0.0833,
+    "code": 24,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/dev/route.ts": {
+    "ratio": 0.1373,
+    "code": 51,
+    "comment": 7
+  },
+  "apps/server/src/routes/projects/[id]/folder/route.ts": {
+    "ratio": 0.3333,
+    "code": 12,
+    "comment": 4
+  },
+  "apps/server/src/routes/projects/[id]/git-status/route.ts": {
+    "ratio": 0.2727,
+    "code": 11,
+    "comment": 3
+  },
+  "apps/server/src/routes/projects/[id]/install/route.ts": {
+    "ratio": 0.1429,
+    "code": 56,
+    "comment": 8
+  },
+  "apps/server/src/routes/projects/[id]/memory/route.ts": {
+    "ratio": 0.08,
+    "code": 25,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/open-folder/route.ts": {
+    "ratio": 0.0952,
+    "code": 21,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/roster/[instanceId]/repair-worktree/route.ts": {
+    "ratio": 0.2222,
+    "code": 18,
+    "comment": 4
+  },
+  "apps/server/src/routes/projects/[id]/roster/[instanceId]/route.ts": {
+    "ratio": 0.0526,
+    "code": 38,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/roster/route.ts": {
+    "ratio": 0.1786,
+    "code": 28,
+    "comment": 5
+  },
+  "apps/server/src/routes/projects/[id]/route.ts": {
+    "ratio": 0.175,
+    "code": 40,
+    "comment": 7
+  },
+  "apps/server/src/routes/projects/[id]/secrets/[secretId]/route.ts": {
+    "ratio": 0.4,
+    "code": 10,
+    "comment": 4
+  },
+  "apps/server/src/routes/projects/[id]/secrets/route.ts": {
+    "ratio": 0.25,
+    "code": 20,
+    "comment": 5
+  },
+  "apps/server/src/routes/projects/[id]/spend/route.ts": {
+    "ratio": 0.1818,
+    "code": 11,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/uploads/[filename]/route.ts": {
+    "ratio": 0.1333,
+    "code": 15,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/[id]/uploads/route.ts": {
+    "ratio": 0.1429,
+    "code": 14,
+    "comment": 2
+  },
+  "apps/server/src/routes/projects/bootstrap/route.ts": {
+    "ratio": 0.1923,
+    "code": 52,
+    "comment": 10
+  },
+  "apps/server/src/routes/projects/route.ts": {
+    "ratio": 0.1429,
+    "code": 14,
+    "comment": 2
+  },
+  "apps/server/src/routes/prompts/route.ts": {
+    "ratio": 0.2,
+    "code": 5,
+    "comment": 1
+  },
+  "apps/server/src/routes/runs/[id]/abort/route.ts": {
+    "ratio": 0.1,
+    "code": 10,
+    "comment": 1
+  },
+  "apps/server/src/routes/runs/[id]/children/route.ts": {
+    "ratio": 0.1,
+    "code": 10,
+    "comment": 1
+  },
+  "apps/server/src/routes/runs/[id]/permission/route.ts": {
+    "ratio": 0.2439,
+    "code": 41,
+    "comment": 10
+  },
+  "apps/server/src/routes/runs/[id]/route.ts": {
+    "ratio": 0.2308,
+    "code": 13,
+    "comment": 3
+  },
+  "apps/server/src/routes/runs/[id]/stream/route.ts": {
+    "ratio": 0.0606,
+    "code": 33,
+    "comment": 2
+  },
+  "apps/server/src/routes/runs/[id]/tree/route.ts": {
+    "ratio": 0.0909,
+    "code": 11,
+    "comment": 1
+  },
+  "apps/server/src/routes/runs/abort-all/route.ts": {
+    "ratio": 0.0714,
+    "code": 14,
+    "comment": 1
+  },
+  "apps/server/src/routes/runs/route.ts": {
+    "ratio": 0.2895,
+    "code": 38,
+    "comment": 11
+  },
+  "apps/server/src/routes/save/export/route.ts": {
+    "ratio": 0.1111,
+    "code": 18,
+    "comment": 2
+  },
+  "apps/server/src/routes/save/import/route.ts": {
+    "ratio": 0.0385,
+    "code": 26,
+    "comment": 1
+  },
+  "apps/server/src/routes/schedules/[id]/route.ts": {
+    "ratio": 0.05,
+    "code": 20,
+    "comment": 1
+  },
+  "apps/server/src/routes/schedules/[id]/run/route.ts": {
+    "ratio": 0.2,
+    "code": 10,
+    "comment": 2
+  },
+  "apps/server/src/routes/schedules/route.ts": {
+    "ratio": 0.0714,
+    "code": 14,
+    "comment": 1
+  },
+  "apps/server/src/routes/secrets/[id]/route.ts": {
+    "ratio": 0.04,
+    "code": 25,
+    "comment": 1
+  },
+  "apps/server/src/routes/secrets/[id]/test/route.ts": {
+    "ratio": 0.1818,
+    "code": 11,
+    "comment": 2
+  },
+  "apps/server/src/routes/secrets/route.ts": {
+    "ratio": 0.2778,
+    "code": 18,
+    "comment": 5
+  },
+  "apps/server/src/routes/settings/route.ts": {
+    "ratio": 0.129,
+    "code": 31,
+    "comment": 4
+  },
+  "apps/server/src/routes/settings/scan/route.ts": {
+    "ratio": 0.1429,
+    "code": 21,
+    "comment": 3
+  },
+  "apps/server/src/routes/skills/[name]/customization/route.ts": {
+    "ratio": 0.0968,
+    "code": 31,
+    "comment": 3
+  },
+  "apps/server/src/routes/skills/[name]/route.ts": {
+    "ratio": 0.0625,
+    "code": 16,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/[name]/update/route.ts": {
+    "ratio": 0.0625,
+    "code": 16,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/compatibility/route.ts": {
+    "ratio": 0.0625,
+    "code": 16,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/create/route.ts": {
+    "ratio": 0.0455,
+    "code": 22,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/icons/route.ts": {
+    "ratio": 0.0667,
+    "code": 30,
+    "comment": 2
+  },
+  "apps/server/src/routes/skills/import/route.ts": {
+    "ratio": 0.0588,
+    "code": 17,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/install/route.ts": {
+    "ratio": 0.0556,
+    "code": 18,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/installed/route.ts": {
+    "ratio": 0.0833,
+    "code": 12,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/manifest/route.ts": {
+    "ratio": 0.0625,
+    "code": 16,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/registry/route.ts": {
+    "ratio": 0.0556,
+    "code": 18,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/sources/route.ts": {
+    "ratio": 0.027,
+    "code": 37,
+    "comment": 1
+  },
+  "apps/server/src/routes/skills/updates/route.ts": {
+    "ratio": 0.0833,
+    "code": 12,
+    "comment": 1
+  },
+  "apps/server/src/routes/starter/agent-diff/route.ts": {
+    "ratio": 0.3182,
+    "code": 22,
+    "comment": 7
+  },
+  "apps/server/src/routes/starter/agents/route.ts": {
+    "ratio": 0.25,
+    "code": 20,
+    "comment": 5
+  },
+  "apps/server/src/routes/summon/route.ts": {
+    "ratio": 0.1724,
+    "code": 29,
+    "comment": 5
+  },
+  "apps/server/src/routes/templates/route.ts": {
+    "ratio": 0.2,
+    "code": 5,
+    "comment": 1
+  },
+  "apps/server/src/routes/transcripts/route.ts": {
+    "ratio": 0.0127,
+    "code": 79,
+    "comment": 1
+  },
+  "apps/server/src/routes/ui-settings/route.ts": {
+    "ratio": 0.1887,
+    "code": 53,
+    "comment": 10
+  },
+  "apps/server/src/routes/user-analysis/route.ts": {
+    "ratio": 0.2059,
+    "code": 68,
+    "comment": 14
+  },
+  "apps/server/src/routes/workflows/[id]/route.ts": {
+    "ratio": 0.0909,
+    "code": 11,
+    "comment": 1
+  },
+  "apps/server/src/routes/workflows/[id]/use/route.ts": {
+    "ratio": 0.125,
+    "code": 8,
+    "comment": 1
+  },
+  "apps/server/src/routes/workflows/bulk/route.ts": {
+    "ratio": 0.0909,
+    "code": 11,
+    "comment": 1
+  },
+  "apps/server/src/routes/workflows/route.ts": {
+    "ratio": 0.0588,
+    "code": 17,
+    "comment": 1
+  },
   "apps/web/src/app/(app)/activity/page.tsx": {
     "ratio": 0,
     "code": 10,
@@ -78,606 +728,6 @@
     "ratio": 0,
     "code": 12,
     "comment": 0
-  },
-  "apps/web/src/app/api/account/route.ts": {
-    "ratio": 0.2647,
-    "code": 34,
-    "comment": 9
-  },
-  "apps/web/src/app/api/accounts/[id]/login/code/route.ts": {
-    "ratio": 0.087,
-    "code": 23,
-    "comment": 2
-  },
-  "apps/web/src/app/api/accounts/[id]/login/route.ts": {
-    "ratio": 0.24,
-    "code": 25,
-    "comment": 6
-  },
-  "apps/web/src/app/api/accounts/[id]/route.ts": {
-    "ratio": 0.0606,
-    "code": 33,
-    "comment": 2
-  },
-  "apps/web/src/app/api/accounts/[id]/status/route.ts": {
-    "ratio": 0.4545,
-    "code": 11,
-    "comment": 5
-  },
-  "apps/web/src/app/api/accounts/route.ts": {
-    "ratio": 0.4444,
-    "code": 18,
-    "comment": 8
-  },
-  "apps/web/src/app/api/agent-docs/[owner]/[slug]/route.ts": {
-    "ratio": 0.0968,
-    "code": 31,
-    "comment": 3
-  },
-  "apps/web/src/app/api/agent-docs/route.ts": {
-    "ratio": 0.4,
-    "code": 5,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/[id]/body/history/[filename]/route.ts": {
-    "ratio": 0.2727,
-    "code": 11,
-    "comment": 3
-  },
-  "apps/web/src/app/api/agents/[id]/body/history/route.ts": {
-    "ratio": 0.2222,
-    "code": 9,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/[id]/body/route.ts": {
-    "ratio": 0.1818,
-    "code": 33,
-    "comment": 6
-  },
-  "apps/web/src/app/api/agents/[id]/context-cost/measure/route.ts": {
-    "ratio": 0.375,
-    "code": 16,
-    "comment": 6
-  },
-  "apps/web/src/app/api/agents/[id]/context-cost/route.ts": {
-    "ratio": 0.45,
-    "code": 20,
-    "comment": 9
-  },
-  "apps/web/src/app/api/agents/[id]/memory/route.ts": {
-    "ratio": 0.1111,
-    "code": 18,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/[id]/prompt-preview/route.ts": {
-    "ratio": 0.3784,
-    "code": 37,
-    "comment": 14
-  },
-  "apps/web/src/app/api/agents/[id]/prompts/route.ts": {
-    "ratio": 0.1,
-    "code": 20,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/[id]/route.ts": {
-    "ratio": 0.0968,
-    "code": 31,
-    "comment": 3
-  },
-  "apps/web/src/app/api/agents/[id]/uploads/[filename]/route.ts": {
-    "ratio": 0.1333,
-    "code": 15,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/[id]/uploads/route.ts": {
-    "ratio": 0.1429,
-    "code": 14,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/bulk/route.ts": {
-    "ratio": 0.0909,
-    "code": 22,
-    "comment": 2
-  },
-  "apps/web/src/app/api/agents/route.ts": {
-    "ratio": 0.1429,
-    "code": 14,
-    "comment": 2
-  },
-  "apps/web/src/app/api/analytics/page/route.ts": {
-    "ratio": 0.2667,
-    "code": 15,
-    "comment": 4
-  },
-  "apps/web/src/app/api/analytics/per-account/route.ts": {
-    "ratio": 0.4,
-    "code": 5,
-    "comment": 2
-  },
-  "apps/web/src/app/api/analytics/summary/route.ts": {
-    "ratio": 0.16,
-    "code": 25,
-    "comment": 4
-  },
-  "apps/web/src/app/api/broadcast/route.ts": {
-    "ratio": 0.0317,
-    "code": 63,
-    "comment": 2
-  },
-  "apps/web/src/app/api/cleanup/[kind]/route.ts": {
-    "ratio": 0.1818,
-    "code": 11,
-    "comment": 2
-  },
-  "apps/web/src/app/api/clipboard-image/route.ts": {
-    "ratio": 0.1231,
-    "code": 65,
-    "comment": 8
-  },
-  "apps/web/src/app/api/conversations/[id]/messages/route.ts": {
-    "ratio": 0.2667,
-    "code": 15,
-    "comment": 4
-  },
-  "apps/web/src/app/api/conversations/[id]/new/route.ts": {
-    "ratio": 0.375,
-    "code": 8,
-    "comment": 3
-  },
-  "apps/web/src/app/api/conversations/[id]/queue/[messageId]/route.ts": {
-    "ratio": 0.0909,
-    "code": 11,
-    "comment": 1
-  },
-  "apps/web/src/app/api/conversations/[id]/queue/route.ts": {
-    "ratio": 0.375,
-    "code": 8,
-    "comment": 3
-  },
-  "apps/web/src/app/api/conversations/[id]/resume/route.ts": {
-    "ratio": 0.25,
-    "code": 8,
-    "comment": 2
-  },
-  "apps/web/src/app/api/conversations/[id]/retry/route.ts": {
-    "ratio": 0.25,
-    "code": 8,
-    "comment": 2
-  },
-  "apps/web/src/app/api/conversations/[id]/route.ts": {
-    "ratio": 0.375,
-    "code": 8,
-    "comment": 3
-  },
-  "apps/web/src/app/api/conversations/[id]/skip/route.ts": {
-    "ratio": 0.375,
-    "code": 8,
-    "comment": 3
-  },
-  "apps/web/src/app/api/conversations/route.ts": {
-    "ratio": 0.1852,
-    "code": 27,
-    "comment": 5
-  },
-  "apps/web/src/app/api/dev/backfill-planets/route.ts": {
-    "ratio": 0.0746,
-    "code": 67,
-    "comment": 5
-  },
-  "apps/web/src/app/api/dev/planet-gallery/route.ts": {
-    "ratio": 0.0938,
-    "code": 32,
-    "comment": 3
-  },
-  "apps/web/src/app/api/dev/seed/route.ts": {
-    "ratio": 0.0556,
-    "code": 54,
-    "comment": 3
-  },
-  "apps/web/src/app/api/dev/seed/showcase.ts": {
-    "ratio": 0.123,
-    "code": 309,
-    "comment": 38
-  },
-  "apps/web/src/app/api/docs/content/route.ts": {
-    "ratio": 0.2222,
-    "code": 63,
-    "comment": 14
-  },
-  "apps/web/src/app/api/docs/export/route.ts": {
-    "ratio": 0.2,
-    "code": 5,
-    "comment": 1
-  },
-  "apps/web/src/app/api/drafts/route.ts": {
-    "ratio": 0.0313,
-    "code": 32,
-    "comment": 1
-  },
-  "apps/web/src/app/api/events/route.ts": {
-    "ratio": 0.2857,
-    "code": 21,
-    "comment": 6
-  },
-  "apps/web/src/app/api/flutter/devices/route.ts": {
-    "ratio": 0.25,
-    "code": 8,
-    "comment": 2
-  },
-  "apps/web/src/app/api/flutter/mirror/route.ts": {
-    "ratio": 0.125,
-    "code": 16,
-    "comment": 2
-  },
-  "apps/web/src/app/api/flutter/run/route.ts": {
-    "ratio": 0.069,
-    "code": 29,
-    "comment": 2
-  },
-  "apps/web/src/app/api/flutter/screenshot/route.ts": {
-    "ratio": 0.1538,
-    "code": 13,
-    "comment": 2
-  },
-  "apps/web/src/app/api/github-accounts/[id]/route.ts": {
-    "ratio": 0.0556,
-    "code": 36,
-    "comment": 2
-  },
-  "apps/web/src/app/api/github-accounts/[id]/status/route.ts": {
-    "ratio": 0.3846,
-    "code": 13,
-    "comment": 5
-  },
-  "apps/web/src/app/api/github-accounts/route.ts": {
-    "ratio": 0.3043,
-    "code": 23,
-    "comment": 7
-  },
-  "apps/web/src/app/api/health/route.ts": {
-    "ratio": 0.1,
-    "code": 10,
-    "comment": 1
-  },
-  "apps/web/src/app/api/memory/global/route.ts": {
-    "ratio": 0.0714,
-    "code": 14,
-    "comment": 1
-  },
-  "apps/web/src/app/api/power/route.ts": {
-    "ratio": 0.2308,
-    "code": 39,
-    "comment": 9
-  },
-  "apps/web/src/app/api/processes/[pid]/logs/route.ts": {
-    "ratio": 0.0667,
-    "code": 15,
-    "comment": 1
-  },
-  "apps/web/src/app/api/processes/[pid]/route.ts": {
-    "ratio": 0.0556,
-    "code": 18,
-    "comment": 1
-  },
-  "apps/web/src/app/api/processes/[pid]/stdin/route.ts": {
-    "ratio": 0.0556,
-    "code": 18,
-    "comment": 1
-  },
-  "apps/web/src/app/api/processes/route.ts": {
-    "ratio": 0.4,
-    "code": 5,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/build/route.ts": {
-    "ratio": 0.1034,
-    "code": 29,
-    "comment": 3
-  },
-  "apps/web/src/app/api/projects/[id]/clear-cache/route.ts": {
-    "ratio": 0.0833,
-    "code": 24,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/dev/route.ts": {
-    "ratio": 0.1373,
-    "code": 51,
-    "comment": 7
-  },
-  "apps/web/src/app/api/projects/[id]/folder/route.ts": {
-    "ratio": 0.3333,
-    "code": 12,
-    "comment": 4
-  },
-  "apps/web/src/app/api/projects/[id]/git-status/route.ts": {
-    "ratio": 0.2727,
-    "code": 11,
-    "comment": 3
-  },
-  "apps/web/src/app/api/projects/[id]/install/route.ts": {
-    "ratio": 0.1429,
-    "code": 56,
-    "comment": 8
-  },
-  "apps/web/src/app/api/projects/[id]/memory/route.ts": {
-    "ratio": 0.08,
-    "code": 25,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/open-folder/route.ts": {
-    "ratio": 0.0952,
-    "code": 21,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/roster/[instanceId]/repair-worktree/route.ts": {
-    "ratio": 0.2222,
-    "code": 18,
-    "comment": 4
-  },
-  "apps/web/src/app/api/projects/[id]/roster/[instanceId]/route.ts": {
-    "ratio": 0.0526,
-    "code": 38,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/roster/route.ts": {
-    "ratio": 0.1786,
-    "code": 28,
-    "comment": 5
-  },
-  "apps/web/src/app/api/projects/[id]/route.ts": {
-    "ratio": 0.175,
-    "code": 40,
-    "comment": 7
-  },
-  "apps/web/src/app/api/projects/[id]/secrets/[secretId]/route.ts": {
-    "ratio": 0.4,
-    "code": 10,
-    "comment": 4
-  },
-  "apps/web/src/app/api/projects/[id]/secrets/route.ts": {
-    "ratio": 0.25,
-    "code": 20,
-    "comment": 5
-  },
-  "apps/web/src/app/api/projects/[id]/spend/route.ts": {
-    "ratio": 0.1818,
-    "code": 11,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/uploads/[filename]/route.ts": {
-    "ratio": 0.1333,
-    "code": 15,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/[id]/uploads/route.ts": {
-    "ratio": 0.1429,
-    "code": 14,
-    "comment": 2
-  },
-  "apps/web/src/app/api/projects/bootstrap/route.ts": {
-    "ratio": 0.1923,
-    "code": 52,
-    "comment": 10
-  },
-  "apps/web/src/app/api/projects/route.ts": {
-    "ratio": 0.1429,
-    "code": 14,
-    "comment": 2
-  },
-  "apps/web/src/app/api/prompts/route.ts": {
-    "ratio": 0.2,
-    "code": 5,
-    "comment": 1
-  },
-  "apps/web/src/app/api/runs/[id]/abort/route.ts": {
-    "ratio": 0.1,
-    "code": 10,
-    "comment": 1
-  },
-  "apps/web/src/app/api/runs/[id]/children/route.ts": {
-    "ratio": 0.1,
-    "code": 10,
-    "comment": 1
-  },
-  "apps/web/src/app/api/runs/[id]/permission/route.ts": {
-    "ratio": 0.2439,
-    "code": 41,
-    "comment": 10
-  },
-  "apps/web/src/app/api/runs/[id]/route.ts": {
-    "ratio": 0.2308,
-    "code": 13,
-    "comment": 3
-  },
-  "apps/web/src/app/api/runs/[id]/stream/route.ts": {
-    "ratio": 0.0606,
-    "code": 33,
-    "comment": 2
-  },
-  "apps/web/src/app/api/runs/[id]/tree/route.ts": {
-    "ratio": 0.0909,
-    "code": 11,
-    "comment": 1
-  },
-  "apps/web/src/app/api/runs/abort-all/route.ts": {
-    "ratio": 0.0714,
-    "code": 14,
-    "comment": 1
-  },
-  "apps/web/src/app/api/runs/route.ts": {
-    "ratio": 0.2895,
-    "code": 38,
-    "comment": 11
-  },
-  "apps/web/src/app/api/save/export/route.ts": {
-    "ratio": 0.1111,
-    "code": 18,
-    "comment": 2
-  },
-  "apps/web/src/app/api/save/import/route.ts": {
-    "ratio": 0.0385,
-    "code": 26,
-    "comment": 1
-  },
-  "apps/web/src/app/api/schedules/[id]/route.ts": {
-    "ratio": 0.05,
-    "code": 20,
-    "comment": 1
-  },
-  "apps/web/src/app/api/schedules/[id]/run/route.ts": {
-    "ratio": 0.2,
-    "code": 10,
-    "comment": 2
-  },
-  "apps/web/src/app/api/schedules/route.ts": {
-    "ratio": 0.0714,
-    "code": 14,
-    "comment": 1
-  },
-  "apps/web/src/app/api/secrets/[id]/route.ts": {
-    "ratio": 0.04,
-    "code": 25,
-    "comment": 1
-  },
-  "apps/web/src/app/api/secrets/[id]/test/route.ts": {
-    "ratio": 0.1818,
-    "code": 11,
-    "comment": 2
-  },
-  "apps/web/src/app/api/secrets/route.ts": {
-    "ratio": 0.2778,
-    "code": 18,
-    "comment": 5
-  },
-  "apps/web/src/app/api/settings/route.ts": {
-    "ratio": 0.129,
-    "code": 31,
-    "comment": 4
-  },
-  "apps/web/src/app/api/settings/scan/route.ts": {
-    "ratio": 0.1429,
-    "code": 21,
-    "comment": 3
-  },
-  "apps/web/src/app/api/skills/[name]/customization/route.ts": {
-    "ratio": 0.0968,
-    "code": 31,
-    "comment": 3
-  },
-  "apps/web/src/app/api/skills/[name]/route.ts": {
-    "ratio": 0.0625,
-    "code": 16,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/[name]/update/route.ts": {
-    "ratio": 0.0625,
-    "code": 16,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/compatibility/route.ts": {
-    "ratio": 0.0625,
-    "code": 16,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/create/route.ts": {
-    "ratio": 0.0455,
-    "code": 22,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/icons/route.ts": {
-    "ratio": 0.0667,
-    "code": 30,
-    "comment": 2
-  },
-  "apps/web/src/app/api/skills/import/route.ts": {
-    "ratio": 0.0588,
-    "code": 17,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/install/route.ts": {
-    "ratio": 0.0556,
-    "code": 18,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/installed/route.ts": {
-    "ratio": 0.0833,
-    "code": 12,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/manifest/route.ts": {
-    "ratio": 0.0625,
-    "code": 16,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/registry/route.ts": {
-    "ratio": 0.0556,
-    "code": 18,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/sources/route.ts": {
-    "ratio": 0.027,
-    "code": 37,
-    "comment": 1
-  },
-  "apps/web/src/app/api/skills/updates/route.ts": {
-    "ratio": 0.0833,
-    "code": 12,
-    "comment": 1
-  },
-  "apps/web/src/app/api/starter/agent-diff/route.ts": {
-    "ratio": 0.3182,
-    "code": 22,
-    "comment": 7
-  },
-  "apps/web/src/app/api/starter/agents/route.ts": {
-    "ratio": 0.25,
-    "code": 20,
-    "comment": 5
-  },
-  "apps/web/src/app/api/summon/route.ts": {
-    "ratio": 0.16,
-    "code": 25,
-    "comment": 4
-  },
-  "apps/web/src/app/api/templates/route.ts": {
-    "ratio": 0.2,
-    "code": 5,
-    "comment": 1
-  },
-  "apps/web/src/app/api/transcripts/route.ts": {
-    "ratio": 0.0127,
-    "code": 79,
-    "comment": 1
-  },
-  "apps/web/src/app/api/ui-settings/route.ts": {
-    "ratio": 0.1887,
-    "code": 53,
-    "comment": 10
-  },
-  "apps/web/src/app/api/user-analysis/route.ts": {
-    "ratio": 0.2059,
-    "code": 68,
-    "comment": 14
-  },
-  "apps/web/src/app/api/workflows/[id]/route.ts": {
-    "ratio": 0.0909,
-    "code": 11,
-    "comment": 1
-  },
-  "apps/web/src/app/api/workflows/[id]/use/route.ts": {
-    "ratio": 0.125,
-    "code": 8,
-    "comment": 1
-  },
-  "apps/web/src/app/api/workflows/bulk/route.ts": {
-    "ratio": 0.0909,
-    "code": 11,
-    "comment": 1
-  },
-  "apps/web/src/app/api/workflows/route.ts": {
-    "ratio": 0.0588,
-    "code": 17,
-    "comment": 1
   },
   "apps/web/src/app/app-events.tsx": {
     "ratio": 0.2432,
@@ -1099,11 +1149,6 @@
     "code": 12,
     "comment": 0
   },
-  "apps/web/src/instrumentation-node.ts": {
-    "ratio": 0.4021,
-    "code": 97,
-    "comment": 39
-  },
   "apps/web/src/instrumentation.ts": {
     "ratio": 2,
     "code": 5,
@@ -1124,11 +1169,6 @@
     "code": 37,
     "comment": 14
   },
-  "apps/web/src/lib/api-helpers.ts": {
-    "ratio": 0.0993,
-    "code": 151,
-    "comment": 15
-  },
   "apps/web/src/lib/api/account.ts": {
     "ratio": 0.4,
     "code": 10,
@@ -1144,6 +1184,11 @@
     "code": 49,
     "comment": 5
   },
+  "apps/web/src/lib/api/fetch.ts": {
+    "ratio": 0.1304,
+    "code": 69,
+    "comment": 9
+  },
   "apps/web/src/lib/api/flutter.ts": {
     "ratio": 0.1923,
     "code": 26,
@@ -1153,6 +1198,11 @@
     "ratio": 0.1481,
     "code": 27,
     "comment": 4
+  },
+  "apps/web/src/lib/api/query-keys.ts": {
+    "ratio": 0.1019,
+    "code": 108,
+    "comment": 11
   },
   "apps/web/src/lib/api/roster.ts": {
     "ratio": 0.3333,
@@ -1219,11 +1269,6 @@
     "code": 25,
     "comment": 2
   },
-  "apps/web/src/lib/env.ts": {
-    "ratio": 0.9767,
-    "code": 43,
-    "comment": 42
-  },
   "apps/web/src/lib/flutter-store.ts": {
     "ratio": 0,
     "code": 13,
@@ -1269,40 +1314,10 @@
     "code": 9,
     "comment": 0
   },
-  "apps/web/src/lib/server-process-store.ts": {
-    "ratio": 0,
-    "code": 62,
-    "comment": 0
-  },
-  "apps/web/src/lib/server/flutter.ts": {
-    "ratio": 0.0699,
-    "code": 186,
-    "comment": 13
-  },
-  "apps/web/src/lib/server/project-runtime.ts": {
-    "ratio": 0.2424,
-    "code": 33,
-    "comment": 8
-  },
-  "apps/web/src/lib/server/starter-data.ts": {
-    "ratio": 0.1164,
-    "code": 292,
-    "comment": 34
-  },
-  "apps/web/src/lib/server/terminal.ts": {
-    "ratio": 0.1695,
-    "code": 59,
-    "comment": 10
-  },
   "apps/web/src/lib/sign-in-modal-store.ts": {
     "ratio": 0.3125,
     "code": 16,
     "comment": 5
-  },
-  "apps/web/src/lib/sse.ts": {
-    "ratio": 0.0208,
-    "code": 48,
-    "comment": 1
   },
   "apps/web/src/lib/tabs-store.ts": {
     "ratio": 0.163,
@@ -1333,16 +1348,6 @@
     "ratio": 0.3333,
     "code": 21,
     "comment": 7
-  },
-  "apps/web/src/lib/validation-schemas.ts": {
-    "ratio": 0.0929,
-    "code": 312,
-    "comment": 29
-  },
-  "apps/web/src/lib/validation.ts": {
-    "ratio": 0,
-    "code": 31,
-    "comment": 0
   },
   "apps/web/src/modules/accounts/components/accounts-stats-panel.tsx": {
     "ratio": 0.0508,
@@ -2584,11 +2589,6 @@
     "code": 66,
     "comment": 13
   },
-  "apps/web/src/modules/summon/format/thread-types.ts": {
-    "ratio": 0.2941,
-    "code": 17,
-    "comment": 5
-  },
   "apps/web/src/modules/summon/format/tool-item.ts": {
     "ratio": 0.3585,
     "code": 53,
@@ -2684,6 +2684,16 @@
     "code": 47,
     "comment": 0
   },
+  "apps/web/src/proxy.ts": {
+    "ratio": 0,
+    "code": 24,
+    "comment": 0
+  },
+  "packages/api-contract/src/schemas.ts": {
+    "ratio": 0.0929,
+    "code": 312,
+    "comment": 29
+  },
   "packages/domain/src/config/agent-opts.ts": {
     "ratio": 1.5,
     "code": 10,
@@ -2738,16 +2748,6 @@
     "ratio": 0.5593,
     "code": 59,
     "comment": 33
-  },
-  "packages/domain/src/hooks/api.ts": {
-    "ratio": 0.1304,
-    "code": 69,
-    "comment": 9
-  },
-  "packages/domain/src/hooks/query-keys.ts": {
-    "ratio": 0.1019,
-    "code": 108,
-    "comment": 11
   },
   "packages/domain/src/index.ts": {
     "ratio": 0,
@@ -3114,9 +3114,9 @@
     "code": 594,
     "comment": 96
   },
-  "apps/web/src/proxy.ts": {
-    "ratio": 0,
-    "code": 24,
-    "comment": 0
+  "packages/domain/src/types/thread.ts": {
+    "ratio": 0.2941,
+    "code": 17,
+    "comment": 5
   }
 }

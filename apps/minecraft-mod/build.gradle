@@ -1,0 +1,78 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+            // Skip the menus once the dev world exists (create it once from the title screen).
+            if (file("run/saves/${dev_world}").exists() && !project.hasProperty('aoOpen')) {
+                programArguments.addAll '--quickPlaySingleplayer', dev_world
+            }
+            // Scripted checks, see DevHooks: -PaoOpen=office|chat:project:instance:agent|tablet -PaoQuit=true -PaoScroll=N
+            systemProperty 'agentoffice.dev.open', (project.findProperty('aoOpen') ?: '').toString()
+            systemProperty 'agentoffice.dev.quit', (project.findProperty('aoQuit') ?: 'false').toString()
+            // -PaoScroll=N wheel notches up before the screenshot; -PaoScrollDown=M then M back down.
+            systemProperty 'agentoffice.dev.scroll', (project.findProperty('aoScroll') ?: '0').toString()
+            systemProperty 'agentoffice.dev.scrollDown', (project.findProperty('aoScrollDown') ?: '0').toString()
+            // -PaoPress=Label presses the first button with that label before the shot (read-only client: nothing changes).
+            systemProperty 'agentoffice.dev.press', (project.findProperty('aoPress') ?: '').toString()
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // core/ uses Gson + slf4j, which Minecraft provides in game but MDG leaves off the plain JUnit runtime.
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testRuntimeOnly 'org.slf4j:slf4j-api:2.0.9'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            neo_version: neo_version, neo_version_range: neo_version_range, loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

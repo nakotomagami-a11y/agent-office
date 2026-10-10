@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
+import { queryKeys } from "@/lib/api/query-keys";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";

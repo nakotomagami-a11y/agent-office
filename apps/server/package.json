@@ -1,0 +1,37 @@
+{
+  "name": "@agent-office/server",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./boot": "./src/boot.ts",
+    "./guard": "./src/guard.ts",
+    "./render": "./src/render.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts --dev",
+    "start": "tsx src/main.ts",
+    "routes": "node scripts/gen-route-table.mjs",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/run-tests.mjs"
+  },
+  "dependencies": {
+    "@agent-office/api-contract": "workspace:*",
+    "@agent-office/domain": "workspace:*",
+    "@hono/node-server": "^1.19.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.3",
+    "@typescript-eslint/eslint-plugin": "^8.63.0",
+    "@typescript-eslint/parser": "^8.63.0",
+    "eslint": "^9.15.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

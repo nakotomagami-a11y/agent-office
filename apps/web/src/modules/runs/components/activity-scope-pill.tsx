@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
-import { PAGE_ROUTES } from "@agent-office/domain/config/routes";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 

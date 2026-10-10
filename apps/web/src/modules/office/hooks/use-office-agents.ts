@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@agent-office/domain/hooks/api";
-import { queryKeys } from "@agent-office/domain/hooks/query-keys";
-import { API_ROUTES } from "@agent-office/domain/config/routes";
+import { apiFetch } from "@/lib/api/fetch";
+import { queryKeys } from "@/lib/api/query-keys";
+import { API_ROUTES } from "@agent-office/api-contract";
 import type { ApiAgent, PersistedRun } from "@agent-office/domain/types";
 import { POLL } from "@/lib/polling";
 import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";

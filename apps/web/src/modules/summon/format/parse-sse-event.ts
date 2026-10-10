@@ -3,7 +3,7 @@ import { applyToolDoneEvent, applyToolEvent, newId } from "./tool-item";
 import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
-import type { SubAgentStatus, ThreadItem, UsageMeter } from "./thread-types";
+import type { SubAgentStatus, ThreadItem, UsageMeter } from "@agent-office/domain/types";
 
 export interface ApplyResult {
   thread: ThreadItem[];

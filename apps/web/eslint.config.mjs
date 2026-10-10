@@ -20,6 +20,18 @@ import nextPlugin from "@next/eslint-plugin-next";
  *   - ui.flexbox-only (warn): flag CSS Grid usage in JSX
  *     className strings and template literals. Convert to Flexbox.
  */
+const WEB_THROUGH_SERVER =
+  "RULE arch.web-through-server (docs/conventions.md): the UI reaches the brains over HTTP — API_ROUTES from @agent-office/api-contract — never by calling domain services or the server in-process. Types are fine (`import type`).";
+const DOMAIN_SERVICES = {
+  // Except the browser-safe three: packages/domain lint holds them to importing
+  // nothing but each other. A regex, because gitignore-style `!` cannot re-include
+  // a file whose parent directory a pattern already matched.
+  regex: "^@agent-office/domain/services(?!/execution/(loop-machine|runs/errors|runs/reset-time)$)(/.*)?$",
+  allowTypeImports: true,
+  message: WEB_THROUGH_SERVER,
+};
+const SERVER = { group: ["@agent-office/server", "@agent-office/server/*"], message: WEB_THROUGH_SERVER };
+
 export default [
   {
     ignores: ["**/.next/**", "**/node_modules/**", "**/dist/**", "**/build/**", "**/starter-data/**"],
@@ -133,13 +145,21 @@ export default [
           ],
         },
       ],
+
+      "@typescript-eslint/no-restricted-imports": ["error", { patterns: [DOMAIN_SERVICES, SERVER] }],
     },
   },
   {
-    // Instrumentation runs at server boot; a startup log line is
-    // acceptable operator signal.
-    files: ["src/instrumentation-node.ts"],
-    rules: { "no-console": "off" },
+    // The seams where the Next process hosts the server. Everything else talks
+    // to it over HTTP, so it keeps working when the server runs on its own.
+    files: [
+      "src/app/api/[[]...path]/route.ts",
+      "src/app/layout.tsx",
+      "src/app/(app)/agents/[[]id]/edit/page.tsx",
+      "src/instrumentation-node.ts",
+      "src/proxy.ts",
+    ],
+    rules: { "@typescript-eslint/no-restricted-imports": ["error", { patterns: [DOMAIN_SERVICES] }] },
   },
   {
     // Hand-run test scripts report via console by design — same exemption
