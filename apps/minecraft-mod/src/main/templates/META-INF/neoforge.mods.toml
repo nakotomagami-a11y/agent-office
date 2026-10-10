@@ -2,9 +2,9 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
-# Client-only: the main class is @Mod(dist = CLIENT) and the mod registers no network channels, so you
-# can join any server with it and your chats never reach a server; it only talks to Agent Office on this
-# PC. The Agent Tablet item exists only in singleplayer / LAN worlds (their integrated server is this jar).
+# Both sides: agent bodies are real entities (with inventories) that the world saves, so the server that
+# runs the world needs this jar: singleplayer / LAN always have it (their integrated server is this jar),
+# a dedicated server needs it installed. Chats still only reach Agent Office on the player's own PC.
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
@@ -17,11 +17,19 @@ description='''${mod_description}'''
     type="required"
     versionRange="${neo_version_range}"
     ordering="NONE"
-    side="CLIENT"
+    side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="minecraft"
     type="required"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
-    side="CLIENT"
+    side="BOTH"
+
+# With Curios, an agent's inventory has the same extra slots as the player's (rings, back, charms …).
+[[dependencies.${mod_id}]]
+    modId="curios"
+    type="optional"
+    versionRange="[9.5.1,)"
+    ordering="NONE"
+    side="BOTH"

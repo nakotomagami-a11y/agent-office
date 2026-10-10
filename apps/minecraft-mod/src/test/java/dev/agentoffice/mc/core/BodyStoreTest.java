@@ -48,6 +48,23 @@ class BodyStoreTest {
         assertEquals(9, store.in("sp:Dev", "minecraft:the_nether").get(0).x());
     }
 
+    @Test
+    void aWorldsBodiesInEveryDimensionAreListedAndEachIsForgottenOnceHandedOver() {
+        Path file = dir.resolve("b.json");
+        BodyStore store = new BodyStore(file);
+        BodyStore.Body shell = BodyStore.Body.shell("sp:Dev", "minecraft:overworld", 1, 64, 1, 0);
+        store.place(body("sp:Dev", "minecraft:overworld", DEV, 0));
+        store.place(body("sp:Dev", "minecraft:the_nether", QA, 0));
+        store.place(shell);
+        store.place(body("sp:Other", "minecraft:overworld", DEV, 0));
+        assertEquals(3, store.in("sp:Dev").size(), "every dimension, shells included");
+        store.remove("sp:Dev", DEV);
+        store.removeShell("sp:Dev", shell.shell());
+        assertEquals(List.of(body("sp:Dev", "minecraft:the_nether", QA, 0)), new BodyStore(file).in("sp:Dev"),
+                "saved: a body not handed over yet waits for a later join");
+        assertEquals(1, new BodyStore(file).in("sp:Other").size());
+    }
+
     private static final Api.Slot DEV_2 = new Api.Slot("p1", "Agent Office", "developer", "developer-c3", null);
 
     @Test

@@ -13,6 +13,11 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+repositories {
+    // Curios: the inventory-extension API modpacks use (agent bodies mirror the player's slots).
+    maven { url = "https://maven.theillusivec4.top/" }
+}
+
 neoForge {
     version = project.neo_version
 
@@ -36,6 +41,17 @@ neoForge {
             systemProperty 'agentoffice.dev.scrollDown', (project.findProperty('aoScrollDown') ?: '0').toString()
             // -PaoPress=Label presses the first button with that label before the shot (read-only client: nothing changes).
             systemProperty 'agentoffice.dev.press', (project.findProperty('aoPress') ?: '').toString()
+            // Multiplayer checks: -PaoServer=localhost joins a server (runServer) instead of the dev world;
+            // a second player at once: -PaoUser=Dev2 -PaoGameDir=run-client2.
+            systemProperty 'agentoffice.dev.server', (project.findProperty('aoServer') ?: '').toString()
+            if (project.hasProperty('aoUser')) programArguments.addAll '--username', project.findProperty('aoUser').toString()
+            if (project.hasProperty('aoGameDir')) gameDirectory = file(project.findProperty('aoGameDir'))
+        }
+        // A dedicated server in run-server/ (accept the EULA in run-server/eula.txt once).
+        server {
+            server()
+            gameDirectory = file('run-server')
+            programArgument '--nogui'
         }
     }
 
@@ -47,6 +63,9 @@ neoForge {
 }
 
 dependencies {
+    // Optional in game (declared in neoforge.mods.toml); -PaoNoCurios runs the dev client without it.
+    compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
+    if (!project.hasProperty('aoNoCurios')) runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}"
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     // core/ uses Gson + slf4j, which Minecraft provides in game but MDG leaves off the plain JUnit runtime.

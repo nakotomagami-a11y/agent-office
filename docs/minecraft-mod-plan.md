@@ -11,18 +11,18 @@ Status: **phase 1 built, awaiting the user's proof run** (`apps/minecraft-mod/`)
 - Agent Office runs on the same PC as Minecraft. No hub, no network exposure; the mod only accepts
   loopback URLs (config override > advertised servers, newest first > `:3000`) and only trusts a `/api/health` that
   answers `{available, version}`.
-- **Client-only** (`@Mod(dist = CLIENT)`, no network channels registered): servers never need the mod, other players never see or
-  reach your agents, prompts and replies never touch the Minecraft server.
+- **Both sides since 0.6.0** (was client-only): bodies are world entities with inventories, so the world's server runs
+  the mod too (singleplayer/LAN always do; a dedicated server needs the jar). Prompts and replies still never touch
+  the Minecraft server: only the player's own client talks to Agent Office. See "bodies are entities" below.
 - `K` opens the agent picker (every project roster seat). In a world each seat has **Place/Move**.
-- **Bodies are client-only villagers** (`AgentBody`, negative entity ids, nothing registered), drawn as players with their agent's skin (see "agents look like people" below). Clicks
-  on them are handled and cancelled client-side, so no packet about them reaches the server.
-  Positions persist in `<gameDir>/config/agentoffice-bodies.json` per world + dimension. Dismissing a
-  body never touches Agent Office. Nameplate status is polled (read-only GET) every 5 s.
+- **Bodies are entities** (`agentoffice:agent`, `AgentEntity`), owned by the player who placed them, drawn as players
+  with their agent's skin and their equipment. Use = chat (client-side, no packet); sneak-use = its inventory.
+  Dismissing a body never touches Agent Office. Nameplate status is polled (read-only GET) every 5 s, owner only.
 - Placing a body uses an **existing** roster seat. Creating seats from the game (`POST roster`) is later.
 - Chat follows `docs/chat-refactor.md`: render the server's turns, stream the active run, re-read on end.
 - No extra Java deps: `java.net.http.HttpClient` (pinned to HTTP/1.1 — the default h2c upgrade makes
   Agent Office's Node server drop the connection) and Gson (ships with Minecraft).
-- Server entities, a wand item and owner checks move to phase 2 with world tools.
+- A wand item and world tools are phase 2.
 
 ## App changes
 
@@ -299,18 +299,75 @@ User: "there wouldnt be 5 developers, instead its 1 developer that manages all d
   shared with the egg setup: soft-cap confirm, and after a timeout it waits up to 2 min for the seat to appear, since
   the server makes the worktree before listing the seat, rather than letting a retry make a second).
 
+### Changed (0.6.0, 2026-10-10) — bodies are entities, with inventory and equipment
+
+User: agents get an in-game inventory shaped exactly like the player's, modpack extensions included; items are each
+agent's own. Hard rule: **only armor and weapon effects count, everything else is cosmetic**. Next: stats, then walking
+(both need real entities, hence the switch from client-only villagers).
+- `agentoffice:agent` (`AgentEntity`, a `PathfinderMob`, player-sized, invulnerable, not pushable, never despawns,
+  `LookAtPlayerGoal` replaces the client-side head turning). Player attribute values (attack 1, speed 4, …), so gear
+  gives an agent the numbers it gives a player. Shells are the same entity without a seat; the renderer
+  (`AgentRenderer`) draws them as nitwit villagers, set-up bodies as players with armor, held items, elytra, head and
+  Curios layers.
+- **Items live in `AgentRecords`** (world `SavedData`, one record per owner + project + agent), not in the entity:
+  seat, which entity is the body, 41 stacks in vanilla `Inventory` indexing (0 = hand, 36-39 armor, 40 offhand) and
+  Curios stacks per slot id. Equipment is the record's own stacks (`setItemSlot` writes through), so vanilla
+  attributes, enchantments, durability and equipment sync just work. Place/Move always spawns a new body and
+  discards the old; a body whose id is no longer its record's discards itself when its chunk loads. So a body left in
+  an unloaded chunk can be moved without losing or duplicating items.
+- **Inventory** (`AgentMenu` + `AgentInventoryScreen`, vanilla textures): a chest-like window with its 27 slots and
+  hotbar (first slot = the hand, framed like the selected hotbar slot) over the player's inventory, armor + offhand +
+  preview in a right panel, Curios in a left panel. Side panels, not a taller window: auto GUI scale only promises
+  240 of height. Shift-click: agent → player; player → armor, Curios, then main slots.
+- **Curios (optional, compile-only API)**: modpacks extend the inventory with Curios (all three of the user's packs):
+  each mod's `curios/entities/*.json` adds slot types to `minecraft:player`. The agent's panel copies the opener's
+  visible Curios slots at open time (`CuriosCompat.shape`); items in slots the shape lacks go back to the player.
+  The agent has **no Curios capability**, so no curio effect can ever apply to it (the rule); `CuriosLayer` calls
+  each item's own `ICurioRenderer` from the synced `CURIOS` data. Curios types stay in `CuriosBridge`/`CuriosLayer`,
+  only loaded when Curios is. Dev: Curios is on the dev runtime; `-PaoNoCurios` runs without it.
+- Totems: `LivingUseTotemEvent` is cancelled for agents (a held totem is not armor or a weapon).
+- Death (only past invulnerability: `/kill`, the void) drops nothing: the items stay in the record (`entity` = none)
+  and the owner's next Place brings the body back with them (`dropEquipment`, so a death a mod cancels changes
+  nothing). Dismiss returns everything to the dismissing player (inventory, else at their feet).
+- Owner only: the inventory, chat and every C2S payload check the owner. Others get "That's another player's agent";
+  on the server `PlayerInteractEvent.EntityInteract` refuses every use but the owner's main-hand sneak-use (its
+  inventory), and that too with a name tag or lead in hand (a name tag would break the live nameplate). Only Place moves an
+  agent: no leads, pistons, currents, explosions, knockback, rods or bubble columns (only falling, until walking).
+- **Network** (`AgentNet`, optional channels, so the client still joins servers without the mod): C2S Place, Retarget,
+  Dismiss, AssignShell, RemoveShell, Migrate; S2C Placed (the player's bodies: entity id + seat, on login and on every
+  change). The client-side `Bodies` keeps its old API for the screens, backed by that list.
+- **Only the owner learns a seat** (project id/name, instance): the entity syncs just the agent id (skin) and its
+  name; the owner's client maps entity → seat from Placed. Any client can send the C2S payloads, a modified one too:
+  strings ≤ 128 (the client cuts names and refuses over-long ids, `Bodies.wire`), lists ≤ 64, ≤ 64 agents per player,
+  finite coordinates in the world border, `mayBuild` + `mayInteract` (vanilla spawn protection only, not claim mods),
+  reach 32 (shells too), no spectators, 4-tick cooldown per player. Curios shapes are bounded the same on both sides
+  (`CuriosCompat.bounded`: ≤ 256 types, ≤ 64 each) so client and server menus line up.
+- **Migration**: ~5 s after joining a world that has the mod, the client sends that world's old
+  `agentoffice-bodies.json` bodies in this dimension within ~120 blocks; the server takes one Migrate per login and
+  spawns each where it stood in an already loaded chunk (never loads or generates one, skips agents it has). The
+  client forgets only the ones the next Placed shows; the rest wait for a later join. Old shells are dropped.
+- Dev checks: `-PaoOpen=dress:p:i:a` (body ahead in armor, sword and shield), `-PaoOpen=inventory:p:i:a` (then
+  sneak-used). The dev world copy needs a datapack giving `minecraft:player` Curios slots to show the panel (Curios
+  alone assigns none).
+- **Multiplayer check (done 2026-10-10)**: `gradlew runServer` (run-server/: eula, offline mode, ops for Dev/Dev2 by
+  their offline UUIDs, the Curios datapack in world/datapacks), then `runClient -PaoServer=localhost -PaoOpen=dress:…`
+  as the owner and `runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2 -PaoOpen=observe|trespass:…`
+  as a second player. Verified: dedicated server boots with the mod; owner places, dresses (`/item replace`) and opens
+  the inventory over the network; Dev2 sees the gear and only the name (no status, no seat); Dev2's raw sneak-use
+  packet and a Dismiss with the real seat change nothing, even as an op.
+
 
 
 ## Dev loop
 
-- **Phase 1 = client-only bodies** (agreed 2026-10-09). Server half only when world actions arrive.
+- **Phase 1 = client-only bodies** (agreed 2026-10-09); bodies became entities in 0.6.0 for inventories.
 - `gradlew runClient` (ModDevGradle) = NeoForge + this mod only, own `run/` folder, separate from the
   real `.minecraft` and CurseForge instances.
 - Auto-join a dev world on launch: `--quickPlaySingleplayer <world>` in the `runClient` args (1.20+).
   The world: superflat, peaceful, `doDaylightCycle`/`doWeatherCycle`/`doMobSpawning` false, low render distance.
 - Fewer restarts: debug-run + JVM hotswap for method-body edits (JetBrains Runtime's enhanced class
   redefinition also allows new methods/fields); `F3+T` reloads textures/models/lang. Restart needed for
-  new classes, mixins, registrations (phase 1 registers nothing).
+  new classes, mixins, registrations.
 - Most logic lives in the plain-Java core → JUnit tests, no game launch.
 - Agent Office "sim" mode (scripted agents) to iterate on visuals without spending tokens.
 - Compatibility check at milestones only: drop the built jar into a CurseForge test profile with a real pack.

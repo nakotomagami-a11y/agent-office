@@ -22,12 +22,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Where the player placed which agent: one body per agent per project, talking to one of that agent's
- * seats (switched from the chat). Bodies exist only on this client, so their positions live
- * here (one JSON file in the game's config dir), keyed by world and dimension. Removing a body
- * never touches Agent Office: the agent, its seat and its conversation stay.
+ * Where the player placed which agent back when bodies existed only on the client: one body per agent per
+ * project, talking to one of that agent's seats, in one JSON file in the game's config dir, keyed by world
+ * and dimension. Bodies are world entities now (AgentEntity); a world's entries here are handed to it as
+ * entities the first time the player joins it, then forgotten.
  *
- * This is cosmetic state inside someone's game: nothing here may throw into Minecraft, and the
+ * This is state inside someone's game: nothing here may throw into Minecraft, and the
  * player's placements must not be lost. A file with bad content is set aside as *.corrupt-<ms>.
  * A file that can't be read right now (a scanner or sync client holding it) is retried before the
  * next save and merged, never overwritten blind.
@@ -95,6 +95,11 @@ public final class BodyStore {
 
     public synchronized List<Body> in(String world, String dimension) {
         return bodies.stream().filter(b -> b.world().equals(world) && b.dimension().equals(dimension)).toList();
+    }
+
+    /** Every dimension's. */
+    public synchronized List<Body> in(String world) {
+        return bodies.stream().filter(b -> b.world().equals(world)).toList();
     }
 
     /** One body per agent per project per world: placing again (any of its seats) moves it. */
