@@ -618,9 +618,8 @@ final class ReviewScreen extends TabletScreen {
     }
 
     @Override
-    public void removed() {
+    protected void onRemoved() {
         closed = true;
-        super.removed();
     }
 
     private void onMain(Runnable r) {

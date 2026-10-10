@@ -25,6 +25,28 @@ v2 API / GitHub on 2026-10-10. Companion to `minecraft-mod-plan.md`.
 - "Integrated like Create" = work with Create's mechanics (display boards, Ponder, contraptions), not
   copy its GUI library.
 
+## Refresh (2026-10-10, UI rework): NeoForge 1.21.1 builds + what real packs already ship
+
+Modrinth API, same day. "Packs" = the user's CurseForge instances All of Create (207 mods), Craftoria (523),
+Create'a Colony (122). A lib already in packs costs players nothing as a soft dependency.
+
+| Lib | NeoForge 1.21.1 build | In packs | License | Use for us |
+|---|---|---|---|---|
+| **LDLib2** (Modrinth slug `ldlib`, v2.x) | 2.2.42, 2026-10-04 | none | LGPL-3.0 | Native app-style UI: TabView, SplitView, VirtualScrollerView, TextArea, SearchComponent, TreeList, LSS styles, UI editor, smooth fonts. Still no markdown element |
+| **Rinku** (Chromium) | 3.0.4, 2026-08-27 | none | LGPL-2.1+ | Show the real web UI on the tablet |
+| **Curios** | 9.5.1, 2025-05-14 | all 3 | LGPL-3.0 | Tablet slot + keybind, no hotbar slot |
+| **Jade** | 15.10.6, 2026-08-06 | all 3 | CC-BY-NC-SA | Look at a body → status / model / current tool |
+| Searchables | 1.0.2, 2024-10 | all 3 | MIT | Search/filter helper for long lists |
+| Chat Heads | 0.15.7, 2026-08-13 | 2 | MPL-2.0 | Agent faces next to their messages in vanilla chat |
+| GuideME | 21.1.19, 2026-09-16 | Craftoria | mixed OSS | Markdown in-game manual for the mod |
+| Caxton | 0.6.4, 2026-04-17 | none | MIT | TrueType font for transcript/code; check the fallback when it's missing |
+| Cloth Config / YACL | 15.0.140 / 3.8.2 | Cloth: 2 | LGPL-3.0 | Settings screen, only if settings grow |
+| CC:Tweaked, Create 6.0.10 | yes | Craftoria / all 3 | — | Integrations (§3), not UI |
+
+Skip, checked again: owo-lib (NeoForge build is a 2025-07 beta), ModernUI (legacy line + font-mod conflicts),
+ModularUI (no 1.21.1 NeoForge), MCEF (last 2024-10), FancyMenu (menu skinning, custom license),
+Iceberg / Legendary Tooltips (NC-ND), `pane` (307 downloads).
+
 ## 1. The decision under everything: Forge 1.20.1 or NeoForge 1.21.1
 
 The mod is ~1.5k lines and `core/` has no Minecraft imports, so switching is cheapest **now**.

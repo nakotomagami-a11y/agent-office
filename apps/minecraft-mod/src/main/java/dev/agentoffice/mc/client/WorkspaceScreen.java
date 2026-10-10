@@ -1,5 +1,6 @@
 package dev.agentoffice.mc.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
@@ -14,24 +15,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 
 /**
- * The tablet laid out like Agent Office's window: the desktop app's open projects as tabs along the
- * top, the project's roster (each agent and its sessions) on the left, the screen's own content (a
- * chat) in the rest. What it knows of the office is shared by every workspace screen (main thread
+ * The tablet laid out like Agent Office's window: the desktop app's open projects as tabs on the
+ * window's top edge (vanilla's advancement tabs), the project's roster (each agent and its sessions, a
+ * vanilla selection list in a well) on the left, the screen's own content (a chat) in the rest. What it knows of the office is shared by every workspace screen (main thread
  * only), so moving between sessions never starts from an empty sidebar.
  */
 abstract class WorkspaceScreen extends TabletScreen {
-    private static final int SIDEBAR = 112;
+    /** The sidebar takes a fifth of the screen, within these. */
+    private static final int MIN_SIDEBAR = 120;
+    private static final int MAX_SIDEBAR = 160;
     /** Narrower than this (scaled GUI width) and the sidebar would crush the chat: it goes. */
-    private static final int MIN_WIDTH_FOR_SIDEBAR = 420;
-    private static final int TABS = 22;
-    private static final int ROW = 15;
-    private static final int MIN_TAB = 44;
-    private static final int MANAGE_W = 52;
+    private static final int MIN_WIDTH_FOR_SIDEBAR = 540;
+    /** Room above the window for the tabs: vanilla's advancement tab is 28 above the edge (32 selected). */
+    private static final int TABS = 28;
+    private static final int TAB_GAP = 2;
+    private static final int ROW = 18;
+    private static final int MIN_TAB = 60;
+    private static final int MAX_TAB = 130;
+    private static final ResourceLocation TAB_FIRST = ResourceLocation.withDefaultNamespace("advancements/tab_above_left");
+    private static final ResourceLocation TAB_FIRST_SELECTED = ResourceLocation.withDefaultNamespace("advancements/tab_above_left_selected");
+    private static final ResourceLocation TAB = ResourceLocation.withDefaultNamespace("advancements/tab_above_middle");
+    private static final ResourceLocation TAB_SELECTED = ResourceLocation.withDefaultNamespace("advancements/tab_above_middle_selected");
     private static final int REFRESH_TICKS = 100;
     private static final long STALE_MS = 4_000;
     /** Projects, the app's tabs and every tab's roster; the shown project is polled more often. */
@@ -44,7 +57,7 @@ abstract class WorkspaceScreen extends TabletScreen {
     private static final Map<String, String> statuses = new HashMap<>();
     private static final Map<String, Api.Slot> lastSlot = new HashMap<>();
     private static final Set<String> collapsed = new HashSet<>();
-    private static final Map<String, Integer> scrolls = new HashMap<>();
+    private static final Map<String, Double> scrolls = new HashMap<>();
     private static String lastProject;
     private static String problem;
     /** What "+ New session" is doing or why it failed; refreshes leave it alone. */
@@ -75,7 +88,8 @@ abstract class WorkspaceScreen extends TabletScreen {
     private static boolean adding() {
         return addingSince > 0 && System.currentTimeMillis() - addingSince < ADD_EXPIRES_MS;
     }
-    private final Map<Integer, Api.Slot> sessionRows = new HashMap<>();
+    private Roster roster;
+    private String rosterProject;
     private List<FormattedCharSequence> noteLines = List.of();
 
     protected WorkspaceScreen(Component title) {
@@ -92,7 +106,7 @@ abstract class WorkspaceScreen extends TabletScreen {
 
     @Override
     protected int sidebarWidth() {
-        return width < MIN_WIDTH_FOR_SIDEBAR ? 0 : SIDEBAR;
+        return width < MIN_WIDTH_FOR_SIDEBAR ? 0 : Math.max(MIN_SIDEBAR, Math.min(MAX_SIDEBAR, width / 5 / 2 * 2));
     }
 
     @Override
@@ -151,6 +165,7 @@ abstract class WorkspaceScreen extends TabletScreen {
 
     @Override
     protected void init() {
+        saveScroll();
         super.init();
         String current = projectId();
         Api.Slot active = activeSlot();
@@ -165,70 +180,71 @@ abstract class WorkspaceScreen extends TabletScreen {
         else if (age > STALE_MS) refresh(current, false);
 
         boolean narrow = sidebarWidth() == 0;
-        addTabs(current, narrow ? MANAGE_W + 4 : 0);
+        int manageW = font.width("Manage") + 16;
+        addTabs(current, narrow ? manageW + 4 + (panelRight - right) : 0);
         if (narrow) {
             // No sidebar: the old screen still lists every session (Chat) and manages agents.
-            addRenderableWidget(new FlatButton(right - PAD - MANAGE_W, frameTop + 4, MANAGE_W, 14, "Manage", FlatButton.Kind.GHOST,
+            addRenderableWidget(new FlatButton(right - manageW, panelTop - 24, manageW, 20, "Manage", FlatButton.Kind.NORMAL,
                     b -> minecraft.setScreen(new OfficeScreen())));
             return;
         }
 
+        int sw = sidebarWidth();
         String note = addNote != null ? addNote : problem;
-        noteLines = note == null ? List.of() : font.split(Component.literal(note), SIDEBAR - 12);
-        sessionRows.clear();
-        List<Entry> entries = entries(current);
-        int x = frameLeft + 4;
-        int w = SIDEBAR - 8;
-        int y0 = top + 18;
-        int rowsBottom = bottom - 24 - noteLines.size() * 10;
-        int visible = Math.max(1, (rowsBottom - y0) / ROW);
-        int scroll = Math.max(0, Math.min(scrolls.getOrDefault(current, 0), Math.max(0, entries.size() - visible)));
-        scrolls.put(current, scroll);
+        noteLines = note == null ? List.of() : font.split(Component.literal(note), sw - 12);
+        int listBottom = bottom - 26 - (noteLines.isEmpty() ? 0 : noteLines.size() * 10 + 4);
+        // Inside the roster's well (1-px bevel), which ends 6 short of the chat column.
+        roster = new Roster(sw - 8, listBottom - top - 2, top + 1);
+        roster.setX(frameLeft + 1);
         Map<String, Api.Slot> bodies = new HashMap<>();
-        for (int i = scroll; i < Math.min(entries.size(), scroll + visible); i++) {
-            int y = y0 + (i - scroll) * ROW;
-            Entry e = entries.get(i);
-            if (e instanceof Group g) {
-                String key = current + "/" + g.agentId();
-                boolean shut = collapsed.contains(key);
-                addRenderableWidget(new FlatButton(x, y, w, ROW - 2, (shut ? "▸ " : "▾ ") + g.agentId() + "  " + g.count(),
-                        FlatButton.Kind.GHOST, b -> {
-                            if (!collapsed.remove(key)) collapsed.add(key);
-                            rebuildWidgets();
-                        }).alignLeft());
-            } else if (e instanceof Session s) {
-                boolean on = active != null && active.instanceId().equals(s.slot().instanceId());
-                Api.Slot body = bodies.computeIfAbsent(s.slot().agentId(), k -> Bodies.seatOf(Minecraft.getInstance(), s.slot()));
-                boolean hasBody = body != null && body.instanceId().equals(s.slot().instanceId());
-                addRenderableWidget(new FlatButton(x + 8, y, w - 8, ROW - 2, sessionName(s.slot()) + (hasBody ? " ⌂" : ""),
-                        on ? FlatButton.Kind.NORMAL : FlatButton.Kind.GHOST, b -> openSlot(s.slot(), true)).alignLeft());
-                sessionRows.put(y, s.slot());
-            } else if (e instanceof Add a) {
-                addRenderableWidget(new FlatButton(x + 8, y, w - 8, ROW - 2, adding() ? "Adding…" : "+ New session", FlatButton.Kind.GHOST,
-                        b -> addSession(current, a.agentId())).alignLeft()).active = !adding();
+        for (Entry e : entries(current)) {
+            switch (e) {
+                case Group g -> roster.add(new GroupRow(current + "/" + g.agentId(), g));
+                case Session s -> {
+                    Api.Slot body = bodies.computeIfAbsent(s.slot().agentId(), k -> Bodies.seatOf(minecraft, s.slot()));
+                    SessionRow row = new SessionRow(s.slot(), body != null && body.instanceId().equals(s.slot().instanceId()));
+                    roster.add(row);
+                    if (active != null && active.instanceId().equals(s.slot().instanceId())) {
+                        roster.shown = row;
+                        roster.setSelected(row);
+                    }
+                }
+                case Add a -> roster.add(new AddRow(current, a.agentId()));
             }
         }
-        addRenderableWidget(new FlatButton(x, bottom - 20, w, 16, "Manage agents", FlatButton.Kind.GHOST,
+        rosterProject = current;
+        roster.setScrollAmount(scrolls.getOrDefault(current, 0.0));
+        addRenderableWidget(roster);
+        addRenderableWidget(new FlatButton(frameLeft, bottom - 20, sw - 6, 20, "Manage agents", FlatButton.Kind.NORMAL,
                 b -> minecraft.setScreen(new OfficeScreen())));
+    }
+
+    private void saveScroll() {
+        if (roster != null && rosterProject != null) scrolls.put(rosterProject, roster.getScrollAmount());
+    }
+
+    @Override
+    protected void onRemoved() {
+        saveScroll();
     }
 
     /** Every tab shrinks before any is dropped, and the shown project's tab is never the one dropped. */
     private void addTabs(String current, int reserved) {
         List<Api.Project> tabs = tabProjects(current);
-        int avail = right - PAD - (frameLeft + PAD) - reserved;
-        while (tabs.size() > 1 && tabs.size() * (MIN_TAB + 4) > avail) {
+        int x0 = panelLeft;
+        // Clear of the panel's rounded top-right corner (unless Manage already sits there).
+        int avail = panelRight - (reserved == 0 ? 4 : 0) - x0 - reserved;
+        while (tabs.size() > 1 && tabs.size() * (MIN_TAB + TAB_GAP) > avail) {
             int drop = tabs.size() - 1;
             if (tabs.get(drop).id().equals(current)) drop--;
             tabs.remove(drop);
         }
-        int each = tabs.isEmpty() ? 0 : Math.min(120, avail / tabs.size() - 4);
-        int tx = frameLeft + PAD;
+        int tx = x0;
         for (Api.Project p : tabs) {
-            int w = Math.max(MIN_TAB, Math.min(each, font.width(p.name()) + 16));
-            String label = font.width(p.name()) + 12 > w ? font.plainSubstrByWidth(p.name(), w - 16) + "…" : p.name();
-            addRenderableWidget(new FlatButton(tx, frameTop + 4, w, 14, label,
-                    p.id().equals(current) ? FlatButton.Kind.NORMAL : FlatButton.Kind.GHOST, b -> openProject(p.id())));
-            tx += w + 4;
+            int w = Math.max(MIN_TAB, Math.min(MAX_TAB, font.width(p.name()) + 20));
+            w = Math.min(w, Math.max(MIN_TAB, avail / tabs.size() - TAB_GAP));
+            addRenderableWidget(new Tab(tx, panelTop - TABS, w, TABS, p.name(), p.id().equals(current), tx == x0, b -> openProject(p.id())));
+            tx += w + TAB_GAP;
         }
     }
 
@@ -397,25 +413,10 @@ abstract class WorkspaceScreen extends TabletScreen {
         }
     }
 
+    /** The roster's well; the screen's own content draws the rest. */
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (mouseX < left && mouseY > top) {
-            String p = projectId();
-            scrolls.put(p, scrolls.getOrDefault(p, 0) - (int) Math.signum(scrollY));
-            rebuildWidgets();
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(g, mouseX, mouseY, partialTick);
-        g.fill(frameLeft, frameTop, right, top, Theme.CARD);
-        g.fill(frameLeft, top - 1, right, top, Theme.EDGE_2);
-        if (sidebarWidth() == 0) return;
-        g.fill(frameLeft, top, left, bottom, Theme.CARD);
-        g.fill(left - 1, top, left, bottom, Theme.EDGE_2);
+    protected void renderWells(GuiGraphics g) {
+        if (sidebarWidth() > 0 && roster != null) well(g, frameLeft, top, sidebarWidth() - 6, roster.getBottom() + 1 - top);
     }
 
     @Override
@@ -423,20 +424,199 @@ abstract class WorkspaceScreen extends TabletScreen {
         super.render(g, mouseX, mouseY, partialTick);
         if (sidebarWidth() == 0) return;
         int x = frameLeft + 6;
-        g.drawString(font, bold("Roster", SIDEBAR - 12), x, top + 5, Theme.TXT, false);
         String current = projectId();
         if (current != null && rosters.containsKey(current) && rosters.get(current).isEmpty()) {
-            g.drawString(font, "No agents yet", x, top + 20, Theme.TXT_3, false);
+            g.drawString(font, "No agents yet", x + 2, top + 8, Theme.TXT_3);
         }
         int y = bottom - 24 - noteLines.size() * 10;
         for (FormattedCharSequence line : noteLines) {
-            g.drawString(font, line, x, y, Theme.TXT_3, false);
+            g.drawString(font, line, frameLeft, y, PANEL_TEXT, false);
             y += 10;
         }
-        sessionRows.forEach((rowY, slot) -> {
-            String st = statuses.get(slot.instanceId());
-            int dot = "running".equals(st) ? Theme.OK : "needs_attention".equals(st) ? Theme.AMBER : Theme.BG_4;
-            g.fill(left - 10, rowY + 5, left - 6, rowY + 9, dot);
-        });
+    }
+
+    /** {@code text} cut to {@code width} with an ellipsis. */
+    static String cut(Font font, String text, int width) {
+        if (font.width(text) <= width) return text;
+        return font.plainSubstrByWidth(text, Math.max(0, width - font.width("…"))) + "…";
+    }
+
+    /**
+     * A project tab as vanilla's advancement tabs, on the window's top edge (the first one joins its left
+     * edge): the 28-wide sprite cut into its edges and a repeated middle, so a project name fits.
+     */
+    private static final class Tab extends Button {
+        private final boolean selected;
+        private final boolean first;
+
+        Tab(int x, int y, int w, int h, String label, boolean selected, boolean first, OnPress onPress) {
+            super(x, y, w, h, Component.literal(label), onPress, DEFAULT_NARRATION);
+            this.selected = selected;
+            this.first = first;
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            ResourceLocation sprite = first ? (selected ? TAB_FIRST_SELECTED : TAB_FIRST) : (selected ? TAB_SELECTED : TAB);
+            int x = getX();
+            int y = getY();
+            RenderSystem.enableBlend();
+            g.blitSprite(sprite, 28, 32, 0, 0, x, y, 4, 32);
+            for (int cx = x + 4; cx < x + width - 4; cx += 20) g.blitSprite(sprite, 28, 32, 4, 0, cx, y, Math.min(20, x + width - 4 - cx), 32);
+            g.blitSprite(sprite, 28, 32, 24, 0, x + width - 4, y, 4, 32);
+            RenderSystem.disableBlend();
+            Font font = Minecraft.getInstance().font;
+            String label = cut(font, getMessage().getString(), width - 12);
+            int tx = x + (width - font.width(label)) / 2;
+            if (selected) {
+                g.drawString(font, label, tx, y + 11, PANEL_TEXT, false);
+            } else {
+                g.drawString(font, label, tx, y + 13, isHoveredOrFocused() ? 0xFFFFA0 : 0xFFFFFF);
+            }
+        }
+    }
+
+    private final class Roster extends ObjectSelectionList<Row> {
+        /** The open session's row. */
+        private Row shown;
+
+        Roster(int w, int h, int y) {
+            super(Minecraft.getInstance(), w, h, y, ROW);
+        }
+
+        /** The selection box marks the open session only; a click that opens nothing must not move it. */
+        @Override
+        public void setSelected(Row row) {
+            if (row == null || row == shown) super.setSelected(row);
+        }
+
+        void add(Row row) {
+            addEntry(row);
+        }
+
+        @Override
+        public int getRowWidth() {
+            return width - 14;
+        }
+
+        @Override
+        protected int getScrollbarPosition() {
+            return getRight() - 6;
+        }
+
+        /** The well behind it is the background; no menu list texture or separators. */
+        @Override
+        protected void renderListBackground(GuiGraphics g) {}
+
+        @Override
+        protected void renderListSeparators(GuiGraphics g) {}
+    }
+
+    private abstract static class Row extends ObjectSelectionList.Entry<Row> {
+        abstract String label();
+
+        @Override
+        public Component getNarration() {
+            return Component.literal(label());
+        }
+    }
+
+    /** An agent: click to fold its sessions away. */
+    private final class GroupRow extends Row {
+        private final String key;
+        private final Group group;
+
+        GroupRow(String key, Group group) {
+            this.key = key;
+            this.group = group;
+        }
+
+        @Override
+        String label() {
+            return group.agentId();
+        }
+
+        @Override
+        public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
+                           boolean hovering, float partialTick) {
+            int y = top + (height - 8) / 2;
+            g.drawString(font, collapsed.contains(key) ? "▸" : "▾", left, y, Theme.TXT_4);
+            String count = String.valueOf(group.count());
+            int countX = left + width - 2 - font.width(count);
+            g.drawString(font, count, countX, y, Theme.TXT_4);
+            g.drawString(font, cut(font, group.agentId(), countX - left - 14), left + 8, y, hovering ? 0xFFFFFFFF : Theme.TXT);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (!collapsed.remove(key)) collapsed.add(key);
+            rebuildWidgets();
+            return true;
+        }
+    }
+
+    /** One session: its status dot and name; the one shown is the list's selection. */
+    private final class SessionRow extends Row {
+        private final Api.Slot slot;
+        private final boolean hasBody;
+
+        SessionRow(Api.Slot slot, boolean hasBody) {
+            this.slot = slot;
+            this.hasBody = hasBody;
+        }
+
+        @Override
+        String label() {
+            return sessionName(slot);
+        }
+
+        @Override
+        public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
+                           boolean hovering, float partialTick) {
+            g.blitSprite(Theme.dot(statuses.get(slot.instanceId())), left + 8, top + (height - 6) / 2, 6, 6);
+            int y = top + (height - 8) / 2;
+            int end = left + width - 2;
+            if (hasBody) {
+                end -= font.width("⌂");
+                g.drawString(font, "⌂", end, y, Theme.TXT_4);
+                end -= 4;
+            }
+            boolean on = roster != null && roster.getSelected() == this;
+            g.drawString(font, cut(font, label(), end - left - 18), left + 18, y, on || hovering ? 0xFFFFFFFF : Theme.TXT_2);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            openSlot(slot, true);
+            return true;
+        }
+    }
+
+    private final class AddRow extends Row {
+        private final String projectId;
+        private final String agentId;
+
+        AddRow(String projectId, String agentId) {
+            this.projectId = projectId;
+            this.agentId = agentId;
+        }
+
+        @Override
+        String label() {
+            return adding() ? "Adding…" : "+ New session";
+        }
+
+        @Override
+        public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
+                           boolean hovering, float partialTick) {
+            int color = adding() ? Theme.TXT_4 : hovering ? 0xFFFFFFFF : Theme.TXT_3;
+            g.drawString(font, label(), left + 18, top + (height - 8) / 2, color);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            addSession(projectId, agentId);
+            return true;
+        }
     }
 }

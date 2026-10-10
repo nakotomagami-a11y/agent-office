@@ -86,7 +86,7 @@ final class SeatSettingsScreen extends TabletScreen {
                 Minecraft.getInstance().execute(() -> {
                     saving = false;
                     error = "Couldn't save: " + e.getMessage();
-                    rebuildWidgets();
+                    if (minecraft.screen == this) rebuildWidgets();
                 });
             }
         });

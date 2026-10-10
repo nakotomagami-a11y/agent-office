@@ -1,8 +1,9 @@
 package dev.agentoffice.mc.client;
 
-import dev.agentoffice.mc.client.ui.Theme;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
 /** A project tab with no chat open yet: the roster on the left is where one starts. */
 final class ProjectScreen extends WorkspaceScreen {
@@ -24,6 +25,11 @@ final class ProjectScreen extends WorkspaceScreen {
         super.render(g, mouseX, mouseY, partialTick);
         String reason = emptyReason();
         String text = reason != null ? reason : "Pick a session on the left, or add an agent with Manage agents.";
-        g.drawCenteredString(font, font.plainSubstrByWidth(text, right - left - 16), (left + right) / 2, (top + bottom) / 2, Theme.TXT_3);
+        List<FormattedCharSequence> lines = font.split(Component.literal(text), Math.min(280, right - left - 24));
+        int y = (top + bottom) / 2 - lines.size() * 5;
+        for (FormattedCharSequence line : lines) {
+            g.drawString(font, line, (left + right - font.width(line)) / 2, y, PANEL_TEXT, false);
+            y += 10;
+        }
     }
 }

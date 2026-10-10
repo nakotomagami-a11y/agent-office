@@ -1,5 +1,7 @@
 package dev.agentoffice.mc.client.ui;
 
+import net.minecraft.resources.ResourceLocation;
+
 /** Agent Office's dark palette (apps/web/src/app/styles/palette.css), as ARGB. */
 public final class Theme {
     private Theme() {}
@@ -25,9 +27,28 @@ public final class Theme {
     public static final int RED = 0xFFF87171;
     public static final int AMBER = 0xFFFBBF24;
 
-    /** The tablet's casing around the screen. */
-    public static final int BEZEL = 0xFF1C1E26;
-    public static final int BEZEL_EDGE = 0xFF33363F;
+    /** Translucent black under transcript content, like vanilla's chat background. */
+    public static final int SHADE = 0x40000000;
+    public static final int SHADE_2 = 0x66000000;
+
+    /** One of the tablet's own sprites (tools/gui-sprites.mjs); every widget is vanilla's. */
+    public static ResourceLocation sprite(String name) {
+        return ResourceLocation.fromNamespaceAndPath("agentoffice", "tablet/" + name);
+    }
+
+    private static final ResourceLocation DOT_IDLE = sprite("dot_idle");
+    private static final ResourceLocation DOT_RUNNING = sprite("dot_running");
+    private static final ResourceLocation DOT_RUNNING_DIM = sprite("dot_running_dim");
+    private static final ResourceLocation DOT_ATTENTION = sprite("dot_attention");
+
+    /** A session or tool status as a 6×6 dot sprite; running blinks between two frames. */
+    public static ResourceLocation dot(String status) {
+        return switch (status == null ? "" : status) {
+            case "running" -> System.currentTimeMillis() / 400 % 2 == 0 ? DOT_RUNNING : DOT_RUNNING_DIM;
+            case "needs_attention" -> DOT_ATTENTION;
+            default -> DOT_IDLE;
+        };
+    }
 
     public static int withAlpha(int argb, int alpha) {
         return (alpha << 24) | (argb & 0xFFFFFF);
