@@ -23,6 +23,7 @@ workspace). It is a second client of the same API as the web UI. Code structure 
 - **Agent Spawn Egg** (egg + emerald + redstone): places an unassigned shell; right-click it to pick the agent and
   project.
 - **Review Lectern**: a project's open pull requests and their diffs (read-only for now).
+- **With Jade** (optional): looking at your own agent shows its status, level and project (`client/JadeAgents`).
 
 The mod also joins servers that don't have it: `K` and the chat still work, but there are no agents in the world, no
 items and no Review Lectern.
@@ -70,7 +71,7 @@ items and no Review Lectern.
   `permissions:changed` app event would let one `/api/events` connection replace the polling.
 - Review actions at the lectern (comment, merge, reject) and the review screen on the tablet.
 - The held tablet drawn like a map in first person; binding a tablet to one agent.
-- Integrations (optional, one at a time): Jade, a Create display source, Ponder scenes, CC:Tweaked
+- Integrations (optional, one at a time): a Create display source, Ponder scenes, CC:Tweaked
   (`minecraft-mod-libraries.md`).
 
 ## Dev loop

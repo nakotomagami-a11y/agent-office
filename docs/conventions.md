@@ -200,7 +200,8 @@ calls into `core/`.
 
 The root package and `core/` load on a dedicated server, which has no client classes: one
 reference there crashes the server. The root reaches the client only through hooks the client
-sets (`AgentNet.onPlaced`, `TabletItem.openOnClient`).
+sets (`AgentNet.onPlaced`, `TabletItem.openOnClient`). One `client/` class does load on a server:
+`client/JadeAgents`, which Jade instantiates on both sides, so its outer class names no client type.
 
 > **enforced by** `ArchitectureTest.commonCodeNeverReachesTheClient`
 

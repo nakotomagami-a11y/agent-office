@@ -33,3 +33,11 @@ description='''${mod_description}'''
     versionRange="[9.5.1,)"
     ordering="NONE"
     side="BOTH"
+
+# With Jade, looking at your own agent shows its status, level and project.
+[[dependencies.${mod_id}]]
+    modId="jade"
+    type="optional"
+    versionRange="[15.10,)"
+    ordering="NONE"
+    side="CLIENT"

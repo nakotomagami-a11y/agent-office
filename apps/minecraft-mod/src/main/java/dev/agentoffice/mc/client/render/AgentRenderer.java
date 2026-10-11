@@ -106,17 +106,18 @@ public final class AgentRenderer extends EntityRenderer<AgentEntity> {
             }
             Integer xp = Bodies.xpOf(body);
             Component plate = xp == null ? name : name.copy().append(Component.literal("  Lv " + Levels.levelOf(xp)).withStyle(ChatFormatting.GRAY));
-            super.renderNameTag(body, state == null ? plate : plate.copy().append(stateText(state)), pose, buffers, light, partialTick);
+            super.renderNameTag(body, state == null ? plate : plate.copy().append("  ").append(stateText(state)), pose, buffers, light, partialTick);
         }
     }
 
-    private static Component stateText(AgentState state) {
+    /** How an agent is doing, in words: its nameplate and Jade say the same. */
+    public static Component stateText(AgentState state) {
         return switch (state) {
-            case WORKING -> Component.literal("  working…").withStyle(ChatFormatting.GOLD);
-            case NEEDS_YOU -> Component.literal("  needs you!").withStyle(ChatFormatting.RED);
-            case OFFLINE -> Component.literal("  (Agent Office closed)").withStyle(ChatFormatting.DARK_GRAY);
-            case UNKNOWN -> Component.literal("  (status unknown)").withStyle(ChatFormatting.DARK_GRAY);
-            case IDLE -> Component.literal("  idle").withStyle(ChatFormatting.GRAY);
+            case WORKING -> Component.literal("working…").withStyle(ChatFormatting.GOLD);
+            case NEEDS_YOU -> Component.literal("needs you!").withStyle(ChatFormatting.RED);
+            case OFFLINE -> Component.literal("(Agent Office closed)").withStyle(ChatFormatting.DARK_GRAY);
+            case UNKNOWN -> Component.literal("(status unknown)").withStyle(ChatFormatting.DARK_GRAY);
+            case IDLE -> Component.literal("idle").withStyle(ChatFormatting.GRAY);
         };
     }
 

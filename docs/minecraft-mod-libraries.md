@@ -28,14 +28,14 @@ and Chromium a ~150 MB download per platform. The tablet uses vanilla widgets an
 
 | Want | Library | License |
 |---|---|---|
-| Status when looking at an agent | Jade plugin (`registerEntityComponent`) | CC-BY-NC-SA (fine as a dependency) |
 | Agent status on Create display boards | Create 6 `DisplaySource` | MIT |
 | Tutorial scenes | Ponder | MIT |
 | Agents callable from in-game computers | CC:Tweaked peripheral | CCPL |
 | In-game manual | GuideME | mixed OSS |
 | Animated bodies | GeckoLib | MIT |
 
-Already used: Curios (optional; the agent's inventory mirrors the player's Curios slots). Pathfinding is vanilla's
+Already used, both optional: Curios (the agent's inventory mirrors the player's Curios slots) and Jade (your agent's
+status when you look at it; CC-BY-NC-SA, fine as a dependency; from Modrinth's Maven). Pathfinding is vanilla's
 `PathNavigation`; player-skin bodies use vanilla's `PlayerModel`.
 
 Skipped: Easy NPC, CustomNPCs, Touhou Little Maid, Patchouli (licenses or no API), FTB Library (all rights reserved),

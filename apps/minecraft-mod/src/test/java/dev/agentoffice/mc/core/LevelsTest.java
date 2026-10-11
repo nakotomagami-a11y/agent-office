@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test;
 
 class LevelsTest {
     @Test
+    void describesALevelAndTheWayToTheNext() {
+        assertEquals("Level 1 · 0/30 XP", Levels.describe(0));
+        assertEquals("Level 2 · 5/40 XP", Levels.describe(35));
+    }
+
+    @Test
     void levelsCostALittleMoreEachTime() {
         assertEquals(30, Levels.cost(1));
         assertEquals(40, Levels.cost(2));

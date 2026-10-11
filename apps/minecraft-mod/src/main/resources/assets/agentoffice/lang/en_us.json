@@ -4,5 +4,6 @@
   "item.agentoffice.tablet": "Agent Tablet",
   "item.agentoffice.agent_spawn_egg": "Agent Spawn Egg",
   "block.agentoffice.review_lectern": "Review Lectern",
-  "entity.agentoffice.agent": "Agent"
+  "entity.agentoffice.agent": "Agent",
+  "config.jade.plugin_agentoffice.agent": "Agent status"
 }

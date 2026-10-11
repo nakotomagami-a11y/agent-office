@@ -7,7 +7,7 @@ How `apps/minecraft-mod` is put together. What it does for the player: `minecraf
 ```
 dev.agentoffice.mc            both sides: registries, entity, records, menu, AgentNet (handlers), AgentPayloads, ModPaths, Tuning
   .ai                         behaviour: Schedule, Anchor, VillageSense, Combat, the goals
-  .client                     setup, dev hooks
+  .client                     setup, dev hooks, Jade plugin (JadeAgents)
     .service                  work and shared state: AgentOffice, AgentStatus, WorkspaceStore, SeatAdder, Bodies,
                               Lecterns, ClipboardImages
     .screen                   screens
@@ -76,6 +76,8 @@ two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
   (`WanderGoal`, `MeleeGoal`, `BowGoal`) act on that.
 - `AgentNet` handles every payload and checks it (owner, reach, limits, cooldown, land claims: `mayBuild`, which the
   Spawn Egg uses too). Curios types stay in `CuriosBridge`/`CuriosLayer`, loaded only when Curios is.
+- Jade types stay in `client/JadeAgents`, which only Jade loads: on both sides, but `registerClient` runs on the client
+  only, so its outer class names no client type.
 
 ## Network compatibility
 

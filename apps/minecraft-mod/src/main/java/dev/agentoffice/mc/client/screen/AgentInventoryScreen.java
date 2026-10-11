@@ -126,9 +126,7 @@ public final class AgentInventoryScreen extends AbstractContainerScreen<AgentMen
     /** "Level 3 · 12/40 XP"; empty if the agent is out of sight or the world never said. */
     private String levelText() {
         Integer xp = menu.agent == null ? null : Bodies.xpOf(menu.agent);
-        if (xp == null) return "";
-        int level = Levels.levelOf(xp);
-        return "Level " + level + " · " + Levels.progress(xp) + "/" + Levels.cost(level) + " XP";
+        return xp == null ? "" : Levels.describe(xp);
     }
 
     /** The side panels are part of the window: a click on one must not throw the carried stack out. */

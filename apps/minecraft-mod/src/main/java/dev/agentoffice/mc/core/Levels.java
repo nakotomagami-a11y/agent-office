@@ -24,4 +24,10 @@ public final class Levels {
         for (int level = 1; left >= cost(level); level++) left -= cost(level);
         return left;
     }
+
+    /** "Level 3 · 12/40 XP", as the inventory screen and Jade show it. */
+    public static String describe(int xp) {
+        int level = levelOf(xp);
+        return "Level " + level + " · " + progress(xp) + "/" + cost(level) + " XP";
+    }
 }

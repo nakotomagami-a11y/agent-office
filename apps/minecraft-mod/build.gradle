@@ -24,6 +24,11 @@ sourceSets {
 repositories {
     // Curios: the inventory-extension API modpacks use (agent bodies mirror the player's slots).
     maven { url = "https://maven.theillusivec4.top/" }
+    // Jade: what you're looking at, with our agents' status (client/JadeAgents).
+    exclusiveContent {
+        forRepository { maven { url = "https://api.modrinth.com/maven" } }
+        filter { includeGroup "maven.modrinth" }
+    }
 }
 
 neoForge {
@@ -94,6 +99,9 @@ dependencies {
     // Optional in game (declared in neoforge.mods.toml); -PaoNoCurios runs the dev client without it.
     compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}:api"
     if (!project.hasProperty('aoNoCurios')) runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}"
+    // Optional too; -PaoNoJade leaves it out of the dev runs.
+    compileOnly "maven.modrinth:jade:${jade_version}"
+    if (!project.hasProperty('aoNoJade')) runtimeOnly "maven.modrinth:jade:${jade_version}"
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation "net.neoforged:testframework:${neo_version}"
