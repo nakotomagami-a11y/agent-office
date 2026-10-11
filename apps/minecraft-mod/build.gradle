@@ -13,6 +13,14 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+// In-world tests (GameTests): part of the mod in dev runs, never in the jar. `gradlew runGameTestServer` runs them.
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 repositories {
     // Curios: the inventory-extension API modpacks use (agent bodies mirror the player's slots).
     maven { url = "https://maven.theillusivec4.top/" }
@@ -57,13 +65,22 @@ neoForge {
             gameDirectory = file('run-server')
             programArgument '--nogui'
         }
+        // Runs every GameTest in src/gametest, then exits: non-zero if one failed.
+        gameTestServer {
+            type = "gameTestServer"
+            gameDirectory = file('run-gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
     }
 
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(sourceSets.gametest)
         }
     }
+
+    addModdingDependenciesTo(sourceSets.gametest)
 
     // Tests run with the game loaded, so they can use its classes (codecs, items); a test that needs a world asks
     // for a throwaway server (testframework's EphemeralTestServerProvider).
@@ -105,6 +122,11 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 }
 sourceSets.main.resources.srcDir generateModMetadata
 neoForge.ideSyncTask generateModMetadata
+
+// Every GameTest run starts from a fresh world, as in CI.
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst { delete file('run-gametest/world') }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

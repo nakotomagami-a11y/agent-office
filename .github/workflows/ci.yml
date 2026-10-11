@@ -102,3 +102,8 @@ jobs:
 
       - name: Test and build
         run: ./gradlew build --no-daemon
+
+      # In-world tests (src/gametest): agents earning and losing XP, whom they may hurt. Fails on any failed test.
+      - name: GameTests
+        timeout-minutes: 15
+        run: ./gradlew runGameTestServer --no-daemon

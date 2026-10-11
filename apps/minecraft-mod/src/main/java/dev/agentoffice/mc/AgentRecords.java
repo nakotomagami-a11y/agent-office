@@ -36,7 +36,7 @@ public final class AgentRecords extends SavedData {
         public final NonNullList<ItemStack> items = NonNullList.withSize(SIZE, ItemStack.EMPTY);
         /** Curios slot id → stacks; shaped like the player who last opened it (see AgentMenu). */
         public final Map<String, NonNullList<ItemStack>> curios = new LinkedHashMap<>();
-        /** All the XP it has earned (its level: core/Levels); kept through death and moves. */
+        /** All the XP it has earned (its level: core/Levels); kept through moves and a dismiss, lost on death. */
         public int xp;
         /** Working time towards its next work XP (Tuning.WORK_XP_TICKS). */
         public int workTicks;

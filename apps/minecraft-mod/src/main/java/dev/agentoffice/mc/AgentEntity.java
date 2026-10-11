@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
@@ -85,6 +86,8 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     private Map<String, List<ItemStack>> curiosShown = Map.of();
 
     private static final double SPEED = 0.35;
+    /** How near its lectern it must stand for its work to count (its work anchor is 3 blocks). */
+    private static final double DESK = 4;
     /** How far it looks for monsters to fight. */
     private static final double FOLLOW = 24;
     /** Server only. Where it was put: what it keeps near when there is no village. */
@@ -92,6 +95,9 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     /** Server only: its lectern while its owner's client says it works; until when that holds (game time). */
     private BlockPos workplace;
     private long workingUntil;
+    /** Server only: the last lectern land claims were asked about, and their answer. */
+    private BlockPos askedDesk;
+    private boolean deskAllowed;
     private final VillageSense village = new VillageSense();
     /** Game time of the last damage that went through: it mends once out of harm's way. */
     private long lastHurtAt;
@@ -101,7 +107,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         setPersistenceRequired();
         if (getNavigation() instanceof GroundPathNavigation ground) ground.setCanOpenDoors(true);
         setCustomNameVisible(true);
-        // Its record drops everything on death; the vanilla chance-based equipment drop would duplicate it.
+        // Its record keeps its items through death; the vanilla chance-based equipment drop would duplicate them.
         for (EquipmentSlot s : EquipmentSlot.values()) setDropChance(s, 0f);
     }
 
@@ -161,6 +167,20 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         workingUntil = working ? level().getGameTime() + Tuning.WORKING_HOLDS_TICKS : 0;
     }
 
+    /** Server: its lectern while it works, else null. */
+    BlockPos workplace() {
+        return isWorking() ? workplace : null;
+    }
+
+    /** Server: may it work at this lectern? Asked of {@code ask} (land claims) once per lectern, not every report. */
+    boolean mayWorkAt(BlockPos lectern, Predicate<BlockPos> ask) {
+        if (!lectern.equals(askedDesk)) {
+            askedDesk = lectern;
+            deskAllowed = ask.test(lectern);
+        }
+        return deskAllowed;
+    }
+
     boolean isWorking() {
         return workplace != null && level().getGameTime() < workingUntil;
     }
@@ -175,9 +195,9 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
 
     /** What it keeps near now (see Schedule); a shell keeps to its spot. Server only. */
     public Anchor anchor() {
-        boolean working = isWorking();
-        BlockPos bell = home != null && !isShell() && !working && level() instanceof ServerLevel server ? village.bell(server, home, tickCount) : null;
-        return Schedule.anchor(home, isShell(), working ? workplace : null, bell, level().getDayTime());
+        BlockPos desk = workplace();
+        BlockPos bell = home != null && !isShell() && desk == null && level() instanceof ServerLevel server ? village.bell(server, home, tickCount) : null;
+        return Schedule.anchor(home, isShell(), desk, bell, level().getDayTime());
     }
 
     @Override
@@ -186,12 +206,13 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         if (home == null) home = blockPosition(); // placed before agents could walk
         // Mends out of harm's way, like a player with a full food bar, only slower.
         if (tickCount % 40 == 0 && getHealth() < getMaxHealth() && level().getGameTime() - lastHurtAt > 200) heal(1);
-        if (isWorking() && record != null && ++record.workTicks >= Tuning.WORK_XP_TICKS) {
+        // Work pays only at the desk: its owner's client says it works, but it has to be standing there.
+        if (isWorking() && record != null && distanceToSqr(Vec3.atCenterOf(workplace)) < DESK * DESK && ++record.workTicks >= Tuning.WORK_XP_TICKS) {
             record.workTicks = 0;
             gainXp(1);
         }
         dropFarOrFairTarget();
-        if (isWorking() && getTarget() == null && getNavigation().isDone() && distanceToSqr(Vec3.atCenterOf(workplace)) < 16) {
+        if (isWorking() && getTarget() == null && getNavigation().isDone() && distanceToSqr(Vec3.atCenterOf(workplace)) < DESK * DESK) {
             getLookControl().setLookAt(Vec3.atCenterOf(workplace));
         }
     }
@@ -397,18 +418,21 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
 
     /**
      * Downed (by mobs, a fall, the void, /kill): its items stay in its record, and its owner's next Place brings the body
-     * back with them. Its owner is told.
+     * back with them; its XP is lost, as a player's is. Its owner is told.
      */
     @Override
     protected void dropEquipment() {
         // Vanilla's spot for a death that went through (no mod cancelled it), whatever doMobLoot says.
         if (record == null) return;
         for (EquipmentSlot s : EquipmentSlot.values()) super.setItemSlot(s, ItemStack.EMPTY);
+        String lost = record.xp > 0 ? " and lost its level" : "";
         record.entity = null;
+        record.xp = 0;
+        record.workTicks = 0;
         record = null;
         owner().map(getServer().getPlayerList()::getPlayer).ifPresent(p -> {
-            p.sendSystemMessage(Component.literal(getName().getString() + " is down. Place it again from the tablet:"
-                    + " it keeps everything it had.").withStyle(ChatFormatting.GOLD));
+            p.sendSystemMessage(Component.literal(getName().getString() + " is down" + lost + ". Place it again from the"
+                    + " tablet: it keeps its items.").withStyle(ChatFormatting.GOLD));
             AgentNet.sendPlaced(p);
         });
     }

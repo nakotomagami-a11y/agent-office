@@ -104,7 +104,12 @@ public final class AgentNet {
         BlockPos pos = BlockPos.containing(x, y, z);
         ServerLevel level = player.serverLevel();
         if (!level.isInWorldBounds(pos) || !level.getWorldBorder().isWithinBounds(pos) || !level.mayInteract(player, pos)) return false;
-        // As if the player put something there: land-claim mods refuse it where the player may not build.
+        return mayBuild(player, pos);
+    }
+
+    /** As if the player put something at {@code pos}: land-claim mods refuse it where the player may not build. */
+    private static boolean mayBuild(ServerPlayer player, BlockPos pos) {
+        ServerLevel level = player.serverLevel();
         return !NeoForge.EVENT_BUS.post(new BlockEvent.EntityPlaceEvent(BlockSnapshot.create(level.dimension(), level, pos),
                 level.getBlockState(pos.below()), player)).isCanceled();
     }
@@ -175,6 +180,8 @@ public final class AgentNet {
             // Only a real Review Lectern near the body: a client can't send it across the world.
             BlockPos lectern = w.lectern().filter(p -> p.closerToCenterThan(body.position(), LECTERN_RANGE)
                     && player.serverLevel().isLoaded(p) && player.serverLevel().getBlockState(p).is(AgentOfficeMod.REVIEW_LECTERN.get())).orElse(null);
+            // A desk is one the player could build at (land claims); only asked when it would be used.
+            if (lectern != null && w.working() && !body.mayWorkAt(lectern, p -> mayBuild(player, p))) lectern = null;
             body.reportWork(w.working() && lectern != null, lectern);
             body.showName(w.name());
         }

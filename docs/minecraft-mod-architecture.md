@@ -100,14 +100,16 @@ to two builds. The TS-side contract test makes a server rename fail `pnpm -r tes
   weapons change what it can do in a fight; everything else it wears is cosmetic.
 - **Levels:** XP from kills (the mob's own XP reward, as a player would get) and, slowly, from work (1 XP per 5 minutes
   working). Every agent starts at level 1; level *n*→*n*+1 costs `20 + 10·n` XP (`core/Levels`). Kept on
-  `AgentRecords.Record`, so a level survives death, moves and a dismiss (placed again, it is the same level). Sent to
+  `AgentRecords.Record`, so a level survives moves and a dismiss; **death loses all of it** (items are kept). Sent to
   its owner only, in the optional `Stats` payload (another entity data field would disconnect older clients, and nobody
   else needs it); shown on the owner's nameplate ("Lv 3") and the inventory screen; the owner is told of each new
   level. No effects yet. Kill XP follows vanilla's rules (no baby, no `doMobLoot`, once per death). Work XP trusts the
-  owner's client to say its agent works (the server can't ask Agent Office), so a modified client earns at most that:
-  12 XP an hour.
-- Also in part 3, from the security review: placing an agent asks land-claim mods first (it posts the block-place event
-  a claim mod listens for, as if the player put something there); a player's snow golem no longer counts as hostile.
+  owner's client to say its agent works (the server can't ask Agent Office), but counts only while the agent stands
+  within 4 blocks of its lectern: a modified client earns at most 12 XP an hour, at a desk.
+- Land claims: placing an agent, or binding it to a new lectern, asks claim mods first (it posts the block-place event
+  a claim mod listens for, as if the player put something there). A player's snow golem is not hostile.
+- In-world tests (`src/gametest`, `gradlew runGameTestServer`, also in CI): a kill pays the mob's XP and death takes it
+  all; an agent never hurts a villager.
 
 ## Decisions (answered 2026-10-10)
 

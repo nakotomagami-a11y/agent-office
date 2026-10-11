@@ -22,6 +22,7 @@ eclipse
 run
 run-server
 run-client2
+run-gametest
 logs
 
 # ModDevGradle
