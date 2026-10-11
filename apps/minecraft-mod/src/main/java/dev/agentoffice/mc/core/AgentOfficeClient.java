@@ -224,7 +224,6 @@ public final class AgentOfficeClient {
         return parse(() -> el.isJsonNull() ? Optional.empty() : Optional.of(conversation(el)));
     }
 
-    /** Starts a turn, or queues it if the agent is busy (server decides). */
     /** Uploads a file to the project (as the web composer does); returns where it was saved, for the message. */
     public String upload(String projectId, String filename, String contentType, byte[] data) throws IOException {
         writable();
@@ -238,7 +237,10 @@ public final class AgentOfficeClient {
         return parse(() -> str(el.getAsJsonObject(), "path"));
     }
 
-    /** The clipboard image as Agent Office's host reads it (Linux/Wayland only: wl-paste); empty when there is none. */
+    /**
+     * The clipboard image as Agent Office's host reads it (Linux/Wayland only: wl-paste). Empty when there is none;
+     * anything else (wl-paste missing, too large) is an error that says so.
+     */
     public Optional<byte[]> clipboardImage() throws IOException {
         HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/clipboard-image")).timeout(TIMEOUT)
                 .POST(HttpRequest.BodyPublishers.noBody()).build();
@@ -249,9 +251,12 @@ public final class AgentOfficeClient {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", e);
         }
-        return res.statusCode() == 200 && res.body().length > 0 ? Optional.of(res.body()) : Optional.empty();
+        if (res.statusCode() == 404) return Optional.empty();
+        if (res.statusCode() != 200) throw apiError(res.statusCode(), new String(res.body(), StandardCharsets.UTF_8));
+        return res.body().length > 0 ? Optional.of(res.body()) : Optional.empty();
     }
 
+    /** Starts a turn, or queues it if the agent is busy (server decides). */
     public Api.Conversation send(String conversationId, String text) throws IOException {
         writable();
         JsonObject body = new JsonObject();

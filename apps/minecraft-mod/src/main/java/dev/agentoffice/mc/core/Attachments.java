@@ -13,7 +13,7 @@ public final class Attachments {
 
     /** The message text with the uploaded files' paths after it; null when there is nothing to send. */
     public static String compose(String text, List<String> paths) {
-        String value = text == null ? "" : text.trim();
+        String value = text == null ? "" : text.strip(); // JS trim also takes Unicode spaces
         if (value.isEmpty() && paths.isEmpty()) return null;
         if (paths.isEmpty()) return value;
         StringBuilder out = new StringBuilder(value).append("\n\n").append(INTRO);

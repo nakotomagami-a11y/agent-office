@@ -17,6 +17,7 @@ import dev.agentoffice.mc.core.Attachments;
 import dev.agentoffice.mc.core.Transcript;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -220,10 +221,21 @@ public final class ChatScreen extends WorkspaceScreen {
         if (!attachments.isEmpty()) {
             cy -= 20;
             int ax = x0;
-            for (Attached a : List.copyOf(attachments)) {
-                String chip = (a.path() == null ? "… " : "✕ ") + a.name();
+            List<Attached> all = List.copyOf(attachments);
+            for (int i = 0; i < all.size(); i++) {
+                Attached a = all.get(i);
+                String chip = (a.path() == null ? "… " : "✕ ") + font.plainSubstrByWidth(a.name(), 110);
                 int w = buttonWidth(chip);
-                if (ax + w > x1) break;
+                // No room for this one and a "+N" after it: the rest go in one chip that drops them all.
+                if (ax + w + buttonWidth("✕ +" + (all.size() - i)) + 4 > x1) {
+                    List<Attached> hidden = all.subList(i, all.size());
+                    addRenderableWidget(new FlatButton(ax, cy, buttonWidth("✕ +" + hidden.size()), 16, "✕ +" + hidden.size(),
+                            FlatButton.Kind.NORMAL, x -> {
+                                attachments.removeAll(hidden);
+                                rebuildWidgets();
+                            })).setTooltip(Tooltip.create(Component.literal("Don't send these " + hidden.size() + " images")));
+                    break;
+                }
                 FlatButton b = addRenderableWidget(new FlatButton(ax, cy, w, 16, chip, FlatButton.Kind.NORMAL, x -> {
                     attachments.remove(a);
                     rebuildWidgets();
@@ -407,7 +419,7 @@ public final class ChatScreen extends WorkspaceScreen {
 
     private void send() {
         if (conversation == null) return;
-        if (attachments.stream().anyMatch(a -> a.path() == null)) {
+        if (pasting || attachments.stream().anyMatch(a -> a.path() == null)) {
             flash("Still uploading the image…");
             return;
         }
@@ -429,7 +441,7 @@ public final class ChatScreen extends WorkspaceScreen {
                 onMain(() -> {
                     flash("Not sent: " + e.getMessage());
                     if (input.getValue().isEmpty()) input.setValue(typed.trim());
-                    if (attachments.isEmpty()) attachments.addAll(sending);
+                    attachments.addAll(0, sending);
                     rebuildWidgets();
                 });
             }
@@ -475,7 +487,8 @@ public final class ChatScreen extends WorkspaceScreen {
                 onMain(() -> {
                     pasting = false;
                     int i = attachments.indexOf(uploading[0]);
-                    if (i >= 0) attachments.set(i, new Attached(uploading[0].name(), path));
+                    // The name the server saved it under (it may tidy it), as the web composer shows.
+                    if (i >= 0) attachments.set(i, new Attached(Path.of(path).getFileName().toString(), path));
                     flash("Attached " + uploading[0].name() + ".");
                     rebuildWidgets();
                 });
@@ -897,6 +910,8 @@ public final class ChatScreen extends WorkspaceScreen {
         busy = false; // its result may have been dropped while closed
         answering.clear();
         refreshPending = false; // its delayed refresh was dropped while closed
+        pasting = false; // so was a paste's ending: its chip would wait forever
+        attachments.removeIf(a -> a.path() == null);
     }
 
     private void closeStream() {
