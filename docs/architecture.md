@@ -329,7 +329,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
 **Migrations:** forward-only, tracked via `user_version` — currently at **v25**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
-**Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned. Pipelines with no still-live run → `status='error', interrupted=1`.
+**Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
 
@@ -347,13 +347,13 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
-| `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Multi-step pipeline run record |
-| `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | One row per step |
+| `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
+| `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
 | `saved_prompts` | id, title, body, category, created_at, use_count | Reusable multi-step workflow library |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude` |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
-| `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Plaintext values |
+| `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Values encrypted at rest (AES-256-GCM, machine-local key: `services/accounts/secret-crypto.ts`) |
 | `project_secrets` | PK(project_id, secret_id) | Many-to-many link attaching a secret to projects |
 | `pr_links` | PK(repo, number), project_id, agent_id, instance_id, source, created_at | Which agent seat opened which GitHub PR (`source`: `recorded` when its `gh pr create` returned the URL, `branch` from an `agent/<instanceId>-…` head, `manual` when picked at the Review Lectern) — review feedback is routed to that seat's chat. `repo` is lowercase `owner/name` |
 
@@ -410,10 +410,8 @@ Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env
 
 | Variable | Default | What it controls |
 |----------|---------|-----------------|
-| `ANTHROPIC_API_KEY` | — | Passed to every `claude` subprocess. Warns (not fatal) when missing so builds work in CI |
 | `AGENT_OFFICE_STARTER_DATA` | `<cwd>/starter-data` | Override path to bundled starter-data |
 | `AGENT_OFFICE_DOCS_DIR` | bundled `docs/` | Override path to the in-app docs source |
-| `AGENT_OFFICE_DB_PATH` | `~/.claude/agent-office/db.sqlite` | Override the SQLite path |
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |

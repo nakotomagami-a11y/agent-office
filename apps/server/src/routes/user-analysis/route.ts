@@ -2,8 +2,8 @@
 //
 // GET   → returns the current ~/.claude/agent-office/user_analysis.md as
 //         { markdown, updatedAt, wordCount }. Empty-fields on first run.
-// POST  → dispatches the `user-analyst` agent (Opus / high effort) against
-//         the agent-office project. The agent overwrites user_analysis.md;
+// POST  → dispatches the `user-analyst` agent (Opus / high effort), in no
+//         project: it reads absolute paths. The agent overwrites user_analysis.md;
 //         the client polls /api/runs/:id until status !== "running", then
 //         refetches GET to render the new markdown.
 //
@@ -12,7 +12,6 @@
 
 import {
   agents,
-  projects,
   runs,
   store,
   summon,
@@ -22,7 +21,6 @@ import { log } from "@agent-office/domain/services/infra/log";
 import { badRequest, serverError, requireIntegration } from "../../lib/api-helpers";
 
 const AGENT_ID = "user-analyst";
-const PROJECT_ID = "agent-office";
 const REGEN_PROMPT =
   "Regenerate the user analysis. Read all sources per your system prompt. Write to ~/.claude/agent-office/user_analysis.md.";
 
@@ -41,20 +39,9 @@ export async function POST() {
   const gate = requireIntegration("about-you");
   if (gate) return gate;
   const agent = agents.readAgent(AGENT_ID);
-  if (!agent) return badRequest(`agent not installed: ${AGENT_ID}`);
+  if (!agent) return badRequest("agent_not_installed");
 
-  // Fall back to no project if agent-office isn't registered — user-analyst
-  // reads absolute paths, so it doesn't need a cwd, but wiring it to the
-  // agent-office project keeps the run visible on the office chat panel.
-  const project = projects.readProject(PROJECT_ID);
-  const cwd = project?.meta.cwd;
-
-  const appendedSystemPrompt = agents.buildAppendedPrompt(
-    AGENT_ID,
-    project,
-    undefined,
-    false,
-  );
+  const appendedSystemPrompt = agents.buildAppendedPrompt(AGENT_ID, null, undefined, false);
 
   const built = summon.buildClaudeArgs({
     request: {
@@ -62,7 +49,6 @@ export async function POST() {
       prompt: REGEN_PROMPT,
       model: agent.info.defaultModel ?? "opus",
       effort: agent.info.defaultEffort ?? "high",
-      projectId: project?.id,
     },
     agent: agent.info,
     instance: null,
@@ -85,8 +71,6 @@ export async function POST() {
       prompt: REGEN_PROMPT,
       model: built.model,
       effort: built.effort,
-      cwd,
-      projectId: project?.id,
       args: built.args,
       stdin: built.stdin,
     });

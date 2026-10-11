@@ -63,12 +63,16 @@ export function AboutYouTab() {
 
   const startRegenerate = async () => {
     setConfirming(false);
-    const res = await regenMut.mutateAsync();
-    setActiveRunId(res.runId);
+    try {
+      const res = await regenMut.mutateAsync();
+      setActiveRunId(res.runId);
+    } catch {
+      // Shown as a failed run (regenMut.isError), e.g. agent_not_installed.
+    }
   };
 
   const isRegenerating = activeRunId !== null || regenMut.isPending;
-  const runFailed = runStatus === "error";
+  const runFailed = runStatus === "error" || regenMut.isError;
 
   if (analysisQ.isLoading) return null;
 

@@ -16,7 +16,7 @@ picks it up).
 | `03-agents.md`              | Agent file format, model policy, starter roster, skills    |
 | `04-projects.md`            | Projects, roster, worktrees                                |
 | `05-memory.md`              | Global / project / per-agent memory tiers                  |
-| `06-usage.md`               | Office floor, summon, history, pipelines, spend, migration |
+| `06-usage.md`               | Office floor, summon, history, spend, migration            |
 | `07-interface.md`           | UI feature reference — every tab, modal, hotkey            |
 | `08-reference.md`           | API, DB schema, SSE events, architecture, env vars         |
 
@@ -27,16 +27,6 @@ picks it up).
 - Code fences use standard triple-backtick with a language: `\`\`\`ts`.
 - Headings determine the right-nav TOC — `##` becomes a top-level anchor,
   `###` becomes a sub-anchor. Slugs are derived from heading text.
-
-## Editing from Obsidian
-
-If you use Obsidian, symlink `apps/web/docs/` into your vault:
-
-```bash
-ln -s ~/Documents/Lab/agent-office/apps/web/docs ~/obsidian-vault/Projects/Agent\ Office/app-docs
-```
-
-Then edit in Obsidian; changes hot-reload in the running dev server.
 
 ## For AI agents editing these files
 

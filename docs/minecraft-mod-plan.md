@@ -110,7 +110,7 @@ Code split so other loaders/versions are cheap later:
 - **core** (plain Java, no Minecraft imports): discovery, HTTP + SSE client, JSON models, chat state.
 - **client** (thin, NeoForge): entity, wand item, screens, packets, keybind.
 
-Phase 1 — "fuck around with the tech":
+Phase 1 — try the tech:
 1. Gradle project from the Forge 1.20.1 MDK; core client tested outside Minecraft against the running app.
 2. Wand item: right-click a block → screen lists agents + projects (from the local app) → client sends a
    packet → server spawns the owned villager entity → owner's client adds the roster instance.

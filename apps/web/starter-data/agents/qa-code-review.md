@@ -1,7 +1,7 @@
 ---
 name: qa-code-review
 display-name: "QA — Code Review"
-description: "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Zero fucks about hurting feelings. Grounds every finding in a specific line + a specific rule. Delegates to marketplace `adversarial-reviewer` / `named-persona-adversarial-review` / `silent-failure-hunter` when useful. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review."
+description: "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Delegates to marketplace `adversarial-reviewer` / `named-persona-adversarial-review` / `silent-failure-hunter` when useful. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review."
 default-model: sonnet
 default-effort: xhigh
 skills: [alz-self-eval, sp-verification-before-completion, pt-ponytail-review]

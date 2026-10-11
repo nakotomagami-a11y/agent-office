@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-06-1",
-  "generated": "2026-10-06",
+  "version": "2026-10-11-1",
+  "generated": "2026-10-11",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
     {
@@ -24,38 +24,38 @@
     {
       "file": "cs-ceo.md",
       "name": "cs-ceo",
-      "description": "CEO advisor — strategic leadership, vision, board management, fundraising, culture. Ruthless, evidence-first, gives zero fucks. Roasts poor ideas, refuses to hedge, always thinks or researches before answering. Use for strategic decisions, board prep, fundraising decisions, capital allocation, killing projects, culture problems.",
-      "hash": "4f710418c4f10031"
+      "description": "CEO advisor — strategic leadership, vision, board management, fundraising, culture. Ruthless, evidence-first, blunt. Roasts poor ideas, refuses to hedge, always thinks or researches before answering. Use for strategic decisions, board prep, fundraising decisions, capital allocation, killing projects, culture problems.",
+      "hash": "762021434040803f"
     },
     {
       "file": "cs-cfo.md",
       "name": "cs-cfo",
-      "description": "CFO advisor — unit economics, runway, burn, fundraising math, capital allocation, pricing math. Numerate skeptic, zero fucks. Refuses vibes-based projections, roasts wishful CAC assumptions, always models the downside first. Use for financial modeling, fundraising timing, pricing decisions, budget calls, when-to-hire math.",
-      "hash": "73578c1d92c2ae2b"
+      "description": "CFO advisor — unit economics, runway, burn, fundraising math, capital allocation, pricing math. Numerate skeptic, blunt. Refuses vibes-based projections, roasts wishful CAC assumptions, always models the downside first. Use for financial modeling, fundraising timing, pricing decisions, budget calls, when-to-hire math.",
+      "hash": "df5a940ab925a8be"
     },
     {
       "file": "cs-cmo.md",
       "name": "cs-cmo",
-      "description": "CMO advisor — positioning, ICP, message-house, channel mix, category creation, brand voice, launch strategy. Ruthless, evidence-first, zero fucks. Roasts feature-list positioning, refuses to bless a channel plan that doesn't match ICP, always asks 'what does the customer say they hired us for.' Use for positioning calls, launch decisions, channel allocation, category framing, and calling bullshit on CAC/LTV that doesn't survive first contact.",
-      "hash": "d51157768947ee98"
+      "description": "CMO advisor — positioning, ICP, message-house, channel mix, category creation, brand voice, launch strategy. Ruthless, evidence-first, blunt. Roasts feature-list positioning, refuses to bless a channel plan that doesn't match ICP, always asks 'what does the customer say they hired us for.' Use for positioning calls, launch decisions, channel allocation, category framing, and calling out CAC/LTV that doesn't survive first contact.",
+      "hash": "cf1ae45a47ba005c"
     },
     {
       "file": "cs-coo.md",
       "name": "cs-coo",
-      "description": "COO advisor — execution, ops, hiring cadence, weekly rituals, process design, cross-team accountability. Ruthless, evidence-first, zero fucks. Roasts vague OKRs, refuses to bless a 'process' that has no owner or metric, always asks 'who checks this and when'. Use for org design, ritual design (all-hands, weekly reviews, quarterly planning), hiring plans, and turning strategy into weekly execution.",
-      "hash": "3919e359b6742b1f"
+      "description": "COO advisor — execution, ops, hiring cadence, weekly rituals, process design, cross-team accountability. Ruthless, evidence-first, blunt. Roasts vague OKRs, refuses to bless a 'process' that has no owner or metric, always asks 'who checks this and when'. Use for org design, ritual design (all-hands, weekly reviews, quarterly planning), hiring plans, and turning strategy into weekly execution.",
+      "hash": "f142ce6e51006c03"
     },
     {
       "file": "cs-cpo.md",
       "name": "cs-cpo",
-      "description": "CPO advisor — product vision, PMF diagnosis, roadmap prioritization, feature-kill decisions, portfolio strategy. Ruthless, evidence-first, zero fucks. Roasts feature factories, refuses to bless roadmaps that don't ladder to an outcome, always asks 'what job is this feature getting hired for.' Use for roadmap calls, feature-cut decisions, PMF diagnosis, portfolio pruning.",
-      "hash": "13b7fb68894f5020"
+      "description": "CPO advisor — product vision, PMF diagnosis, roadmap prioritization, feature-kill decisions, portfolio strategy. Ruthless, evidence-first, blunt. Roasts feature factories, refuses to bless roadmaps that don't ladder to an outcome, always asks 'what job is this feature getting hired for.' Use for roadmap calls, feature-cut decisions, PMF diagnosis, portfolio pruning.",
+      "hash": "ed21f0b2e29e9395"
     },
     {
       "file": "cs-cto.md",
       "name": "cs-cto",
-      "description": "CTO advisor — architecture decisions, tech debt strategy, engineering scaling, build vs buy, DORA metrics, incident response leadership. Ruthless, evidence-first, zero fucks. Roasts overengineering, refuses vibes-based architecture, always thinks or researches before answering. Use for architecture calls, stack choices, hiring engineers, tech-debt sprints, rewrite decisions.",
-      "hash": "0dc2419f10e05cb9"
+      "description": "CTO advisor — architecture decisions, tech debt strategy, engineering scaling, build vs buy, DORA metrics, incident response leadership. Ruthless, evidence-first, blunt. Roasts overengineering, refuses vibes-based architecture, always thinks or researches before answering. Use for architecture calls, stack choices, hiring engineers, tech-debt sprints, rewrite decisions.",
+      "hash": "d2fd4f01a5adbfb5"
     },
     {
       "file": "data-analyst.md",
@@ -138,8 +138,8 @@
     {
       "file": "qa-code-review.md",
       "name": "qa-code-review",
-      "description": "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Zero fucks about hurting feelings. Grounds every finding in a specific line + a specific rule. Delegates to marketplace `adversarial-reviewer` / `named-persona-adversarial-review` / `silent-failure-hunter` when useful. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review.",
-      "hash": "5dffba0466afa648"
+      "description": "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Delegates to marketplace `adversarial-reviewer` / `named-persona-adversarial-review` / `silent-failure-hunter` when useful. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review.",
+      "hash": "393b585fcffda3ac"
     },
     {
       "file": "qa-codebase.md",
@@ -193,7 +193,7 @@
       "file": "user-analyst.md",
       "name": "user-analyst",
       "description": "Generates a candid, evidence-cited portrait of the user as a PERSON. Reads their message history, stated rules, and workflow signals to characterize HOW they work and WHO they are — never a project status report. Output is 8 short scannable H2 sections, each with one-line bullets and a verbatim quote when the section allows one.",
-      "hash": "54e1c531f95cb64d"
+      "hash": "f3c800cdc320cd78"
     },
     {
       "file": "web-qa.md",

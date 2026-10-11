@@ -97,7 +97,6 @@ Every agent has a **memory tab**. Open the agent → *Memory* → type. That tex
 | **Migration modal** | The dialog that opens when a new app version ships an updated agent roster. Lets you pick which changes to accept. |
 | **Memory tier** | One of three text files that get prepended to every run: global (all agents), project (this project), per-agent (this agent only). |
 | **Cost pill** | The colored token-count badge next to each skill in the picker. Green = cheap, red = expensive per invocation. |
-| **Pipeline** | A pre-defined chain of steps that dispatches multiple agents in sequence. |
 | **Broadcast** | Send the same prompt to every agent in a project at once. |
 | **Starter roster** | The agents bundled with the app on first install. |
 

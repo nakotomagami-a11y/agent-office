@@ -710,7 +710,7 @@ const ENV_VARS: DocsExport["env_vars"] = [
   {
     name: "ANTHROPIC_API_KEY",
     effect:
-      "Passed through to the claude CLI subprocess via inherited env; required for any agent run to succeed",
+      "Optional. Inherited by the claude CLI subprocess, which uses it instead of its own sign-in",
   },
   {
     name: "PATH",
@@ -833,7 +833,7 @@ const PATHS: DocsExport["paths"] = [
     key: "DB_PATH",
     path: "~/.claude/agent-office/db.sqlite",
     description:
-      "SQLite database in WAL mode storing runs, messages, transcripts, drafts, and pipelines",
+      "SQLite database in WAL mode storing runs, messages, transcripts and drafts",
   },
   {
     key: "CREDENTIALS_FILE",

@@ -1,76 +1,39 @@
 # Getting Started
 
-You already run Claude Code. Agent Office keeps everything it forgets — every run, every dollar, every agent — and lets you run ten at once. It's a local desktop app that wraps the Claude Code CLI in a visual, persistent workspace. This page gets you from a fresh install to your first run.
+Agent Office is a desktop app for running Claude Code agents on your projects. It keeps every run, its cost and its transcript, and lets you run several agents at once.
 
 > [!TIP]
-> Want the value pitch first? See [Features](#/features) for what Agent Office adds on top of the raw CLI, or [Concepts](#/concepts) for the plain-English mental model.
+> New here? [Concepts](#/concepts) explains the parts in plain words; [Features](#/features) lists what it adds to the CLI.
 
-> [!NOTE]
-> Agent Office wraps the Claude Code CLI — you need that installed and an Anthropic API key configured before anything will run.
+## Before you start
 
-## Prerequisites
+1. **Install Claude Code and sign in once.** Agent Office runs `claude` for every agent.
 
-### 1. Claude Code CLI
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   claude    # sign in with your Claude subscription or an API key
+   ```
 
-Agent Office spawns `claude` as a subprocess for every run. Install it first:
+2. **Get Agent Office.** Windows and Linux have installers on the releases page. On macOS, build from source (see the README).
 
-```bash
-npm install -g @anthropic/claude-code
-```
+The Processes panel is Linux-only. On Linux, pasting images needs `wl-clipboard`.
 
-Verify with `claude --version`. The health check at `GET /api/health` also confirms availability.
+> [!WARNING]
+> Every starter agent uses `permission-mode: bypassPermissions`: it runs any shell command and edits any file your user account can, without asking. Use them only on projects you are happy for them to change, or set `permission-mode: default` in an agent's file (`~/.claude/agents/`) and the app asks you first.
 
-### 2. Anthropic API key
+## First launch
 
-Configure an Anthropic API key in your environment. Agent Office reads this from `~/.claude/.credentials.json` when the CLI is installed.
+A setup wizard opens:
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-…"
-```
+1. **Essentials**: checks that `claude` is installed.
+2. **Workspace**: the folder that holds your repos; each subfolder can become a project.
+3. **Ignore**: folder names the scanner skips (`node_modules`, `.git`, …).
+4. **Extras**: optional integrations, also in Settings later.
+5. **Crew**: pick starter agents; each is copied to `~/.claude/agents/` as a markdown file you can edit.
+6. **Project**: pick one or more folders to open, or skip.
 
-### 3. Platform availability
+Settings are saved in `~/.claude/agent-office-settings.json`. To see the wizard again, remove `firstRunComplete` from that file.
 
-- Linux (Wayland or X11)
-- macOS
-- Windows via WSL2
+## Your first run
 
-Some features are Linux-only (clipboard image paste via `wl-paste`, `lsof` for the Processes panel).
-
-## Quick start
-
-Three steps from a fresh install to your first run.
-
-### Step 1 — Import a starter agent
-
-Launch the app; the first-run wizard opens automatically. Pick one or more starter agents (`developer` is a good default) and click **Import**. Each import copies a `.md` file into `~/.claude/agents/`.
-
-### Step 2 — Create a project
-
-Click **New project**, pick a directory on disk, name it. Agent Office stores project metadata under `~/.claude/projects/<id>/project.md`.
-
-### Step 3 — Summon an agent
-
-Drag the agent from the sidebar into the project roster. Click the agent to open the chat panel. Type a prompt, hit **Send**. Output streams back live via SSE.
-
-That's it. Everything else — office floor layout, memory tiers, pipelines, cost tracking — is on top of these three primitives.
-
-## First-run wizard
-
-The wizard walks new installs through the same three steps above, plus a few app-level settings.
-
-### Wizard steps
-
-1. **API key check** — confirms `~/.claude/.credentials.json` exists.
-2. **Starter agent import** — lists agents bundled at `apps/web/starter-data/agents/` and lets you pick which to install. Already-present files are skipped.
-3. **Project root** — pick a default parent directory for future projects (e.g. `~/Documents/Lab`).
-4. **Confirm** — writes settings + agents, marks `firstRunComplete: true`.
-
-### What gets created on finish
-
-- `~/.claude/agents/*.md` — one file per imported starter.
-- `~/.claude/agent-office-settings.json` — `projectsRoot`, `excluded`, `firstRunComplete`.
-- No projects yet — you create the first one manually after the wizard closes.
-
-### Re-running the wizard
-
-Delete or edit `~/.claude/agent-office-settings.json` and remove `firstRunComplete`. The wizard reopens on next launch.
+Open a project and click **Add agent** on the office toolbar to give it an agent. Click the agent, open its chat, type a prompt and press **Send**. The answer streams in live, and the run stays in the history with its cost and transcript.

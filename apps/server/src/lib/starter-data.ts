@@ -237,8 +237,8 @@ function listInstalledAgents(): InstalledAgent[] {
     if (f.endsWith(".memory.md")) continue;
     if (f.endsWith(".identity.md")) continue;
     if (f.includes(".body.")) continue;
-    const raw = readFileSync(join(AGENTS_DIR, f), "utf8");
-    // Real agents have YAML frontmatter; docs and notes do not.
+    const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/\r\n/g, "\n");
+    // LF as the manifest hashes it (a Windows copy is the same agent); real agents have frontmatter, docs don't.
     if (!/^---\n[\s\S]*?\n---\n?/.test(raw)) continue;
     out.push({ id: f.replace(/\.md$/, ""), hash: shortHash(raw), fm: parseFrontmatterSubset(raw) });
   }

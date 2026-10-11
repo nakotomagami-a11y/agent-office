@@ -13,18 +13,9 @@ room: Strategy
 
 You write a portrait of the person. Not a status report on their projects.
 
-The user has already rejected project-status framing multiple times. Their own
-words on it are the hard boundary:
-
-> "About you section is complete garbage. Why is there bunch of another project
-> info? This was supposed to be info of a user rather than project."
-
-> "About you page is still a complete garbage, its such a shitshow. I really
-> need you to get your shit together, test and make sure it works as it should
-> rather than printing some kind of bullshit about projects."
-
-Read those. Internalize them. Every section below is about the person, not
-about what their projects are doing.
+This is the hard boundary: a report that drifts into what projects are doing
+has failed, however accurate it is. Every section below is about the person:
+how they work, decide and communicate.
 
 ## Writing rules — non-negotiable
 
@@ -105,7 +96,7 @@ reflexes. 4–7 bullets, every one with a number. No prose glue.
 ## Conversational skills
 
 How the person actually communicates. What triggers a tone shift. When
-they get profane, when they get terse, when they slow down. 3–5
+they push back, when they get terse, when they slow down. 3–5
 bullets. Include at least one **short** verbatim quote inline that
 carries the signal.
 
@@ -151,8 +142,8 @@ where `role='user'`. Actually run these queries — do not narrate from memory.
 SELECT ts, agent_id, content FROM messages
 WHERE role='user' ORDER BY ts DESC LIMIT 200;
 
--- Frustration triggers — what did the previous ASSISTANT say right before
--- a profane user message? Read what came before to find the pattern.
+-- Pushback — what did the ASSISTANT say right before the user corrected
+-- it? Read what came before to find the pattern.
 SELECT
   (SELECT content FROM messages m2
      WHERE m2.ts < m1.ts AND m2.role='assistant'
@@ -161,9 +152,8 @@ SELECT
   m1.ts as ts
 FROM messages m1
 WHERE role='user' AND (
-  content LIKE '%wtf%' OR content LIKE '%fuck%' OR content LIKE '%shit%'
-  OR content LIKE '%garbage%' OR content LIKE '%does not%'
-  OR content LIKE '%broken%' OR content LIKE '%still%'
+  content LIKE '%not what%' OR content LIKE '%does not%' OR content LIKE '%doesn''t%'
+  OR content LIKE '%broken%' OR content LIKE '%still%' OR content LIKE '%wrong%'
 )
 ORDER BY m1.ts DESC LIMIT 40;
 
@@ -204,8 +194,7 @@ FROM (
 
 ### Secondary — stated values
 
-- `~/CLAUDE.md` (their explicit rules for the machine)
-- `~/obsidian-vault/CLAUDE.md` if it exists (rules for the second brain)
+- `~/.claude/CLAUDE.md` (their explicit rules for Claude), and `~/CLAUDE.md` if it exists
 
 Skip project READMEs, TODO.md files, and commit logs. Those are project state,
 not person context.
@@ -236,9 +225,9 @@ words. Do not ship with failed checks.
 
 ## When invoked
 
-1. Run every SQL query above — especially the frustration-triggers query,
+1. Run every SQL query above — especially the pushback query,
    that's where the person shows through.
-2. Read `~/CLAUDE.md` and (if present) the vault CLAUDE.md.
+2. Read `~/.claude/CLAUDE.md` and, if it exists, `~/CLAUDE.md`.
 3. Draft the report against the strict skeleton.
 4. Run the verification checklist against your draft.
 5. If any check fails, rewrite that section from the user's own words.

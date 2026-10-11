@@ -13,12 +13,12 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 |---|---|---|
 | **History** | Lost on exit | Every run saved and searchable — transcript, cost, tokens, tool calls |
 | **Cost** | Untracked | Per-run cost tracked; spend dashboards, per-instance/per-project breakdowns, plan-usage meters |
-| **Multi-step work** | Manual | Pipelines (sequence · parallel · human-gate · condition) + broadcast |
+| **Multi-step work** | Manual | Orchestrator agents spawn sub-agents; broadcast one prompt to a whole project |
 | **Scope** | Current terminal directory | Per-project rosters, multi-instance with git-worktree isolation |
-| **Finding past work** | Scrollback | Full-text search + parent→sub-agent run tree |
+| **Finding past work** | Scrollback | Run history with search + parent→sub-agent run tree |
 | **Memory** | Manual paste | Three memory tiers injected automatically |
 | **Agents** | One, ad-hoc | A curated roster of specialists you can edit, plus your own `.md` files |
-| **Interface** | Text only | Compare runs, command palette, project tabs |
+| **Interface** | Text only | Compare runs, project tabs |
 
 *Everything stays local under `~/.claude` — but so does the raw CLI's own state, so this is reassurance, not an advantage over the CLI.*
 
@@ -27,7 +27,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 ### Nothing is ever lost
 
 - **Every run saved and searchable** — full transcript, tokens, cost, and tool calls in local SQLite. See [Usage → Run history](#/usage).
-- **Full-text search** — search every message across every run, from Cmd+K or the titlebar. See [Interface → Full-text search](#/interface).
+- **Search** — find a past run by what you asked or what it answered, on the Search page. See [Interface → Search page](#/interface).
 - **Run tree** — see which orchestrator dispatched which sub-agents, as a collapsible hierarchy — proof of real orchestration. See [Usage → Run tree](#/usage).
 - **Compare runs** — side-by-side diff of two runs' cost, tokens, and output. See [Interface → Compare runs](#/interface).
 - **Reconnect-safe streaming** — output streams live via SSE and keeps flowing in background tabs; return mid-token. See [Interface → Project tabs](#/interface).
@@ -45,7 +45,6 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 
 - **Multi-instance + worktree isolation** — drop the same agent onto a project many times; each gets its own isolated git worktree so parallel instances run at once without colliding. This is genuinely hard to do by hand — it's the standout. See [Usage → Multi-instance & worktrees](#/usage).
 - **Message queue** — line up prompts while a run is streaming; they dispatch in order, editable until they start. See [Interface → Message queue](#/interface).
-- **Pipelines** — chain agents in sequence, run groups in parallel, pause for a human gate, or skip on a condition. See [Usage → Pipelines](#/usage).
 - **Schedules** — run an agent at a set time, or auto-resume a run the moment its rate limit resets — no babysitting. See [Schedules](#/schedules).
 - **Curated roster** — specialist agents bundled for convenience: dev tiers, C-suite advisors, QA, engineering, research. The CLI already supports `.md` subagents; this is a ready-made starting set, not a lock-in. See [Agents → Starter roster](#/agents).
 
@@ -58,7 +57,6 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 
 - **Scriptable** — a full REST API + SSE stream sits under every feature; drive the whole app from your own tooling. See [Reference → REST API](#/reference).
 - **Project tabs** — hold multiple projects open Chrome-style; each tab's chat, stream, and draft are preserved. See [Interface → Project tabs](#/interface).
-- **Command palette** — Cmd+K to jump to any page and fire quick actions (toggle theme, abort all, open panels). See [Interface → Command palette](#/interface).
 - **Multi-account** — connect several Claude accounts, see per-account usage in Analytics, and register GitHub identities per project. See [Interface → Settings](#/interface).
 - **Workflows, drafts, attachments** — reuse curated multi-step prompts, autosave composer text, drop or paste files and images. See [Interface → Chat features](#/interface).
 - **Processes panel** — every dev server and build the app spawns, with live logs and stdin. See [Usage → Processes panel](#/usage).

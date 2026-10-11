@@ -26,7 +26,7 @@ Everything Agent Office writes to disk is under `~/.claude/`. Nothing else, nowh
 │       └── _uploads/                  # Per-project file attachments
 │
 ├── agent-office/
-│   ├── db.sqlite                      # All runs, messages, transcripts, pipelines
+│   ├── db.sqlite                      # All runs, messages, transcripts
 │   ├── agent-manifest-version         # Last bundled roster version applied
 │   └── agent-manifest-skipped.json    # Per-version skip choices from the migration modal
 │
@@ -160,12 +160,10 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `GET` | `/api/projects/:id/uploads` | List project uploads |
 | `POST` | `/api/projects/:id/uploads` | Upload file for project |
 
-### Pipelines & broadcast
+### Broadcast
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/pipeline` | Create & start multi-agent pipeline (202) |
-| `GET` | `/api/pipeline/:id` | Poll pipeline status |
 | `POST` | `/api/broadcast` | Fan-out prompt to all roster instances (202) |
 
 ### Schedules
@@ -445,7 +443,7 @@ Chat-format history. One row per assistant / user message. Full-text-indexed via
 
 ### `pipelines` & `pipeline_steps`
 
-Pipeline definitions and per-step state.
+Unused: left by an earlier version's migrations.
 
 ### Other tables
 
@@ -536,9 +534,8 @@ Subprocess exit
 | Var | Purpose |
 |---|---|
 | `AGENT_OFFICE_STARTER_DATA` | Override the starter-data directory path (default: `apps/web/starter-data`) |
-| `AGENT_OFFICE_DOCS_DIR` | Override the docs source directory (default: `apps/web/docs`) |
-| `AGENT_OFFICE_DB_PATH` | Override SQLite path (default: `~/.claude/agent-office/db.sqlite`) |
-| `ANTHROPIC_API_KEY` | Passed to the `claude` subprocess |
+| `AGENT_OFFICE_DOCS_DIR` | Override the docs source directory (default: the repo's `docs/`) |
+| `ANTHROPIC_API_KEY` | Optional: `claude` uses it instead of its own sign-in |
 | `AO_DEBUG_TOOLS` | When set (any value), enables verbose tool-call logging in the summon subprocess wrapper. Dev-only. |
 | `DEFAULT_LOCALE` | Override the i18n default locale (defaults to `en`). Used by `next-intl`. |
 | `NODE_ENV` | Standard Node env — `development` / `production`. |
@@ -608,7 +605,6 @@ Client-only state stores (persisted where noted):
 | `performance-store` | server via `ui_settings.performance-mode` | `full` \| `lite` \| `off` |
 | `claude-limits-store` | server via `ui_settings.claude-limits` | Spend-cap config |
 | `compare-store` | localStorage | Runs selected for compare across route transitions |
-| `palette-store` | in-memory | Command palette open state + last query |
 | `flutter-store` | in-memory | Flutter mirror connection |
 | `dev-server-store` | in-memory | Dev server states per project |
 | `server-process-store` | in-memory | General process tracking |

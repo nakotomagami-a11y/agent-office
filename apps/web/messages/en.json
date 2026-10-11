@@ -610,7 +610,7 @@
     "run": "Run",
     "working": "Working…",
     "erase_title": "Erase everything",
-    "erase_desc": "Every row above plus runs, messages, tool calls, and pipeline history. Analytics is destroyed. Files in your projects are untouched.",
+    "erase_desc": "Every row above plus runs, messages and tool calls. Analytics is destroyed. Files in your projects are untouched.",
     "erased": "Erased",
     "erase_placeholder": "type ERASE to confirm",
     "erase_button": "Erase"

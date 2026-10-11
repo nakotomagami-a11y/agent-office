@@ -1,6 +1,6 @@
 # Usage
 
-Day-to-day workflows: the isometric office floor, sending agents to work and streaming their output, run history, multi-step pipelines, multi-instance worktrees, spend tracking, the processes panel, and roster updates.
+Day-to-day workflows: the isometric office floor, sending agents to work and streaming their output, run history, multi-instance worktrees, spend tracking, the processes panel, and roster updates.
 
 ## Office floor — the isometric workspace
 
@@ -96,9 +96,9 @@ sqlite3 -header -column ~/.claude/agent-office/db.sqlite "
 "
 ```
 
-### Full-text search
+### Search
 
-Press **Cmd+K** to open the command palette, then start typing to run FTS across every stored message. Powered by the `messages_fts` FTS5 virtual table.
+The **Search** page finds a past run by its prompt or output, among your recent runs.
 
 ### Run tree
 
@@ -107,47 +107,6 @@ Press **Cmd+K** to open the command palette, then start typing to run FTS across
 ### Children
 
 `GET /api/runs/:id/children` is the flat single-level version — direct sub-agents only.
-
-## Pipelines — multi-step agent chains
-
-A pipeline runs multiple agents in sequence, feeding one's output into the next. Defined as an array of steps.
-
-### Step types
-
-| Type | Meaning |
-|---|---|
-| `agent` | Run one agent with a prompt. |
-| `parallel` | Run multiple agents at the same time; collect all outputs. |
-| `human-gate` | Pause and wait for human confirmation before continuing. |
-| `condition` | Skip subsequent steps if a predicate is false. |
-
-### Timeouts
-
-Each step has a per-step timeout (default 30 min). Pipelines have an overall timeout (default 2 h).
-
-### Recovery on restart
-
-If the app restarts mid-pipeline, in-flight steps are marked as `interrupted` and the pipeline can be resumed from the last completed step.
-
-### API
-
-- `POST /api/pipeline` — create + start. Returns `202` with `{pipelineId}`.
-- `GET /api/pipeline/:id` — poll status.
-
-### Example: 3-step pipeline with a parallel group
-
-```json
-{
-  "steps": [
-    { "type": "agent",    "agent": "planner",    "prompt": "Plan the migration" },
-    { "type": "parallel", "steps": [
-        { "type": "agent", "agent": "developer-lite", "prompt": "Update codebase" },
-        { "type": "agent", "agent": "qa-code-review", "prompt": "Review the diff" }
-    ]},
-    { "type": "agent", "agent": "release-engineer", "prompt": "Cut the release" }
-  ]
-}
-```
 
 ## Multi-instance & worktrees
 

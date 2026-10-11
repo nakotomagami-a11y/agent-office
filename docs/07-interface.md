@@ -6,7 +6,7 @@ Every screen, modal, panel, and shortcut in the app. Read this if you want to kn
 
 This page is long. Here's the lay of the land — every section below, grouped:
 
-- **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface) · [Command palette](#/interface)
+- **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface)
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
 - **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Workflows](#/interface)
 - **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface) · [Activity](#/interface)
@@ -68,7 +68,7 @@ The chat panel. Send a prompt, watch it stream back. Persists across app restart
 - **Message queue** — you can send multiple messages while one is running; they queue and dispatch in order
 - **Drafts** — text in the composer is autosaved to `~/.claude/agent-office/db.sqlite → drafts` and restored when you reopen the tab
 - **Attachments** — drop files onto the composer or paste from clipboard (see Clipboard image paste below)
-- **Slash commands** — start typing `/` to open the command palette scoped to summon actions
+- **Slash commands** — start typing `/` to open the slash menu of summon actions
 
 ### History tab
 
@@ -163,30 +163,6 @@ Workflows (formerly "saved prompts") are a curated library of reusable, multi-st
 - **Open** — the **Workflows** button in the composer toolbar (`Ctrl+P`) opens the picker; choosing one pastes its body into the composer and records a use via `POST /api/workflows/:id/use`.
 - **Save** — right-click a message → *Save as workflow* creates one from existing text.
 - **Add / delete** — the picker dialog has an inline add form; workflows are stored in the `saved_prompts` table and served from `/api/workflows`.
-
-## Command palette (Cmd+K)
-
-Press **Cmd+K** anywhere in the app to open the command palette. It is a fixed command list (no dynamic per-agent / per-run rows — use the titlebar search bar for full-text message search). Groups:
-
-**Navigate** — jump to a top-level route or start a common flow:
-
-- Go to Office
-- Go to Activity
-- Go to Analytics
-- Go to Agents
-- Go to Projects
-- Go to Memory
-- Go to Skills
-- Go to Settings
-- Go to Docs
-- Search Runs
-- New Agent
-
-**Actions** — Toggle Theme, Stop all running agents (abort all).
-
-**Tools** — Running Servers (Processes panel), Flutter Device Manager.
-
-Type to filter by label or section. Navigate with ↑/↓, Enter to select, Esc to close. The palette open state is held in `palette-store`.
 
 ## Compare runs modal
 
@@ -299,18 +275,6 @@ Two rendering modes for the Office floor, toggled from the office toolbar and pe
 
 The Performance settings can force-select `cards` — see the Performance section below.
 
-## Full-text search bar (titlebar)
-
-The search bar at the top runs against `messages_fts`. Type a phrase, get every message across every run that mentions it. Click a result to jump to the transcript.
-
-Filters (chip-selectable):
-
-- **Agent** — restrict to one agent's messages
-- **Project** — restrict to one project
-- **Model** — only messages from a specific model
-- **Date range** — last 7d / 30d / custom
-- **Kind** — `you` / `agent-text` / `tool` / `system`
-
 ## Global Memory page (the `/memory` route)
 
 The global memory editor. Same Write/Preview markdown editor as the per-agent memory tab. Applies to every agent, every project. Read on every `summon` call.
@@ -343,7 +307,7 @@ All data pulled from the `runs` table (`/api/analytics/*`). No cloud call.
 
 ## Search page (top-level route `/search`)
 
-Full-text search over every stored message. Same engine as the titlebar search bar; standalone route for bookmarking specific queries.
+Finds a past run by its prompt or output, among your most recent 500 runs.
 
 ## Activity page (top-level route `/activity`)
 
@@ -368,7 +332,6 @@ Endpoints: `/api/flutter/{devices,mirror,run,screenshot}`.
 
 | Shortcut | Action |
 |---|---|
-| `Cmd/Ctrl+K` | Open command palette |
 | `Cmd/Ctrl+Shift+P` | Open Processes panel |
 | `Cmd/Ctrl+S` | Save (in memory / body editors) |
 | `Alt+←` / `Alt+→` | Previous / next instance of the same agent |
@@ -392,7 +355,7 @@ The theme store lives at `apps/web/src/lib/theme-store.ts` and behaves as follow
 
 - **First load** — reads `ui_settings.theme` from the server. If absent, auto-detects the OS via `window.matchMedia("(prefers-color-scheme: dark)")`.
 - **Applies** — writes `[data-theme="dark"]` on `<html>` so Tailwind's `dark:` variants and the token CSS in `packages/ui/src/tokens.css` flip accordingly.
-- **Toggle** — the sun/moon icon in the titlebar; also exposed via the command palette.
+- **Toggle** — the sun/moon icon in the titlebar.
 - **Persistence** — writes back to `ui_settings.theme` on change (best-effort; failures don't block the DOM update).
 
 ## Reduced motion (accessibility)

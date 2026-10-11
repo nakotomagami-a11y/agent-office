@@ -163,7 +163,7 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 
 | Agent | Owns | Voice |
 |---|---|---|
-| `cs-ceo` | Vision, board, fundraising, kill/pivot calls | Ruthless, evidence-first, zero fucks |
+| `cs-ceo` | Vision, board, fundraising, kill/pivot calls | Ruthless, evidence-first, blunt |
 | `cs-cfo` | Unit economics, runway, capital allocation | Numerate skeptic — models the downside first |
 | `cs-cto` | Architecture, tech debt, DORA, build-vs-buy | Roasts overengineering and vibes-based architecture |
 | `cs-cpo` | PMF, roadmap, feature-kill, portfolio strategy | *"What job is this feature getting hired for?"* |

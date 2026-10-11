@@ -26,8 +26,6 @@ const DEFAULT_EXCLUDED = [
   ".next",
   "dist",
   "build",
-  "_legacy",
-  "PIXEL",
   ".pnpm-store",
 ];
 
