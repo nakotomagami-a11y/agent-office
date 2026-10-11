@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -45,6 +47,25 @@ public final class LecternStore {
 
     public static String key(String world, String dimension, int x, int y, int z) {
         return world + "|" + dimension + "|" + x + "," + y + "," + z;
+    }
+
+    /** A bound lectern's block position. */
+    public record At(int x, int y, int z, Binding binding) {}
+
+    /** Every bound lectern in one dimension of one world. */
+    public synchronized List<At> in(String world, String dimension) {
+        String prefix = world + "|" + dimension + "|";
+        List<At> out = new ArrayList<>();
+        bindings.forEach((key, binding) -> {
+            if (!key.startsWith(prefix)) return;
+            String[] xyz = key.substring(prefix.length()).split(",");
+            try {
+                out.add(new At(Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]), Integer.parseInt(xyz[2]), binding));
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                // A hand-edited key: not a lectern we can find.
+            }
+        });
+        return out;
     }
 
     public synchronized Optional<Binding> get(String key) {

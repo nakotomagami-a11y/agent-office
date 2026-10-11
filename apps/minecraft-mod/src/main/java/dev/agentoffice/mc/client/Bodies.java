@@ -4,9 +4,13 @@ import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentNet;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.BodyStore;
+import dev.agentoffice.mc.core.LecternStore;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -230,6 +234,12 @@ final class Bodies {
             if (e instanceof AgentEntity a && seatOf(a) != null) snapshot.put(a, seatOf(a));
         }
         if (snapshot.isEmpty()) return;
+        if (DevHooks.working()) {
+            Map<AgentEntity, String> running = new HashMap<>();
+            snapshot.keySet().forEach(body -> running.put(body, "running"));
+            showStatus(mc, snapshot, running);
+            return;
+        }
         polling = true;
         Connection.client().thenApplyAsync(client -> {
             Map<AgentEntity, String> found = new HashMap<>();
@@ -243,12 +253,40 @@ final class Bodies {
             return found;
         }, Connection.IO).whenComplete((found, err) -> mc.execute(() -> {
             polling = false;
-            snapshot.forEach((body, slot) -> {
-                // Switched to another seat meanwhile: this status is the old seat's.
-                if (body.isRemoved() || !slot.equals(seatOf(body))) return;
-                body.setCustomName(nameplate(slot, err != null ? "offline" : found.get(body)));
-            });
+            Map<AgentEntity, String> statuses = new HashMap<>();
+            snapshot.keySet().forEach(body -> statuses.put(body, err != null ? "offline" : found.get(body)));
+            showStatus(mc, snapshot, statuses);
         }));
+    }
+
+    /**
+     * Nameplates here, and the world told which agents work and at which lectern, so their bodies go there (a
+     * server can't ask Agent Office itself). Waiting on its owner counts as working: it stays at its desk.
+     */
+    private static void showStatus(Minecraft mc, Map<AgentEntity, Api.Slot> snapshot, Map<AgentEntity, String> statuses) {
+        List<AgentNet.Work> work = new ArrayList<>();
+        snapshot.forEach((body, slot) -> {
+            // Switched to another seat meanwhile: this status is the old seat's.
+            if (body.isRemoved() || !slot.equals(seatOf(body))) return;
+            String status = statuses.get(body);
+            body.setCustomName(nameplate(slot, status));
+            boolean working = "running".equals(status) || "needs_attention".equals(status);
+            work.add(new AgentNet.Work(body.getUUID(), working, working ? lectern(mc, body, slot) : Optional.empty()));
+        });
+        if (!work.isEmpty() && available(mc)) PacketDistributor.sendToServer(new AgentNet.Status(work));
+    }
+
+    /** Its desk: the nearest lectern showing its project (or all projects), else the nearest bound one at all. */
+    private static Optional<BlockPos> lectern(Minecraft mc, AgentEntity body, Api.Slot slot) {
+        String world = worldKey(mc);
+        if (world == null || mc.level == null) return Optional.empty();
+        double range = AgentNet.LECTERN_RANGE - 1;
+        List<LecternStore.At> near = Lecterns.store().in(world, mc.level.dimension().location().toString()).stream()
+                .filter(l -> body.distanceToSqr(l.x() + 0.5, l.y() + 0.5, l.z() + 0.5) <= range * range).toList();
+        Comparator<LecternStore.At> nearest = Comparator.comparingDouble(l -> body.distanceToSqr(l.x() + 0.5, l.y() + 0.5, l.z() + 0.5));
+        Optional<LecternStore.At> own = near.stream()
+                .filter(l -> l.binding().all() || l.binding().projectId().equals(slot.projectId())).min(nearest);
+        return own.or(() -> near.stream().min(nearest)).map(l -> new BlockPos(l.x(), l.y(), l.z()));
     }
 
     private static Component nameplate(Api.Slot slot, String status) {

@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -12,12 +13,15 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.phys.EntityHitResult;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.entity.living.LivingUseTotemEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -80,6 +84,17 @@ public final class AgentOfficeMod {
                 e.setCanceled(true);
                 e.setCancellationResult(InteractionResult.FAIL);
             }
+        });
+        // Nobody reels an agent in; and an agent's arrow flies past what it mustn't hit (armor stands and item frames
+        // are no living entities: the damage check below never sees them).
+        NeoForge.EVENT_BUS.addListener((ProjectileImpactEvent e) -> {
+            if (!(e.getRayTraceResult() instanceof EntityHitResult hit)) return;
+            if (e.getProjectile() instanceof FishingHook && hit.getEntity() instanceof AgentEntity) e.setCanceled(true);
+            if (e.getProjectile().getOwner() instanceof AgentEntity agent && !AgentGoals.foe(agent, hit.getEntity())) e.setCanceled(true);
+        });
+        // An agent's blows and arrows land on its foes only: never a player, villager, golem, pet or agent in the way.
+        NeoForge.EVENT_BUS.addListener((LivingIncomingDamageEvent e) -> {
+            if (e.getSource().getEntity() instanceof AgentEntity agent && !AgentGoals.foe(agent, e.getEntity())) e.setCanceled(true);
         });
         // Only armor and weapons count for an agent: a totem in its hand is just something it holds.
         NeoForge.EVENT_BUS.addListener((LivingUseTotemEvent e) -> {

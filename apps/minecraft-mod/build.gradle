@@ -41,9 +41,17 @@ neoForge {
             systemProperty 'agentoffice.dev.scrollDown', (project.findProperty('aoScrollDown') ?: '0').toString()
             // -PaoPress=Label presses the first button with that label before the shot (read-only client: nothing changes).
             systemProperty 'agentoffice.dev.press', (project.findProperty('aoPress') ?: '').toString()
+            // -PaoShotAfter=N ticks before the screenshot (the press comes 40 earlier): slow loads, e.g. a PR through gh.
+            systemProperty 'agentoffice.dev.shotAfterTicks', (project.findProperty('aoShotAfter') ?: '100').toString()
             // Multiplayer checks: -PaoServer=localhost joins a server (runServer) instead of the dev world;
             // a second player at once: -PaoUser=Dev2 -PaoGameDir=run-client2.
             systemProperty 'agentoffice.dev.server', (project.findProperty('aoServer') ?: '').toString()
+            // Agent behaviour checks: -PaoWorking=true (every agent works), -PaoLectern=dx,dz (a bound lectern there),
+            // -PaoCommands="time set 9500;summon zombie ~8 ~ ~" after the action, -PaoWatch=true (log agents every 2 s).
+            systemProperty 'agentoffice.dev.working', (project.findProperty('aoWorking') ?: 'false').toString()
+            systemProperty 'agentoffice.dev.lectern', (project.findProperty('aoLectern') ?: '').toString()
+            systemProperty 'agentoffice.dev.commands', (project.findProperty('aoCommands') ?: '').toString()
+            systemProperty 'agentoffice.dev.watch', (project.findProperty('aoWatch') ?: 'false').toString()
             if (project.hasProperty('aoUser')) programArguments.addAll '--username', project.findProperty('aoUser').toString()
             if (project.hasProperty('aoGameDir')) gameDirectory = file(project.findProperty('aoGameDir'))
         }

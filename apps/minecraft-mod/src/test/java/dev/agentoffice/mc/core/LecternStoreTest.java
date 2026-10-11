@@ -40,4 +40,15 @@ class LecternStoreTest {
         store.bind("k", new LecternStore.Binding("p", "P"));
         assertEquals("p", new LecternStore(file).get("k").orElseThrow().projectId());
     }
+
+    @Test
+    void aDimensionsBoundLecternsAreListedWithTheirPositions() {
+        LecternStore store = new LecternStore(dir.resolve("l.json"));
+        store.bind(LecternStore.key("sp:World", "minecraft:overworld", 1, 64, -3), new LecternStore.Binding("office", "Office"));
+        store.bind(LecternStore.key("sp:World", "minecraft:the_nether", 5, 70, 5), new LecternStore.Binding("office", "Office"));
+        store.bind(LecternStore.key("sp:Other", "minecraft:overworld", 1, 64, -3), new LecternStore.Binding("x", "X"));
+        store.bind("sp:World|minecraft:overworld|hand,edited", new LecternStore.Binding("y", "Y"));
+        assertEquals(java.util.List.of(new LecternStore.At(1, 64, -3, new LecternStore.Binding("office", "Office"))),
+                store.in("sp:World", "minecraft:overworld"));
+    }
 }

@@ -43,6 +43,10 @@ public final class AgentNet {
     /** Old bodies are brought over only near the player, where the chunks load anyway. */
     public static final double MIGRATE_RANGE = 128;
     private static final int COOLDOWN_TICKS = 4;
+    /** The client reports work every 5 s; faster than once a second is dropped. */
+    private static final int STATUS_MIN_TICKS = 20;
+    /** How far from its body an agent's lectern may be. */
+    public static final double LECTERN_RANGE = 64;
 
     private static final StreamCodec<ByteBuf, String> TEXT = ByteBufCodecs.stringUtf8(MAX_TEXT);
     private static final StreamCodec<ByteBuf, String> NULLABLE_TEXT = ByteBufCodecs.optional(TEXT).map(o -> o.orElse(null), Optional::ofNullable);
@@ -128,6 +132,23 @@ public final class AgentNet {
         }
     }
 
+    /** One body's agent is working in Agent Office (running, or waiting on its owner), at this lectern if any. */
+    public record Work(UUID entity, boolean working, Optional<BlockPos> lectern) {
+        static final StreamCodec<ByteBuf, Work> CODEC = StreamCodec.composite(UUIDUtil.STREAM_CODEC, Work::entity,
+                ByteBufCodecs.BOOL, Work::working, ByteBufCodecs.optional(BlockPos.STREAM_CODEC), Work::lectern, Work::new);
+    }
+
+    /** From the owner's client every few seconds: only it can ask Agent Office whether its agents are working. */
+    public record Status(List<Work> bodies) implements CustomPacketPayload {
+        static final Type<Status> TYPE = typeOf("status");
+        static final StreamCodec<ByteBuf, Status> CODEC = Work.CODEC.apply(ByteBufCodecs.list(MAX_AGENTS)).map(Status::new, Status::bodies);
+
+        @Override
+        public Type<Status> type() {
+            return TYPE;
+        }
+    }
+
     /**
      * One of the player's placed agents: the seat it talks to and the entity that is its body (none after it
      * died; Place brings it back with its items). Only its owner is told the seat: other clients see a name.
@@ -157,6 +178,7 @@ public final class AgentNet {
         r.playToServer(AssignShell.TYPE, AssignShell.CODEC, (m, ctx) -> assignShell((ServerPlayer) ctx.player(), m));
         r.playToServer(RemoveShell.TYPE, RemoveShell.CODEC, (m, ctx) -> removeShell((ServerPlayer) ctx.player(), m.shell()));
         r.playToServer(Migrate.TYPE, Migrate.CODEC, (m, ctx) -> migrate((ServerPlayer) ctx.player(), m.bodies()));
+        r.playToServer(Status.TYPE, Status.CODEC, (m, ctx) -> status((ServerPlayer) ctx.player(), m.bodies()));
         r.playToClient(Placed.TYPE, Placed.CODEC, (m, ctx) -> onPlaced.accept(m.bodies()));
     }
 
@@ -167,6 +189,7 @@ public final class AgentNet {
 
     private static final Map<UUID, Integer> lastAction = new HashMap<>();
     private static final Set<UUID> migrated = new HashSet<>();
+    private static final Map<UUID, Integer> lastStatus = new HashMap<>();
 
     /** A person clicks a few times a second at most; anything faster is dropped. Main thread only. */
     private static boolean ready(ServerPlayer player) {
@@ -179,12 +202,14 @@ public final class AgentNet {
     static void loggedOut(ServerPlayer player) {
         lastAction.remove(player.getUUID());
         migrated.remove(player.getUUID());
+        lastStatus.remove(player.getUUID());
     }
 
     /** A singleplayer world switch may skip the logouts. */
     static void serverStopped() {
         lastAction.clear();
         migrated.clear();
+        lastStatus.clear();
     }
 
     /** Somewhere the player could build: finite, in the world and its border, near them, outside spawn protection. */
@@ -250,6 +275,20 @@ public final class AgentNet {
         r.entity = m.shell();
         ((AgentEntity) shell).setSeat(m.seat());
         sendPlaced(player);
+    }
+
+    /** Every few seconds, on its own clock (not the click cooldown): which of the player's agents work, and where. */
+    private static void status(ServerPlayer player, List<Work> bodies) {
+        int now = player.server.getTickCount();
+        Integer last = lastStatus.put(player.getUUID(), now);
+        if (last != null && now - last < STATUS_MIN_TICKS && now >= last) return;
+        for (Work w : bodies) {
+            if (!(player.serverLevel().getEntity(w.entity()) instanceof AgentEntity body) || !body.isOwnedBy(player)) continue;
+            // Only a real Review Lectern near the body: a client can't send it across the world.
+            BlockPos lectern = w.lectern().filter(p -> p.closerToCenterThan(body.position(), LECTERN_RANGE)
+                    && player.serverLevel().isLoaded(p) && player.serverLevel().getBlockState(p).is(AgentOfficeMod.REVIEW_LECTERN.get())).orElse(null);
+            body.reportWork(w.working() && lectern != null, lectern);
+        }
     }
 
     private static void removeShell(ServerPlayer player, UUID id) {

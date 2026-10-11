@@ -10,6 +10,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
@@ -70,9 +71,59 @@ final class DevHooks {
 
     private DevHooks() {}
 
+    /** Every agent counts as working, without asking Agent Office (-PaoWorking). */
+    private static final boolean WORKING = Boolean.getBoolean("agentoffice.dev.working");
+    /** Commands run once the scripted action is done, ';'-separated (-PaoCommands="difficulty easy;summon zombie ~8 ~ ~"). */
+    private static final String COMMANDS = System.getProperty("agentoffice.dev.commands", "");
+    /** A Review Lectern this far from the player ("dx,dz"), bound to the scripted seat's project (-PaoLectern). */
+    private static final String LECTERN = System.getProperty("agentoffice.dev.lectern", "");
+    /** Logs every agent nearby every 2 s until the screenshot (-PaoWatch=true). */
+    private static final boolean WATCH = Boolean.getBoolean("agentoffice.dev.watch");
+
     /** A scripted check is running: its client is read-only (see AgentOfficeClient#readOnly). */
     static boolean active() {
         return !FMLEnvironment.production && !OPEN.isEmpty();
+    }
+
+    static boolean working() {
+        return !FMLEnvironment.production && WORKING;
+    }
+
+    /** After the scripted action: the lectern, then the commands; and the watch log while it waits for the shot. */
+    private static void afterAction(Minecraft mc) {
+        if (ticksSinceAction == 2 && !LECTERN.isEmpty() && OPEN.contains(":")) {
+            String[] d = LECTERN.split(",");
+            BlockPos pos = mc.player.blockPosition().offset(Integer.parseInt(d[0].trim()), 0, Integer.parseInt(d[1].trim()));
+            Api.Slot slot = slot(OPEN);
+            Lecterns.store().bind(Lecterns.key(mc, pos), new LecternStore.Binding(slot.projectId(), slot.projectName()));
+            mc.player.connection.sendCommand("setblock " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " agentoffice:review_lectern");
+        }
+        if (ticksSinceAction == 5) {
+            for (String c : COMMANDS.split(";")) {
+                if (!c.isBlank()) mc.player.connection.sendCommand(c.trim());
+            }
+        }
+        if (WATCH && ticksSinceAction == SHOT_AFTER_TICKS - 5) {
+            // The shot shows the agent nearest the player, wherever it went.
+            mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(64)).stream().filter(a -> !a.isShell())
+                    .min(java.util.Comparator.comparingDouble(a -> a.distanceToSqr(mc.player))).ifPresent(a -> {
+                        mc.player.setYRot(AgentEntity.yawTowards(mc.player.position(), a.position()));
+                        mc.player.setXRot(15);
+                    });
+        }
+        IntegratedServer server = mc.getSingleplayerServer();
+        if (WATCH && server != null && ticksSinceAction % 40 == 0 && ticksSinceAction <= SHOT_AFTER_TICKS) {
+            java.util.UUID id = mc.player.getUUID();
+            int t = ticksSinceAction;
+            server.execute(() -> {
+                ServerPlayer player = server.getPlayerList().getPlayer(id);
+                if (player == null) return;
+                long day = player.serverLevel().getDayTime() % 24000;
+                for (AgentEntity a : player.serverLevel().getEntitiesOfClass(AgentEntity.class, player.getBoundingBox().inflate(96))) {
+                    System.out.printf("[agentoffice-dev] t=%d day=%d %s%n", t, day, a.debugState());
+                }
+            });
+        }
     }
 
     static void tick(Minecraft mc) {
@@ -170,6 +221,7 @@ final class DevHooks {
             mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, 0, SCROLL);
             if (SCROLL_DOWN != 0) mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, 0, -SCROLL_DOWN);
         }
+        if (ticksSinceAction >= 0 && mc.player != null) afterAction(mc);
         if (ticksSinceAction < 0 || ++ticksSinceAction != SHOT_AFTER_TICKS) return;
         Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(), msg -> System.out.println("[agentoffice-dev] " + msg.getString()));
         if (QUIT) mc.stop();

@@ -19,6 +19,7 @@ import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.BowItem;
 
 /**
  * Draws an agent's body: once set up, the player model in its agent's skin ({@link AgentSkins}) wearing and
@@ -71,7 +72,8 @@ final class AgentRenderer extends EntityRenderer<AgentEntity> {
         @Override
         public void render(AgentEntity body, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light) {
             // As PlayerRenderer: an arm holding something is raised a little.
-            model.rightArmPose = body.getMainHandItem().isEmpty() ? HumanoidModel.ArmPose.EMPTY : HumanoidModel.ArmPose.ITEM;
+            boolean drawing = body.isUsingItem() && body.getUseItem().getItem() instanceof BowItem; // as PlayerRenderer: both arms on the bow
+            model.rightArmPose = drawing ? HumanoidModel.ArmPose.BOW_AND_ARROW : body.getMainHandItem().isEmpty() ? HumanoidModel.ArmPose.EMPTY : HumanoidModel.ArmPose.ITEM;
             model.leftArmPose = body.getOffhandItem().isEmpty() ? HumanoidModel.ArmPose.EMPTY : HumanoidModel.ArmPose.ITEM;
             super.render(body, yaw, partialTick, pose, buffers, light);
         }

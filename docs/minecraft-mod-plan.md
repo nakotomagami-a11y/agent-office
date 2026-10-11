@@ -331,8 +331,8 @@ agent's own. Hard rule: **only armor and weapon effects count, everything else i
   nothing). Dismiss returns everything to the dismissing player (inventory, else at their feet).
 - Owner only: the inventory, chat and every C2S payload check the owner. Others get "That's another player's agent";
   on the server `PlayerInteractEvent.EntityInteract` refuses every use but the owner's main-hand sneak-use (its
-  inventory), and that too with a name tag or lead in hand (a name tag would break the live nameplate). Only Place moves an
-  agent: no leads, pistons, currents, explosions, knockback, rods or bubble columns (only falling, until walking).
+  inventory), and that too with a name tag or lead in hand (a name tag would break the live nameplate). No leads,
+  pistons or currents; since 0.7.0 agents walk (see below).
 - **Network** (`AgentNet`, optional channels, so the client still joins servers without the mod): C2S Place, Retarget,
   Dismiss, AssignShell, RemoveShell, Migrate; S2C Placed (the player's bodies: entity id + seat, on login and on every
   change). The client-side `Bodies` keeps its old API for the screens, backed by that list.
@@ -356,6 +356,47 @@ agent's own. Hard rule: **only armor and weapon effects count, everything else i
   the inventory over the network; Dev2 sees the gear and only the name (no status, no seat); Dev2's raw sneak-use
   packet and a Dismiss with the real seat change nothing, even as an op.
 
+
+
+
+### Changed (0.7.0, 2026-10-10) — agents move like villagers, and defend
+
+User: "behave similar to villager — when it works stay close to the Review Lectern, if not working roam around the
+village or the area, come to villager meet-ups; with armor and weapons, go help against invasions/mobs even if working".
+Decisions: the workplace is the nearest lectern showing the agent's project (or "All projects"), else the nearest bound
+one (A); agents can be hurt and die in fights, items kept (A).
+- **Working** comes from the owner's client (only it can ask Agent Office): every 5 s it sends `AgentNet.Status`
+  (per body: working = running or needs_attention, plus its lectern from `LecternStore.in(world, dimension)`). The
+  server checks owner, that the position is a Review Lectern within 64 blocks of the body, and its own 1/s limit;
+  a report holds 30 s, so when the owner leaves (or Agent Office closes) the agent stops "working" and roams.
+- **Anchor** (`AgentEntity.anchor`, `AgentGoals.Wander`): working → its lectern (r3, faces it); otherwise the village
+  bell nearest where it was put (`PoiTypes.MEETING` within 48): r5 at meeting time (villager schedule MEET,
+  9000-11000), else r32; no village → where it was put (r12). Strolls up to 10 blocks at a time, villager-like
+  pauses; back inside after straying (a fight). NOT vanilla `restrictTo`: that also blocks targeting outside it.
+- **Defence**: targets any reachable `Enemy` within 24 blocks (`FOLLOW_RANGE`) and within its anchor's radius + 16,
+  except creepers, wardens, calm neutral mobs (endermen, zombified piglins until angry), zombie villagers being cured,
+  named ones and ones carried in a boat or minecart or ridden by a player (jockeys are fought);
+  `HurtByTargetGoal.setAlertOthers` calls nearby agents too (never against players, villagers, golems). Works while
+  working (goal priority 1 beats Wander). Falls of more than 3 blocks are never taken, even mid-chase. Melee with what
+  it holds; a bow → skeleton-style ranged goal (own arrows, not pickable; bow enchantments apply). Crossbows fight in melee for now.
+- **Damage** is an allowlist (`isInvulnerableTo`): only a mob that isn't a pet or agent (its blows, arrows, fireballs,
+  blasts) hurts it, a fall only within 1 s of such a mob's hit, plus /kill and the void. Nothing a player does
+  (hits, arrows, pets, TNT, lava, anvils, mining its floor, a mace launch), no ownerless blast, no environment. Its own blows and arrows
+  land only on foes (`AgentGoals.foe`: whoever fights it, monsters it would go after), never on a player, villager,
+  golem, pet, agent, armor stand or item frame (`ProjectileImpactEvent`: its arrows fly past). No knockback, push,
+  bubble columns or fishing rods move it. A target that leaves its anchor radius + 24, or isn't a foe (a goat that
+  rammed it), is dropped. Bodies saved by 0.6.0 (Invulnerable, speed 0.1) get today's rules on load. Mends 1 HP / 2 s,
+  10 s after any damage. Down → its owner gets a chat line; items stay in the record, Place brings it back. Shells
+  stay passive and unhurt (one moved walks back). Opens doors. Spared: creepers, wardens, calm neutral mobs, and
+  curing, named or carried ones (see Defence).
+- Speed 0.35 (mob scale): strolls 0.6×, returns 1.0×. A route that can't reach its anchor waits 5 s before the next.
+  Known: a modified client may send its own agent to any Review Lectern within 64 blocks (someone else's too).
+- Verified in dev (watch log + screenshots): roams around home; walks to its lectern and stays; leaves the desk to
+  kill a zombie and returns, heals; sword vs zombie + skeleton; bow at range; generated plains village: meets at the
+  bell at 9500, roams the village by day, fights raid pillagers (Bad Omen) and returns to the bell; dedicated server:
+  the owner's status packet sends it to its lectern ("working…").
+- Dev: `-PaoWorking=true`, `-PaoLectern=dx,dz`, `-PaoCommands="a;b"` (after the action), `-PaoWatch=true` (logs every
+  agent each 2 s via `AgentEntity.debugState`, and the shot faces the nearest agent), `-PaoShotAfter=N`.
 
 
 ## Dev loop
