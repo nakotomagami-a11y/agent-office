@@ -19,7 +19,7 @@ public final class Api {
     /** One agent seat in a project roster: the unit a conversation belongs to. */
     public record Slot(String projectId, String projectName, String agentId, String instanceId, String label) {
         public String displayName() {
-            return label != null && !label.isBlank() ? label : agentId;
+            return label != null && !label.isBlank() ? label : AgentNames.of(agentId);
         }
     }
 

@@ -119,7 +119,7 @@ class AgentOfficeClientTest {
     void rosterBecomesSlots() throws IOException {
         List<Api.Slot> slots = client.roster(new Api.Project("p1", "Agent Office", 0));
         assertEquals(2, slots.size());
-        assertEquals("developer", slots.get(0).displayName());
+        assertEquals("Developer", slots.get(0).displayName(), "no label: the agent's readable name, not its id");
         assertEquals("Reviewer", slots.get(1).displayName());
         assertEquals("p1", slots.get(1).projectId());
     }

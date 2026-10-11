@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -90,7 +91,7 @@ final class AddAgentScreen extends TabletScreen {
     private void add(Api.Agent agent, boolean force) {
         if (adding) return;
         adding = true;
-        status = "Adding " + agent.name() + "…";
+        status = "Adding " + AgentNames.of(agent.name()) + "…";
         rebuildWidgets();
         Connection.IO.execute(() -> {
             try {
@@ -126,7 +127,7 @@ final class AddAgentScreen extends TabletScreen {
             minecraft.setScreen(this);
             if (yes) add(agent, true);
         }, Component.literal(project.name() + " already has a lot of agents"),
-                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + agent.name() + " anyway?"),
+                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + AgentNames.of(agent.name()) + " anyway?"),
                 Component.literal("Add anyway"), Component.literal("Cancel")));
     }
 
@@ -165,8 +166,8 @@ final class AddAgentScreen extends TabletScreen {
             Api.Agent a = shown.get(i);
             int y = listTop + (i - scroll) * ROW;
             String meta = (a.defaultModel() == null ? "" : "  ·  " + a.defaultModel()) + (a.defaultEffort() == null ? "" : " · " + a.defaultEffort());
-            g.drawString(font, Component.literal(a.name()).withStyle(s -> s.withBold(true)), x0 + 6, y + 3, Theme.TXT, false);
-            g.drawString(font, meta, x0 + 6 + font.width(Component.literal(a.name()).withStyle(s -> s.withBold(true))), y + 3, Theme.TXT_4, false);
+            g.drawString(font, Component.literal(AgentNames.of(a.name())).withStyle(s -> s.withBold(true)), x0 + 6, y + 3, Theme.TXT, false);
+            g.drawString(font, meta, x0 + 6 + font.width(Component.literal(AgentNames.of(a.name())).withStyle(s -> s.withBold(true))), y + 3, Theme.TXT_4, false);
             String desc = a.description() == null ? "" : a.description();
             g.drawString(font, font.plainSubstrByWidth(desc, textW), x0 + 6, y + 14, Theme.TXT_3, false);
         }

@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -110,10 +111,10 @@ final class AgentSetupScreen extends TabletScreen {
         switch (step) {
             case AGENT -> {
                 for (Api.Agent a : agents) {
-                    if (!q.isEmpty() && !a.name().toLowerCase(Locale.ROOT).contains(q)
+                    if (!q.isEmpty() && !a.name().toLowerCase(Locale.ROOT).contains(q) && !AgentNames.of(a.name()).toLowerCase(Locale.ROOT).contains(q)
                             && (a.description() == null || !a.description().toLowerCase(Locale.ROOT).contains(q))) continue;
                     String meta = (a.defaultModel() == null ? "" : a.defaultModel()) + (a.defaultEffort() == null ? "" : " · " + a.defaultEffort());
-                    out.add(new Row(a.name(), meta, a.description(), "Choose", () -> chooseAgent(a)));
+                    out.add(new Row(AgentNames.of(a.name()), meta, a.description(), "Choose", () -> chooseAgent(a)));
                 }
             }
             case PROJECT -> {
@@ -165,7 +166,7 @@ final class AgentSetupScreen extends TabletScreen {
                             .findFirst().orElse(seats.get(0)));
                     return;
                 }
-                status = "Adding " + chosen.name() + " to " + p.name() + "… (making a git worktree can take a while)";
+                status = "Adding " + AgentNames.of(chosen.name()) + " to " + p.name() + "… (making a git worktree can take a while)";
                 rebuildWidgets();
                 SeatAdder.add(this, client, p, chosen.name(), this::finish, this::fail);
             });
@@ -188,7 +189,7 @@ final class AgentSetupScreen extends TabletScreen {
         boolean here = mc.screen == this;
         boolean moved = Bodies.placed(mc, slot);
         if (!Bodies.assignShell(mc, shell, slot)) {
-            String gone = slot.agentId() + " is set up in " + slot.projectName() + ", but this shell is gone (removed, or another world is loaded).";
+            String gone = AgentNames.of(slot.agentId()) + " is set up in " + slot.projectName() + ", but this shell is gone (removed, or another world is loaded).";
             if (here) {
                 status = gone;
                 rebuildWidgets();
@@ -198,10 +199,10 @@ final class AgentSetupScreen extends TabletScreen {
             return;
         }
         if (moved) {
-            mc.gui.setOverlayMessage(Component.literal(slot.agentId() + " in " + slot.projectName() + " moved here (one body per agent per project)"), false);
+            mc.gui.setOverlayMessage(Component.literal(AgentNames.of(slot.agentId()) + " in " + slot.projectName() + " moved here (one body per agent per project)"), false);
         }
         if (here) mc.setScreen(new ChatScreen(null, client, slot));
-        else if (!moved) mc.gui.setOverlayMessage(Component.literal("Set up " + slot.agentId() + " in " + slot.projectName()), false);
+        else if (!moved) mc.gui.setOverlayMessage(Component.literal("Set up " + AgentNames.of(slot.agentId()) + " in " + slot.projectName()), false);
     }
 
     private void back() {
@@ -244,7 +245,7 @@ final class AgentSetupScreen extends TabletScreen {
         int x1 = right - PAD;
         String title = switch (step) {
             case AGENT -> "Set up this agent · which agent is it?";
-            case PROJECT -> agent.name() + " · which project does it work on?";
+            case PROJECT -> AgentNames.of(agent.name()) + " · which project does it work on?";
         };
         g.drawString(font, bold(title, x1 - x0 - 160),
                 x0, top + 7, Theme.TXT, false);

@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -92,7 +93,7 @@ public final class OfficeScreen extends TabletScreen {
                             onClose();
                         }));
                 if (label.equals("Use")) {
-                    placeButton.setTooltip(Tooltip.create(Component.literal("Move " + slot.agentId()
+                    placeButton.setTooltip(Tooltip.create(Component.literal("Move " + AgentNames.of(slot.agentId())
                             + "'s body here, talking to this seat instead of " + (standing.label() != null && !standing.label().isBlank() ? standing.label() : standing.instanceId()))));
                 }
             }

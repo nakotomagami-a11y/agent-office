@@ -37,6 +37,11 @@ public final class Connection {
             // A scripted dev check must never send, stop or edit anything, whatever input reaches its window.
             if (DevHooks.active()) found.readOnly();
             client = found;
+            try {
+                found.agents(); // learns the agents' names (AgentNames) before anything shows one
+            } catch (IOException | RuntimeException e) {
+                // Ids made readable will do until the agent list is read again.
+            }
             return found;
         }, IO);
     }

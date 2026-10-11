@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -315,7 +316,7 @@ abstract class WorkspaceScreen extends TabletScreen {
             refresh(projectId, false);
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen == this) openSlot(slot, true);
-            else mc.gui.setOverlayMessage(Component.literal("Added a " + agentId + " session to " + project.name()), false);
+            else mc.gui.setOverlayMessage(Component.literal("Added a " + AgentNames.of(agentId) + " session to " + project.name()), false);
         }, msg -> {
             addingSince = 0;
             addNote = msg;
@@ -544,7 +545,7 @@ abstract class WorkspaceScreen extends TabletScreen {
             String count = String.valueOf(group.count());
             int countX = left + width - 2 - font.width(count);
             g.drawString(font, count, countX, y, Theme.TXT_4);
-            g.drawString(font, cut(font, group.agentId(), countX - left - 14), left + 8, y, hovering ? 0xFFFFFFFF : Theme.TXT);
+            g.drawString(font, cut(font, AgentNames.of(group.agentId()), countX - left - 14), left + 8, y, hovering ? 0xFFFFFFFF : Theme.TXT);
         }
 
         @Override

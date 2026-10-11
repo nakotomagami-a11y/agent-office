@@ -161,6 +161,7 @@ public final class AgentOfficeClient {
             for (JsonElement el : call(get("/api/agents")).getAsJsonArray()) {
                 JsonObject a = el.getAsJsonObject();
                 out.add(new Api.Agent(str(a, "name"), str(a, "description"), str(a, "defaultModel"), str(a, "defaultEffort")));
+                AgentNames.remember(str(a, "name"), str(a, "displayName"));
             }
             return out;
         });
