@@ -1,31 +1,6 @@
 # Minecraft mod — architecture
 
-Status: **approved 2026-10-10, being built in four parts, each reviewed by QA before the next.** Started from two
-read-only reviews of `main` at ff64d3a (a maintainability inventory and an architecture review).
-
-| Part | Scope | State |
-|---|---|---|
-| 1. Structure | package moves, layer rules, one home per value, contract test, pre-0.6.0 migration deleted | done (#193) |
-| 2. Client services | `AgentOffice.call`, one status poller (`AgentState`/`AgentStatus`), `WorkspaceStore`, `core/ChatSession` | done (#195) |
-| 3. Behaviour and stats | `ai/` package, payload split, Minecraft-side tests, levels | built, in review |
-| 4. Docs | every mod doc checked against the code | last |
-
-## Verdict (from the review)
-
-The skeleton was sound; the inside of the client was not.
-
-- **Solid, kept:** `core/` is pure Java and tested; nothing common imports client code; every client→server payload
-  is validated (owner, reach, limits, cooldown); items live in the world record, not the entity; scripted dev checks
-  run read-only. Moving packages is save- and network-safe (registry ids and payload ids, never class names, are
-  persisted).
-- **Fixed in part 1:** the API contract was copied by hand with nothing checking it, and had drifted (the mod
-  handled `auth_required`/`rate_limited`; the server sends `auth_expired` and has no `rate_limited`).
-- **Fixed in part 2:** status was polled three times per seat; `ChatScreen` (963 lines) held a whole chat state
-  machine; app state hid in `WorkspaceScreen` statics; failures other than I/O could leave a screen waiting forever.
-- **Fixed in part 3:** agent behaviour was spread over `AgentEntity`, `AgentGoals` and the mod constructor;
-  nothing Minecraft-side was tested.
-- **Not a problem:** `TranscriptView` (a markdown/table/code renderer — its size is its job), `ReviewScreen`'s size,
-  `AgentMenu`'s pixel layout (vanilla does the same).
+How `apps/minecraft-mod` is put together. What it does for the player: `minecraft-mod.md`.
 
 ## Layers and rules
 
@@ -39,23 +14,23 @@ dev.agentoffice.mc            both sides: registries, entity, records, menu, Age
     .render                   renderers, skins, Curios layer
     .ui                       widgets, Theme, VanillaGui, TranscriptView (a leaf)
   .core                       pure Java: HTTP client, ChatSession, Async, Routes, Protocol, RunErrors, ServerMirror,
-                              AgentState, Ids, formats, stores
+                              AgentState, Levels, Ids, formats, stores
 ```
 
-`ArchitectureTest` (in `apps/minecraft-mod`, part of `gradlew test`) checks the source with comments removed. Rule
-ids and their reasons are in `docs/conventions.md`.
+`ArchitectureTest` (part of `gradlew test`) checks the source with comments removed. Rule ids and their reasons are
+in `docs/conventions.md`.
 
-| Rule | Meaning | State |
-|---|---|---|
-| `mod.core-pure` | `core` imports only `java.*`, Gson, SLF4J, `core` | enforced |
-| `mod.common-no-client` | nothing outside `client` names `client`, `net.minecraft.client`, `com.mojang.blaze3d` | enforced |
-| `mod.ui-leaf` | `client.ui` names no screen/service/render code | enforced |
-| `mod.api-paths-one-place` | `"/api/` only in `core/Routes` | enforced |
-| `mod.status-vocab` | server words compared only through `core/Protocol` / `core/RunErrors` | enforced |
-| `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics | enforced |
-| `mod.ai-no-net` | `ai` never names payloads, menus or client code | enforced |
+| Rule | Meaning |
+|---|---|
+| `mod.core-pure` | `core` imports only `java.*`, Gson, SLF4J, `core` |
+| `mod.common-no-client` | nothing outside `client` names `client`, `net.minecraft.client`, `com.mojang.blaze3d` |
+| `mod.ui-leaf` | `client.ui` names no screen/service/render code |
+| `mod.api-paths-one-place` | `"/api/` only in `core/Routes` |
+| `mod.status-vocab` | server words compared only through `core/Protocol` / `core/RunErrors` |
+| `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics |
+| `mod.ai-no-net` | `ai` never names payloads, menus or client code |
 
-## Single sources (the "one place" for values)
+## One place for each value
 
 | What | Home | Pinned by |
 |---|---|---|
@@ -65,57 +40,62 @@ ids and their reasons are in `docs/conventions.md`.
 | Values copied from the server/web: model, effort and permission lists, 50 MB upload cap, gh timeout, attachments intro, agent-name variants | `core/ServerMirror` | contract test reads each source |
 | Mod id, logger, daemon threads | `core/Ids` | — |
 | Files and dirs: lecterns JSON, skins dir, temp paste file, home, SavedData name | `ModPaths` (root package: it needs `FMLPaths`) | — |
-| Timing: status report every 5 s, server floor 1 s, "working" holds 30 s, 1 work XP per 5 min | `Tuning` (root package) | — |
+| Timing: status report every 5 s, server floor 1 s, "working" holds 30 s, 1 work XP per 5 min | `Tuning` | — |
+| Level curve | `core/Levels` | `LevelsTest` |
 | Tablet colours, vanilla container greys, panel and slot drawing | `client/ui/Theme` (+ `Theme.Vanilla`), `client/ui/VanillaGui` | — |
 | Dev flags | `build.gradle` passes every `-PaoName` through as `agentoffice.dev.name`; `DevHooks` owns the defaults | `ArchitectureTest.everyDevFlagReachesTheGame` |
-| Payload records, codecs, limits | `AgentPayloads` (handlers: `AgentNet`). **Rule:** add payloads freely (an optional channel tolerates one the other side lacks); a payload older jars still send stays registered as a no-op (`Migrate`); changing a codec needs a version bump, which refuses every login between mismatched jars | `PayloadsTest` (round trips; the exact bytes, so a codec change fails until the version is bumped; oversized input refused on decode) |
+| Payload records, codecs, limits | `AgentPayloads` (handlers: `AgentNet`) | `PayloadsTest` |
 
-Kept out on purpose: single-use constants stay next to the one place that uses them, sizes and row heights included
-(the proposal's `Theme.Metrics` was dropped: each is used by one screen).
+Single-use constants stay next to the one place that uses them, sizes and row heights included.
 
-The API copy stays hand-written (≈20 endpoints, lenient Gson parsing): generating Java from zod would add a toolchain
-to two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
+The API copy is hand-written (≈20 endpoints, lenient Gson parsing): generating Java from zod would add a toolchain to
+two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
 
-## Client services (part 2)
+## Client side
 
+- `core/AgentOfficeClient` is the HTTP + SSE client: `java.net.http.HttpClient` pinned to HTTP/1.1 (the default h2c
+  upgrade makes Agent Office's Node server drop the connection), JSON through Gson. No other dependencies.
 - `core/Async` runs work off the main thread and always reports how it ended, failures of any kind included.
   `client/service/AgentOffice` is its Minecraft side: the connection, `call(...)`, `later(...)`.
 - `core/ChatSession` is a chat without its screen: reading, following the live run, retries and reconnecting, approvals,
-  seat changes, attachments, send/stop/act. Tested against a fake Agent Office (`ChatSessionTest`).
+  seat changes, attachments, send/stop/act. `ChatScreen` only lays out, takes input and draws.
 - `client/service/AgentStatus` is the one status poller: screens and the world's bodies say which agents they watch;
-  each is asked once a round. The owner's nameplate shows its `AgentState`, drawn by `AgentRenderer`.
+  each is asked once a round.
 - `client/service/WorkspaceStore` holds what the tablet knows of the office across screens.
 - `client/service/SeatAdder` is the only way a seat is added, so a slow worktree that times out never becomes two seats.
+- `client/service/Bodies` maps the player's bodies to seats (from the server's `Placed`) and, every 5 s, tells the
+  server which of them work and at which lectern.
 
-## Behaviour and stats (part 3)
+## World side
 
-- `ai/Schedule` decides where an agent keeps near: a shell its spot; its lectern while it works; the village bell at
-  meeting time (9000-11000), the village otherwise; where it was put when there is no village. One pure function, tested.
-- `ai/VillageSense` finds and keeps its village's bell; `ai/Combat` holds who it fights and how (threat, foe, hostile,
-  the shot) and the world's combat listeners; the goals (`WanderGoal`, `MeleeGoal`, `BowGoal`) moved unchanged.
-  The same fight (an armed agent, a zombie 6 blocks away) logs the same before and after the move.
-- Tests now run with the game loaded (ModDevGradle `unitTest`): `PayloadsTest` (every payload round-trips, limits
-  refused), `AgentRecordsTest` (records with enchanted items, Curios and XP survive save and load), `ScheduleTest`.
-- **Stats are gameplay.** An agent has health, takes damage and can be killed (its items are kept). Only armor and
-  weapons change what it can do in a fight; everything else it wears is cosmetic.
-- **Levels:** XP from kills (the mob's own XP reward, as a player would get) and, slowly, from work (1 XP per 5 minutes
-  working). Every agent starts at level 1; level *n*→*n*+1 costs `20 + 10·n` XP (`core/Levels`). Kept on
-  `AgentRecords.Record`, so a level survives moves and a dismiss; **death loses all of it** (items are kept). Sent to
-  its owner only, in the optional `Stats` payload (another entity data field would disconnect older clients, and nobody
-  else needs it); shown on the owner's nameplate ("Lv 3") and the inventory screen; the owner is told of each new
-  level. No effects yet. Kill XP follows vanilla's rules (no baby, no `doMobLoot`, once per death). Work XP trusts the
-  owner's client to say its agent works (the server can't ask Agent Office), but counts only while the agent stands
-  within 4 blocks of its lectern: a modified client earns at most 12 XP an hour, at a desk.
-- Land claims: placing an agent, or binding it to a new lectern, asks claim mods first (it posts the block-place event
-  a claim mod listens for, as if the player put something there). A player's snow golem is not hostile.
-- In-world tests (`src/gametest`, `gradlew runGameTestServer`, also in CI): a kill pays the mob's XP and death takes it
-  all; an agent never hurts a villager.
+- `AgentEntity` is the body; `AgentRecords` (world `SavedData`) owns what outlives it: seat, which entity is the body,
+  items in vanilla `Inventory` indexing, Curios stacks, XP. Equipment writes through to the record, so vanilla
+  attributes, enchantments and syncing just work. A body whose id is no longer its record's discards itself.
+- `ai/Schedule` decides where an agent keeps near (one pure function); `ai/VillageSense` finds its village's bell;
+  `ai/Combat` holds who it fights, what may hurt it, kill XP and the world's combat listeners; the goals
+  (`WanderGoal`, `MeleeGoal`, `BowGoal`) act on that.
+- `AgentNet` handles every payload and checks it (owner, reach, limits, cooldown, land claims). Curios types stay in
+  `CuriosBridge`/`CuriosLayer`, loaded only when Curios is.
 
-## Decisions (answered 2026-10-10)
+## Network compatibility
 
-1. Stats: they already change gameplay (health, death); levels come on top, from kills and slowly from work.
-2. The pre-0.6.0 migration (`BodyStore`, the client's migration, the server's handler): deleted in part 1. The
-   `Migrate` payload stays registered and ignored, and the channel stays `"1"`, so 0.7.x and 0.8.0 still play
-   together. (QA caught the first attempt: bumping the version to `"2"` makes NeoForge refuse every mixed login,
-   optional channel or not.)
-3. Package moves: done in part 1.
+The client joins servers without the mod: the payload channel is optional, and a NeoForge server without the mod
+drops the client's extra blocks, items and entity from the id map instead of refusing it (vanilla servers don't check;
+checked in NeoForge 21.1.257's source). The channel's version is `"1"`:
+
+- **Add payloads freely**: an optional channel tolerates one the other side lacks.
+- A payload older jars still send stays registered as a no-op (`Migrate`).
+- **Changing a codec needs a version bump**, and a bump refuses every login between mismatched jars. `PayloadsTest`
+  pins the exact bytes of Place, Status, Placed, Migrate and Stats, so a change to those fails until the version is
+  bumped (the others share their parts).
+- A new entity data field disconnects older clients: data only the owner needs goes in an owner-only payload (`Stats`).
+- Saves and the network name registry and payload ids, never Java classes, so moving a class is safe.
+
+## Tests
+
+| Command | What | Where |
+|---|---|---|
+| `gradlew test` (in `build`) | `core/` logic (the HTTP client and chat against fake servers); the game loaded (ModDevGradle `unitTest`) for payloads, records, schedule; `ArchitectureTest` | `src/test` |
+| `gradlew runGameTestServer` | in a real world: kill XP, death loses XP, desk-only work XP, agents never hurt villagers | `src/gametest` (dev runs only, never in the jar) |
+
+CI runs both (`.github/workflows/ci.yml`, job `minecraft-mod`).

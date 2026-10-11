@@ -12,7 +12,7 @@
 | `packages/api-contract` | `@agent-office/api-contract` — the wire contract: `API_ROUTES` and the request schemas the server validates against. Pure (zod + domain config), so any client can import it |
 | `apps/server` | `@agent-office/server` — the HTTP API + SSE runner: route handlers, boot tasks, the origin guard. One web-standard `handle(Request): Response` |
 | `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
-| `apps/minecraft-mod` | NeoForge 1.21.1 mod, a second client of the same API. Gradle, not part of the pnpm workspace |
+| `apps/minecraft-mod` | NeoForge 1.21.1 mod, a second client of the same API. Gradle, not part of the pnpm workspace (`docs/minecraft-mod.md`) |
 
 ```
 apps/web ───────────┐
