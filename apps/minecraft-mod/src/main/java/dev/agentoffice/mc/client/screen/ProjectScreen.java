@@ -1,4 +1,4 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;

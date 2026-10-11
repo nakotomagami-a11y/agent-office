@@ -1,4 +1,4 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.agentoffice.mc.AgentEntity;
@@ -25,12 +25,12 @@ import net.minecraft.world.item.BowItem;
  * Draws an agent's body: once set up, the player model in its agent's skin ({@link AgentSkins}) wearing and
  * holding what it has, like a player; a shell, a villager in the nitwit's green robe.
  */
-final class AgentRenderer extends EntityRenderer<AgentEntity> {
+public final class AgentRenderer extends EntityRenderer<AgentEntity> {
     private final Person wide;
     private final Person slim;
     private final Shell shell;
 
-    AgentRenderer(EntityRendererProvider.Context context) {
+    public AgentRenderer(EntityRendererProvider.Context context) {
         super(context);
         shadowRadius = 0.5f;
         wide = new Person(context, false);

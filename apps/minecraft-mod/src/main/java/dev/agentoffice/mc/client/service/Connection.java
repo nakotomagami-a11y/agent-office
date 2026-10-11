@@ -1,10 +1,13 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.service;
 
+import dev.agentoffice.mc.ModPaths;
+import dev.agentoffice.mc.client.ClientSetup;
+import dev.agentoffice.mc.client.DevHooks;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Discovery;
+import dev.agentoffice.mc.core.Ids;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -12,11 +15,7 @@ import java.util.concurrent.Executors;
 
 /** Network work never runs on the render thread; results hop back via Minecraft#execute. */
 public final class Connection {
-    public static final ExecutorService IO = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "agentoffice-io");
-        t.setDaemon(true);
-        return t;
-    });
+    public static final ExecutorService IO = Executors.newCachedThreadPool(Ids.daemon("io"));
 
     private static volatile AgentOfficeClient client;
 
@@ -27,7 +26,7 @@ public final class Connection {
         return CompletableFuture.supplyAsync(() -> {
             AgentOfficeClient current = client;
             if (current != null && current.healthy()) return current;
-            List<URI> candidates = Discovery.candidates(ClientSetup.BASE_URL.get(), Path.of(System.getProperty("user.home")));
+            List<URI> candidates = Discovery.candidates(ClientSetup.BASE_URL.get(), ModPaths.home());
             if (candidates.isEmpty()) {
                 throw new IllegalStateException(new IOException("baseUrl must be this machine, e.g. http://127.0.0.1:3000"));
             }

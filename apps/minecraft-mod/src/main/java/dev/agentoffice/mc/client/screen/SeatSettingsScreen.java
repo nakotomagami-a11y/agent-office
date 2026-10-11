@@ -1,6 +1,7 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
 import com.google.gson.JsonObject;
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.TabletScreen;
@@ -8,6 +9,7 @@ import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.ServerMirror;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,11 +53,11 @@ final class SeatSettingsScreen extends TabletScreen {
         label.setValue(labelValue);
         label.setHint(Component.literal(AgentNames.of(seat.slot().agentId())).withColor(Theme.TXT_4)); // what an empty label shows
         addRenderableWidget(label);
-        model = addRenderableWidget(new FlatCycle<>(x + 90, y + 24, w - 90, 16, options(Api.MODELS, seat.model()),
+        model = addRenderableWidget(new FlatCycle<>(x + 90, y + 24, w - 90, 16, options(ServerMirror.MODELS, seat.model()),
                 model != null ? model.value() : nz(seat.model()), v -> v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v));
-        effort = addRenderableWidget(new FlatCycle<>(x + 90, y + 48, w - 90, 16, options(Api.EFFORTS, seat.effort()),
+        effort = addRenderableWidget(new FlatCycle<>(x + 90, y + 48, w - 90, 16, options(ServerMirror.EFFORTS, seat.effort()),
                 effort != null ? effort.value() : nz(seat.effort()), v -> v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v));
-        permission = addRenderableWidget(new FlatCycle<>(x + 90, y + 72, w - 90, 16, options(Api.PERMISSION_MODES, seat.permissionMode()),
+        permission = addRenderableWidget(new FlatCycle<>(x + 90, y + 72, w - 90, 16, options(ServerMirror.PERMISSION_MODES, seat.permissionMode()),
                 permission != null ? permission.value() : nz(seat.permissionMode()), v -> v.isEmpty() ? "agent default" : v));
         addRenderableWidget(new FlatButton(x + w - 60, y + 104, 60, 16, "Save", FlatButton.Kind.PRIMARY, b -> save())).active = !saving;
         addRenderableWidget(new FlatButton(x + w - 124, y + 104, 60, 16, "Cancel", FlatButton.Kind.GHOST, b -> onClose()));

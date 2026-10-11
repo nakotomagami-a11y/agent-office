@@ -2,6 +2,12 @@ package dev.agentoffice.mc.client;
 
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentOfficeMod;
+import dev.agentoffice.mc.client.screen.ChatScreen;
+import dev.agentoffice.mc.client.screen.OfficeScreen;
+import dev.agentoffice.mc.client.screen.ReviewScreen;
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.LecternStore;
 import net.minecraft.client.KeyMapping;
@@ -45,7 +51,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
  *   gradlew runClient -PaoOpen=lecternview                           (a Review Lectern ahead, just looked at)
  *   gradlew runClient -PaoOpen=review:projectId                      (a review queue; review:* = All projects)
  */
-final class DevHooks {
+public final class DevHooks {
     private static final String OPEN = System.getProperty("agentoffice.dev.open", "");
     private static final boolean QUIT = Boolean.getBoolean("agentoffice.dev.quit");
     /** Mouse-wheel notches applied to the open screen shortly before the screenshot (positive = up). */
@@ -60,8 +66,8 @@ final class DevHooks {
         return Character.isValidCodePoint(cp) ? new String(Character.toChars(cp)) : raw;
     }
 
-    private static final int SHOT_AFTER_TICKS = Integer.getInteger("agentoffice.dev.shotAfterTicks", 100);
-    private static final String WORLD = System.getProperty("agentoffice.dev.world", "AgentOfficeDev");
+    private static final int SHOT_AFTER_TICKS = Integer.getInteger("agentoffice.dev.shotAfter", 100);
+    private static final String WORLD = System.getProperty("agentoffice.dev.world", "");
     /** Joins this server instead of the dev world. */
     private static final String SERVER = System.getProperty("agentoffice.dev.server", "");
 
@@ -81,11 +87,11 @@ final class DevHooks {
     private static final boolean WATCH = Boolean.getBoolean("agentoffice.dev.watch");
 
     /** A scripted check is running: its client is read-only (see AgentOfficeClient#readOnly). */
-    static boolean active() {
+    public static boolean active() {
         return !FMLEnvironment.production && !OPEN.isEmpty();
     }
 
-    static boolean working() {
+    public static boolean working() {
         return !FMLEnvironment.production && WORKING;
     }
 
@@ -253,6 +259,10 @@ final class DevHooks {
         } else if (!SERVER.isEmpty()) {
             net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.screen, mc, net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(SERVER),
                     new net.minecraft.client.multiplayer.ServerData("dev", SERVER, net.minecraft.client.multiplayer.ServerData.Type.OTHER), false, null);
+        } else if (WORLD.isEmpty()) {
+            // gradlew runClient sets it from gradle.properties' dev_world; "" would name the saves folder itself.
+            System.out.println("[agentoffice-dev] agentoffice.dev.world is not set: start the check with gradlew runClient");
+            mc.stop();
         } else if (mc.getLevelSource().levelExists(WORLD)) {
             // onFail runs when the player backs out of a recover/backup prompt: it must leave that screen.
             Screen back = mc.screen;

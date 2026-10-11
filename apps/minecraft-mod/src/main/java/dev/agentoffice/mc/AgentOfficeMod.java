@@ -1,5 +1,6 @@
 package dev.agentoffice.mc;
 
+import dev.agentoffice.mc.core.Ids;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -38,7 +39,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 @Mod(AgentOfficeMod.MOD_ID)
 public final class AgentOfficeMod {
-    public static final String MOD_ID = "agentoffice";
+    public static final String MOD_ID = Ids.MOD_ID;
 
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);

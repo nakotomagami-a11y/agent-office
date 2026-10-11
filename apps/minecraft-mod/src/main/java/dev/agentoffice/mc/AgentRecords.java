@@ -67,7 +67,7 @@ public final class AgentRecords extends SavedData {
     private final Map<String, Record> byKey = new LinkedHashMap<>();
 
     public static AgentRecords get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(FACTORY, "agentoffice_agents");
+        return server.overworld().getDataStorage().computeIfAbsent(FACTORY, ModPaths.AGENTS_DATA);
     }
 
     /** One body per agent per project per player: every seat of "developer" in a project shares it. */

@@ -1,5 +1,6 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;

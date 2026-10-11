@@ -1,6 +1,9 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.service;
 
+import dev.agentoffice.mc.ModPaths;
 import dev.agentoffice.mc.core.AgentOfficeClient;
+import dev.agentoffice.mc.core.Ids;
+import dev.agentoffice.mc.core.ServerMirror;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,19 +14,16 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.Util;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The image on the system clipboard. Minecraft runs Java headless (no AWT clipboard) and GLFW's clipboard is text
  * only, so on Windows PowerShell reads it (a copied image, or an image file copied in Explorer); on Linux Agent
  * Office's host reads it (wl-paste). Blocking: call on Connection.IO.
  */
-final class ClipboardImages {
-    record Clip(String filename, String contentType, byte[] data) {}
+public final class ClipboardImages {
+    public record Clip(String filename, String contentType, byte[] data) {}
 
-    private static final Logger LOG = LoggerFactory.getLogger("agentoffice");
-    /** Agent Office's upload cap (MAX_UPLOAD_BYTES): a bigger image is refused before it is read in. */
-    private static final long MAX_BYTES = 50L * 1024 * 1024;
+    private static final Logger LOG = Ids.LOG;
     /** The script's "nothing on the clipboard"; any other failure is an error. */
     private static final int EMPTY = 2;
 
@@ -43,14 +43,14 @@ final class ClipboardImages {
 
     private ClipboardImages() {}
 
-    static Optional<Clip> read(AgentOfficeClient client) throws IOException {
+    public static Optional<Clip> read(AgentOfficeClient client) throws IOException {
         if (Util.getPlatform() == Util.OS.WINDOWS) return windows();
         if (Util.getPlatform() == Util.OS.OSX) throw new IOException("image paste isn't supported on macOS yet");
         return client.clipboardImage().map(png -> new Clip(pastedName("png"), "image/png", png));
     }
 
     private static Optional<Clip> windows() throws IOException {
-        Path out = Files.createTempFile("agentoffice-paste", ".img");
+        Path out = ModPaths.pasteTemp();
         Process p = null;
         try {
             // Encoded, so no quoting on the way can break it and no execution policy blocks it; -STA for the clipboard.
@@ -67,7 +67,9 @@ final class ClipboardImages {
             if (p.exitValue() != 0) throw new IOException("couldn't read the clipboard (PowerShell exit " + p.exitValue() + ")");
             long size = Files.size(out);
             if (size == 0) return Optional.empty();
-            if (size > MAX_BYTES) throw new IOException("the image is over Agent Office's 50 MB limit");
+            if (size > ServerMirror.MAX_UPLOAD_BYTES) {
+                throw new IOException("the image is over Agent Office's " + ServerMirror.MAX_UPLOAD_BYTES / (1024 * 1024) + " MB limit");
+            }
             String ext = said.lines().filter(l -> l.startsWith("EXT:")).map(l -> l.substring(4).trim()).findFirst().orElse("png");
             // Named as the web composer names a paste: never a copied file's own name, which could replace an earlier
             // upload of the same name that an older message points to.

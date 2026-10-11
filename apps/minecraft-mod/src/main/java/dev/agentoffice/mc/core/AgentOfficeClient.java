@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -32,9 +31,9 @@ public final class AgentOfficeClient {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     /** Adding a seat can make a git worktree (a full checkout) before answering. */
     private static final Duration SEAT_TIMEOUT = Duration.ofSeconds(90);
-    /** Review reads run gh, each call allowed 60 s by the server: the list is one call, a PR's detail two. */
-    private static final Duration QUEUE_TIMEOUT = Duration.ofSeconds(75);
-    private static final Duration PULL_TIMEOUT = Duration.ofSeconds(135);
+    /** Review reads run gh, each call given GH_TIMEOUT_MS by the server: the list is one call, a PR's detail two. */
+    private static final Duration QUEUE_TIMEOUT = Duration.ofMillis(ServerMirror.GH_TIMEOUT_MS).plusSeconds(15);
+    private static final Duration PULL_TIMEOUT = Duration.ofMillis(2 * ServerMirror.GH_TIMEOUT_MS).plusSeconds(15);
 
     private final HttpClient http;
     private final URI base;
@@ -84,7 +83,7 @@ public final class AgentOfficeClient {
      */
     public boolean healthy() {
         try {
-            JsonElement el = call(get("/api/health"));
+            JsonElement el = call(get(Routes.health()));
             return el.isJsonObject() && el.getAsJsonObject().has("available") && el.getAsJsonObject().has("version");
         } catch (IOException e) {
             return false;
@@ -95,7 +94,7 @@ public final class AgentOfficeClient {
     public List<Api.Project> projects() throws IOException {
         return parse(() -> {
             List<Api.Project> out = new ArrayList<>();
-            for (JsonElement el : call(get("/api/projects")).getAsJsonArray()) {
+            for (JsonElement el : call(get(Routes.projects())).getAsJsonArray()) {
                 JsonObject p = el.getAsJsonObject();
                 if (bool(p, "shelved")) continue;
                 int count = p.has("instanceCount") && !p.get("instanceCount").isJsonNull() ? p.get("instanceCount").getAsInt() : 0;
@@ -107,7 +106,7 @@ public final class AgentOfficeClient {
 
     public List<Api.Instance> instances(Api.Project project) throws IOException {
         return parse(() -> {
-            JsonObject meta = call(get("/api/projects/" + enc(project.id()))).getAsJsonObject().getAsJsonObject("meta");
+            JsonObject meta = call(get(Routes.project(project.id()))).getAsJsonObject().getAsJsonObject("meta");
             List<Api.Instance> out = new ArrayList<>();
             if (meta == null || !meta.has("roster")) return out;
             for (JsonElement el : meta.getAsJsonArray("roster")) {
@@ -122,7 +121,7 @@ public final class AgentOfficeClient {
     /** Project ids of the desktop app's open tabs, in order; empty if it has none. */
     public List<String> openTabs() throws IOException {
         return parse(() -> {
-            JsonObject settings = call(get("/api/ui-settings")).getAsJsonObject();
+            JsonObject settings = call(get(Routes.uiSettings())).getAsJsonObject();
             List<String> out = new ArrayList<>();
             String raw = str(settings, "tabs-state");
             if (raw == null) return out;
@@ -142,13 +141,13 @@ public final class AgentOfficeClient {
 
     /** A project's open pull requests (gh runs behind this, hence the long timeout). */
     public Review.Queue pulls(String projectId, String projectName) throws IOException {
-        return parse(() -> Review.queue(call(slow(get("/api/projects/" + enc(projectId) + "/reviews"), QUEUE_TIMEOUT)).getAsJsonObject(), projectId, projectName));
+        return parse(() -> Review.queue(call(slow(get(Routes.projectReviews(projectId)), QUEUE_TIMEOUT)).getAsJsonObject(), projectId, projectName));
     }
 
     /** One pull request with its parsed diff, checks, notes and the seat its feedback goes to. */
     public Review.Detail pull(String projectId, String projectName, int number) throws IOException {
         return parse(() -> Review.detail(
-                call(slow(get("/api/projects/" + enc(projectId) + "/reviews/" + number), PULL_TIMEOUT)).getAsJsonObject(), projectId, projectName));
+                call(slow(get(Routes.projectReview(projectId, number)), PULL_TIMEOUT)).getAsJsonObject(), projectId, projectName));
     }
 
     private static HttpRequest slow(HttpRequest req, Duration timeout) {
@@ -159,7 +158,7 @@ public final class AgentOfficeClient {
     public List<Api.Agent> agents() throws IOException {
         return parse(() -> {
             List<Api.Agent> out = new ArrayList<>();
-            for (JsonElement el : call(get("/api/agents")).getAsJsonArray()) {
+            for (JsonElement el : call(get(Routes.agents())).getAsJsonArray()) {
                 JsonObject a = el.getAsJsonObject();
                 out.add(new Api.Agent(str(a, "name"), str(a, "description"), str(a, "defaultModel"), str(a, "defaultEffort")));
                 AgentNames.remember(str(a, "name"), str(a, "displayName"));
@@ -178,7 +177,7 @@ public final class AgentOfficeClient {
         JsonObject body = new JsonObject();
         body.addProperty("agentId", agentId);
         if (force) body.addProperty("force", true);
-        HttpRequest req = HttpRequest.newBuilder(post("/api/projects/" + enc(projectId) + "/roster", body), (n, v) -> true)
+        HttpRequest req = HttpRequest.newBuilder(post(Routes.projectRoster(projectId), body), (n, v) -> true)
                 .timeout(SEAT_TIMEOUT).build();
         JsonElement el = call(req);
         return parse(() -> {
@@ -202,7 +201,7 @@ public final class AgentOfficeClient {
     }
 
     private static String rosterPath(Api.Slot slot) {
-        return "/api/projects/" + enc(slot.projectId()) + "/roster/" + enc(slot.instanceId());
+        return Routes.projectRosterItem(slot.projectId(), slot.instanceId());
     }
 
     /** Get-or-create the slot's current conversation. */
@@ -211,7 +210,7 @@ public final class AgentOfficeClient {
         body.addProperty("agentId", slot.agentId());
         body.addProperty("instanceId", slot.instanceId());
         body.addProperty("projectId", slot.projectId());
-        JsonElement el = call(post("/api/conversations", body));
+        JsonElement el = call(post(Routes.conversations(), body));
         return parse(() -> conversation(el));
     }
 
@@ -220,7 +219,7 @@ public final class AgentOfficeClient {
      * server reconciles before answering, which may start the next queued message.
      */
     public Optional<Api.Conversation> current(Api.Slot slot) throws IOException {
-        JsonElement el = call(get("/api/conversations?agentId=" + enc(slot.agentId()) + "&instanceId=" + enc(slot.instanceId())));
+        JsonElement el = call(get(Routes.conversationsOf(slot.agentId(), slot.instanceId())));
         return parse(() -> el.isJsonNull() ? Optional.empty() : Optional.of(conversation(el)));
     }
 
@@ -228,7 +227,7 @@ public final class AgentOfficeClient {
     public String upload(String projectId, String filename, String contentType, byte[] data) throws IOException {
         writable();
         String boundary = "agentoffice-" + UUID.randomUUID();
-        HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/projects/" + enc(projectId) + "/uploads"))
+        HttpRequest req = HttpRequest.newBuilder(base.resolve(Routes.projectUploads(projectId)))
                 .timeout(SEAT_TIMEOUT)
                 .header("content-type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(Attachments.multipart(boundary, filename, contentType, data)))
@@ -242,7 +241,7 @@ public final class AgentOfficeClient {
      * anything else (wl-paste missing, too large) is an error that says so.
      */
     public Optional<byte[]> clipboardImage() throws IOException {
-        HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/clipboard-image")).timeout(TIMEOUT)
+        HttpRequest req = HttpRequest.newBuilder(base.resolve(Routes.clipboardImage())).timeout(TIMEOUT)
                 .POST(HttpRequest.BodyPublishers.noBody()).build();
         HttpResponse<byte[]> res;
         try {
@@ -261,27 +260,32 @@ public final class AgentOfficeClient {
         writable();
         JsonObject body = new JsonObject();
         body.addProperty("text", text);
-        JsonElement el = call(post("/api/conversations/" + enc(conversationId) + "/messages", body));
+        JsonElement el = call(post(Routes.conversationMessages(conversationId), body));
         return parse(() -> conversation(el));
     }
 
     /** {@code action}: retry, resume or skip (after needs_attention), or new (a fresh thread). */
-    public Api.Conversation act(String conversationId, String action) throws IOException {
+    public Api.Conversation act(String conversationId, Protocol.Action action) throws IOException {
         writable();
-        JsonElement el = call(post("/api/conversations/" + enc(conversationId) + "/" + enc(action), new JsonObject()));
+        JsonElement el = call(post(switch (action) {
+            case RETRY -> Routes.conversationRetry(conversationId);
+            case RESUME -> Routes.conversationResume(conversationId);
+            case SKIP -> Routes.conversationSkip(conversationId);
+            case NEW -> Routes.conversationNew(conversationId);
+        }, new JsonObject()));
         return parse(() -> conversation(el));
     }
 
     /** Stops a run; the conversation then needs attention (retry or skip). */
     public boolean abort(String runId) throws IOException {
         writable();
-        JsonElement el = call(post("/api/runs/" + enc(runId) + "/abort", new JsonObject()));
+        JsonElement el = call(post(Routes.runAbort(runId), new JsonObject()));
         return parse(() -> bool(el.getAsJsonObject(), "aborted"));
     }
 
     /** Tool calls of a run waiting for an answer. Not replayed by the stream: re-read after attaching. */
     public List<Api.Permission> permissions(String runId) throws IOException {
-        JsonElement el = call(get("/api/runs/" + enc(runId) + "/permission"));
+        JsonElement el = call(get(Routes.runPermission(runId)));
         return parse(() -> {
             List<Api.Permission> out = new ArrayList<>();
             for (JsonElement p : el.getAsJsonObject().getAsJsonArray("pending")) {
@@ -299,7 +303,7 @@ public final class AgentOfficeClient {
         JsonObject body = new JsonObject();
         body.addProperty("id", id);
         body.addProperty("decision", allow ? "allow" : "deny");
-        call(send("PATCH", "/api/runs/" + enc(runId) + "/permission", body));
+        call(send("PATCH", Routes.runPermission(runId), body));
     }
 
     /** Raw bytes of an Agent Office path (images); refuses anything over {@code maxBytes}. */
@@ -324,7 +328,7 @@ public final class AgentOfficeClient {
      * {@code onEnd} always runs exactly once, with the failure or null.
      */
     public Closeable stream(String runId, Executor executor, Consumer<Api.Event> onEvent, Consumer<Throwable> onEnd) {
-        HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/runs/" + enc(runId) + "/stream"))
+        HttpRequest req = HttpRequest.newBuilder(base.resolve(Routes.runStream(runId)))
                 .timeout(TIMEOUT) // bounds the wait for headers only; the body may stream for as long as the run
                 .header("accept", "text/event-stream")
                 .GET()
@@ -451,10 +455,6 @@ public final class AgentOfficeClient {
                 .header("content-type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
                 .build();
-    }
-
-    private static String enc(String segment) {
-        return URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static String str(JsonObject o, String key) {

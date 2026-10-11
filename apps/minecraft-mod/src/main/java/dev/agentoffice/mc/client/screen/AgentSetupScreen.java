@@ -1,5 +1,7 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
@@ -23,7 +25,7 @@ import net.minecraft.network.chat.Component;
  * seat to pick: it starts on the agent's first seat (or a new one if it has none), and the chat's Seats
  * picker switches between them. A shell can't be chatted with until this is done.
  */
-final class AgentSetupScreen extends TabletScreen {
+public final class AgentSetupScreen extends TabletScreen {
     private static final int ROW = 26;
 
     private enum Step { AGENT, PROJECT }
@@ -44,7 +46,7 @@ final class AgentSetupScreen extends TabletScreen {
     private boolean busy;
     private boolean started;
 
-    AgentSetupScreen(AgentOfficeClient client, UUID shell) {
+    public AgentSetupScreen(AgentOfficeClient client, UUID shell) {
         super(Component.literal("Set up agent"));
         this.client = client;
         this.shell = shell;

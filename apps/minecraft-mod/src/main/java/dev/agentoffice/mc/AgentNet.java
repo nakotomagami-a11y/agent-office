@@ -3,11 +3,9 @@ package dev.agentoffice.mc;
 import dev.agentoffice.mc.core.Api;
 import io.netty.buffer.ByteBuf;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
@@ -26,9 +24,9 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /**
- * What the tablet asks of the world (place, switch seat, dismiss, set up or remove a shell, bring old
- * client-only bodies over), and the list of a player's placed agents that the world sends back. Optional
- * channels: the client still joins a server without the mod, where it just can't place agents.
+ * What the tablet asks of the world (place, switch seat, dismiss, set up or remove a shell, report work),
+ * and the list of a player's placed agents that the world sends back. Optional channels: the client still
+ * joins a server without the mod, where it just can't place agents.
  *
  * Any client can send these, a modified one included: every handler checks ownership, reach and limits.
  */
@@ -40,11 +38,7 @@ public final class AgentNet {
     public static final int MAX_AGENTS = 64;
     public static final int MAX_TEXT = 128;
     private static final double REACH = 32;
-    /** Old bodies are brought over only near the player, where the chunks load anyway. */
-    public static final double MIGRATE_RANGE = 128;
     private static final int COOLDOWN_TICKS = 4;
-    /** The client reports work every 5 s; faster than once a second is dropped. */
-    private static final int STATUS_MIN_TICKS = 20;
     /** How far from its body an agent's lectern may be. */
     public static final double LECTERN_RANGE = 64;
 
@@ -116,12 +110,11 @@ public final class AgentNet {
         }
     }
 
-    /** A body from before bodies were entities (agentoffice-bodies.json), near the player in their dimension. */
-    public record Legacy(Api.Slot seat, double x, double y, double z, float yaw) {
-        static final StreamCodec<ByteBuf, Legacy> CODEC = StreamCodec.composite(SEAT, Legacy::seat, ByteBufCodecs.DOUBLE, Legacy::x,
-                ByteBufCodecs.DOUBLE, Legacy::y, ByteBufCodecs.DOUBLE, Legacy::z, ByteBufCodecs.FLOAT, Legacy::yaw, Legacy::new);
-    }
-
+    /**
+     * What a client before 0.8.0 sends once a join to bring pre-0.6.0 bodies over. Still decoded and then ignored: a
+     * payload missing on one side is fine on an optional channel, but a changed channel version refuses the login, and
+     * an old client sending a payload this side never registered fails on its own tick.
+     */
     public record Migrate(List<Legacy> bodies) implements CustomPacketPayload {
         static final Type<Migrate> TYPE = typeOf("migrate");
         static final StreamCodec<ByteBuf, Migrate> CODEC = Legacy.CODEC.apply(ByteBufCodecs.list(MAX_AGENTS)).map(Migrate::new, Migrate::bodies);
@@ -129,6 +122,11 @@ public final class AgentNet {
         @Override
         public Type<Migrate> type() {
             return TYPE;
+        }
+
+        public record Legacy(Api.Slot seat, double x, double y, double z, float yaw) {
+            static final StreamCodec<ByteBuf, Legacy> CODEC = StreamCodec.composite(SEAT, Legacy::seat, ByteBufCodecs.DOUBLE, Legacy::x,
+                    ByteBufCodecs.DOUBLE, Legacy::y, ByteBufCodecs.DOUBLE, Legacy::z, ByteBufCodecs.FLOAT, Legacy::yaw, Legacy::new);
         }
     }
 
@@ -174,13 +172,15 @@ public final class AgentNet {
     private AgentNet() {}
 
     static void register(RegisterPayloadHandlersEvent event) {
+        // Bumping the version refuses every login between mismatched jars (NeoForge disconnects: incompatible network
+        // version), even on an optional channel. Add payloads freely; bump only for a codec change.
         PayloadRegistrar r = event.registrar("1").optional();
+        r.playToServer(Migrate.TYPE, Migrate.CODEC, (m, ctx) -> { });
         r.playToServer(Place.TYPE, Place.CODEC, (m, ctx) -> place((ServerPlayer) ctx.player(), m));
         r.playToServer(Retarget.TYPE, Retarget.CODEC, (m, ctx) -> retarget((ServerPlayer) ctx.player(), m.seat()));
         r.playToServer(Dismiss.TYPE, Dismiss.CODEC, (m, ctx) -> dismiss((ServerPlayer) ctx.player(), m.seat()));
         r.playToServer(AssignShell.TYPE, AssignShell.CODEC, (m, ctx) -> assignShell((ServerPlayer) ctx.player(), m));
         r.playToServer(RemoveShell.TYPE, RemoveShell.CODEC, (m, ctx) -> removeShell((ServerPlayer) ctx.player(), m.shell()));
-        r.playToServer(Migrate.TYPE, Migrate.CODEC, (m, ctx) -> migrate((ServerPlayer) ctx.player(), m.bodies()));
         r.playToServer(Status.TYPE, Status.CODEC, (m, ctx) -> status((ServerPlayer) ctx.player(), m.bodies()));
         r.playToClient(Placed.TYPE, Placed.CODEC, (m, ctx) -> onPlaced.accept(m.bodies()));
     }
@@ -191,7 +191,6 @@ public final class AgentNet {
     }
 
     private static final Map<UUID, Integer> lastAction = new HashMap<>();
-    private static final Set<UUID> migrated = new HashSet<>();
     private static final Map<UUID, Integer> lastStatus = new HashMap<>();
 
     /** A person clicks a few times a second at most; anything faster is dropped. Main thread only. */
@@ -204,21 +203,19 @@ public final class AgentNet {
 
     static void loggedOut(ServerPlayer player) {
         lastAction.remove(player.getUUID());
-        migrated.remove(player.getUUID());
         lastStatus.remove(player.getUUID());
     }
 
     /** A singleplayer world switch may skip the logouts. */
     static void serverStopped() {
         lastAction.clear();
-        migrated.clear();
         lastStatus.clear();
     }
 
     /** Somewhere the player could build: finite, in the world and its border, near them, outside spawn protection. */
-    private static boolean canStand(ServerPlayer player, double x, double y, double z, float yaw, double range) {
+    private static boolean canStand(ServerPlayer player, double x, double y, double z, float yaw) {
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z) || !Float.isFinite(yaw)) return false;
-        if (!player.mayBuild() || player.position().distanceToSqr(x, y, z) > range * range) return false;
+        if (!player.mayBuild() || player.position().distanceToSqr(x, y, z) > REACH * REACH) return false;
         BlockPos pos = BlockPos.containing(x, y, z);
         ServerLevel level = player.serverLevel();
         return level.isInWorldBounds(pos) && level.getWorldBorder().isWithinBounds(pos) && level.mayInteract(player, pos);
@@ -229,7 +226,7 @@ public final class AgentNet {
     }
 
     private static void place(ServerPlayer player, Place m) {
-        if (!ready(player) || !canStand(player, m.x(), m.y(), m.z(), m.yaw(), REACH)) return;
+        if (!ready(player) || !canStand(player, m.x(), m.y(), m.z(), m.yaw())) return;
         AgentRecords records = AgentRecords.get(player.server);
         if (full(records, player, m.seat())) return;
         // A new body every time, even for a move: the items are the record's, and a body left in an unloaded
@@ -284,7 +281,7 @@ public final class AgentNet {
     private static void status(ServerPlayer player, List<Work> bodies) {
         int now = player.server.getTickCount();
         Integer last = lastStatus.put(player.getUUID(), now);
-        if (last != null && now - last < STATUS_MIN_TICKS && now >= last) return;
+        if (last != null && now - last < Tuning.STATUS_MIN_TICKS && now >= last) return;
         for (Work w : bodies) {
             if (!(player.serverLevel().getEntity(w.entity()) instanceof AgentEntity body) || !body.isOwnedBy(player)) continue;
             // Only a real Review Lectern near the body: a client can't send it across the world.
@@ -299,21 +296,6 @@ public final class AgentNet {
         if (!ready(player)) return;
         Entity shell = player.serverLevel().getEntity(id);
         if (nearOwnShell(player, shell)) shell.discard();
-    }
-
-    /** Old bodies near the player stand where they stood; an agent it already has here is skipped. */
-    private static void migrate(ServerPlayer player, List<Legacy> bodies) {
-        // Once a login (the client sends it once a join), so outside the click cooldown.
-        if (player.isSpectator() || !player.isAlive() || !migrated.add(player.getUUID())) return;
-        AgentRecords records = AgentRecords.get(player.server);
-        for (Legacy b : bodies) {
-            if (!canStand(player, b.x(), b.y(), b.z(), b.yaw(), MIGRATE_RANGE)) continue;
-            if (records.find(player.getUUID(), b.seat()) != null || full(records, player, b.seat())) continue;
-            if (!player.serverLevel().hasChunkAt(BlockPos.containing(b.x(), b.y(), b.z()))) continue; // never loads or generates one
-            AgentEntity body = AgentEntity.spawn(player.serverLevel(), new Vec3(b.x(), b.y(), b.z()), b.yaw(), player.getUUID(), b.seat());
-            if (body != null) records.getOrCreate(player.getUUID(), b.seat()).entity = body.getUUID();
-        }
-        sendPlaced(player);
     }
 
     private static Entity loaded(MinecraftServer server, UUID id) {

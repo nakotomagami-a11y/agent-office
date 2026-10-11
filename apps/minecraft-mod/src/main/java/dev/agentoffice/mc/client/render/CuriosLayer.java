@@ -1,7 +1,8 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.agentoffice.mc.AgentEntity;
+import dev.agentoffice.mc.core.Ids;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,7 +13,6 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import top.theillusivec4.curios.api.SlotContext;
 import top.theillusivec4.curios.api.client.CuriosRendererRegistry;
 
@@ -22,7 +22,7 @@ import top.theillusivec4.curios.api.client.CuriosRendererRegistry;
  * Only loaded with Curios installed.
  */
 final class CuriosLayer extends RenderLayer<AgentEntity, PlayerModel<AgentEntity>> {
-    private static final Logger LOG = LoggerFactory.getLogger("agentoffice");
+    private static final Logger LOG = Ids.LOG;
     private static final Set<Item> broken = new HashSet<>();
 
     private final LivingEntityRenderer<AgentEntity, PlayerModel<AgentEntity>> parent;

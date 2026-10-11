@@ -176,3 +176,69 @@ Three dead citations shipped: `CLAUDE.md` (cited 7×), `docs/redesign-v3/REDESIG
 — it sends the reader, human or agent, on a search that cannot succeed.
 
 > **enforced by** `docs-citations.test.ts`
+
+---
+
+## mod.core-pure
+**`apps/minecraft-mod`'s `core/` names only `java.*`, Gson, SLF4J and itself, imported or written
+out in full.**
+
+`core/` is the mod's Agent Office client: HTTP, parsing, transcript, names. Kept free of
+Minecraft, it runs and is tested as plain Java, fast, without a game.
+
+*Fix:* the Minecraft half goes in `client/` (or the root package if both sides need it), and
+calls into `core/`.
+
+> **enforced by** `ArchitectureTest.coreIsPureJava` (`gradlew test` in `apps/minecraft-mod`)
+
+---
+
+## mod.common-no-client
+**Outside `client/`, the mod never names a client class: `dev.agentoffice.mc.client`,
+`net.minecraft.client`, `com.mojang.blaze3d`.**
+
+The root package and `core/` load on a dedicated server, which has no client classes: one
+reference there crashes the server. The root reaches the client only through hooks the client
+sets (`AgentNet.onPlaced`, `TabletItem.openOnClient`).
+
+> **enforced by** `ArchitectureTest.commonCodeNeverReachesTheClient`
+
+---
+
+## mod.ui-leaf
+**`client/ui/` widgets know nothing of `client/screen`, `client/service` or `client/render`.**
+
+Screens are built from widgets, not the other way round. A widget that needs to know about a
+screen asks through an interface it owns (`ShowsImages`).
+
+> **enforced by** `ArchitectureTest.uiWidgetsAreALeaf`
+
+---
+
+## mod.api-paths-one-place
+**Every API path the mod calls is built by `core/Routes`, one method per `API_ROUTES` key.**
+
+The mod is Java and cannot import the contract, so it mirrors it: once, and checked. A route
+renamed on the server then fails a test instead of a player's chat.
+
+> **enforced by** `ArchitectureTest.apiPathsAreBuiltInOnePlace` (no `"/api/` elsewhere) and
+> `apps/server/src/minecraft-mod-contract.test.ts` (each `Routes` method against its key)
+
+---
+
+## mod.status-vocab
+**The mod matches conversation, turn and sub-agent statuses, stream events, conversation actions
+and run error codes through `core/Protocol` and `core/RunErrors`, never a literal of its own;
+values copied from the server (model lists, limits, wording) live in `core/ServerMirror`.**
+
+A literal `"auth_required"` in a screen once matched nothing the server sends: the server says
+`auth_expired`. Every mirrored word and value names its TypeScript source and is checked
+against it.
+
+The test flags a mirrored word used to match (`equals`, `case`, `orElse`, `Objects.equals`,
+`Set.of`/`List.of`). It cannot flag a word the mirror lacks, misspelt or invented; that is what
+the contract test is for. Not yet mirrored: review error codes and PR link sources
+(`ReviewScreen`), and API error codes like `INSTANCE_CAP_EXCEEDED`.
+
+> **enforced by** `ArchitectureTest.serverWordsAreComparedThroughProtocol` and
+> `apps/server/src/minecraft-mod-contract.test.ts`

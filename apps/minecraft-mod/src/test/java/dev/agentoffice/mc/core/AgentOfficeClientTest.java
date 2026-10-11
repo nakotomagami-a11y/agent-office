@@ -295,7 +295,7 @@ class AgentOfficeClientTest {
         List<String> abort = record("/api/runs/r2/abort", 200, "{\"aborted\":true}");
         List<String> retry = record("/api/conversations/c1/retry", 200, VIEW);
         assertTrue(client.abort("r2"));
-        assertEquals("c1", client.act("c1", "retry").id());
+        assertEquals("c1", client.act("c1", Protocol.Action.RETRY).id());
         assertEquals(List.of("POST /api/runs/r2/abort {}"), abort);
         assertEquals(List.of("POST /api/conversations/c1/retry {}"), retry);
     }
@@ -330,7 +330,7 @@ class AgentOfficeClientTest {
         // The guard's own error, not a 404 from the fake server: deleting a guard must fail this test.
         List<org.junit.jupiter.api.function.Executable> writes = List.of(
                 () -> ro.send("c1", "hi"),
-                () -> ro.act("c1", "new"),
+                () -> ro.act("c1", Protocol.Action.NEW),
                 () -> ro.abort("r2"),
                 () -> ro.answerPermission("r2", "p-1", true),
                 () -> ro.addInstance("p1", "developer", false),

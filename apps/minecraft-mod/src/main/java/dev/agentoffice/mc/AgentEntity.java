@@ -79,8 +79,6 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     private Api.Slot seat;
     private Map<String, List<ItemStack>> curiosShown = Map.of();
 
-    /** How long a "working" from its owner's client holds: the client says it every 5 s while it can. */
-    private static final int WORK_REPORT_TICKS = 600;
     private static final double SPEED = 0.35;
     /** How far it looks for monsters to fight. */
     private static final double FOLLOW = 24;
@@ -156,7 +154,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     /** Server: its owner's client reports whether its agent works, and at which lectern (already checked). */
     void reportWork(boolean working, BlockPos lectern) {
         workplace = working ? lectern : null;
-        workingUntil = working ? level().getGameTime() + WORK_REPORT_TICKS : 0;
+        workingUntil = working ? level().getGameTime() + Tuning.WORKING_HOLDS_TICKS : 0;
     }
 
     boolean isWorking() {

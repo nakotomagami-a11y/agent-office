@@ -1,7 +1,5 @@
 package dev.agentoffice.mc.core;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -53,20 +51,17 @@ public final class Images {
         String raw = rawPath.replace('\\', '/');
         Matcher agent = AGENT_UPLOAD.matcher(raw);
         if (agent.find() && DECODABLE.matcher(agent.group(2)).find()) {
-            return "/api/agents/" + enc(agent.group(1)) + "/uploads/" + enc(agent.group(2));
+            return Routes.agentUploadFile(agent.group(1), agent.group(2));
         }
         Matcher project = PROJECT_UPLOAD.matcher(raw);
         if (project.find() && DECODABLE.matcher(project.group(2)).find()) {
-            return "/api/projects/" + enc(project.group(1)) + "/uploads/" + enc(project.group(2));
+            return Routes.projectUploadFile(project.group(1), project.group(2));
         }
         Matcher gen = GENERATED_FILE.matcher(raw);
         if (gen.find() && GENERATED_EXT.matcher(gen.group(2)).find()) {
-            return "/api/generated-images/" + enc(gen.group(1)) + "/" + enc(gen.group(2));
+            return Routes.generatedImage(gen.group(1), gen.group(2));
         }
         return null;
     }
 
-    private static String enc(String segment) {
-        return URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20");
-    }
 }

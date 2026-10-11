@@ -1,5 +1,6 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
@@ -30,7 +31,7 @@ import org.lwjgl.glfw.GLFW;
  * shown but come with the next update. Everything that came from GitHub is drawn through
  * {@link Review#visible}: a PR must not be able to restyle or reorder what the reviewer sees.
  */
-final class ReviewScreen extends TabletScreen {
+public final class ReviewScreen extends TabletScreen {
     private static final int LINE_H = DiffView.LINE_H;
     private static final int FILE_ROW = 22;
     private static final int HEAD_H = 40;
@@ -83,7 +84,7 @@ final class ReviewScreen extends TabletScreen {
     private int footerTextEnd;
     private int footerTextX;
 
-    ReviewScreen(AgentOfficeClient client, LecternStore.Binding binding, String lecternKey) {
+    public ReviewScreen(AgentOfficeClient client, LecternStore.Binding binding, String lecternKey) {
         super(Component.literal("Merge review"));
         this.client = client;
         this.binding = binding;

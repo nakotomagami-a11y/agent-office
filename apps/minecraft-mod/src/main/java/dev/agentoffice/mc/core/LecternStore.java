@@ -15,13 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Which project each Review Lectern shows, keyed by world, dimension and block position. Client-side
- * only (one JSON file in the game's config dir), like agent bodies: nothing about it reaches the
- * Minecraft server. Cheap to lose (rebinding is two clicks), so simpler than BodyStore: a corrupt
- * file is set aside, and a file that can't be read is left alone for the session, never overwritten.
+ * only (one JSON file in the game's config dir): nothing about it reaches the Minecraft server. Cheap
+ * to lose (rebinding is two clicks), so kept simple: a corrupt file is set aside, and a file that
+ * can't be read is left alone for the session, never overwritten.
  */
 public final class LecternStore {
     /** The "All projects" binding. */
@@ -33,7 +32,7 @@ public final class LecternStore {
         }
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger("agentoffice");
+    private static final Logger LOG = Ids.LOG;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final Path file;

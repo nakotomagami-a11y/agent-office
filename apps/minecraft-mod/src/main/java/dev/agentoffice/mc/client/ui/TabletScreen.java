@@ -29,7 +29,7 @@ public abstract class TabletScreen extends Screen {
     /** The dark well content sits in (the chat, the roster, other screens' whole content). */
     protected static final int WELL = Theme.CANVAS;
     /** Text on the grey panel, as vanilla's container titles: dark, no shadow. */
-    protected static final int PANEL_TEXT = 0x404040;
+    protected static final int PANEL_TEXT = Theme.Vanilla.LABEL;
     protected static final int PAD = 8;
 
     protected int left;
@@ -145,11 +145,7 @@ public abstract class TabletScreen extends Screen {
 
     /** A sunken well, bevelled like a vanilla slot (dark top-left, white bottom-right, mid-tone corners), dark inside. */
     protected static void well(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF373737);
-        g.fill(x + 1, y + 1, x + w, y + h, 0xFFFFFFFF);
-        g.fill(x + w - 1, y, x + w, y + 1, 0xFF8B8B8B);
-        g.fill(x, y + h - 1, x + 1, y + h, 0xFF8B8B8B);
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, WELL);
+        VanillaGui.slot(g, x, y, w, h, WELL);
     }
 
     /** Bold text cut to {@code width}, measured bold (bold glyphs are wider than plainSubstrByWidth assumes). */

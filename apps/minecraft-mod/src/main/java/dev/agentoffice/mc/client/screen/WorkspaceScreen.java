@@ -1,12 +1,15 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Protocol;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +33,7 @@ import net.minecraft.util.FormattedCharSequence;
  * vanilla selection list in a well) on the left, the screen's own content (a chat) in the rest. What it knows of the office is shared by every workspace screen (main thread
  * only), so moving between sessions never starts from an empty sidebar.
  */
-abstract class WorkspaceScreen extends TabletScreen {
+public abstract class WorkspaceScreen extends TabletScreen {
     /** The sidebar takes a fifth of the screen, within these. */
     private static final int MIN_SIDEBAR = 120;
     private static final int MAX_SIDEBAR = 160;
@@ -116,7 +119,7 @@ abstract class WorkspaceScreen extends TabletScreen {
     }
 
     /** The tablet opens where it was left: the last chat, else its project, else the first tab. */
-    static void openHome(Minecraft mc) {
+    public static void openHome(Minecraft mc) {
         Api.Slot last = lastProject == null ? null : remembered(lastProject);
         mc.setScreen(last != null && client != null ? new ChatScreen(null, client, last) : new ProjectScreen(lastProject));
     }
@@ -361,7 +364,7 @@ abstract class WorkspaceScreen extends TabletScreen {
                 Map<String, String> st = new HashMap<>();
                 for (Api.Instance i : rs.getOrDefault(focus, List.of())) {
                     try {
-                        st.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse("idle"));
+                        st.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse(Protocol.Conversation.IDLE));
                     } catch (IOException | RuntimeException e) {
                         st.put(i.slot().instanceId(), "unknown");
                     }
@@ -545,7 +548,7 @@ abstract class WorkspaceScreen extends TabletScreen {
             String count = String.valueOf(group.count());
             int countX = left + width - 2 - font.width(count);
             g.drawString(font, count, countX, y, Theme.TXT_4);
-            g.drawString(font, cut(font, AgentNames.of(group.agentId()), countX - left - 14), left + 8, y, hovering ? 0xFFFFFFFF : Theme.TXT);
+            g.drawString(font, cut(font, AgentNames.of(group.agentId()), countX - left - 14), left + 8, y, hovering ? Theme.HOVER : Theme.TXT);
         }
 
         @Override
@@ -583,7 +586,7 @@ abstract class WorkspaceScreen extends TabletScreen {
                 end -= 4;
             }
             boolean on = roster != null && roster.getSelected() == this;
-            g.drawString(font, cut(font, label(), end - left - 18), left + 18, y, on || hovering ? 0xFFFFFFFF : Theme.TXT_2);
+            g.drawString(font, cut(font, label(), end - left - 18), left + 18, y, on || hovering ? Theme.HOVER : Theme.TXT_2);
         }
 
         @Override
@@ -610,7 +613,7 @@ abstract class WorkspaceScreen extends TabletScreen {
         @Override
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
                            boolean hovering, float partialTick) {
-            int color = adding() ? Theme.TXT_4 : hovering ? 0xFFFFFFFF : Theme.TXT_3;
+            int color = adding() ? Theme.TXT_4 : hovering ? Theme.HOVER : Theme.TXT_3;
             g.drawString(font, label(), left + 18, top + (height - 8) / 2, color);
         }
 

@@ -1,13 +1,15 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Protocol;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +172,7 @@ public final class OfficeScreen extends TabletScreen {
                 Map<String, String> statuses = new HashMap<>();
                 for (Api.Instance i : found) {
                     try {
-                        statuses.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse("idle"));
+                        statuses.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse(Protocol.Conversation.IDLE));
                     } catch (IOException e) {
                         statuses.put(i.slot().instanceId(), "unknown");
                     }
@@ -266,7 +268,7 @@ public final class OfficeScreen extends TabletScreen {
             Api.Slot slot = seat.slot();
             int y = listTop + (i - seatScroll) * SEAT_ROW;
             String st = seatStatus.get(slot.instanceId());
-            int dot = "running".equals(st) ? Theme.OK : "needs_attention".equals(st) ? Theme.AMBER : st == null ? Theme.BG_4 : Theme.TXT_4;
+            int dot = Protocol.Conversation.RUNNING.equals(st) ? Theme.OK : Protocol.Conversation.NEEDS_ATTENTION.equals(st) ? Theme.AMBER : st == null ? Theme.BG_4 : Theme.TXT_4;
             g.fill(mx0 + 6, y + 8, mx0 + 10, y + 12, dot);
             int textW = mx1 - mx0 - buttonsW - 16;
             String name = slot.displayName() + (slot.label() != null && !slot.label().isBlank() ? "  (" + AgentNames.of(slot.agentId()) + ")" : "");
@@ -288,8 +290,8 @@ public final class OfficeScreen extends TabletScreen {
     private static String statusLabel(String st) {
         if (st == null) return "…";
         return switch (st) {
-            case "running" -> "working";
-            case "needs_attention" -> "needs you";
+            case Protocol.Conversation.RUNNING -> "working";
+            case Protocol.Conversation.NEEDS_ATTENTION -> "needs you";
             case "unknown" -> "status unknown";
             default -> "idle";
         };

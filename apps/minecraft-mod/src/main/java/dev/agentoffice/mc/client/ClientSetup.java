@@ -6,6 +6,14 @@ import dev.agentoffice.mc.AgentNet;
 import dev.agentoffice.mc.AgentOfficeMod;
 import dev.agentoffice.mc.ReviewLecternBlock;
 import dev.agentoffice.mc.TabletItem;
+import dev.agentoffice.mc.client.render.AgentRenderer;
+import dev.agentoffice.mc.client.screen.AgentInventoryScreen;
+import dev.agentoffice.mc.client.screen.AgentSetupScreen;
+import dev.agentoffice.mc.client.screen.ChatScreen;
+import dev.agentoffice.mc.client.screen.WorkspaceScreen;
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.client.ui.ImageCache;
 import dev.agentoffice.mc.core.Api;
 import net.minecraft.client.KeyMapping;
@@ -56,7 +64,6 @@ public final class ClientSetup {
         modBus.addListener((RegisterMenuScreensEvent e) -> e.register(AgentOfficeMod.AGENT_MENU.get(), AgentInventoryScreen::new));
         NeoForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
         NeoForge.EVENT_BUS.addListener(ClientSetup::onInteract);
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn e) -> Bodies.joined());
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> Bodies.left());
     }
 

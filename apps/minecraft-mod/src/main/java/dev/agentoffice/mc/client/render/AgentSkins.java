@@ -1,8 +1,10 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.render;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.agentoffice.mc.AgentOfficeMod;
+import dev.agentoffice.mc.ModPaths;
 import dev.agentoffice.mc.core.AgentLooks;
+import dev.agentoffice.mc.core.Ids;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -17,9 +19,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An agent's skin (64x64, both layers), first found wins:
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 final class AgentSkins {
     record Skin(ResourceLocation texture, boolean slim) {}
 
-    private static final Logger LOG = LoggerFactory.getLogger("agentoffice");
+    private static final Logger LOG = Ids.LOG;
     private static final Map<String, Skin> cache = new HashMap<>();
     private static final Map<String, ResourceLocation> loaded = new HashMap<>();
 
@@ -49,7 +49,7 @@ final class AgentSkins {
     }
 
     static Path folder() {
-        return FMLPaths.CONFIGDIR.get().resolve("agentoffice-skins");
+        return ModPaths.skins();
     }
 
     /** Makes the folder, with a note on how to use it, so a player can find where skins go. */

@@ -6,14 +6,6 @@ import java.util.List;
 public final class Api {
     private Api() {}
 
-    /** Model aliases (packages/domain/src/config/models.ts MODEL_IDS); "" = the agent's own default. */
-    public static final List<String> MODELS = List.of("", "haiku", "sonnet", "opus", "fable");
-    /** EFFORT_OPTS (packages/domain/src/config/agent-opts.ts); "" = the agent's own default. */
-    public static final List<String> EFFORTS = List.of("", "low", "medium", "high", "xhigh", "max");
-    /** PERMISSION_MODE_OPTS; "" = the agent's own default. */
-    public static final List<String> PERMISSION_MODES =
-            List.of("", "default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto");
-
     public record Project(String id, String name, int instanceCount) {}
 
     /** One agent seat in a project roster: the unit a conversation belongs to. */
@@ -60,11 +52,11 @@ public final class Api {
             List<Turn> turns,
             int queued) {
         public boolean running() {
-            return "running".equals(status) && activeRunId != null;
+            return Protocol.Conversation.RUNNING.equals(status) && activeRunId != null;
         }
 
         public boolean needsAttention() {
-            return "needs_attention".equals(status);
+            return Protocol.Conversation.NEEDS_ATTENTION.equals(status);
         }
     }
 
@@ -86,10 +78,6 @@ public final class Api {
 
         public ApiException(int status, String code) {
             this(status, code, false, null, null);
-        }
-
-        public ApiException(int status, String code, boolean softCap) {
-            this(status, code, softCap, null, null);
         }
 
         public ApiException(int status, String code, boolean softCap, String hint, String detail) {

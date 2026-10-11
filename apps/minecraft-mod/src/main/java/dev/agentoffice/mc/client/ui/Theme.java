@@ -1,5 +1,7 @@
 package dev.agentoffice.mc.client.ui;
 
+import dev.agentoffice.mc.core.Ids;
+import dev.agentoffice.mc.core.Protocol;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -49,10 +51,28 @@ public final class Theme {
     /** Translucent black under transcript content, like vanilla's chat background. */
     public static final int SHADE = 0x40000000;
     public static final int SHADE_2 = 0x66000000;
+    /** Hovered text, the one place the tablet goes to pure white. */
+    public static final int HOVER = 0xFFFFFFFF;
+
+    /** Vanilla's container greys, for what is drawn like a chest's window ({@link VanillaGui}). */
+    public static final class Vanilla {
+        public static final int PANEL = 0xFFC6C6C6;
+        /** Titles on the panel: dark, drawn without a shadow. */
+        public static final int LABEL = 0xFF404040;
+        public static final int OUTLINE = 0xFF000000;
+        public static final int LIGHT = 0xFFFFFFFF;
+        public static final int SHADOW = 0xFF555555;
+        public static final int SLOT_SHADOW = 0xFF373737;
+        public static final int SLOT = 0xFF8B8B8B;
+        /** Behind an entity preview, as vanilla's inventory draws the player. */
+        public static final int PREVIEW = 0xFF000000;
+
+        private Vanilla() {}
+    }
 
     /** One of the tablet's own sprites (tools/gui-sprites.mjs); every widget is vanilla's. */
     public static ResourceLocation sprite(String name) {
-        return ResourceLocation.fromNamespaceAndPath("agentoffice", "tablet/" + name);
+        return ResourceLocation.fromNamespaceAndPath(Ids.MOD_ID, "tablet/" + name);
     }
 
     private static final ResourceLocation DOT_IDLE = sprite("dot_idle");
@@ -63,8 +83,8 @@ public final class Theme {
     /** A session or tool status as a 6×6 dot sprite; running blinks between two frames. */
     public static ResourceLocation dot(String status) {
         return switch (status == null ? "" : status) {
-            case "running" -> System.currentTimeMillis() / 400 % 2 == 0 ? DOT_RUNNING : DOT_RUNNING_DIM;
-            case "needs_attention" -> DOT_ATTENTION;
+            case Protocol.Conversation.RUNNING -> System.currentTimeMillis() / 400 % 2 == 0 ? DOT_RUNNING : DOT_RUNNING_DIM;
+            case Protocol.Conversation.NEEDS_ATTENTION -> DOT_ATTENTION;
             default -> DOT_IDLE;
         };
     }

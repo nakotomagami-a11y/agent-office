@@ -1,19 +1,25 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.service.ClipboardImages;
+import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.ImageScreen;
-import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.ShowsImages;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.client.ui.TranscriptView;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.Attachments;
+import dev.agentoffice.mc.core.Ids;
+import dev.agentoffice.mc.core.Protocol;
+import dev.agentoffice.mc.core.ServerMirror;
 import dev.agentoffice.mc.core.Transcript;
 import java.io.Closeable;
 import java.io.IOException;
@@ -21,8 +27,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -49,7 +56,7 @@ import org.lwjgl.glfw.GLFW;
  * player already left. A run that just ended is never followed again straight away — when another
  * Agent Office process owns it, its stream ends at once, and re-following would spin.
  */
-public final class ChatScreen extends WorkspaceScreen {
+public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     private static final int MIN_BACKOFF_MS = 1_000;
     private static final int MAX_BACKOFF_MS = 30_000;
     private static final int HEADER = 24;
@@ -160,7 +167,7 @@ public final class ChatScreen extends WorkspaceScreen {
         }
         int newW = buttonWidth("New");
         hx -= newW;
-        addRenderableWidget(new FlatButton(hx, hy, newW, 20, "New", FlatButton.Kind.NORMAL, b -> act("new")))
+        addRenderableWidget(new FlatButton(hx, hy, newW, 20, "New", FlatButton.Kind.NORMAL, b -> act(Protocol.Action.NEW)))
                 .active = conversation != null && !busy;
         if (seat != null) {
             // Labelled like vanilla's options ("Model: opus"); unset shows the agent's default.
@@ -168,19 +175,19 @@ public final class ChatScreen extends WorkspaceScreen {
             String effortDef = def(agent == null ? null : agent.defaultEffort());
             Function<String, String> model = v -> "Model: " + (v.isEmpty() ? modelDef : v);
             Function<String, String> effort = v -> "Effort: " + (v.isEmpty() ? effortDef : v);
-            if (titleRoom(hx, cycleWidth(Api.MODELS, seat.model(), model), cycleWidth(Api.EFFORTS, seat.effort(), effort), x0) < MIN_TITLE) {
+            if (titleRoom(hx, cycleWidth(ServerMirror.MODELS, seat.model(), model), cycleWidth(ServerMirror.EFFORTS, seat.effort(), effort), x0) < MIN_TITLE) {
                 model = v -> v.isEmpty() ? modelDef : v;
                 effort = v -> v.isEmpty() ? effortDef : v;
             }
-            int ew = cycleWidth(Api.EFFORTS, seat.effort(), effort);
-            int mw = cycleWidth(Api.MODELS, seat.model(), model);
+            int ew = cycleWidth(ServerMirror.EFFORTS, seat.effort(), effort);
+            int mw = cycleWidth(ServerMirror.MODELS, seat.model(), model);
             if (titleRoom(hx, ew, mw, x0) >= MIN_TITLE / 2) {
                 Tooltip hint = Tooltip.create(Component.literal("Click: next · Right-click: previous"));
                 hx -= 4 + ew;
-                addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, Api.EFFORTS, nz(seat.effort()), effort)
+                addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, ServerMirror.EFFORTS, nz(seat.effort()), effort)
                         .onChange(v -> changeSeat("effort", v))).setTooltip(hint);
                 hx -= 4 + mw;
-                addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, Api.MODELS, nz(seat.model()), model)
+                addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, ServerMirror.MODELS, nz(seat.model()), model)
                         .onChange(v -> changeSeat("model", v))).setTooltip(hint);
             }
         }
@@ -254,11 +261,11 @@ public final class ChatScreen extends WorkspaceScreen {
             above -= ATTENTION_BAR;
             attentionY = above;
             int bx = wx1 - 3;
-            for (String action : new String[] {"skip", "resume", "retry"}) {
-                int w = buttonWidth(cap(action));
+            for (Protocol.Action action : new Protocol.Action[] {Protocol.Action.SKIP, Protocol.Action.RESUME, Protocol.Action.RETRY}) {
+                int w = buttonWidth(action.label());
                 bx -= w;
-                addRenderableWidget(new FlatButton(bx, above + 3, w, 16, cap(action),
-                        "retry".equals(action) ? FlatButton.Kind.PRIMARY : FlatButton.Kind.NORMAL, b -> act(action))).active = !busy;
+                addRenderableWidget(new FlatButton(bx, above + 3, w, 16, action.label(),
+                        action == Protocol.Action.RETRY ? FlatButton.Kind.PRIMARY : FlatButton.Kind.NORMAL, b -> act(action))).active = !busy;
                 bx -= 4;
             }
             above -= 6;
@@ -529,7 +536,7 @@ public final class ChatScreen extends WorkspaceScreen {
     }
 
     /** retry / resume / skip after needs_attention, or new for a fresh thread. */
-    private void act(String action) {
+    private void act(Protocol.Action action) {
         if (busy || conversation == null) return;
         String id = conversation.id();
         busy = true;
@@ -540,7 +547,7 @@ public final class ChatScreen extends WorkspaceScreen {
                 Api.Conversation conv = c.act(id, action);
                 onMain(() -> {
                     busy = false;
-                    if ("new".equals(action)) {
+                    if (action == Protocol.Action.NEW) {
                         closeStream();
                         live = null;
                     }
@@ -550,7 +557,7 @@ public final class ChatScreen extends WorkspaceScreen {
             } catch (IOException e) {
                 onMain(() -> {
                     busy = false;
-                    flash("Couldn't " + action + ": " + e.getMessage());
+                    flash("Couldn't " + action.label().toLowerCase(Locale.ROOT) + ": " + e.getMessage());
                     rebuildWidgets();
                 });
             }
@@ -572,11 +579,7 @@ public final class ChatScreen extends WorkspaceScreen {
     }
 
     /** Seat reads and writes run one at a time, in order, even across closing and reopening the chat. */
-    private static final ExecutorService SEAT_QUEUE = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "agentoffice-seat");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final ExecutorService SEAT_QUEUE = Executors.newSingleThreadExecutor(Ids.daemon("seat"));
 
     private void sendSeatPatch(boolean report) {
         if (unsentSeat.size() == 0) return;
@@ -736,12 +739,12 @@ public final class ChatScreen extends WorkspaceScreen {
     private void onEvent(String runId, Api.Event event) {
         if (!runId.equals(streamingRunId) || live == null) return;
         if (!live.apply(event)) {
-            if ("permission-request".equals(event.name())) loadPermissions();
+            if (Protocol.Event.PERMISSION_REQUEST.equals(event.name())) loadPermissions();
             return;
         }
         switch (event.name()) {
-            case "done", "error" -> streamSawEnd = true;
-            case "attached" -> loadPermissions(); // requests aren't replayed: read what's parked now
+            case Protocol.Event.DONE, Protocol.Event.ERROR -> streamSawEnd = true;
+            case Protocol.Event.ATTACHED -> loadPermissions(); // requests aren't replayed: read what's parked now
             default -> { }
         }
         String tool = live.runningTool();
@@ -932,8 +935,8 @@ public final class ChatScreen extends WorkspaceScreen {
 
     private static String statusText(Api.Conversation c) {
         String base = switch (c.status() == null ? "" : c.status()) {
-            case "running" -> "Working…";
-            case "needs_attention" -> "Needs attention";
+            case Protocol.Conversation.RUNNING -> "Working…";
+            case Protocol.Conversation.NEEDS_ATTENTION -> "Needs attention";
             default -> "Idle";
         };
         return c.queued() > 0 ? base + "  ·  " + c.queued() + " queued" : base;

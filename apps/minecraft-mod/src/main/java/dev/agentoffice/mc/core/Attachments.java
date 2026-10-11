@@ -6,9 +6,6 @@ import java.util.List;
 
 /** Files sent with a chat message, as the web composer sends them (apps/web/.../build-composed-text.ts). */
 public final class Attachments {
-    /** The web app's "composer.attachments_intro". */
-    static final String INTRO = "Attachments (read these with your tools):";
-
     private Attachments() {}
 
     /** The message text with the uploaded files' paths after it; null when there is nothing to send. */
@@ -16,7 +13,7 @@ public final class Attachments {
         String value = text == null ? "" : text.strip(); // JS trim also takes Unicode spaces
         if (value.isEmpty() && paths.isEmpty()) return null;
         if (paths.isEmpty()) return value;
-        StringBuilder out = new StringBuilder(value).append("\n\n").append(INTRO);
+        StringBuilder out = new StringBuilder(value).append("\n\n").append(ServerMirror.ATTACHMENTS_INTRO);
         for (String p : paths) out.append("\n- ").append(p);
         return out.toString().stripLeading();
     }

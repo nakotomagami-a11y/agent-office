@@ -3,7 +3,9 @@ package dev.agentoffice.mc.client.ui;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Images;
 import dev.agentoffice.mc.core.Markdown;
+import dev.agentoffice.mc.core.Protocol;
 import dev.agentoffice.mc.core.Review;
+import dev.agentoffice.mc.core.RunErrors;
 import dev.agentoffice.mc.core.Syntax;
 import dev.agentoffice.mc.core.Transcript;
 import java.util.ArrayList;
@@ -245,9 +247,11 @@ public final class TranscriptView {
             case Transcript.AgentText text -> agentParts(text, labeled, width);
             case Transcript.Tool tool -> List.of(new ToolPart(tool));
             case Transcript.Done done -> List.of(new DividerPart(doneText(done), done.exitCode() == 0 ? Theme.TXT_4 : Theme.RED));
+            // The player pressed Stop: a pause, not a failure (as the web shows it).
+            case Transcript.Failure f when RunErrors.STOPPED.equals(f.code()) -> List.of(new DividerPart("stopped", Theme.TXT_4));
             case Transcript.Failure f -> List.of(card(Theme.withAlpha(Theme.RED, 0x1A), Theme.RED, width, inner -> {
                 List<Part> p = new ArrayList<>();
-                p.add(lines(Component.literal("Error · " + errorText(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
+                p.add(lines(Component.literal("Error · " + RunErrors.title(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
                 if (f.detail() != null) p.add(lines(Component.literal(f.detail()).withColor(Theme.TXT_2), inner, 0));
                 return p;
             }));
@@ -323,16 +327,6 @@ public final class TranscriptView {
         }
         if (d.cost() > 0) sb.append(" · ").append(Transcript.fmtCost(d.cost()));
         return sb.toString();
-    }
-
-    private static String errorText(String code) {
-        return switch (code == null ? "" : code) {
-            case "auth_required" -> "Claude isn't logged in";
-            case "rate_limited" -> "rate limited";
-            case "server_restart" -> "Agent Office restarted during this turn";
-            case "unknown", "" -> "this turn failed";
-            default -> code.replace('_', ' ');
-        };
     }
 
     /** A message's inline markdown as styled text; code spans are tinted and marked for their box. */
@@ -672,7 +666,7 @@ public final class TranscriptView {
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
             g.fill(x, y, x + w, y + 14, Theme.SHADE);
-            g.blitSprite(Theme.dot(tool.running() ? "running" : null), x + 5, y + 4, 6, 6);
+            g.blitSprite(Theme.dot(tool.running() ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
             String name = tool.name() == null ? "tool" : tool.name();
             int nameW = font.width(Component.literal(name).withStyle(s -> s.withBold(true)));
             g.drawString(font, Component.literal(name).withStyle(s -> s.withBold(true)), x + 15, y + 3, Theme.TXT, false);
@@ -713,7 +707,7 @@ public final class TranscriptView {
             boolean running = chain.tools().stream().anyMatch(Transcript.Tool::running);
             boolean open = openChains.contains(chain.key());
             boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + 14;
-            g.blitSprite(Theme.dot(running ? "running" : null), x + 5, y + 4, 6, 6);
+            g.blitSprite(Theme.dot(running ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
             String label = chain.tools().size() + " TOOL CALLS  " + (open ? "▾" : "▸");
             g.drawString(font, label, x + 15, y + 3, hover ? Theme.TXT : Theme.TXT_3, false);
         }

@@ -2,6 +2,7 @@ package dev.agentoffice.mc.client.ui;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.agentoffice.mc.core.AgentOfficeClient;
+import dev.agentoffice.mc.core.Ids;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -32,11 +33,7 @@ public final class ImageCache {
     private static final Map<String, Object> entries = new HashMap<>();
     private static int next;
     // Few threads: each decode can hold tens of MB, and a long thread can reference many images.
-    private static final ExecutorService LOADER = Executors.newFixedThreadPool(2, r -> {
-        Thread t = new Thread(r, "agentoffice-images");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final ExecutorService LOADER = Executors.newFixedThreadPool(2, Ids.daemon("images"));
 
     private ImageCache() {}
 
@@ -64,7 +61,7 @@ public final class ImageCache {
     public static void clearUnlessShowing(Object screen) {
         if (entries.isEmpty()) return;
         // The link prompt opens over a chat and goes back to it: keep its images.
-        if (screen instanceof ImageScreen || screen instanceof dev.agentoffice.mc.client.ChatScreen
+        if (screen instanceof ImageScreen || screen instanceof ShowsImages
                 || screen instanceof net.minecraft.client.gui.screens.ConfirmLinkScreen) return;
         clear();
     }
@@ -95,7 +92,7 @@ public final class ImageCache {
                     image.close();
                     return;
                 }
-                ResourceLocation id = ResourceLocation.fromNamespaceAndPath("agentoffice", "chat_image/" + next++);
+                ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Ids.MOD_ID, "chat_image/" + next++);
                 mc.getTextureManager().register(id, new DynamicTexture(image));
                 entries.put(path, new Img(id, image.getWidth(), image.getHeight()));
             });

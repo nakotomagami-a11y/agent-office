@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 public final class AgentNames {
     private static final Set<String> ALL_CAPS = Set.of("qa", "ui", "ux", "ai", "api", "ml", "hr", "pm", "seo", "cto", "ceo",
             "cfo", "cpo", "cmo", "coo", "chro", "ciso", "gc", "cco", "cdo", "caio");
-    private static final Set<String> VARIANTS = Set.of("lite", "fable", "haiku", "opus", "sonnet");
     private static final Map<String, String> stored = new ConcurrentHashMap<>();
 
     private AgentNames() {}
@@ -36,7 +35,7 @@ public final class AgentNames {
         if (slug.isEmpty()) return "";
         if (slug.toLowerCase(Locale.ROOT).matches("cs-[a-z]{2,4}")) return slug.substring(3).toUpperCase(Locale.ROOT);
         String[] parts = slug.split("-", -1); // keeps trailing empties, as JS does
-        if (parts.length == 2 && VARIANTS.contains(parts[1].toLowerCase(Locale.ROOT))) {
+        if (parts.length == 2 && ServerMirror.NAME_VARIANTS.contains(parts[1].toLowerCase(Locale.ROOT))) {
             return word(parts[0]) + " (" + word(parts[1]) + ")";
         }
         return Arrays.stream(parts).map(AgentNames::word).collect(Collectors.joining(" "));

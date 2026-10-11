@@ -1,5 +1,7 @@
-package dev.agentoffice.mc.client;
+package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
@@ -18,7 +20,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /** First use of a Review Lectern (or a sneak-use): which project's pull requests it shows. */
-final class LecternSetupScreen extends TabletScreen {
+public final class LecternSetupScreen extends TabletScreen {
     private static final int ROW = 22;
 
     private final AgentOfficeClient client;
@@ -30,7 +32,7 @@ final class LecternSetupScreen extends TabletScreen {
     private int scroll;
     private boolean closed;
 
-    LecternSetupScreen(AgentOfficeClient client, String lecternKey, Runnable onCancel) {
+    public LecternSetupScreen(AgentOfficeClient client, String lecternKey, Runnable onCancel) {
         super(Component.literal("Review Lectern"));
         this.client = client;
         this.lecternKey = lecternKey;

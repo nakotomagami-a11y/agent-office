@@ -33,25 +33,21 @@ neoForge {
             if (file("run/saves/${dev_world}").exists() && !project.hasProperty('aoOpen')) {
                 programArguments.addAll '--quickPlaySingleplayer', dev_world
             }
-            // Scripted checks, see DevHooks: -PaoOpen=office|chat:project:instance:agent|tablet -PaoQuit=true -PaoScroll=N
-            systemProperty 'agentoffice.dev.open', (project.findProperty('aoOpen') ?: '').toString()
-            systemProperty 'agentoffice.dev.quit', (project.findProperty('aoQuit') ?: 'false').toString()
-            // -PaoScroll=N wheel notches up before the screenshot; -PaoScrollDown=M then M back down.
-            systemProperty 'agentoffice.dev.scroll', (project.findProperty('aoScroll') ?: '0').toString()
-            systemProperty 'agentoffice.dev.scrollDown', (project.findProperty('aoScrollDown') ?: '0').toString()
-            // -PaoPress=Label presses the first button with that label before the shot (read-only client: nothing changes).
-            systemProperty 'agentoffice.dev.press', (project.findProperty('aoPress') ?: '').toString()
-            // -PaoShotAfter=N ticks before the screenshot (the press comes 40 earlier): slow loads, e.g. a PR through gh.
-            systemProperty 'agentoffice.dev.shotAfterTicks', (project.findProperty('aoShotAfter') ?: '100').toString()
-            // Multiplayer checks: -PaoServer=localhost joins a server (runServer) instead of the dev world;
-            // a second player at once: -PaoUser=Dev2 -PaoGameDir=run-client2.
-            systemProperty 'agentoffice.dev.server', (project.findProperty('aoServer') ?: '').toString()
-            // Agent behaviour checks: -PaoWorking=true (every agent works), -PaoLectern=dx,dz (a bound lectern there),
-            // -PaoCommands="time set 9500;summon zombie ~8 ~ ~" after the action, -PaoWatch=true (log agents every 2 s).
-            systemProperty 'agentoffice.dev.working', (project.findProperty('aoWorking') ?: 'false').toString()
-            systemProperty 'agentoffice.dev.lectern', (project.findProperty('aoLectern') ?: '').toString()
-            systemProperty 'agentoffice.dev.commands', (project.findProperty('aoCommands') ?: '').toString()
-            systemProperty 'agentoffice.dev.watch', (project.findProperty('aoWatch') ?: 'false').toString()
+            systemProperty 'agentoffice.dev.world', dev_world
+            // Scripted checks: -PaoName=value reaches DevHooks as agentoffice.dev.name, which owns every default.
+            //   -PaoOpen=office|chat:project:instance:agent|tablet|...  what to open (DevHooks lists every form)
+            //   -PaoQuit=true  quit after the screenshot
+            //   -PaoScroll=N  wheel notches up before the screenshot; -PaoScrollDown=M then M back down
+            //   -PaoPress=Label  press the first button with that label before the shot (read-only client: nothing changes)
+            //   -PaoShotAfter=N  ticks before the screenshot (the press comes 40 earlier): slow loads, e.g. a PR through gh
+            //   -PaoServer=localhost  join a server (runServer) instead of the dev world; a second player at once:
+            //       -PaoUser=Dev2 -PaoGameDir=run-client2
+            //   -PaoWorking=true  every agent works; -PaoLectern=dx,dz  a bound lectern there
+            //   -PaoCommands="time set 9500;summon zombie ~8 ~ ~"  after the action; -PaoWatch=true  log agents every 2 s
+            ['open', 'quit', 'scroll', 'scrollDown', 'press', 'shotAfter', 'server', 'working', 'lectern', 'commands', 'watch'].each { name ->
+                def value = project.findProperty('ao' + name.capitalize())
+                if (value != null) systemProperty "agentoffice.dev.${name}", value.toString()
+            }
             if (project.hasProperty('aoUser')) programArguments.addAll '--username', project.findProperty('aoUser').toString()
             if (project.hasProperty('aoGameDir')) gameDirectory = file(project.findProperty('aoGameDir'))
         }

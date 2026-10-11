@@ -19,7 +19,8 @@ public final class Transcript {
     /** A sub-agent this run spawned; stands in for the suppressed spawn tool row. */
     public record SubAgent(String subRunId, String name, String status, String currentTool, String lastLine) implements Item {
         public boolean running() {
-            return "running".equals(status) || "queued".equals(status) || "cancelling".equals(status);
+            return Protocol.SubAgent.RUNNING.equals(status) || Protocol.SubAgent.QUEUED.equals(status)
+                    || Protocol.SubAgent.CANCELLING.equals(status);
         }
     }
 
@@ -65,9 +66,9 @@ public final class Transcript {
             items.add(new Tool(tc.id(), tc.name(), toolArg(input), false));
         }
         if (t.output() != null && !t.output().isBlank()) items.add(new AgentText(t.output(), false));
-        if ("error".equals(t.status())) {
-            items.add(new Failure("unknown", null));
-        } else if ("done".equals(t.status())) {
+        if (Protocol.Turn.ERROR.equals(t.status())) {
+            items.add(new Failure(RunErrors.UNKNOWN, null));
+        } else if (Protocol.Turn.DONE.equals(t.status())) {
             items.add(new Done(t.exitCode() == null ? 0 : t.exitCode(), t.durMs(), t.tokensIn(), t.tokensOut(), t.cost()));
         }
         return items;
@@ -108,13 +109,13 @@ public final class Transcript {
                 return false;
             }
             switch (event.name()) {
-                case "attached" -> {
+                case Protocol.Event.ATTACHED -> {
                     items.clear();
                     ended = false;
                     startTs = num(data, "startTs");
                     usage(data);
                 }
-                case "chunk" -> {
+                case Protocol.Event.CHUNK -> {
                     String text = str(data, "text");
                     if (text.isEmpty()) return true;
                     int last = items.size() - 1;
@@ -124,19 +125,19 @@ public final class Transcript {
                         items.add(new AgentText(text, true));
                     }
                 }
-                case "tool" -> tool(data);
-                case "tool-done" -> {
+                case Protocol.Event.TOOL -> tool(data);
+                case Protocol.Event.TOOL_DONE -> {
                     int at = toolAt(str(data, "toolUseId"));
                     if (at >= 0 && items.get(at) instanceof Tool t) items.set(at, new Tool(t.id(), t.name(), t.arg(), false));
                 }
-                case "subagent" -> {
+                case Protocol.Event.SUBAGENT -> {
                     // The spawn's tool row was suppressed; this card stands in for it (parse-sse-event.ts).
                     SubAgent card = new SubAgent(str(data, "subRunId"), str(data, "agentId"), str(data, "status"), null, null);
                     int at = subAgentAt(str(data, "subRunId"));
                     if (at >= 0) items.set(at, card);
                     else items.add(card);
                 }
-                case "subagent-update" -> {
+                case Protocol.Event.SUBAGENT_UPDATE -> {
                     int at = subAgentAt(str(data, "subRunId"));
                     if (at >= 0 && items.get(at) instanceof SubAgent s) {
                         String tool = str(data, "currentTool");
@@ -145,21 +146,21 @@ public final class Transcript {
                                 tool.isEmpty() ? null : tool, line.isEmpty() ? null : line));
                     }
                 }
-                case "usage" -> usage(data);
-                case "done" -> {
-                    finish("done");
+                case Protocol.Event.USAGE -> usage(data);
+                case Protocol.Event.DONE -> {
+                    finish(Protocol.SubAgent.DONE);
                     usage(data);
                     long dur = num(data, "durationMs");
                     if (dur == 0 && startTs > 0) dur = System.currentTimeMillis() - startTs;
                     int exit = data.has("exitCode") && !data.get("exitCode").isJsonNull() ? data.get("exitCode").getAsInt() : 0;
                     items.add(new Done(exit, dur, tokensIn, tokensOut, cost));
                 }
-                case "error" -> {
-                    finish("error");
+                case Protocol.Event.ERROR -> {
+                    finish(Protocol.SubAgent.ERROR);
                     String detail = str(data, "detail");
                     items.add(new Failure(str(data, "code"), detail.isEmpty() ? null : detail));
                 }
-                case "rate-limit" -> rateLimit(data);
+                case Protocol.Event.RATE_LIMIT -> rateLimit(data);
                 default -> {
                     return false;
                 }
