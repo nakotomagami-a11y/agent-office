@@ -56,8 +56,7 @@ items and no Review Lectern.
 - The server checks every client packet as if a modified client sent it: lengths and counts are capped, positions
   must be finite, in the world border, within 32 blocks of the player, and somewhere the player may build.
 - Land-claim mods are asked (the mod posts the block-place event they listen for) when an agent is placed from the
-  tablet and when it takes a new desk. **Not when a Spawn Egg is used**: there the claim mod's own item-use
-  protection is all there is.
+  tablet, when a Spawn Egg places a shell and again when the shell is set up, and when an agent takes a new desk.
 - What a modified client can still do: say its agent works at any Review Lectern within 64 blocks of the agent
   (someone else's too), which earns at most 12 XP an hour, at that desk.
 

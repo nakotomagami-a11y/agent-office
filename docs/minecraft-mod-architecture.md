@@ -74,8 +74,8 @@ two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
 - `ai/Schedule` decides where an agent keeps near (one pure function); `ai/VillageSense` finds its village's bell;
   `ai/Combat` holds who it fights, what may hurt it, kill XP and the world's combat listeners; the goals
   (`WanderGoal`, `MeleeGoal`, `BowGoal`) act on that.
-- `AgentNet` handles every payload and checks it (owner, reach, limits, cooldown, land claims). Curios types stay in
-  `CuriosBridge`/`CuriosLayer`, loaded only when Curios is.
+- `AgentNet` handles every payload and checks it (owner, reach, limits, cooldown, land claims: `mayBuild`, which the
+  Spawn Egg uses too). Curios types stay in `CuriosBridge`/`CuriosLayer`, loaded only when Curios is.
 
 ## Network compatibility
 
@@ -96,6 +96,6 @@ checked in NeoForge 21.1.257's source). The channel's version is `"1"`:
 | Command | What | Where |
 |---|---|---|
 | `gradlew test` (in `build`) | `core/` logic (the HTTP client and chat against fake servers); the game loaded (ModDevGradle `unitTest`) for payloads, records, schedule; `ArchitectureTest` | `src/test` |
-| `gradlew runGameTestServer` | in a real world: kill XP, death loses XP, desk-only work XP, agents never hurt villagers | `src/gametest` (dev runs only, never in the jar) |
+| `gradlew runGameTestServer` | in a real world: kill XP, death loses XP, desk-only work XP, agents never hurt villagers, a Spawn Egg asks land claims | `src/gametest` (dev runs only, never in the jar) |
 
 CI runs both (`.github/workflows/ci.yml`, job `minecraft-mod`).

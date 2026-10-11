@@ -3,19 +3,35 @@ package dev.agentoffice.mc;
 import dev.agentoffice.mc.core.Api;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Agents in a real world: what earns and loses XP, and whom they may hurt. */
+/** Agents in a real world: what earns and loses XP, whom they may hurt, where they may be put. */
 @GameTestHolder(AgentOfficeMod.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class AgentGameTests {
+    /** Where a stand-in land-claim mod refuses anything to be placed. */
+    private static BlockPos claimed;
+
+    static {
+        NeoForge.EVENT_BUS.addListener((BlockEvent.EntityPlaceEvent e) -> {
+            if (e.getPos().equals(claimed)) e.setCanceled(true);
+        });
+    }
+
     private AgentGameTests() {}
 
     /** A placed agent bound to its record, as a player's Place leaves it. Stands on the template's floor. */
@@ -76,5 +92,24 @@ public final class AgentGameTests {
             helper.assertTrue(record[0].xp == 0, "and pays nothing");
             helper.succeed();
         });
+    }
+
+    @GameTest(template = "empty")
+    public static void aSpawnEggAsksLandClaimsFirst(GameTestHelper helper) {
+        // Not a mock player: one in the player list is sent Curios packets it cannot take.
+        FakePlayer player = FakePlayerFactory.getMinecraft(helper.getLevel());
+        BlockPos refused = new BlockPos(1, 0, 1);
+        BlockPos allowed = new BlockPos(3, 0, 3);
+        claimed = helper.absolutePos(refused);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(AgentOfficeMod.AGENT_EGG.get(), 2)); // the use takes what is in hand
+        helper.placeAt(player, player.getMainHandItem(), refused.below(), Direction.UP);
+        helper.assertEntityNotPresent(AgentOfficeMod.AGENT.get(), refused);
+        helper.assertTrue(player.getMainHandItem().getCount() == 2, "a refused egg is not used up");
+        helper.placeAt(player, player.getMainHandItem(), allowed.below(), Direction.UP);
+        helper.assertEntityPresent(AgentOfficeMod.AGENT.get(), allowed);
+        helper.assertTrue(player.getMainHandItem().getCount() == 1, "an egg that worked is used up");
+        claimed = null; // the claim and the shared fake player's hand outlive this test otherwise
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        helper.succeed();
     }
 }

@@ -108,7 +108,7 @@ public final class AgentNet {
     }
 
     /** As if the player put something at {@code pos}: land-claim mods refuse it where the player may not build. */
-    private static boolean mayBuild(ServerPlayer player, BlockPos pos) {
+    static boolean mayBuild(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.serverLevel();
         return !NeoForge.EVENT_BUS.post(new BlockEvent.EntityPlaceEvent(BlockSnapshot.create(level.dimension(), level, pos),
                 level.getBlockState(pos.below()), player)).isCanceled();
@@ -162,7 +162,8 @@ public final class AgentNet {
         if (!ready(player)) return;
         Entity shell = player.serverLevel().getEntity(m.shell());
         AgentRecords records = AgentRecords.get(player.server);
-        if (!nearOwnShell(player, shell) || full(records, player, m.seat())) return;
+        // Claims again: a shell from before the egg asked, or from before the land was claimed, must not become an agent.
+        if (!nearOwnShell(player, shell) || !mayBuild(player, shell.blockPosition()) || full(records, player, m.seat())) return;
         AgentRecords.Record r = records.getOrCreate(player.getUUID(), m.seat());
         if (!m.shell().equals(r.entity)) discard(player.server, r.entity);
         r.entity = m.shell();

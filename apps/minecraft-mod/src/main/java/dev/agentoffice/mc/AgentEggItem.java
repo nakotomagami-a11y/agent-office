@@ -3,6 +3,7 @@ package dev.agentoffice.mc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -39,6 +40,8 @@ public final class AgentEggItem extends Item {
             at = Vec3.atBottomCenterOf(clicked.relative(context.getClickedFace()));
         }
         if (level instanceof ServerLevel server) {
+            // Land claims first, as for a Place from the tablet: the shell becomes an agent where it stands.
+            if (!(player instanceof ServerPlayer owner) || !AgentNet.mayBuild(owner, BlockPos.containing(at))) return InteractionResult.FAIL;
             // Used up only by a shell that stands (another mod may refuse the spawn); creative puts the count back itself.
             if (AgentEntity.spawn(server, at, AgentEntity.yawTowards(at, player.position()), player.getUUID(), null) != null) {
                 context.getItemInHand().shrink(1);
