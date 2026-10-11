@@ -1,8 +1,10 @@
 package dev.agentoffice.mc.client.screen;
 
 import dev.agentoffice.mc.AgentMenu;
+import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.client.ui.VanillaGui;
+import dev.agentoffice.mc.core.Levels;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -114,8 +116,19 @@ public final class AgentInventoryScreen extends AbstractContainerScreen<AgentMen
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        g.drawString(font, font.plainSubstrByWidth(title.getString(), imageWidth - 16), titleLabelX, titleLabelY, Theme.Vanilla.LABEL, false);
+        String level = levelText();
+        int levelW = level.isEmpty() ? 0 : font.width(level) + 8;
+        g.drawString(font, font.plainSubstrByWidth(title.getString(), imageWidth - 16 - levelW), titleLabelX, titleLabelY, Theme.Vanilla.LABEL, false);
+        if (!level.isEmpty()) g.drawString(font, level, imageWidth - 8 - font.width(level), titleLabelY, Theme.Vanilla.LABEL, false);
         g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, Theme.Vanilla.LABEL, false);
+    }
+
+    /** "Level 3 · 12/40 XP"; empty if the agent is out of sight or the world never said. */
+    private String levelText() {
+        Integer xp = menu.agent == null ? null : Bodies.xpOf(menu.agent);
+        if (xp == null) return "";
+        int level = Levels.levelOf(xp);
+        return "Level " + level + " · " + Levels.progress(xp) + "/" + Levels.cost(level) + " XP";
     }
 
     /** The side panels are part of the window: a click on one must not throw the carried stack out. */

@@ -57,6 +57,7 @@ public final class ClientSetup {
         TabletItem.openOnClient = ClientSetup::openOffice;
         ReviewLecternBlock.openOnClient = (pos, rebind) -> Lecterns.open(Minecraft.getInstance(), pos, rebind);
         AgentNet.onPlaced = Bodies::onPlaced;
+        AgentNet.onStats = Bodies::onStats;
         AgentStatus.onUpdate(Bodies::report);
         container.registerConfig(ModConfig.Type.CLIENT, SPEC);
         modBus.addListener(ClientSetup::registerKeys);

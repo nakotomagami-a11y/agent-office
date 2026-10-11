@@ -22,7 +22,9 @@ import org.junit.jupiter.api.Test;
  * import or a fully qualified name in code both count, a mention in a comment does not.
  */
 class ArchitectureTest {
-    private static final Path SRC = Path.of("src", "main", "java", "dev", "agentoffice", "mc");
+    /** The mod's own folder: tests run with the game loaded, from wherever its runner starts them. */
+    private static final Path MODULE = Path.of(System.getProperty("agentoffice.moduleDir", "."));
+    private static final Path SRC = MODULE.resolve(Path.of("src", "main", "java", "dev", "agentoffice", "mc"));
 
     /** {@code code}: no comments, string literals emptied; {@code withStrings}: no comments, strings kept. */
     private record Source(String pkg, Path file, String code, String withStrings) {}
@@ -110,6 +112,15 @@ class ArchitectureTest {
         // mod.ui-leaf: widgets know nothing of screens, services or renderers.
         assertEquals(List.of(), violations(sources(), s -> s.pkg().equals("client/ui"),
                 Pattern.compile("dev\\.agentoffice\\.mc\\.client\\.(screen|service|render)")), "mod.ui-leaf");
+    }
+
+    @Test
+    void behaviourKnowsNothingOfTheNetwork() throws IOException {
+        // mod.ai-no-net: ai/ decides what an agent does from what the world knows; reports arrive through AgentEntity.
+        assertEquals(List.of(), violations(sources(), s -> s.pkg().equals("ai") || s.pkg().startsWith("ai/"),
+                Pattern.compile("\\b(?:AgentNet|AgentPayloads|AgentMenu|PacketDistributor|CustomPacketPayload)\\b|connection\\.send"
+                        + "|net\\.neoforged\\.neoforge\\.network|dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client")),
+                "mod.ai-no-net");
     }
 
     @Test
@@ -209,7 +220,7 @@ class ArchitectureTest {
     void theModIdIsTheBuildsModId() throws IOException {
         // neoforge.mods.toml is generated from gradle.properties; registries and saves use Ids.MOD_ID.
         Matcher code = Pattern.compile("MOD_ID = \"([^\"]+)\"").matcher(Files.readString(SRC.resolve(Path.of("core", "Ids.java"))));
-        Matcher build = Pattern.compile("(?m)^mod_id=(\\S+)").matcher(Files.readString(Path.of("gradle.properties")));
+        Matcher build = Pattern.compile("(?m)^mod_id=(\\S+)").matcher(Files.readString(MODULE.resolve("gradle.properties")));
         assertTrue(code.find() && build.find(), "read both mod ids");
         assertEquals(build.group(1), code.group(1));
     }
@@ -221,7 +232,7 @@ class ArchitectureTest {
         Matcher r = Pattern.compile("\"agentoffice\\.dev\\.(\\w+)\"").matcher(Files.readString(SRC.resolve(Path.of("client", "DevHooks.java"))));
         while (r.find()) read.add(r.group(1));
         read.remove("world"); // set from gradle.properties' dev_world, not a flag
-        Matcher list = Pattern.compile("\\[('[^\\]]+)\\]\\.each \\{ name ->").matcher(Files.readString(Path.of("build.gradle")));
+        Matcher list = Pattern.compile("\\[('[^\\]]+)\\]\\.each \\{ name ->").matcher(Files.readString(MODULE.resolve("build.gradle")));
         assertTrue(list.find(), "build.gradle's dev flag list");
         Set<String> passed = new HashSet<>();
         for (String q : list.group(1).split(",")) passed.add(q.trim().replace("'", ""));

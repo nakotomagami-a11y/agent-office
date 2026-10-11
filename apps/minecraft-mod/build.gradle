@@ -64,6 +64,13 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    // Tests run with the game loaded, so they can use its classes (codecs, items); a test that needs a world asks
+    // for a throwaway server (testframework's EphemeralTestServerProvider).
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
 }
 
 dependencies {
@@ -72,13 +79,16 @@ dependencies {
     if (!project.hasProperty('aoNoCurios')) runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}"
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    // core/ uses Gson + slf4j, which Minecraft provides in game but MDG leaves off the plain JUnit runtime.
+    testImplementation "net.neoforged:testframework:${neo_version}"
+    // core/ uses Gson + slf4j; pinned here so core's tests don't lean on the game's copies.
     testImplementation 'com.google.code.gson:gson:2.10.1'
     testRuntimeOnly 'org.slf4j:slf4j-api:2.0.9'
 }
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+    // The game-loaded runner starts tests elsewhere; ArchitectureTest reads this module's sources.
+    systemProperty 'agentoffice.moduleDir', projectDir.absolutePath
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

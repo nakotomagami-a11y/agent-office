@@ -46,7 +46,7 @@ class AgentOfficeClientTest {
 
     @BeforeEach
     void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(pool);
         route("/api/health", 200, "{\"available\":true,\"version\":\"2.1.0 (Claude Code)\"}");
         route("/api/projects/broken", 200, "{not json");
@@ -222,7 +222,7 @@ class AgentOfficeClientTest {
 
     @Test
     void someOtherAppAnsweringHealthIsNotAgentOffice() throws IOException {
-        HttpServer other = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        HttpServer other = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         other.createContext("/api/health", ex -> respond(ex, 200, "{\"ok\":true}"));
         other.start();
         try {

@@ -184,7 +184,8 @@ Three dead citations shipped: `CLAUDE.md` (cited 7×), `docs/redesign-v3/REDESIG
 out in full.**
 
 `core/` is the mod's Agent Office client: HTTP, parsing, transcript, names. Kept free of
-Minecraft, it runs and is tested as plain Java, fast, without a game.
+Minecraft, it can be read, reused and reasoned about without the game (the test runner loads the
+game for every test, so only this scan keeps `core/` honest).
 
 *Fix:* the Minecraft half goes in `client/` (or the root package if both sides need it), and
 calls into `core/`.
@@ -251,3 +252,13 @@ screen waits forever), `AgentStatus` (one status poller), `WorkspaceStore`, `Sea
 state is its `core/ChatSession`, which is unit-tested.
 
 > **enforced by** `ArchitectureTest.screensDoNoIoOfTheirOwn`
+
+---
+
+## mod.ai-no-net
+**The mod's `ai/` (where an agent goes, whom it fights) never names payloads, menus or client code.**
+
+Behaviour decides from what the world knows. What the owner's client reports (is its agent working, at which
+lectern) reaches it through `AgentEntity`, so a new behaviour never needs the network to be understood or tested.
+
+> **enforced by** `ArchitectureTest.behaviourKnowsNothingOfTheNetwork`

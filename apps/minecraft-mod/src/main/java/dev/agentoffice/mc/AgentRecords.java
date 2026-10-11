@@ -13,6 +13,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -35,6 +36,10 @@ public final class AgentRecords extends SavedData {
         public final NonNullList<ItemStack> items = NonNullList.withSize(SIZE, ItemStack.EMPTY);
         /** Curios slot id → stacks; shaped like the player who last opened it (see AgentMenu). */
         public final Map<String, NonNullList<ItemStack>> curios = new LinkedHashMap<>();
+        /** All the XP it has earned (its level: core/Levels); kept through death and moves. */
+        public int xp;
+        /** Working time towards its next work XP (Tuning.WORK_XP_TICKS). */
+        public int workTicks;
 
         Record(UUID owner, Api.Slot seat) {
             this.owner = owner;
@@ -65,6 +70,8 @@ public final class AgentRecords extends SavedData {
     private static final SavedData.Factory<AgentRecords> FACTORY = new SavedData.Factory<>(AgentRecords::new, AgentRecords::load);
 
     private final Map<String, Record> byKey = new LinkedHashMap<>();
+    /** XP of agents dismissed (record removed), by record key: placed again, an agent keeps its level. */
+    private final Map<String, Integer> retiredXp = new LinkedHashMap<>();
 
     public static AgentRecords get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, ModPaths.AGENTS_DATA);
@@ -81,19 +88,24 @@ public final class AgentRecords extends SavedData {
 
     /** The agent's record, now talking to {@code seat}. */
     public Record getOrCreate(UUID owner, Api.Slot seat) {
-        Record r = byKey.computeIfAbsent(key(owner, seat), k -> new Record(owner, seat));
+        Record r = byKey.computeIfAbsent(key(owner, seat), k -> {
+            Record fresh = new Record(owner, seat);
+            Integer xp = retiredXp.remove(k);
+            if (xp != null) fresh.xp = xp;
+            return fresh;
+        });
         r.seat = seat;
         return r;
     }
 
     public void remove(Record r) {
-        byKey.remove(r.key(), r);
+        if (byKey.remove(r.key(), r) && r.xp > 0) retiredXp.put(r.key(), r.xp);
         setDirty();
     }
 
-    public List<AgentNet.Body> bodiesOf(UUID owner) {
+    public List<AgentPayloads.Body> bodiesOf(UUID owner) {
         return byKey.values().stream().filter(r -> r.owner.equals(owner))
-                .map(r -> new AgentNet.Body(Optional.ofNullable(r.entity), r.seat)).toList();
+                .map(r -> new AgentPayloads.Body(Optional.ofNullable(r.entity), r.seat)).toList();
     }
 
     int countOf(UUID owner) {
@@ -122,13 +134,18 @@ public final class AgentRecords extends SavedData {
                 curios.put(id, c);
             });
             t.put("Curios", curios);
+            t.putInt("Xp", r.xp);
+            t.putInt("WorkTicks", r.workTicks);
             list.add(t);
         }
         tag.put("Agents", list);
+        CompoundTag retired = new CompoundTag();
+        retiredXp.forEach(retired::putInt);
+        tag.put("RetiredXp", retired);
         return tag;
     }
 
-    private static AgentRecords load(CompoundTag tag, HolderLookup.Provider registries) {
+    static AgentRecords load(CompoundTag tag, HolderLookup.Provider registries) {
         AgentRecords out = new AgentRecords();
         for (Tag el : tag.getList("Agents", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) el;
@@ -140,12 +157,16 @@ public final class AgentRecords extends SavedData {
             CompoundTag curios = t.getCompound("Curios");
             for (String id : curios.getAllKeys()) {
                 CompoundTag c = curios.getCompound(id);
-                NonNullList<ItemStack> stacks = NonNullList.withSize(Math.max(0, c.getInt("Size")), ItemStack.EMPTY);
+                NonNullList<ItemStack> stacks = NonNullList.withSize(Mth.clamp(c.getInt("Size"), 0, CuriosCompat.MAX_PER_TYPE), ItemStack.EMPTY);
                 ContainerHelper.loadAllItems(c, stacks, registries);
                 r.curios.put(id, stacks);
             }
+            r.xp = Math.max(0, t.getInt("Xp"));
+            r.workTicks = Mth.clamp(t.getInt("WorkTicks"), 0, Tuning.WORK_XP_TICKS - 1);
             out.byKey.put(r.key(), r);
         }
+        CompoundTag retired = tag.getCompound("RetiredXp");
+        for (String key : retired.getAllKeys()) out.retiredXp.put(key, Math.max(0, retired.getInt(key)));
         return out;
     }
 

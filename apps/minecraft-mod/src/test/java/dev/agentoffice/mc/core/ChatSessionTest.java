@@ -109,7 +109,7 @@ class ChatSessionTest {
 
     @BeforeEach
     void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(io);
         server.createContext("/api/conversations", ex -> {
             String path = record(ex);
@@ -143,7 +143,7 @@ class ChatSessionTest {
         });
         server.start();
         InetSocketAddress at = server.getAddress();
-        client = new AgentOfficeClient(URI.create("http://" + at.getHostString() + ":" + at.getPort()));
+        client = new AgentOfficeClient(URI.create("http://127.0.0.1:" + at.getPort()));
     }
 
     @AfterEach

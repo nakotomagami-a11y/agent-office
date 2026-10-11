@@ -1,7 +1,15 @@
 package dev.agentoffice.mc;
 
+import dev.agentoffice.mc.ai.Anchor;
+import dev.agentoffice.mc.ai.BowGoal;
+import dev.agentoffice.mc.ai.Combat;
+import dev.agentoffice.mc.ai.MeleeGoal;
+import dev.agentoffice.mc.ai.Schedule;
+import dev.agentoffice.mc.ai.VillageSense;
+import dev.agentoffice.mc.ai.WanderGoal;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Levels;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,7 +19,6 @@ import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -41,16 +48,14 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
-import net.minecraft.world.entity.ai.village.poi.PoiManager;
-import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.Vec3;
 
@@ -61,7 +66,7 @@ import net.minecraft.world.phys.Vec3;
  * Its equipment counts like a player's (armor and weapon attributes, enchantments): that is vanilla
  * equipment. Everything else it holds, the main inventory and the Curios slots, is storage and looks only.
  *
- * It lives like a villager ({@link AgentGoals}): at its project's lectern while its agent works in Agent Office,
+ * It lives like a villager ({@link Schedule}, the goals in {@code ai}): at its project's lectern while its agent works in Agent Office,
  * at the village bell at meeting time, otherwise about the village or where it was put; and it fights monsters
  * nearby, working or not. Mobs can hurt it, players can't.
  */
@@ -87,8 +92,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     /** Server only: its lectern while its owner's client says it works; until when that holds (game time). */
     private BlockPos workplace;
     private long workingUntil;
-    private BlockPos bell;
-    private int nextBellLookup;
+    private final VillageSense village = new VillageSense();
     /** Game time of the last damage that went through: it mends once out of harm's way. */
     private long lastHurtAt;
 
@@ -134,15 +138,15 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(1, new AgentGoals.Bow(this));
-        goalSelector.addGoal(1, new AgentGoals.Melee(this));
+        goalSelector.addGoal(1, new BowGoal(this));
+        goalSelector.addGoal(1, new MeleeGoal(this));
         goalSelector.addGoal(2, new OpenDoorGoal(this, true));
-        goalSelector.addGoal(3, new AgentGoals.Wander(this));
+        goalSelector.addGoal(3, new WanderGoal(this));
         goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8f));
         goalSelector.addGoal(8, new RandomLookAroundGoal(this));
         // Hit back (never at a village's own), and the agents around it come too; any monster it can reach is a target.
-        targetSelector.addGoal(1, new HurtByTargetGoal(this, Player.class, AbstractVillager.class, IronGolem.class).setAlertOthers());
-        targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Mob.class, 5, true, true, e -> AgentGoals.threat(this, e)));
+        targetSelector.addGoal(1, new HurtByTargetGoal(this, Player.class, AbstractVillager.class, IronGolem.class, SnowGolem.class).setAlertOthers());
+        targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Mob.class, 5, true, true, e -> Combat.threat(this, e)));
     }
 
     /** A shell stands still and keeps out of fights until it is set up. */
@@ -163,38 +167,17 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
 
     /** Server: one line for the dev watch log (DevHooks -PaoWatch). */
     public String debugState() {
-        AgentGoals.Anchor a = anchor();
-        return String.format("%s at %d,%d,%d hp=%.0f hand=%s target=%s working=%s anchor=%s", agentId().isEmpty() ? "shell" : agentId(),
-                getBlockX(), getBlockY(), getBlockZ(), getHealth(), getMainHandItem().getItem(), getTarget() == null ? "-" : getTarget().getType().toShortString(),
+        Anchor a = anchor();
+        return String.format("%s at %d,%d,%d hp=%.0f xp=%d hand=%s target=%s working=%s anchor=%s", agentId().isEmpty() ? "shell" : agentId(),
+                getBlockX(), getBlockY(), getBlockZ(), getHealth(), xp(), getMainHandItem().getItem(), getTarget() == null ? "-" : getTarget().getType().toShortString(),
                 isWorking(), a == null ? "-" : a.pos().toShortString() + " r" + a.radius());
     }
 
-    /** What it keeps near now (see AgentGoals); a shell keeps to its spot. */
-    AgentGoals.Anchor anchor() {
-        if (home == null) return null;
-        if (isShell()) return new AgentGoals.Anchor(home, 1, Integer.MAX_VALUE);
-        if (isWorking()) return new AgentGoals.Anchor(workplace, 3, 200);
-        BlockPos villageBell = bell();
-        if (villageBell == null) return new AgentGoals.Anchor(home, 12, 60);
-        // Villagers meet at the bell in the afternoon (their schedule's MEET, 9000-11000).
-        long time = level().getDayTime() % 24000;
-        return time >= 9000 && time < 11000 ? new AgentGoals.Anchor(villageBell, 5, 80) : new AgentGoals.Anchor(villageBell, 32, 60);
-    }
-
-    /**
-     * The village it belongs to: the nearest bell to where it was put. Looked up only while every chunk in reach is
-     * loaded (a POI search into unloaded chunks reads them from disk on the server thread), and kept while it stands.
-     */
-    private BlockPos bell() {
-        if (tickCount < nextBellLookup || !(level() instanceof ServerLevel server)) return bell;
-        nextBellLookup = tickCount + 200;
-        if (bell != null && server.isLoaded(bell) && server.getBlockState(bell).is(Blocks.BELL)) return bell;
-        // The search scans 48 / 16 + 1 chunks around home's.
-        ChunkPos center = new ChunkPos(home);
-        if (ChunkPos.rangeClosed(center, 4).allMatch(c -> server.hasChunk(c.x, c.z))) {
-            bell = server.getPoiManager().findClosest(p -> p.is(PoiTypes.MEETING), home, 48, PoiManager.Occupancy.ANY).orElse(null);
-        }
-        return bell;
+    /** What it keeps near now (see Schedule); a shell keeps to its spot. Server only. */
+    public Anchor anchor() {
+        boolean working = isWorking();
+        BlockPos bell = home != null && !isShell() && !working && level() instanceof ServerLevel server ? village.bell(server, home, tickCount) : null;
+        return Schedule.anchor(home, isShell(), working ? workplace : null, bell, level().getDayTime());
     }
 
     @Override
@@ -203,6 +186,10 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         if (home == null) home = blockPosition(); // placed before agents could walk
         // Mends out of harm's way, like a player with a full food bar, only slower.
         if (tickCount % 40 == 0 && getHealth() < getMaxHealth() && level().getGameTime() - lastHurtAt > 200) heal(1);
+        if (isWorking() && record != null && ++record.workTicks >= Tuning.WORK_XP_TICKS) {
+            record.workTicks = 0;
+            gainXp(1);
+        }
         dropFarOrFairTarget();
         if (isWorking() && getTarget() == null && getNavigation().isDone() && distanceToSqr(Vec3.atCenterOf(workplace)) < 16) {
             getLookControl().setLookAt(Vec3.atCenterOf(workplace));
@@ -216,9 +203,9 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     private void dropFarOrFairTarget() {
         LivingEntity target = getTarget();
         if (target == null) return;
-        AgentGoals.Anchor a = anchor();
-        boolean far = a != null && !target.blockPosition().closerThan(a.pos(), a.radius() + AgentGoals.CHASE_BEYOND + 8);
-        if (far || !AgentGoals.foe(this, target)) setTarget(null);
+        Anchor a = anchor();
+        boolean far = a != null && !target.blockPosition().closerThan(a.pos(), a.radius() + Combat.CHASE_BEYOND + 8);
+        if (far || !Combat.foe(this, target)) setTarget(null);
     }
 
     @Override
@@ -236,18 +223,18 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) return super.isInvulnerableTo(source);
         if (isShell()) return true;
         // A fall only right after a mob's hit: a player could pull the floor away or launch it with a mace.
-        boolean mobFall = source.is(DamageTypeTags.IS_FALL) && AgentGoals.hostile(getLastHurtByMob()) && tickCount - getLastHurtByMobTimestamp() < 20;
-        return !(mobFall || AgentGoals.hostile(source.getEntity()));
+        boolean mobFall = source.is(DamageTypeTags.IS_FALL) && Combat.hostile(getLastHurtByMob()) && tickCount - getLastHurtByMobTimestamp() < 20;
+        return !(mobFall || Combat.hostile(source.getEntity()));
     }
 
     @Override
     public boolean ignoreExplosion(Explosion explosion) {
-        return !AgentGoals.hostile(explosion.getIndirectSourceEntity());
+        return !Combat.hostile(explosion.getIndirectSourceEntity());
     }
 
     @Override
     public void performRangedAttack(LivingEntity target, float power) {
-        AgentGoals.shoot(this, target, power);
+        Combat.shoot(this, target, power);
     }
 
     /** It fights where it stands: no fall a careful villager wouldn't take, even mid-chase. */
@@ -256,7 +243,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         return 3;
     }
 
-    /** Server only (clients get the agent's name, and its owner the seat, from AgentNet.Placed). Null for a shell. */
+    /** Server only (clients get the agent's name, and its owner the seat, from AgentPayloads.Placed). Null for a shell. */
     public Api.Slot seat() {
         return seat;
     }
@@ -322,6 +309,29 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         return record;
     }
 
+    /** Server: all the XP it has earned (its level: {@code Levels.levelOf}); 0 while it has no record. Its owner's client learns it from AgentNet.sendStats. */
+    public int xp() {
+        return record == null ? 0 : record.xp;
+    }
+
+    /** Server: its owner's client is told its XP (on bind, on every gain, and when the owner comes into range). */
+    public void sendStats() {
+        if (record != null) AgentNet.sendStats(this, record.xp);
+    }
+
+    /** Server: XP for a kill or for work. Its owner hears of a new level. */
+    public void gainXp(int amount) {
+        if (record == null || amount <= 0) return;
+        int before = Levels.levelOf(record.xp);
+        record.xp = (int) Math.min(Integer.MAX_VALUE, (long) record.xp + amount);
+        sendStats();
+        int now = Levels.levelOf(record.xp);
+        if (now > before) {
+            owner().map(getServer().getPlayerList()::getPlayer).ifPresent(p -> p.sendSystemMessage(
+                    Component.literal(getName().getString() + " reached level " + now + ".").withStyle(ChatFormatting.GOLD)));
+        }
+    }
+
     @Override
     public void tick() {
         // Not while dying: its record let go of it already, and the fall-over must still play.
@@ -344,6 +354,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         }
         if (!r.seat.equals(seat)) setSeat(r.seat);
         curiosChanged();
+        sendStats();
         return true;
     }
 

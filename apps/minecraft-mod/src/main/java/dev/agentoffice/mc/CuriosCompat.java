@@ -26,7 +26,7 @@ public final class CuriosCompat {
     }
 
     private static final int MAX_TYPES = 256;
-    private static final int MAX_PER_TYPE = 64;
+    static final int MAX_PER_TYPE = 64;
 
     private CuriosCompat() {}
 

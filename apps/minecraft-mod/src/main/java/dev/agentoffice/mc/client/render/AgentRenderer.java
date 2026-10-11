@@ -7,6 +7,7 @@ import dev.agentoffice.mc.client.service.AgentStatus;
 import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Levels;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.model.HumanoidArmorModel;
 import net.minecraft.client.model.HumanoidModel;
@@ -94,12 +95,18 @@ public final class AgentRenderer extends EntityRenderer<AgentEntity> {
             pose.scale(0.9375f, 0.9375f, 0.9375f); // as PlayerRenderer
         }
 
-        /** Its owner sees how it is doing after its name; everyone else, the name alone. */
+        /** Its owner sees its level and how it is doing after its name; everyone else, the name alone. */
         @Override
         protected void renderNameTag(AgentEntity body, Component name, PoseStack pose, MultiBufferSource buffers, int light, float partialTick) {
             Api.Slot seat = Bodies.seatOf(body);
             AgentState state = seat == null ? null : AgentStatus.of(seat);
-            super.renderNameTag(body, state == null ? name : name.copy().append(stateText(state)), pose, buffers, light, partialTick);
+            if (seat == null) {
+                super.renderNameTag(body, name, pose, buffers, light, partialTick);
+                return;
+            }
+            Integer xp = Bodies.xpOf(body);
+            Component plate = xp == null ? name : name.copy().append(Component.literal("  Lv " + Levels.levelOf(xp)).withStyle(ChatFormatting.GRAY));
+            super.renderNameTag(body, state == null ? plate : plate.copy().append(stateText(state)), pose, buffers, light, partialTick);
         }
     }
 

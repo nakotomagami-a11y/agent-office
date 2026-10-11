@@ -6,8 +6,8 @@ read-only reviews of `main` at ff64d3a (a maintainability inventory and an archi
 | Part | Scope | State |
 |---|---|---|
 | 1. Structure | package moves, layer rules, one home per value, contract test, pre-0.6.0 migration deleted | done (#193) |
-| 2. Client services | `AgentOffice.call`, one status poller (`AgentState`/`AgentStatus`), `WorkspaceStore`, `core/ChatSession` | built, in review |
-| 3. Behaviour and stats | `ai/` package, payload split, Minecraft-side tests, levels | next |
+| 2. Client services | `AgentOffice.call`, one status poller (`AgentState`/`AgentStatus`), `WorkspaceStore`, `core/ChatSession` | done (#195) |
+| 3. Behaviour and stats | `ai/` package, payload split, Minecraft-side tests, levels | built, in review |
 | 4. Docs | every mod doc checked against the code | last |
 
 ## Verdict (from the review)
@@ -22,16 +22,16 @@ The skeleton was sound; the inside of the client was not.
   handled `auth_required`/`rate_limited`; the server sends `auth_expired` and has no `rate_limited`).
 - **Fixed in part 2:** status was polled three times per seat; `ChatScreen` (963 lines) held a whole chat state
   machine; app state hid in `WorkspaceScreen` statics; failures other than I/O could leave a screen waiting forever.
-- **Still to fix (part 3):** agent behaviour is spread over `AgentEntity`, `AgentGoals` and the mod constructor;
-  nothing Minecraft-side is unit-tested.
+- **Fixed in part 3:** agent behaviour was spread over `AgentEntity`, `AgentGoals` and the mod constructor;
+  nothing Minecraft-side was tested.
 - **Not a problem:** `TranscriptView` (a markdown/table/code renderer — its size is its job), `ReviewScreen`'s size,
   `AgentMenu`'s pixel layout (vanilla does the same).
 
 ## Layers and rules
 
 ```
-dev.agentoffice.mc            both sides: registries, entity, records, menu, payloads, ModPaths, Tuning
-  .ai                         (part 3) behaviour: Activity, Schedule, VillageSense, Combat, goals
+dev.agentoffice.mc            both sides: registries, entity, records, menu, AgentNet (handlers), AgentPayloads, ModPaths, Tuning
+  .ai                         behaviour: Schedule, Anchor, VillageSense, Combat, the goals
   .client                     setup, dev hooks
     .service                  work and shared state: AgentOffice, AgentStatus, WorkspaceStore, SeatAdder, Bodies,
                               Lecterns, ClipboardImages
@@ -53,7 +53,7 @@ ids and their reasons are in `docs/conventions.md`.
 | `mod.api-paths-one-place` | `"/api/` only in `core/Routes` | enforced |
 | `mod.status-vocab` | server words compared only through `core/Protocol` / `core/RunErrors` | enforced |
 | `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics | enforced |
-| `mod.ai-no-net` | `ai` never names payloads, menus or client code | part 3 |
+| `mod.ai-no-net` | `ai` never names payloads, menus or client code | enforced |
 
 ## Single sources (the "one place" for values)
 
@@ -65,10 +65,10 @@ ids and their reasons are in `docs/conventions.md`.
 | Values copied from the server/web: model, effort and permission lists, 50 MB upload cap, gh timeout, attachments intro, agent-name variants | `core/ServerMirror` | contract test reads each source |
 | Mod id, logger, daemon threads | `core/Ids` | — |
 | Files and dirs: lecterns JSON, skins dir, temp paste file, home, SavedData name | `ModPaths` (root package: it needs `FMLPaths`) | — |
-| Client↔server timing: status report every 5 s, server floor 1 s, "working" holds 30 s | `Tuning` (root package) | — |
+| Timing: status report every 5 s, server floor 1 s, "working" holds 30 s, 1 work XP per 5 min | `Tuning` (root package) | — |
 | Tablet colours, vanilla container greys, panel and slot drawing | `client/ui/Theme` (+ `Theme.Vanilla`), `client/ui/VanillaGui` | — |
 | Dev flags | `build.gradle` passes every `-PaoName` through as `agentoffice.dev.name`; `DevHooks` owns the defaults | `ArchitectureTest.everyDevFlagReachesTheGame` |
-| Payload records, codecs, limits | `AgentNet` today, `AgentPayloads` in part 3. **Rule:** add payloads freely (an optional channel tolerates one the other side lacks); a payload older jars still send stays registered as a no-op (`Migrate`); changing a codec needs a version bump, which refuses every login between mismatched jars | codec round-trip test (part 3) |
+| Payload records, codecs, limits | `AgentPayloads` (handlers: `AgentNet`). **Rule:** add payloads freely (an optional channel tolerates one the other side lacks); a payload older jars still send stays registered as a no-op (`Migrate`); changing a codec needs a version bump, which refuses every login between mismatched jars | `PayloadsTest` (round trips; the exact bytes, so a codec change fails until the version is bumped; oversized input refused on decode) |
 
 Kept out on purpose: single-use constants stay next to the one place that uses them, sizes and row heights included
 (the proposal's `Theme.Metrics` was dropped: each is used by one screen).
@@ -89,17 +89,25 @@ to two builds. The TS-side contract test makes a server rename fail `pnpm -r tes
 
 ## Behaviour and stats (part 3)
 
-- `ai/Activity` (sealed): `Shell`, `Work(lectern)`, `Meet(bell)`, `Roam(bell)`, `Home(home)` — each carries today's
-  anchor radius and stroll pace.
-- `ai/Schedule.choose(facts)` is the single decision point; a new behaviour = a new Activity + one rule (+ maybe a goal).
-- `ai/VillageSense` (bell lookup/cache), `ai/Combat` (threat/foe/hostile/spared, damage allowlist, the projectile and
-  damage listeners), goals moved unchanged. A watch-log baseline is taken before and compared after.
-- **Stats are gameplay.** An agent has health, takes damage and can be killed (its items are kept): that is in the
-  code today. Only armor and weapons change what it can do in a fight; everything else it wears is cosmetic.
-- **Levels** (new): an agent earns XP from mob kills (the mob's vanilla XP reward) and, very slowly, from work
-  (≈1 XP per 5 minutes the server sees it working). Level *n*→*n*+1 costs `20 + 10·n` XP. Stored on
-  `AgentRecords.Record`, so a level survives death and moves; shown on the owner's nameplate and the inventory screen.
-  No effects yet: uses come later. The server counts both sources itself, so a modified client can't raise a level.
+- `ai/Schedule` decides where an agent keeps near: a shell its spot; its lectern while it works; the village bell at
+  meeting time (9000-11000), the village otherwise; where it was put when there is no village. One pure function, tested.
+- `ai/VillageSense` finds and keeps its village's bell; `ai/Combat` holds who it fights and how (threat, foe, hostile,
+  the shot) and the world's combat listeners; the goals (`WanderGoal`, `MeleeGoal`, `BowGoal`) moved unchanged.
+  The same fight (an armed agent, a zombie 6 blocks away) logs the same before and after the move.
+- Tests now run with the game loaded (ModDevGradle `unitTest`): `PayloadsTest` (every payload round-trips, limits
+  refused), `AgentRecordsTest` (records with enchanted items, Curios and XP survive save and load), `ScheduleTest`.
+- **Stats are gameplay.** An agent has health, takes damage and can be killed (its items are kept). Only armor and
+  weapons change what it can do in a fight; everything else it wears is cosmetic.
+- **Levels:** XP from kills (the mob's own XP reward, as a player would get) and, slowly, from work (1 XP per 5 minutes
+  working). Every agent starts at level 1; level *n*→*n*+1 costs `20 + 10·n` XP (`core/Levels`). Kept on
+  `AgentRecords.Record`, so a level survives death, moves and a dismiss (placed again, it is the same level). Sent to
+  its owner only, in the optional `Stats` payload (another entity data field would disconnect older clients, and nobody
+  else needs it); shown on the owner's nameplate ("Lv 3") and the inventory screen; the owner is told of each new
+  level. No effects yet. Kill XP follows vanilla's rules (no baby, no `doMobLoot`, once per death). Work XP trusts the
+  owner's client to say its agent works (the server can't ask Agent Office), so a modified client earns at most that:
+  12 XP an hour.
+- Also in part 3, from the security review: placing an agent asks land-claim mods first (it posts the block-place event
+  a claim mod listens for, as if the player put something there); a player's snow golem no longer counts as hostile.
 
 ## Decisions (answered 2026-10-10)
 

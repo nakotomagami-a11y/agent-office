@@ -2,6 +2,7 @@ package dev.agentoffice.mc.client;
 
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentOfficeMod;
+import dev.agentoffice.mc.AgentPayloads;
 import dev.agentoffice.mc.client.screen.ChatScreen;
 import dev.agentoffice.mc.client.screen.OfficeScreen;
 import dev.agentoffice.mc.client.screen.ReviewScreen;
@@ -163,7 +164,7 @@ public final class DevHooks {
                 mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(32)).stream()
                         .min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(mc.player))).ifPresent(b -> mc.getConnection().send(
                                 net.minecraft.network.protocol.game.ServerboundInteractPacket.createInteractionPacket(b, true, net.minecraft.world.InteractionHand.MAIN_HAND)));
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.agentoffice.mc.AgentNet.Dismiss(slot(OPEN)));
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.agentoffice.mc.AgentPayloads.Dismiss(slot(OPEN)));
                 KeyMapping.click(mc.options.keyUse.getKey()); // the honest client's own refusal, on screen
                 ticksSinceAction = 0;
             }
