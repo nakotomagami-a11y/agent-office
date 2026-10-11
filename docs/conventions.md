@@ -227,18 +227,27 @@ renamed on the server then fails a test instead of a player's chat.
 ---
 
 ## mod.status-vocab
-**The mod matches conversation, turn and sub-agent statuses, stream events, conversation actions
-and run error codes through `core/Protocol` and `core/RunErrors`, never a literal of its own;
-values copied from the server (model lists, limits, wording) live in `core/ServerMirror`.**
+**The mod matches the server's words (statuses, stream events, actions, error codes) through
+`core/Protocol` and `core/RunErrors`, never a literal of its own; values copied from the server
+(model lists, limits, wording) live in `core/ServerMirror`.**
 
 A literal `"auth_required"` in a screen once matched nothing the server sends: the server says
 `auth_expired`. Every mirrored word and value names its TypeScript source and is checked
 against it.
 
 The test flags a mirrored word used to match (`equals`, `case`, `orElse`, `Objects.equals`,
-`Set.of`/`List.of`). It cannot flag a word the mirror lacks, misspelt or invented; that is what
-the contract test is for. Not yet mirrored: review error codes and PR link sources
-(`ReviewScreen`), and API error codes like `INSTANCE_CAP_EXCEEDED`.
+`Set.of`/`List.of`). It cannot flag a word the mirror lacks; the contract test catches those.
 
 > **enforced by** `ArchitectureTest.serverWordsAreComparedThroughProtocol` and
 > `apps/server/src/minecraft-mod-contract.test.ts`
+
+---
+
+## mod.screen-no-io
+**Mod screens lay out, take input and draw. They start no threads and keep no static state.**
+
+Work goes through `client/service`: `AgentOffice.call` (every failure reaches the caller, so no
+screen waits forever), `AgentStatus` (one status poller), `WorkspaceStore`, `SeatAdder`; a chat's
+state is its `core/ChatSession`, which is unit-tested.
+
+> **enforced by** `ArchitectureTest.screensDoNoIoOfTheirOwn`

@@ -3,10 +3,9 @@ package dev.agentoffice.mc.client.service;
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentNet;
 import dev.agentoffice.mc.Tuning;
-import dev.agentoffice.mc.client.DevHooks;
+import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.LecternStore;
-import dev.agentoffice.mc.core.Protocol;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.server.IntegratedServer;
@@ -30,15 +28,15 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /**
  * The player's agent bodies as this client sees them. The bodies are entities the world owns
  * ({@link AgentEntity}); this asks the world to place, retarget and dismiss them, keeps the list of
- * seats it says this player has placed, and shows each visible body's status on its nameplate.
+ * seats it says this player has placed, and tells the world which of them work (from {@link AgentStatus}).
  */
 public final class Bodies {
 
     /** From the world: this player's agents. Empty on a server without the mod. */
     private static List<AgentNet.Body> placed = List.of();
     private static int ticks;
-    /** Main thread only: never start a poll while the previous one is still waiting on the app. */
-    private static boolean polling;
+    /** When the last report went: the world drops one that comes sooner than Tuning.STATUS_MIN_TICKS after it. */
+    private static int reportedAt = -Tuning.STATUS_MIN_TICKS;
 
     private Bodies() {}
 
@@ -61,6 +59,7 @@ public final class Bodies {
 
     public static void left() {
         placed = List.of();
+        AgentStatus.unwatch(Bodies.class);
     }
 
     /**
@@ -159,63 +158,41 @@ public final class Bodies {
         return null;
     }
 
+    /** Every round: the visible agents this player owns are the ones whose status matters here. */
     public static void tick(Minecraft mc) {
         if (mc.level == null || mc.player == null) return;
-        if (++ticks % Tuning.STATUS_REPORT_TICKS == 0) refreshStatus(mc);
+        if (++ticks % Tuning.STATUS_REPORT_TICKS == 0) AgentStatus.watch(Bodies.class, visible(mc).values());
     }
 
-    /**
-     * Each of this player's visible agents' conversation status, shown on its nameplate here only (other
-     * players see its plain name). Reads whole conversations; the planned /api/agent-status endpoint
-     * (docs/minecraft-mod-plan.md, app change 2) replaces this.
-     */
-    private static void refreshStatus(Minecraft mc) {
-        if (polling) return;
-        Map<AgentEntity, Api.Slot> snapshot = new HashMap<>();
+    private static Map<AgentEntity, Api.Slot> visible(Minecraft mc) {
+        Map<AgentEntity, Api.Slot> out = new HashMap<>();
+        if (mc.level == null) return out;
         for (Entity e : mc.level.entitiesForRendering()) {
-            if (e instanceof AgentEntity a && seatOf(a) != null) snapshot.put(a, seatOf(a));
+            if (e instanceof AgentEntity a && seatOf(a) != null) out.put(a, seatOf(a));
         }
-        if (snapshot.isEmpty()) return;
-        if (DevHooks.working()) {
-            Map<AgentEntity, String> running = new HashMap<>();
-            snapshot.keySet().forEach(body -> running.put(body, Protocol.Conversation.RUNNING));
-            showStatus(mc, snapshot, running);
-            return;
-        }
-        polling = true;
-        Connection.client().thenApplyAsync(client -> {
-            Map<AgentEntity, String> found = new HashMap<>();
-            snapshot.forEach((body, slot) -> {
-                try {
-                    found.put(body, client.current(slot).map(Api.Conversation::status).orElse(Protocol.Conversation.IDLE));
-                } catch (Exception e) {
-                    found.put(body, "offline");
-                }
-            });
-            return found;
-        }, Connection.IO).whenComplete((found, err) -> mc.execute(() -> {
-            polling = false;
-            Map<AgentEntity, String> statuses = new HashMap<>();
-            snapshot.keySet().forEach(body -> statuses.put(body, err != null ? "offline" : found.get(body)));
-            showStatus(mc, snapshot, statuses);
-        }));
+        return out;
     }
 
     /**
-     * Nameplates here, and the world told which agents work and at which lectern, so their bodies go there (a
-     * server can't ask Agent Office itself). Waiting on its owner counts as working: it stays at its desk.
+     * After each status round: the world is told which agents work and at which lectern, so their bodies go there (a
+     * server can't ask Agent Office itself), and the name each is known by. Waiting on its owner counts as working:
+     * it stays at its desk.
      */
-    private static void showStatus(Minecraft mc, Map<AgentEntity, Api.Slot> snapshot, Map<AgentEntity, String> statuses) {
+    public static void report() {
+        Minecraft mc = Minecraft.getInstance();
+        // One tick spare: the server counts its own ticks, which may run a little ahead of ours.
+        if (mc.level == null || !available(mc) || ticks - reportedAt <= Tuning.STATUS_MIN_TICKS) return;
         List<AgentNet.Work> work = new ArrayList<>();
-        snapshot.forEach((body, slot) -> {
-            // Switched to another seat meanwhile: this status is the old seat's.
-            if (body.isRemoved() || !slot.equals(seatOf(body))) return;
-            String status = statuses.get(body);
-            body.setCustomName(nameplate(slot, status));
-            boolean working = Protocol.Conversation.RUNNING.equals(status) || Protocol.Conversation.NEEDS_ATTENTION.equals(status);
+        visible(mc).forEach((body, slot) -> {
+            // Only what this asked about: a round a screen started may not have asked about this body yet.
+            AgentState state = AgentStatus.watches(Bodies.class, slot) ? AgentStatus.of(slot) : null;
+            if (state == null) return;
+            boolean working = state.atWork();
             work.add(new AgentNet.Work(body.getUUID(), working, working ? lectern(mc, body, slot) : Optional.empty(), cut(slot.displayName(), AgentNet.MAX_TEXT)));
         });
-        if (!work.isEmpty() && available(mc)) PacketDistributor.sendToServer(new AgentNet.Status(work));
+        if (work.isEmpty()) return;
+        reportedAt = ticks;
+        PacketDistributor.sendToServer(new AgentNet.Status(work));
     }
 
     /** Its desk: the nearest lectern showing its project (or all projects), else the nearest bound one at all. */
@@ -229,16 +206,5 @@ public final class Bodies {
         Optional<LecternStore.At> own = near.stream()
                 .filter(l -> l.binding().all() || l.binding().projectId().equals(slot.projectId())).min(nearest);
         return own.or(() -> near.stream().min(nearest)).map(l -> new BlockPos(l.x(), l.y(), l.z()));
-    }
-
-    private static Component nameplate(Api.Slot slot, String status) {
-        Component name = Component.literal(slot.displayName()).withStyle(ChatFormatting.WHITE);
-        if (status == null) return name;
-        return switch (status) {
-            case Protocol.Conversation.RUNNING -> name.copy().append(Component.literal("  working…").withStyle(ChatFormatting.GOLD));
-            case Protocol.Conversation.NEEDS_ATTENTION -> name.copy().append(Component.literal("  needs you!").withStyle(ChatFormatting.RED));
-            case "offline" -> name.copy().append(Component.literal("  (Agent Office closed)").withStyle(ChatFormatting.DARK_GRAY));
-            default -> name.copy().append(Component.literal("  idle").withStyle(ChatFormatting.GRAY));
-        };
     }
 }

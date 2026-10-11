@@ -53,6 +53,34 @@ public final class Protocol {
         private Event() {}
     }
 
+    /** REVIEW_ERROR_CODES (packages/domain/src/config/review.ts) the mod words itself; others show their code. */
+    public static final class ReviewError {
+        public static final String GH_MISSING = "gh_missing";
+        public static final String GH_UNAUTHENTICATED = "gh_unauthenticated";
+        public static final String NOT_GITHUB_REPO = "not_github_repo";
+        public static final String GITHUB_ACCOUNT_MISSING = "github_account_missing";
+        public static final String PR_NOT_FOUND = "pr_not_found";
+        public static final String GH_FAILED = "gh_failed";
+
+        private ReviewError() {}
+    }
+
+    /** PR_LINK_SOURCES (packages/domain/src/config/review.ts): how an agent's pull request was found. */
+    public static final class PrLink {
+        public static final String RECORDED = "recorded";
+        public static final String BRANCH = "branch";
+
+        private PrLink() {}
+    }
+
+    /** Error codes any route can answer: notFound's default (apps/server/src/lib/api-helpers.ts) and the roster cap. */
+    public static final class ApiError {
+        public static final String NOT_FOUND = "not_found";
+        public static final String INSTANCE_CAP_EXCEEDED = "INSTANCE_CAP_EXCEEDED";
+
+        private ApiError() {}
+    }
+
     /** What a conversation can be told to do: each is its own route (API_ROUTES.conversationRetry, ...). */
     public enum Action {
         RETRY, RESUME, SKIP, NEW;

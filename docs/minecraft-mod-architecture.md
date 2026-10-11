@@ -5,9 +5,9 @@ read-only reviews of `main` at ff64d3a (a maintainability inventory and an archi
 
 | Part | Scope | State |
 |---|---|---|
-| 1. Structure | package moves, layer rules, one home per value, contract test, pre-0.6.0 migration deleted | built, in review |
-| 2. Client services | `AgentOffice.call`, one status poller (`AgentState`/`AgentStatus`), `WorkspaceStore`, `core/ChatSession` | next |
-| 3. Behaviour and stats | `ai/` package, payload split, Minecraft-side tests, levels | after 2 |
+| 1. Structure | package moves, layer rules, one home per value, contract test, pre-0.6.0 migration deleted | done (#193) |
+| 2. Client services | `AgentOffice.call`, one status poller (`AgentState`/`AgentStatus`), `WorkspaceStore`, `core/ChatSession` | built, in review |
+| 3. Behaviour and stats | `ai/` package, payload split, Minecraft-side tests, levels | next |
 | 4. Docs | every mod doc checked against the code | last |
 
 ## Verdict (from the review)
@@ -20,9 +20,10 @@ The skeleton was sound; the inside of the client was not.
   persisted).
 - **Fixed in part 1:** the API contract was copied by hand with nothing checking it, and had drifted (the mod
   handled `auth_required`/`rate_limited`; the server sends `auth_expired` and has no `rate_limited`).
-- **Still to fix:** status is polled three times per seat; `ChatScreen` (960 lines) holds a whole chat state machine;
-  app state hides in `WorkspaceScreen` statics; agent behaviour is spread over `AgentEntity`, `AgentGoals` and the
-  mod constructor; nothing Minecraft-side is unit-tested.
+- **Fixed in part 2:** status was polled three times per seat; `ChatScreen` (963 lines) held a whole chat state
+  machine; app state hid in `WorkspaceScreen` statics; failures other than I/O could leave a screen waiting forever.
+- **Still to fix (part 3):** agent behaviour is spread over `AgentEntity`, `AgentGoals` and the mod constructor;
+  nothing Minecraft-side is unit-tested.
 - **Not a problem:** `TranscriptView` (a markdown/table/code renderer — its size is its job), `ReviewScreen`'s size,
   `AgentMenu`'s pixel layout (vanilla does the same).
 
@@ -32,11 +33,13 @@ The skeleton was sound; the inside of the client was not.
 dev.agentoffice.mc            both sides: registries, entity, records, menu, payloads, ModPaths, Tuning
   .ai                         (part 3) behaviour: Activity, Schedule, VillageSense, Combat, goals
   .client                     setup, dev hooks
-    .service                  app state + IO: Bodies, Connection, Lecterns, ClipboardImages
+    .service                  work and shared state: AgentOffice, AgentStatus, WorkspaceStore, SeatAdder, Bodies,
+                              Lecterns, ClipboardImages
     .screen                   screens
     .render                   renderers, skins, Curios layer
     .ui                       widgets, Theme, VanillaGui, TranscriptView (a leaf)
-  .core                       pure Java: HTTP client, Routes, Protocol, RunErrors, ServerMirror, Ids, formats, stores
+  .core                       pure Java: HTTP client, ChatSession, Async, Routes, Protocol, RunErrors, ServerMirror,
+                              AgentState, Ids, formats, stores
 ```
 
 `ArchitectureTest` (in `apps/minecraft-mod`, part of `gradlew test`) checks the source with comments removed. Rule
@@ -49,7 +52,7 @@ ids and their reasons are in `docs/conventions.md`.
 | `mod.ui-leaf` | `client.ui` names no screen/service/render code | enforced |
 | `mod.api-paths-one-place` | `"/api/` only in `core/Routes` | enforced |
 | `mod.status-vocab` | server words compared only through `core/Protocol` / `core/RunErrors` | enforced |
-| `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics | part 2 |
+| `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics | enforced |
 | `mod.ai-no-net` | `ai` never names payloads, menus or client code | part 3 |
 
 ## Single sources (the "one place" for values)
@@ -57,7 +60,7 @@ ids and their reasons are in `docs/conventions.md`.
 | What | Home | Pinned by |
 |---|---|---|
 | API paths | `core/Routes`: one method per `API_ROUTES` key; `fill()` encodes each segment | `apps/server/src/minecraft-mod-contract.test.ts` |
-| Server words: conversation/turn/sub-agent status, stream events, conversation actions | `core/Protocol` (one nested class per TypeScript vocabulary) | contract test: every value is one the server sends |
+| Server words: statuses, stream events, conversation actions, review and API error codes, PR link sources | `core/Protocol` (one nested class per TypeScript vocabulary) | contract test: every value is one the server sends |
 | Run error codes and their titles | `core/RunErrors` (the web's `errors.run.*.title`) | contract test: exactly `RUN_ERROR_CODES`, titles equal the web's |
 | Values copied from the server/web: model, effort and permission lists, 50 MB upload cap, gh timeout, attachments intro, agent-name variants | `core/ServerMirror` | contract test reads each source |
 | Mod id, logger, daemon threads | `core/Ids` | — |
@@ -67,23 +70,22 @@ ids and their reasons are in `docs/conventions.md`.
 | Dev flags | `build.gradle` passes every `-PaoName` through as `agentoffice.dev.name`; `DevHooks` owns the defaults | `ArchitectureTest.everyDevFlagReachesTheGame` |
 | Payload records, codecs, limits | `AgentNet` today, `AgentPayloads` in part 3. **Rule:** add payloads freely (an optional channel tolerates one the other side lacks); a payload older jars still send stays registered as a no-op (`Migrate`); changing a codec needs a version bump, which refuses every login between mismatched jars | codec round-trip test (part 3) |
 
-Kept out on purpose: single-use constants stay next to the one place that uses them. Sizes and row heights
-(`Theme.Metrics` in the proposal) wait for part 2, where `WorkspaceStore`/`ChatSession` take the screens apart anyway.
+Kept out on purpose: single-use constants stay next to the one place that uses them, sizes and row heights included
+(the proposal's `Theme.Metrics` was dropped: each is used by one screen).
 
 The API copy stays hand-written (≈20 endpoints, lenient Gson parsing): generating Java from zod would add a toolchain
 to two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
 
-## Client service layer (part 2)
+## Client services (part 2)
 
-| Service | Replaces | Does |
-|---|---|---|
-| `AgentOffice` | `Connection` + every screen's IO→main boilerplate | `call(owner, io, ok, err)`: runs on IO, catches `IOException \| RuntimeException`, delivers only while the owner screen is shown; `message(Throwable)` |
-| `AgentStatus` | 3 pollers (`Bodies`, `OfficeScreen`, `WorkspaceScreen`) | one poll loop, `stateOf(slot)` as `core/AgentState` (`IDLE, WORKING, NEEDS_YOU, OFFLINE, UNKNOWN`, built on `Protocol`); later swapped for `/api/agent-status` + events in one place; the nameplate status drawn by `AgentRenderer` instead of overwriting synced entity data |
-| `WorkspaceStore` | `WorkspaceScreen` statics + `OfficeScreen`'s own loading | projects, tabs, rosters, last chat, listeners |
-| `core/ChatSession` | `ChatScreen` lines ~345-750 | load/refresh/backoff/rediscover, stream follow + re-attach, permissions, debounced seat PATCH, send/stop/act, attachments — unit-tested against the fake HTTP server |
-
-Bugs this fixes: `AddAgentScreen` bypasses `SeatAdder`'s timeout recovery (can duplicate a seat); IO callbacks that
-catch only `IOException` leave a screen stuck (the chat stops refreshing for good).
+- `core/Async` runs work off the main thread and always reports how it ended, failures of any kind included.
+  `client/service/AgentOffice` is its Minecraft side: the connection, `call(...)`, `later(...)`.
+- `core/ChatSession` is a chat without its screen: reading, following the live run, retries and reconnecting, approvals,
+  seat changes, attachments, send/stop/act. Tested against a fake Agent Office (`ChatSessionTest`).
+- `client/service/AgentStatus` is the one status poller: screens and the world's bodies say which agents they watch;
+  each is asked once a round. The owner's nameplate shows its `AgentState`, drawn by `AgentRenderer`.
+- `client/service/WorkspaceStore` holds what the tablet knows of the office across screens.
+- `client/service/SeatAdder` is the only way a seat is added, so a slow worktree that times out never becomes two seats.
 
 ## Behaviour and stats (part 3)
 

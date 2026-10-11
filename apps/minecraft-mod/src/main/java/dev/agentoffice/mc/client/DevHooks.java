@@ -6,7 +6,7 @@ import dev.agentoffice.mc.client.screen.ChatScreen;
 import dev.agentoffice.mc.client.screen.OfficeScreen;
 import dev.agentoffice.mc.client.screen.ReviewScreen;
 import dev.agentoffice.mc.client.service.Bodies;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.LecternStore;
@@ -241,7 +241,7 @@ public final class DevHooks {
         } else if (OPEN.startsWith("review:")) {
             String project = OPEN.substring("review:".length());
             LecternStore.Binding binding = new LecternStore.Binding(project, project.equals(LecternStore.ALL) ? "All projects" : project);
-            Connection.client()
+            AgentOffice.client()
                     .thenAccept(c -> mc.execute(() -> mc.setScreen(new ReviewScreen(c, binding, null))))
                     .exceptionally(err -> {
                         System.out.println("[agentoffice-dev] could not open review: " + err);
@@ -249,7 +249,7 @@ public final class DevHooks {
                     });
             ticksSinceAction = 0;
         } else if (OPEN.startsWith("chat:")) {
-            Connection.client()
+            AgentOffice.client()
                     .thenAccept(c -> mc.execute(() -> mc.setScreen(new ChatScreen(office, c, slot(OPEN)))))
                     .exceptionally(err -> {
                         System.out.println("[agentoffice-dev] could not open chat: " + err);

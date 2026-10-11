@@ -3,6 +3,11 @@ package dev.agentoffice.mc.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.CuriosCompat;
+import dev.agentoffice.mc.client.service.AgentStatus;
+import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.core.AgentState;
+import dev.agentoffice.mc.core.Api;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.model.HumanoidArmorModel;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -18,6 +23,7 @@ import net.minecraft.client.renderer.entity.layers.ElytraLayer;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BowItem;
 
@@ -87,6 +93,24 @@ public final class AgentRenderer extends EntityRenderer<AgentEntity> {
         protected void scale(AgentEntity body, PoseStack pose, float partialTick) {
             pose.scale(0.9375f, 0.9375f, 0.9375f); // as PlayerRenderer
         }
+
+        /** Its owner sees how it is doing after its name; everyone else, the name alone. */
+        @Override
+        protected void renderNameTag(AgentEntity body, Component name, PoseStack pose, MultiBufferSource buffers, int light, float partialTick) {
+            Api.Slot seat = Bodies.seatOf(body);
+            AgentState state = seat == null ? null : AgentStatus.of(seat);
+            super.renderNameTag(body, state == null ? name : name.copy().append(stateText(state)), pose, buffers, light, partialTick);
+        }
+    }
+
+    private static Component stateText(AgentState state) {
+        return switch (state) {
+            case WORKING -> Component.literal("  working…").withStyle(ChatFormatting.GOLD);
+            case NEEDS_YOU -> Component.literal("  needs you!").withStyle(ChatFormatting.RED);
+            case OFFLINE -> Component.literal("  (Agent Office closed)").withStyle(ChatFormatting.DARK_GRAY);
+            case UNKNOWN -> Component.literal("  (status unknown)").withStyle(ChatFormatting.DARK_GRAY);
+            case IDLE -> Component.literal("  idle").withStyle(ChatFormatting.GRAY);
+        };
     }
 
     private static final class Shell extends MobRenderer<AgentEntity, VillagerModel<AgentEntity>> {

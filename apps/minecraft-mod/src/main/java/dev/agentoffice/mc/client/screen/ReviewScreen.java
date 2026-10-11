@@ -1,23 +1,20 @@
 package dev.agentoffice.mc.client.screen;
 
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Async;
 import dev.agentoffice.mc.core.LecternStore;
+import dev.agentoffice.mc.core.Protocol;
 import dev.agentoffice.mc.core.Review;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -94,9 +91,6 @@ public final class ReviewScreen extends TabletScreen {
 
     // ─── Loading ─────────────────────────────────────────────────────────────
 
-    /** {@code skipped}: projects that aren't GitHub repos. {@code error}: set only when nothing could be read. */
-    private record Loaded(List<Review.Pull> pulls, boolean truncated, int skipped, IOException error) {}
-
     private void loadQueue() {
         if (queueLoading) return;
         queueLoading = true;
@@ -106,12 +100,12 @@ public final class ReviewScreen extends TabletScreen {
         status = "Loading pull requests…";
         hint = null;
         detail = null;
-        CompletableFuture.supplyAsync(this::fetchQueue, Connection.IO).whenComplete((r, err) -> onMain(() -> {
+        AgentOffice.call(client, () -> !closed, c -> AgentOffice.reviews(c, binding), r -> {
             queueLoading = false;
             if (g != gen) return;
-            if (err != null || r.error() != null) {
+            if (r.error() != null) {
                 queue = List.of();
-                showError(err != null ? err : r.error());
+                showError(r.error());
                 return;
             }
             queue = r.pulls();
@@ -126,7 +120,12 @@ public final class ReviewScreen extends TabletScreen {
             } else {
                 loadDetail();
             }
-        }));
+        }, e -> {
+            queueLoading = false;
+            if (g != gen) return;
+            queue = List.of();
+            showError(e);
+        });
     }
 
     private int indexOf(Review.Pull p) {
@@ -137,64 +136,12 @@ public final class ReviewScreen extends TabletScreen {
         return -1;
     }
 
-    /** One project, or every project in parallel ("All projects"); a project that fails is skipped, not fatal. */
-    private Loaded fetchQueue() {
-        try {
-            if (!binding.all()) {
-                Review.Queue q = client.pulls(binding.projectId(), binding.projectName());
-                return new Loaded(q.pulls(), q.truncated(), 0, null);
-            }
-            List<CompletableFuture<Object>> parts = new ArrayList<>();
-            for (Api.Project p : client.projects()) {
-                parts.add(CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return client.pulls(p.id(), p.name());
-                    } catch (IOException e) {
-                        return e;
-                    }
-                }, Connection.IO));
-            }
-            List<Review.Pull> all = new ArrayList<>();
-            boolean cut = false;
-            int notGithub = 0;
-            int read = 0;
-            IOException first = null;
-            for (CompletableFuture<Object> f : parts) {
-                Object r = f.join();
-                if (r instanceof Review.Queue q) {
-                    all.addAll(q.pulls());
-                    cut |= q.truncated();
-                    read++;
-                } else if (r instanceof Api.ApiException a && "not_github_repo".equals(a.code)) {
-                    notGithub++;
-                } else if (first == null) {
-                    first = (IOException) r;
-                }
-            }
-            all.sort(Comparator.comparing((Review.Pull p) -> p.updatedAt() == null ? "" : p.updatedAt()).reversed());
-            // Some projects not being GitHub repos is normal; only "gh can't read anything" is an error.
-            return new Loaded(all, cut, notGithub, read == 0 && first != null ? first : null);
-        } catch (IOException e) {
-            throw new CompletionException(e);
-        }
-    }
-
     private void loadDetail() {
         if (queue.isEmpty()) return;
         int g = ++gen;
         Review.Pull p = queue.get(index);
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return client.pull(p.projectId(), p.projectName(), p.number());
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            }
-        }, Connection.IO).whenComplete((d, err) -> onMain(() -> {
+        AgentOffice.call(client, () -> !closed, c -> c.pull(p.projectId(), p.projectName(), p.number()), d -> {
             if (g != gen) return;
-            if (err != null) {
-                showError(err);
-                return;
-            }
             detail = d;
             status = null;
             fileIndex = 0;
@@ -204,7 +151,9 @@ public final class ReviewScreen extends TabletScreen {
             restorePath = null;
             leftScroll = 0;
             diff.setFile(d.files().isEmpty() ? null : d.files().get(fileIndex));
-        }));
+        }, e -> {
+            if (g == gen) showError(e);
+        });
     }
 
     /** Shows the PR as loading at once; fetches it only once the player stops stepping. */
@@ -216,34 +165,33 @@ public final class ReviewScreen extends TabletScreen {
         detail = null;
         hint = null;
         status = "Loading #" + queue.get(index).number() + "…";
-        CompletableFuture.delayedExecutor(STEP_SETTLE_MS, TimeUnit.MILLISECONDS, Connection.IO).execute(() -> onMain(() -> {
+        AgentOffice.later(STEP_SETTLE_MS, () -> !closed, () -> {
             if (g == gen) loadDetail();
-        }));
+        });
     }
 
-    private void showError(Throwable err) {
-        Throwable t = err instanceof CompletionException && err.getCause() != null ? err.getCause() : err;
-        if (t instanceof Api.ApiException a) {
+    private void showError(Exception e) {
+        if (e instanceof Api.ApiException a) {
             if (a.status == 404 && a.code == null) {
                 status = "This Agent Office has no pull-request review yet.";
                 hint = "Run `pnpm server` from the agent-office repo (or update the app), then use the lectern again.";
                 return;
             }
             status = switch (a.code == null ? "" : a.code) {
-                case "gh_missing" -> "The GitHub CLI (gh) isn't installed.";
-                case "gh_unauthenticated" -> "gh isn't signed in to GitHub.";
-                case "not_github_repo" -> "This project isn't a GitHub repository.";
-                case "github_account_missing" -> "The project's GitHub account was removed.";
-                case "pr_not_found" -> "That pull request is gone.";
-                case "not_found" -> "This lectern's project no longer exists.";
-                case "gh_failed" -> "gh failed: " + Review.visible(a.detail == null ? "no message" : a.detail);
+                case Protocol.ReviewError.GH_MISSING -> "The GitHub CLI (gh) isn't installed.";
+                case Protocol.ReviewError.GH_UNAUTHENTICATED -> "gh isn't signed in to GitHub.";
+                case Protocol.ReviewError.NOT_GITHUB_REPO -> "This project isn't a GitHub repository.";
+                case Protocol.ReviewError.GITHUB_ACCOUNT_MISSING -> "The project's GitHub account was removed.";
+                case Protocol.ReviewError.PR_NOT_FOUND -> "That pull request is gone.";
+                case Protocol.ApiError.NOT_FOUND -> "This lectern's project no longer exists.";
+                case Protocol.ReviewError.GH_FAILED -> "gh failed: " + Review.visible(a.detail == null ? "no message" : a.detail);
                 default -> "Couldn't load pull requests (" + (a.code == null ? "HTTP " + a.status : a.code) + ").";
             };
-            hint = "not_found".equals(a.code) ? (lecternKey != null ? "Use Project… below to pick another." : "Pick another project.")
-                    : "gh_failed".equals(a.code) ? "Press r to retry." : a.hint;
+            hint = Protocol.ApiError.NOT_FOUND.equals(a.code) ? (lecternKey != null ? "Use Project… below to pick another." : "Pick another project.")
+                    : Protocol.ReviewError.GH_FAILED.equals(a.code) ? "Press r to retry." : a.hint;
             return;
         }
-        status = "Couldn't reach Agent Office: " + OfficeScreen.rootMessage(t);
+        status = "Couldn't reach Agent Office: " + Async.message(e);
         hint = null;
     }
 
@@ -392,8 +340,8 @@ public final class ReviewScreen extends TabletScreen {
         Review.Link l = detail.link();
         if (l == null) return "No agent linked yet: you'll pick who gets the feedback.";
         String how = switch (nz(l.source())) {
-            case "recorded" -> "it opened this PR";
-            case "branch" -> "its branch";
+            case Protocol.PrLink.RECORDED -> "it opened this PR";
+            case Protocol.PrLink.BRANCH -> "its branch";
             default -> "picked by you";
         };
         return "Feedback goes to " + nz(l.agentId()) + " (" + nz(l.instanceId()) + ") · " + how;
@@ -622,11 +570,5 @@ public final class ReviewScreen extends TabletScreen {
     @Override
     protected void onRemoved() {
         closed = true;
-    }
-
-    private void onMain(Runnable r) {
-        Minecraft.getInstance().execute(() -> {
-            if (!closed) r.run();
-        });
     }
 }

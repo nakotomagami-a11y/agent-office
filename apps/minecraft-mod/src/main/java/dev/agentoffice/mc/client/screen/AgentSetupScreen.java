@@ -1,14 +1,15 @@
 package dev.agentoffice.mc.client.screen;
 
 import dev.agentoffice.mc.client.service.Bodies;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
+import dev.agentoffice.mc.client.service.SeatAdder;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
-import java.io.IOException;
+import dev.agentoffice.mc.core.Async;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -90,22 +91,16 @@ public final class AgentSetupScreen extends TabletScreen {
 
         if (!started) {
             started = true;
-            Connection.IO.execute(() -> {
-                try {
-                    List<Api.Agent> a = client.agents();
-                    List<Api.Project> p = client.projects();
-                    Minecraft.getInstance().execute(() -> {
-                        agents = a;
-                        projects = p;
-                        status = a.size() + " agents";
-                        if (minecraft.screen == this) rebuildWidgets();
-                    });
-                } catch (IOException | RuntimeException e) {
-                    Minecraft.getInstance().execute(() -> status = "Couldn't reach Agent Office: " + e.getMessage() + " — close and reopen to retry");
-                }
-            });
+            AgentOffice.call(client, () -> true, c -> new Lists(c.agents(), c.projects()), found -> {
+                agents = found.agents();
+                projects = found.projects();
+                status = agents.size() + " agents";
+                if (minecraft.screen == this) rebuildWidgets();
+            }, e -> status = "Couldn't reach Agent Office: " + Async.message(e) + " — close and reopen to retry");
         }
     }
+
+    private record Lists(List<Api.Agent> agents, List<Api.Project> projects) {}
 
     private List<Row> rows() {
         String q = filter == null ? "" : filter.getValue().trim().toLowerCase(Locale.ROOT);
@@ -146,33 +141,24 @@ public final class AgentSetupScreen extends TabletScreen {
         status = "Checking " + p.name() + "…";
         rebuildWidgets();
         Api.Agent chosen = agent;
-        Connection.IO.execute(() -> {
-            List<Api.Slot> seats;
-            try {
-                seats = SeatAdder.seats(client, p, chosen.name());
-            } catch (IOException | RuntimeException e) {
-                Minecraft.getInstance().execute(() -> fail("Couldn't read " + p.name() + ": " + e.getMessage()));
+        AgentOffice.call(client, () -> true, c -> SeatAdder.seats(c, p, chosen.name()), seats -> {
+            // Left, went back or picked something else meanwhile: never act on a stale choice.
+            if (minecraft.screen != this || step != Step.PROJECT || project != p || agent != chosen) {
+                busy = false;
+                if (minecraft.screen == this) rebuildWidgets();
                 return;
             }
-            Minecraft.getInstance().execute(() -> {
-                // Left, went back or picked something else meanwhile: never act on a stale choice.
-                if (minecraft.screen != this || step != Step.PROJECT || project != p || agent != chosen) {
-                    busy = false;
-                    if (minecraft.screen == this) rebuildWidgets();
-                    return;
-                }
-                if (!seats.isEmpty()) {
-                    // Already standing somewhere in this world: it moves here and keeps talking to the same seat.
-                    Api.Slot standing = Bodies.seatOf(minecraft, seats.get(0));
-                    finish(seats.stream().filter(s -> standing != null && s.instanceId().equals(standing.instanceId()))
-                            .findFirst().orElse(seats.get(0)));
-                    return;
-                }
-                status = "Adding " + AgentNames.of(chosen.name()) + " to " + p.name() + "… (making a git worktree can take a while)";
-                rebuildWidgets();
-                SeatAdder.add(this, client, p, chosen.name(), this::finish, this::fail);
-            });
-        });
+            if (!seats.isEmpty()) {
+                // Already standing somewhere in this world: it moves here and keeps talking to the same seat.
+                Api.Slot standing = Bodies.seatOf(minecraft, seats.get(0));
+                finish(seats.stream().filter(s -> standing != null && s.instanceId().equals(standing.instanceId()))
+                        .findFirst().orElse(seats.get(0)));
+                return;
+            }
+            status = "Adding " + AgentNames.of(chosen.name()) + " to " + p.name() + "… (making a git worktree can take a while)";
+            rebuildWidgets();
+            SeatAdder.add(this, client, p, chosen.name(), this::finish, this::fail);
+        }, e -> fail("Couldn't read " + p.name() + ": " + Async.message(e)));
     }
 
     private void fail(String message) {

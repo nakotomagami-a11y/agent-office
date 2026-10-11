@@ -122,6 +122,41 @@ class ArchitectureTest {
         assertEquals(List.of(), bad, "mod.api-paths-one-place");
     }
 
+    @Test
+    void screensDoNoIoOfTheirOwn() throws IOException {
+        // mod.screen-no-io: screens lay out, take input and draw; services (AgentOffice, AgentStatus, WorkspaceStore,
+        // ChatSession) do the work and keep the state that outlives a screen.
+        Predicate<Source> screens = s -> s.pkg().equals("client/screen");
+        List<String> bad = violations(sources(), screens, SCREEN_THREADS);
+        bad.addAll(violations(sources(), screens, SCREEN_STATICS));
+        assertEquals(List.of(), bad, "mod.screen-no-io");
+    }
+
+    /** Starting work off the render thread, or handing a screen the threads to start it on. */
+    private static final Pattern SCREEN_THREADS = Pattern.compile("Executors\\.|new Thread\\b|Thread\\.(?:sleep|ofVirtual|ofPlatform|startVirtualThread)"
+            + "|CompletableFuture|ForkJoinPool|parallelStream|new Timer\\b|\\.submit\\(|\\.execute\\(|AgentOffice\\.(?:IO|SEATS)\\b");
+    /** A static field that isn't final, or a final one made with {@code new} or an array literal (contents can change). */
+    private static final Pattern SCREEN_STATICS = Pattern.compile(
+            "(?<!\\bfinal\\s{1,4})\\bstatic\\s+(?!final\\b)(?!class\\b|abstract\\b|record\\b|interface\\b|enum\\b|void\\b|<)[\\w.<>,? \\[\\]]+\\s+\\w+\\s*[=;]"
+                    + "|\\b(?:static\\s+final|final\\s+static)\\s+[\\w.<>,? \\[\\]]+\\s+\\w+\\s*=\\s*(?:[^;]*\\bnew\\b|\\{)");
+
+    @Test
+    void theScreenRuleSeesEveryWayToBreakIt() {
+        for (String code : List.of("static int clicks;", "private static Map<String, String> m = null;",
+                "static final HashMap<String, Integer> m = new HashMap<>();", "static final int[] X = {1, 2};",
+                "static final List<String> l = Collections.synchronizedList(new ArrayList<>());")) {
+            assertTrue(SCREEN_STATICS.matcher(code).find(), code);
+        }
+        for (String code : List.of("static final int ROW = 26;", "final static int ROW = 26;", "private static String cut(Font f, String t) {",
+                "private static final class Tab extends Button {", "static final ResourceLocation TAB = ResourceLocation.withDefaultNamespace(\"x\");",
+                "public static <T> void call(Call<T> c) {")) {
+            assertFalse(SCREEN_STATICS.matcher(code).find(), code);
+        }
+        for (String code : List.of("pool.submit(r)", "Thread.ofVirtual().start(r)", "list.parallelStream()", "gather(c, b, AgentOffice.IO)", "new Timer()")) {
+            assertTrue(SCREEN_THREADS.matcher(code).find(), code);
+        }
+    }
+
     /** A literal used to match a value: compared, a case label, a fallback, or in a set of choices. */
     private static final Pattern COMPARED_BEFORE = Pattern.compile(
             "(?:equals|equalsIgnoreCase|orElse)\\(\\s*$|Objects\\.equals\\([^;]*$|(?:Set|List)\\.of\\([^;()]*$|case\\s[^;:>]*$");

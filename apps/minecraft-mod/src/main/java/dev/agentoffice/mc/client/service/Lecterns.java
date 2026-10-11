@@ -35,7 +35,7 @@ public final class Lecterns {
         if (key == null || mc.screen != null || opening) return;
         Optional<LecternStore.Binding> binding = rebind ? Optional.empty() : store().get(key);
         opening = true;
-        Connection.client().whenComplete((client, err) -> mc.execute(() -> {
+        AgentOffice.client().whenComplete((client, err) -> mc.execute(() -> {
             opening = false;
             if (err != null) {
                 mc.gui.setOverlayMessage(Component.literal("Agent Office isn't running"), false);

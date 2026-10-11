@@ -1,15 +1,16 @@
 package dev.agentoffice.mc.client.screen;
 
+import dev.agentoffice.mc.client.service.AgentStatus;
 import dev.agentoffice.mc.client.service.Bodies;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
+import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Api;
-import dev.agentoffice.mc.core.Protocol;
-import java.io.IOException;
+import dev.agentoffice.mc.core.Async;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,6 @@ public final class OfficeScreen extends TabletScreen {
     private List<Api.Project> projects = List.of();
     private String selectedId;
     private List<Api.Instance> seats = List.of();
-    private final Map<String, String> seatStatus = new HashMap<>();
     private final Map<String, Api.Agent> agents = new HashMap<>();
     private String status = "Connecting to Agent Office…";
     private boolean loading;
@@ -119,25 +119,12 @@ public final class OfficeScreen extends TabletScreen {
     void load() {
         loading = true;
         status = "Connecting to Agent Office…";
-        Connection.client().thenApplyAsync(c -> {
-            try {
-                return new Object[] {c, c.projects(), c.agents()};
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }, Connection.IO).whenComplete((r, err) -> onMain(() -> {
+        AgentOffice.call(() -> !closed, c -> new Loaded(c, c.projects(), c.agents()), r -> {
             loading = false;
-            if (err != null) {
-                status = "Agent Office isn't reachable. Is it running? (" + rootMessage(err) + ")";
-                rebuildWidgets();
-                return;
-            }
-            client = (AgentOfficeClient) r[0];
-            @SuppressWarnings("unchecked") List<Api.Project> ps = (List<Api.Project>) r[1];
-            @SuppressWarnings("unchecked") List<Api.Agent> as = (List<Api.Agent>) r[2];
-            projects = ps;
+            client = r.client();
+            projects = r.projects();
             agents.clear();
-            for (Api.Agent a : as) agents.put(a.name(), a);
+            for (Api.Agent a : r.agents()) agents.put(a.name(), a);
             if (selected() == null) {
                 selectedId = projects.stream().filter(p -> p.instanceCount() > 0).map(Api.Project::id).findFirst()
                         .orElse(projects.isEmpty() ? null : projects.get(0).id());
@@ -145,8 +132,14 @@ public final class OfficeScreen extends TabletScreen {
             status = projects.isEmpty() ? "No projects in Agent Office yet." : "Connected to " + client.base();
             loadSeats();
             rebuildWidgets();
-        }));
+        }, e -> {
+            loading = false;
+            status = "Agent Office isn't reachable. Is it running? (" + Async.message(e) + ")";
+            rebuildWidgets();
+        });
     }
+
+    private record Loaded(AgentOfficeClient client, List<Api.Project> projects, List<Api.Agent> agents) {}
 
     private void select(String projectId) {
         selectedId = projectId;
@@ -156,51 +149,33 @@ public final class OfficeScreen extends TabletScreen {
         rebuildWidgets();
     }
 
-    /** The selected project's seats, then each seat's conversation status. */
+    /** The selected project's seats; their statuses are watched from then on. */
     private void loadSeats() {
         Api.Project project = selected();
         if (project == null || client == null) return;
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                List<Api.Instance> found = c.instances(project);
-                onMain(() -> {
-                    if (!project.id().equals(selectedId)) return;
-                    seats = found;
-                    rebuildWidgets();
-                });
-                Map<String, String> statuses = new HashMap<>();
-                for (Api.Instance i : found) {
-                    try {
-                        statuses.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse(Protocol.Conversation.IDLE));
-                    } catch (IOException e) {
-                        statuses.put(i.slot().instanceId(), "unknown");
-                    }
-                }
-                onMain(() -> seatStatus.putAll(statuses));
-            } catch (IOException e) {
-                onMain(() -> status = "Couldn't read " + project.name() + ": " + e.getMessage());
-            }
-        });
+        AgentOffice.call(client, () -> !closed, c -> c.instances(project), found -> {
+            if (!project.id().equals(selectedId)) return;
+            seats = found;
+            AgentStatus.watch(this, found.stream().map(Api.Instance::slot).toList());
+            rebuildWidgets();
+        }, e -> status = "Couldn't read " + project.name() + ": " + Async.message(e));
     }
 
     private void confirmRemove(Api.Slot slot) {
         minecraft.setScreen(new ConfirmScreen(yes -> {
             minecraft.setScreen(this);
             if (!yes) return;
-            AgentOfficeClient c = client;
-            Connection.IO.execute(() -> {
-                try {
-                    c.removeInstance(slot);
-                    // Always, even if this screen is covered: a body must not outlive the seat it talks to.
-                    Minecraft.getInstance().execute(() -> Bodies.seatRemoved(Minecraft.getInstance(), slot));
-                    onMain(() -> {
-                        status = "Removed " + slot.displayName() + ".";
-                        load();
-                    });
-                } catch (IOException e) {
-                    onMain(() -> status = "Couldn't remove: " + e.getMessage());
-                }
+            // Always delivered, even while this screen is covered: a body must not outlive the seat it talks to.
+            AgentOffice.call(client, () -> true, c -> {
+                c.removeInstance(slot);
+                return slot;
+            }, removed -> {
+                Bodies.seatRemoved(Minecraft.getInstance(), removed);
+                if (closed) return;
+                status = "Removed " + removed.displayName() + ".";
+                load();
+            }, e -> {
+                if (!closed) status = "Couldn't remove: " + Async.message(e);
             });
         }, Component.literal("Remove " + slot.displayName() + " from " + slot.projectName() + "?"),
                 Component.literal("Its git worktree is deleted — uncommitted work in it is lost. "
@@ -267,8 +242,12 @@ public final class OfficeScreen extends TabletScreen {
             Api.Instance seat = seats.get(i);
             Api.Slot slot = seat.slot();
             int y = listTop + (i - seatScroll) * SEAT_ROW;
-            String st = seatStatus.get(slot.instanceId());
-            int dot = Protocol.Conversation.RUNNING.equals(st) ? Theme.OK : Protocol.Conversation.NEEDS_ATTENTION.equals(st) ? Theme.AMBER : st == null ? Theme.BG_4 : Theme.TXT_4;
+            AgentState st = AgentStatus.of(slot);
+            int dot = st == null ? Theme.BG_4 : switch (st) {
+                case WORKING -> Theme.OK;
+                case NEEDS_YOU -> Theme.AMBER;
+                case IDLE, OFFLINE, UNKNOWN -> Theme.TXT_4;
+            };
             g.fill(mx0 + 6, y + 8, mx0 + 10, y + 12, dot);
             int textW = mx1 - mx0 - buttonsW - 16;
             String name = slot.displayName() + (slot.label() != null && !slot.label().isBlank() ? "  (" + AgentNames.of(slot.agentId()) + ")" : "");
@@ -287,13 +266,14 @@ public final class OfficeScreen extends TabletScreen {
         return agentDefault != null && !agentDefault.isEmpty() ? agentDefault : "default";
     }
 
-    private static String statusLabel(String st) {
+    private static String statusLabel(AgentState st) {
         if (st == null) return "…";
         return switch (st) {
-            case Protocol.Conversation.RUNNING -> "working";
-            case Protocol.Conversation.NEEDS_ATTENTION -> "needs you";
-            case "unknown" -> "status unknown";
-            default -> "idle";
+            case WORKING -> "working";
+            case NEEDS_YOU -> "needs you";
+            case OFFLINE -> "Agent Office closed";
+            case UNKNOWN -> "status unknown";
+            case IDLE -> "idle";
         };
     }
 
@@ -304,6 +284,7 @@ public final class OfficeScreen extends TabletScreen {
     @Override
     protected void onRemoved() {
         closed = true;
+        AgentStatus.unwatch(this);
     }
 
     /** Back from a chat, settings or prompt: statuses and settings may have changed meanwhile. */
@@ -314,16 +295,5 @@ public final class OfficeScreen extends TabletScreen {
         // A load whose result arrived while covered was dropped: start over.
         if (loading || client == null) load();
         else loadSeats();
-    }
-
-    private void onMain(Runnable r) {
-        Minecraft.getInstance().execute(() -> {
-            if (!closed) r.run();
-        });
-    }
-
-    static String rootMessage(Throwable t) {
-        while (t.getCause() != null) t = t.getCause();
-        return t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
     }
 }

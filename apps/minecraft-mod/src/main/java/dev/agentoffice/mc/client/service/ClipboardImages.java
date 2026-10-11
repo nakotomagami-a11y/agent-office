@@ -2,6 +2,7 @@ package dev.agentoffice.mc.client.service;
 
 import dev.agentoffice.mc.ModPaths;
 import dev.agentoffice.mc.core.AgentOfficeClient;
+import dev.agentoffice.mc.core.ChatSession.Upload;
 import dev.agentoffice.mc.core.Ids;
 import dev.agentoffice.mc.core.ServerMirror;
 import java.io.IOException;
@@ -18,10 +19,9 @@ import org.slf4j.Logger;
 /**
  * The image on the system clipboard. Minecraft runs Java headless (no AWT clipboard) and GLFW's clipboard is text
  * only, so on Windows PowerShell reads it (a copied image, or an image file copied in Explorer); on Linux Agent
- * Office's host reads it (wl-paste). Blocking: call on Connection.IO.
+ * Office's host reads it (wl-paste). Blocking: call on AgentOffice.IO.
  */
 public final class ClipboardImages {
-    public record Clip(String filename, String contentType, byte[] data) {}
 
     private static final Logger LOG = Ids.LOG;
     /** The script's "nothing on the clipboard"; any other failure is an error. */
@@ -43,13 +43,13 @@ public final class ClipboardImages {
 
     private ClipboardImages() {}
 
-    public static Optional<Clip> read(AgentOfficeClient client) throws IOException {
+    public static Optional<Upload> read(AgentOfficeClient client) throws IOException {
         if (Util.getPlatform() == Util.OS.WINDOWS) return windows();
         if (Util.getPlatform() == Util.OS.OSX) throw new IOException("image paste isn't supported on macOS yet");
-        return client.clipboardImage().map(png -> new Clip(pastedName("png"), "image/png", png));
+        return client.clipboardImage().map(png -> new Upload(pastedName("png"), "image/png", png));
     }
 
-    private static Optional<Clip> windows() throws IOException {
+    private static Optional<Upload> windows() throws IOException {
         Path out = ModPaths.pasteTemp();
         Process p = null;
         try {
@@ -73,7 +73,7 @@ public final class ClipboardImages {
             String ext = said.lines().filter(l -> l.startsWith("EXT:")).map(l -> l.substring(4).trim()).findFirst().orElse("png");
             // Named as the web composer names a paste: never a copied file's own name, which could replace an earlier
             // upload of the same name that an older message points to.
-            return Optional.of(new Clip(pastedName(ext), contentType(ext), Files.readAllBytes(out)));
+            return Optional.of(new Upload(pastedName(ext), contentType(ext), Files.readAllBytes(out)));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", e);

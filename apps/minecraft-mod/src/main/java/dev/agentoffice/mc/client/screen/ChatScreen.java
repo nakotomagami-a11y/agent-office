@@ -4,9 +4,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.service.ClipboardImages;
-import dev.agentoffice.mc.client.service.Connection;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.ImageScreen;
@@ -16,25 +16,12 @@ import dev.agentoffice.mc.client.ui.TranscriptView;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
-import dev.agentoffice.mc.core.Attachments;
-import dev.agentoffice.mc.core.Ids;
+import dev.agentoffice.mc.core.ChatSession;
 import dev.agentoffice.mc.core.Protocol;
 import dev.agentoffice.mc.core.ServerMirror;
 import dev.agentoffice.mc.core.Transcript;
-import java.io.Closeable;
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -48,17 +35,10 @@ import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * One agent seat's conversation, on the tablet. The server owns the conversation
- * (docs/chat-refactor.md): this screen renders its turns like the web chat does, follows the active
- * run's stream, and re-reads the conversation when a run ends.
- *
- * Every async result checks {@code closed}: a late reply must not reopen a stream for a screen the
- * player already left. A run that just ended is never followed again straight away — when another
- * Agent Office process owns it, its stream ends at once, and re-following would spin.
+ * One agent seat's conversation, on the tablet: draws what its {@link ChatSession} holds, like the web chat does, and
+ * hands it what the player does. The session reads, streams and sends; this lays out, takes input and draws.
  */
 public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
-    private static final int MIN_BACKOFF_MS = 1_000;
-    private static final int MAX_BACKOFF_MS = 30_000;
     private static final int HEADER = 24;
     /** The composer starts at one line and grows with the text up to this many. */
     private static final int COMPOSER_LINES = 5;
@@ -69,51 +49,19 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     private static final int PANEL_MUTED = 0x555555;
     private static final int PANEL_WORKING = 0x3F33A8;
     private static final int PANEL_ATTENTION = 0x6E4700;
-    private static final int PERMISSION_POLL_TICKS = 100;
     private static final int PERMISSION_LINES = 4;
     /** Approval cards never squeeze the transcript below this. */
     private static final int MIN_TRANSCRIPT = 60;
     private static final int TOOLTIP_LINES = 40;
-    /** Clicks on the model/effort pickers settle for this long before one PATCH goes out. */
-    private static final int SEAT_PATCH_DELAY_TICKS = 12;
-    private static final int FAILURES_BEFORE_REDISCOVERY = 3;
 
     private final Screen parent;
     private final Api.Slot slot;
+    private final ChatSession session;
     private final TranscriptView view;
-    /** Replaced when Agent Office restarts on another port (see {@link #rediscover}). */
-    private AgentOfficeClient client;
     private MultiLineEditBox input;
-    private final List<Attached> attachments = new ArrayList<>();
-    /** Main thread only: one paste at a time. */
-    private boolean pasting;
     private int shownLines = 1;
-    private Api.Conversation conversation;
-    private List<Transcript.Item> history = List.of();
-    private Transcript.Live live;
-    private List<Api.Permission> pending = List.of();
-    private final Set<String> answering = new HashSet<>();
-    private Api.Instance seat;
-    private Api.Agent agent;
-    private final JsonObject unsentSeat = new JsonObject();
-    private int seatPatchIn;
-    private Closeable stream;
-    private String streamingRunId;
-    /** A run whose stream reported its end (done/error); following it again would only spin. */
-    private String endedRunId;
-    /** Set by a done/error event on the current stream; a stream that just drops did not end the run. */
-    private boolean streamSawEnd;
-    private String lastFollowedRunId;
-    private int backoffMs = MIN_BACKOFF_MS;
-    private int failures;
-    private boolean refreshPending;
-    private boolean started;
-    private boolean closed;
-    private String status = "Loading…";
     private String flash;
     private int flashTicks;
-    private int ticks;
-    private boolean busy;
 
     // Layout from init(), read by the render methods.
     private int headerRight;
@@ -128,9 +76,29 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     public ChatScreen(Screen parent, AgentOfficeClient client, Api.Slot slot) {
         super(Component.literal(slot.displayName()));
         this.parent = parent;
-        this.client = client;
         this.slot = slot;
-        this.view = new TranscriptView(Minecraft.getInstance().font, () -> this.client, slot.displayName(),
+        this.session = new ChatSession(AgentOffice.CHAT, client, slot, new ChatSession.Listener() {
+            @Override
+            public void items(List<Transcript.Item> items) {
+                view.setItems(items);
+            }
+
+            @Override
+            public void changed() {
+                rebuildWidgets();
+            }
+
+            @Override
+            public void flash(String message) {
+                ChatScreen.this.flash(message);
+            }
+
+            @Override
+            public void unsent(String text) {
+                if (input != null && input.getValue().isEmpty()) input.setValue(text);
+            }
+        });
+        this.view = new TranscriptView(Minecraft.getInstance().font, session::client, slot.displayName(),
                 img -> Minecraft.getInstance().setScreen(new ImageScreen(this, img)));
     }
 
@@ -167,8 +135,11 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         }
         int newW = buttonWidth("New");
         hx -= newW;
-        addRenderableWidget(new FlatButton(hx, hy, newW, 20, "New", FlatButton.Kind.NORMAL, b -> act(Protocol.Action.NEW)))
-                .active = conversation != null && !busy;
+        Api.Conversation conversation = session.conversation();
+        Api.Instance seat = session.seat();
+        Api.Agent agent = session.agent();
+        addRenderableWidget(new FlatButton(hx, hy, newW, 20, "New", FlatButton.Kind.NORMAL, b -> session.act(Protocol.Action.NEW)))
+                .active = conversation != null && !session.busy();
         if (seat != null) {
             // Labelled like vanilla's options ("Model: opus"); unset shows the agent's default.
             String modelDef = def(agent == null ? null : agent.defaultModel());
@@ -185,10 +156,10 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
                 Tooltip hint = Tooltip.create(Component.literal("Click: next · Right-click: previous"));
                 hx -= 4 + ew;
                 addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, ServerMirror.EFFORTS, nz(seat.effort()), effort)
-                        .onChange(v -> changeSeat("effort", v))).setTooltip(hint);
+                        .onChange(v -> session.changeSeat("effort", v))).setTooltip(hint);
                 hx -= 4 + mw;
                 addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, ServerMirror.MODELS, nz(seat.model()), model)
-                        .onChange(v -> changeSeat("model", v))).setTooltip(hint);
+                        .onChange(v -> session.changeSeat("model", v))).setTooltip(hint);
             }
         }
         headerRight = hx;
@@ -220,33 +191,27 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         addRenderableWidget(new FlatButton(x1 - sendW, by, sendW, 20, sendLabel, FlatButton.Kind.PRIMARY, b -> send()))
                 .active = conversation != null;
         if (running) {
-            addRenderableWidget(new FlatButton(x1 - sendW - 4 - stopW, by, stopW, 20, "Stop", FlatButton.Kind.DANGER, b -> stop()))
-                    .active = !busy;
+            addRenderableWidget(new FlatButton(x1 - sendW - 4 - stopW, by, stopW, 20, "Stop", FlatButton.Kind.DANGER, b -> session.stop()))
+                    .active = !session.busy();
         }
 
         // Pasted images wait above the composer until sent; a click takes one off.
-        if (!attachments.isEmpty()) {
+        List<ChatSession.Attached> all = session.attachments();
+        if (!all.isEmpty()) {
             cy -= 20;
             int ax = x0;
-            List<Attached> all = List.copyOf(attachments);
             for (int i = 0; i < all.size(); i++) {
-                Attached a = all.get(i);
+                ChatSession.Attached a = all.get(i);
                 String chip = (a.path() == null ? "… " : "✕ ") + font.plainSubstrByWidth(a.name(), 110);
                 int w = buttonWidth(chip);
                 // No room for this one and a "+N" after it: the rest go in one chip that drops them all.
                 if (ax + w + buttonWidth("✕ +" + (all.size() - i)) + 4 > x1) {
-                    List<Attached> hidden = all.subList(i, all.size());
+                    List<ChatSession.Attached> hidden = all.subList(i, all.size());
                     addRenderableWidget(new FlatButton(ax, cy, buttonWidth("✕ +" + hidden.size()), 16, "✕ +" + hidden.size(),
-                            FlatButton.Kind.NORMAL, x -> {
-                                attachments.removeAll(hidden);
-                                rebuildWidgets();
-                            })).setTooltip(Tooltip.create(Component.literal("Don't send these " + hidden.size() + " images")));
+                            FlatButton.Kind.NORMAL, x -> session.unattach(hidden))).setTooltip(Tooltip.create(Component.literal("Don't send these " + hidden.size() + " images")));
                     break;
                 }
-                FlatButton b = addRenderableWidget(new FlatButton(ax, cy, w, 16, chip, FlatButton.Kind.NORMAL, x -> {
-                    attachments.remove(a);
-                    rebuildWidgets();
-                }));
+                FlatButton b = addRenderableWidget(new FlatButton(ax, cy, w, 16, chip, FlatButton.Kind.NORMAL, x -> session.unattach(List.of(a))));
                 b.active = a.path() != null;
                 b.setTooltip(Tooltip.create(Component.literal(a.path() == null ? "Uploading…" : "Don't send " + a.name())));
                 ax += w + 4;
@@ -265,7 +230,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
                 int w = buttonWidth(action.label());
                 bx -= w;
                 addRenderableWidget(new FlatButton(bx, above + 3, w, 16, action.label(),
-                        action == Protocol.Action.RETRY ? FlatButton.Kind.PRIMARY : FlatButton.Kind.NORMAL, b -> act(action))).active = !busy;
+                        action == Protocol.Action.RETRY ? FlatButton.Kind.PRIMARY : FlatButton.Kind.NORMAL, b -> session.act(action))).active = !session.busy();
                 bx -= 4;
             }
             above -= 6;
@@ -276,6 +241,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         List<List<FormattedCharSequence>> cardLines = new ArrayList<>();
         int room = above - transcriptTop - MIN_TRANSCRIPT;
         int shown = 0;
+        List<Api.Permission> pending = session.pending();
         for (Api.Permission p : pending) {
             List<FormattedCharSequence> detail = font.split(Component.literal(permissionDetail(p)), wx1 - wx0 - 12);
             List<FormattedCharSequence> lines = new ArrayList<>(detail.subList(0, Math.min(PERMISSION_LINES, detail.size())));
@@ -300,20 +266,16 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
                 full.add(Component.literal("… " + rest + " more lines").withColor(Theme.TXT_4).getVisualOrderText());
             }
             cards.add(0, new PermissionCard(p, lines, full, above, h));
-            boolean waiting = answering.contains(p.id());
-            addRenderableWidget(new FlatButton(wx1 - 103, above + 4, 48, 16, "Deny", FlatButton.Kind.DANGER, b -> answer(p, false))).active = !waiting;
-            addRenderableWidget(new FlatButton(wx1 - 51, above + 4, 48, 16, "Allow", FlatButton.Kind.PRIMARY, b -> answer(p, true))).active = !waiting;
+            boolean waiting = session.answering(p.id());
+            addRenderableWidget(new FlatButton(wx1 - 103, above + 4, 48, 16, "Deny", FlatButton.Kind.DANGER, b -> session.answer(p, false))).active = !waiting;
+            addRenderableWidget(new FlatButton(wx1 - 51, above + 4, 48, 16, "Allow", FlatButton.Kind.PRIMARY, b -> session.answer(p, true))).active = !waiting;
             above -= 6;
         }
         // The transcript fills the rest of its well.
         areaTop = transcriptTop;
         view.setBounds(wx0, areaTop + 5, wx1 - wx0, Math.max(0, above - (areaTop + 5)));
 
-        if (!started) {
-            started = true;
-            refresh();
-            loadSeat();
-        }
+        session.start();
     }
 
     @Override
@@ -347,309 +309,19 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         return w + 16;
     }
 
-    // ── loading and streaming ───────────────────────────────────────────────
-
-    private void refresh() {
-        if (closed) return;
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                Api.Conversation conv = c.open(slot);
-                onMain(() -> {
-                    failures = 0;
-                    show(conv);
-                });
-            } catch (IOException e) {
-                onMain(() -> {
-                    status = "Could not load: " + e.getMessage();
-                    if (++failures >= FAILURES_BEFORE_REDISCOVERY) rediscover();
-                    else refreshLater();
-                });
-            }
-        });
-    }
-
-    /** Agent Office picks a new port on every launch: after repeated failures, find it again. */
-    private void rediscover() {
-        failures = 0;
-        Connection.client().whenComplete((found, err) -> onMain(() -> {
-            if (found != null) client = found;
-            refreshLater();
-        }));
-    }
-
-    private void refreshLater() {
-        if (closed || refreshPending) return;
-        refreshPending = true;
-        int delay = backoffMs;
-        backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
-        CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS, Connection.IO).execute(() -> onMain(() -> {
-            refreshPending = false;
-            refresh();
-        }));
-    }
-
-    /** The seat's own model/effort and the agent's defaults, for the header pickers. */
-    private void loadSeat() {
-        AgentOfficeClient c = client;
-        // Behind any PATCH already queued, so it reads what that PATCH wrote.
-        SEAT_QUEUE.execute(() -> {
-            try {
-                Api.Instance found = null;
-                for (Api.Instance i : c.instances(new Api.Project(slot.projectId(), slot.projectName(), 0))) {
-                    if (i.slot().instanceId().equals(slot.instanceId())) found = i;
-                }
-                Api.Agent def = null;
-                for (Api.Agent a : c.agents()) {
-                    if (a.name().equals(slot.agentId())) def = a;
-                }
-                Api.Instance s = found;
-                Api.Agent d = def;
-                onMain(() -> {
-                    // A click not sent yet is newer than what the server had: keep showing it.
-                    Api.Instance shown = s;
-                    if (shown != null && unsentSeat.has("model")) {
-                        shown = new Api.Instance(shown.slot(), unsentSeat.get("model").getAsString(), shown.effort(), shown.permissionMode());
-                    }
-                    if (shown != null && unsentSeat.has("effort")) {
-                        shown = new Api.Instance(shown.slot(), shown.model(), unsentSeat.get("effort").getAsString(), shown.permissionMode());
-                    }
-                    seat = shown;
-                    agent = d;
-                    rebuildWidgets();
-                });
-            } catch (IOException e) {
-                onMain(() -> flash("Couldn't read this seat's settings: " + e.getMessage()));
-            }
-        });
-    }
+    // ── what the player does ────────────────────────────────────────────────
 
     private void send() {
-        if (conversation == null) return;
-        if (pasting || attachments.stream().anyMatch(a -> a.path() == null)) {
-            flash("Still uploading the image…");
-            return;
+        if (session.send(input.getValue())) {
+            input.setValue("");
+            view.scrollToBottom();
         }
-        String typed = input.getValue();
-        List<Attached> sending = List.copyOf(attachments);
-        String text = Attachments.compose(typed, sending.stream().map(Attached::path).toList());
-        if (text == null) return;
-        input.setValue("");
-        attachments.clear();
-        rebuildWidgets();
-        view.scrollToBottom();
-        String id = conversation.id();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                Api.Conversation conv = c.send(id, text);
-                onMain(() -> show(conv));
-            } catch (IOException e) {
-                onMain(() -> {
-                    flash("Not sent: " + e.getMessage());
-                    if (input.getValue().isEmpty()) input.setValue(typed.trim());
-                    attachments.addAll(0, sending);
-                    rebuildWidgets();
-                });
-            }
-        });
     }
 
     /** Ctrl+V (Cmd+V on a Mac), from the key event's own modifiers rather than what the keyboard holds right now. */
     private static boolean isPaste(int keyCode, int modifiers) {
         int command = Minecraft.ON_OSX ? GLFW.GLFW_MOD_SUPER : GLFW.GLFW_MOD_CONTROL;
         return keyCode == GLFW.GLFW_KEY_V && (modifiers & command) != 0 && (modifiers & (GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_ALT)) == 0;
-    }
-
-    /** An image pasted into the composer: its name, and where Agent Office saved it (null while uploading). */
-    private record Attached(String name, String path) {}
-
-    /**
-     * Ctrl+V with no text on the clipboard: its image (if any) is uploaded to the project and attached to the
-     * next message, as in the web app.
-     */
-    private void pasteImage() {
-        if (pasting) return;
-        pasting = true;
-        flash("Reading the clipboard…");
-        String projectId = slot.projectId();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            Attached[] uploading = new Attached[1];
-            try {
-                Optional<ClipboardImages.Clip> clip = ClipboardImages.read(c);
-                if (clip.isEmpty()) {
-                    onMain(() -> {
-                        pasting = false;
-                        flash("Nothing to paste: no text or image on the clipboard.");
-                    });
-                    return;
-                }
-                uploading[0] = new Attached(clip.get().filename(), null);
-                onMain(() -> {
-                    attachments.add(uploading[0]);
-                    rebuildWidgets();
-                });
-                String path = c.upload(projectId, clip.get().filename(), clip.get().contentType(), clip.get().data());
-                onMain(() -> {
-                    pasting = false;
-                    int i = attachments.indexOf(uploading[0]);
-                    // The name the server saved it under (it may tidy it), as the web composer shows.
-                    if (i >= 0) attachments.set(i, new Attached(Path.of(path).getFileName().toString(), path));
-                    flash("Attached " + uploading[0].name() + ".");
-                    rebuildWidgets();
-                });
-            } catch (IOException | RuntimeException e) {
-                onMain(() -> {
-                    pasting = false;
-                    if (uploading[0] != null) attachments.remove(uploading[0]);
-                    flash("Couldn't paste the image: " + e.getMessage());
-                    rebuildWidgets();
-                });
-            }
-        });
-    }
-
-    private void stop() {
-        if (busy || conversation == null || !conversation.running()) return;
-        String runId = conversation.activeRunId();
-        busy = true;
-        rebuildWidgets();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                boolean aborted = c.abort(runId);
-                onMain(() -> {
-                    busy = false;
-                    flash(aborted ? "Stopped." : "That run had already finished.");
-                    rebuildWidgets();
-                    refresh();
-                });
-            } catch (IOException e) {
-                onMain(() -> {
-                    busy = false;
-                    flash("Couldn't stop: " + e.getMessage());
-                    rebuildWidgets();
-                });
-            }
-        });
-    }
-
-    /** retry / resume / skip after needs_attention, or new for a fresh thread. */
-    private void act(Protocol.Action action) {
-        if (busy || conversation == null) return;
-        String id = conversation.id();
-        busy = true;
-        rebuildWidgets();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                Api.Conversation conv = c.act(id, action);
-                onMain(() -> {
-                    busy = false;
-                    if (action == Protocol.Action.NEW) {
-                        closeStream();
-                        live = null;
-                    }
-                    show(conv);
-                    rebuildWidgets();
-                });
-            } catch (IOException e) {
-                onMain(() -> {
-                    busy = false;
-                    flash("Couldn't " + action.label().toLowerCase(Locale.ROOT) + ": " + e.getMessage());
-                    rebuildWidgets();
-                });
-            }
-        });
-    }
-
-    /**
-     * A picker click changes the shown value at once and sends one PATCH once the clicks settle, with
-     * the final value: cycling never fires a PATCH per intermediate value, and rebuilds never show a
-     * stale one.
-     */
-    private void changeSeat(String field, String value) {
-        if (seat == null) return;
-        seat = "model".equals(field)
-                ? new Api.Instance(seat.slot(), value, seat.effort(), seat.permissionMode())
-                : new Api.Instance(seat.slot(), seat.model(), value, seat.permissionMode());
-        unsentSeat.addProperty(field, value);
-        seatPatchIn = SEAT_PATCH_DELAY_TICKS;
-    }
-
-    /** Seat reads and writes run one at a time, in order, even across closing and reopening the chat. */
-    private static final ExecutorService SEAT_QUEUE = Executors.newSingleThreadExecutor(Ids.daemon("seat"));
-
-    private void sendSeatPatch(boolean report) {
-        if (unsentSeat.size() == 0) return;
-        JsonObject patch = unsentSeat.deepCopy();
-        for (String key : patch.keySet()) unsentSeat.remove(key);
-        AgentOfficeClient c = client;
-        SEAT_QUEUE.execute(() -> {
-            try {
-                c.patchInstance(slot, patch);
-                if (report) onMain(() -> {
-                    List<String> changes = new ArrayList<>();
-                    for (String key : patch.keySet()) {
-                        String v = patch.get(key).getAsString();
-                        changes.add(cap(key) + " → " + (v.isEmpty() ? "agent default" : v));
-                    }
-                    flash(String.join(", ", changes) + " (from the next message, for this seat)");
-                });
-            } catch (IOException e) {
-                if (report) onMain(() -> {
-                    flash("Couldn't change " + String.join("/", patch.keySet()) + ": " + e.getMessage());
-                    loadSeat(); // show what the server really has
-                });
-            }
-        });
-    }
-
-    private void loadPermissions() {
-        if (conversation == null || !conversation.running()) {
-            if (!pending.isEmpty()) {
-                pending = List.of();
-                answering.clear();
-                rebuildWidgets();
-            }
-            return;
-        }
-        String runId = conversation.activeRunId();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                List<Api.Permission> found = c.permissions(runId);
-                onMain(() -> {
-                    if (!found.equals(pending)) {
-                        pending = found;
-                        answering.removeIf(id -> found.stream().noneMatch(p -> p.id().equals(id)));
-                        rebuildWidgets();
-                    }
-                });
-            } catch (IOException ignored) {
-                // The run may have just ended; the next poll or refresh settles it.
-            }
-        });
-    }
-
-    private void answer(Api.Permission p, boolean allow) {
-        if (!answering.add(p.id())) return;
-        rebuildWidgets();
-        AgentOfficeClient c = client;
-        Connection.IO.execute(() -> {
-            try {
-                c.answerPermission(p.runId(), p.id(), allow);
-                onMain(this::loadPermissions);
-            } catch (IOException e) {
-                onMain(() -> {
-                    answering.remove(p.id());
-                    flash("Couldn't answer: " + e.getMessage());
-                    loadPermissions();
-                    rebuildWidgets();
-                });
-            }
-        });
     }
 
     /** Everything the tool would get (a Write's content, an Edit's old/new text), for the hover. */
@@ -682,76 +354,6 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         return p.input();
     }
 
-    /** Rebuilds the thread from the server's view and follows the active run, if any. */
-    private void show(Api.Conversation c) {
-        boolean statusChanged = conversation == null || !Objects.equals(c.status(), conversation.status())
-                || c.running() != conversation.running() || !Objects.equals(c.id(), conversation.id());
-        conversation = c;
-        history = Transcript.history(c);
-        boolean sameLiveRun = c.running() && c.activeRunId().equals(streamingRunId);
-        if (!sameLiveRun) live = null;
-        status = statusText(c);
-
-        if (!c.running()) {
-            backoffMs = MIN_BACKOFF_MS;
-        } else if (sameLiveRun) {
-            // Already following it.
-        } else if (c.activeRunId().equals(endedRunId)) {
-            status = "Working… (waiting for this run to finish)";
-            refreshLater();
-        } else {
-            // Re-attaching after a dropped stream keeps the backoff; a new run starts fresh.
-            if (!c.activeRunId().equals(lastFollowedRunId)) backoffMs = MIN_BACKOFF_MS;
-            follow(c.activeRunId());
-        }
-        pushItems();
-        loadPermissions();
-        if (statusChanged) rebuildWidgets();
-    }
-
-    private void pushItems() {
-        List<Transcript.Item> items = new ArrayList<>(history);
-        if (live != null) items.addAll(live.items());
-        if (conversation != null && conversation.queued() > 0) {
-            items.add(new Transcript.Note(conversation.queued() + " message(s) queued — they run after this one.", false));
-        }
-        view.setItems(items);
-    }
-
-    private void follow(String runId) {
-        closeStream();
-        streamingRunId = runId;
-        lastFollowedRunId = runId;
-        streamSawEnd = false;
-        live = new Transcript.Live();
-        stream = client.stream(runId, Connection.IO, event -> onMain(() -> onEvent(runId, event)), err -> onMain(() -> {
-            if (!runId.equals(streamingRunId)) return;
-            streamingRunId = null;
-            stream = null;
-            // Only a real end marks the run; after a drop, the refresh re-attaches and the server
-            // replays the whole run ("attached" + event log).
-            endedRunId = streamSawEnd ? runId : null;
-            if (err != null) flash("Lost the live stream: " + err.getMessage());
-            refreshLater();
-        }));
-    }
-
-    private void onEvent(String runId, Api.Event event) {
-        if (!runId.equals(streamingRunId) || live == null) return;
-        if (!live.apply(event)) {
-            if (Protocol.Event.PERMISSION_REQUEST.equals(event.name())) loadPermissions();
-            return;
-        }
-        switch (event.name()) {
-            case Protocol.Event.DONE, Protocol.Event.ERROR -> streamSawEnd = true;
-            case Protocol.Event.ATTACHED -> loadPermissions(); // requests aren't replayed: read what's parked now
-            default -> { }
-        }
-        String tool = live.runningTool();
-        if (conversation != null && conversation.running()) status = tool != null ? "Working: " + tool : "Working…";
-        pushItems();
-    }
-
     // ── input ───────────────────────────────────────────────────────────────
 
     @Override
@@ -763,7 +365,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         }
         // Text on the clipboard pastes as text (the box does it); nothing but an image goes up as an attachment.
         if (isPaste(keyCode, modifiers) && input != null && input.isFocused() && minecraft.keyboardHandler.getClipboard().isEmpty()) {
-            pasteImage();
+            session.paste(ClipboardImages::read);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -791,10 +393,8 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     @Override
     public void tick() {
         super.tick();
-        ticks++;
         if (flashTicks > 0) flashTicks--;
-        if (seatPatchIn > 0 && --seatPatchIn == 0) sendSeatPatch(true);
-        if (ticks % PERMISSION_POLL_TICKS == 0) loadPermissions();
+        session.tick();
     }
 
     // ── drawing ─────────────────────────────────────────────────────────────
@@ -829,6 +429,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         // Status dot, the agent, which of its sessions this is, then the status, on the window like a
         // container title. The project is the selected tab. Short of room, the status goes first, then
         // the session, then the name is cut.
+        Api.Conversation conversation = session.conversation();
         g.blitSprite(Theme.dot(conversation == null ? null : conversation.status()), left, top + 7, 6, 6);
         int tx = left + 10;
         int end = headerRight - 8;
@@ -840,7 +441,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         if (end - tx >= font.width(which)) {
             g.drawString(font, which, tx, ty, PANEL_MUTED, false);
             tx += font.width(which) + 6;
-            String state = flashTicks > 0 && flash != null ? flash : status;
+            String state = flashTicks > 0 && flash != null ? flash : session.status();
             if (end - tx > 24) {
                 g.drawString(font, WorkspaceScreen.cut(font, state, end - tx), tx, ty, flashTicks > 0 ? PANEL_TEXT : statusColor(), false);
             }
@@ -851,7 +452,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             int cx = (x0 + x1) / 2;
             int cy = (areaTop + areaBottom) / 2;
             if (conversation == null) {
-                g.drawCenteredString(font, WorkspaceScreen.cut(font, status, x1 - x0 - 16), cx, cy - 4, Theme.TXT_4);
+                g.drawCenteredString(font, WorkspaceScreen.cut(font, session.status(), x1 - x0 - 16), cx, cy - 4, Theme.TXT_4);
             } else {
                 g.drawCenteredString(font, Component.literal(slot.displayName()).withStyle(s -> s.withBold(true)), cx, cy - 16, Theme.GREEN);
                 g.drawCenteredString(font, "No messages yet", cx, cy - 2, Theme.TXT_3);
@@ -881,6 +482,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     }
 
     private int statusColor() {
+        Api.Conversation conversation = session.conversation();
         if (conversation == null) return PANEL_MUTED;
         if (conversation.running()) return PANEL_WORKING;
         if (conversation.needsAttention()) return PANEL_ATTENTION;
@@ -897,49 +499,19 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     /** Also runs when an image or a link prompt opens on top; {@link #added} brings the chat back. */
     @Override
     protected void onRemoved() {
-        closed = true;
         super.onRemoved();
-        closeStream();
-        // A picker change still settling must not be lost because the screen went away.
-        seatPatchIn = 0;
-        sendSeatPatch(false);
+        // A picker change still settling goes out now: it must not be lost because the screen went away.
+        session.close();
     }
 
     @Override
     public void added() {
-        if (!closed) return;
-        closed = false;
-        started = false;
-        busy = false; // its result may have been dropped while closed
-        answering.clear();
-        refreshPending = false; // its delayed refresh was dropped while closed
-        pasting = false; // so was a paste's ending: its chip would wait forever
-        attachments.removeIf(a -> a.path() == null);
-    }
-
-    private void closeStream() {
-        streamingRunId = null;
-        if (stream == null) return;
-        try {
-            stream.close();
-        } catch (IOException ignored) {
-            // Already closed by the server; nothing left to release.
-        }
-        stream = null;
+        session.reopen();
     }
 
     private void flash(String message) {
         flash = message;
         flashTicks = 100;
-    }
-
-    private static String statusText(Api.Conversation c) {
-        String base = switch (c.status() == null ? "" : c.status()) {
-            case Protocol.Conversation.RUNNING -> "Working…";
-            case Protocol.Conversation.NEEDS_ATTENTION -> "Needs attention";
-            default -> "Idle";
-        };
-        return c.queued() > 0 ? base + "  ·  " + c.queued() + " queued" : base;
     }
 
     private static String nz(String s) {
@@ -948,16 +520,5 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
 
     private static String def(String agentDefault) {
         return agentDefault == null || agentDefault.isEmpty() ? "default" : agentDefault;
-    }
-
-    private static String cap(String s) {
-        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
-    }
-
-    /** Runs on the main thread, and not at all once this screen is gone. */
-    private void onMain(Runnable r) {
-        Minecraft.getInstance().execute(() -> {
-            if (!closed) r.run();
-        });
     }
 }

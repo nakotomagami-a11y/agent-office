@@ -1,20 +1,19 @@
 package dev.agentoffice.mc.client.screen;
 
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
+import dev.agentoffice.mc.client.service.SeatAdder;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
-import java.io.IOException;
+import dev.agentoffice.mc.core.Async;
 import java.util.List;
 import java.util.Locale;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
 
 /** Picks an agent definition and adds a seat for it to a project. */
@@ -62,23 +61,16 @@ final class AddAgentScreen extends TabletScreen {
         for (int i = scroll; i < Math.min(shown.size(), scroll + visible); i++) {
             Api.Agent a = shown.get(i);
             addRenderableWidget(new FlatButton(x1 - 46, listTop + (i - scroll) * ROW + 5, 42, 14, "Add", FlatButton.Kind.PRIMARY,
-                    b -> add(a, false))).active = !adding;
+                    b -> add(a))).active = !adding;
         }
         setInitialFocus(filter);
         if (!started) {
             started = true;
-            Connection.IO.execute(() -> {
-                try {
-                    List<Api.Agent> found = client.agents();
-                    Minecraft.getInstance().execute(() -> {
-                        agents = found;
-                        status = found.size() + " agents";
-                        if (minecraft.screen == this) rebuildWidgets();
-                    });
-                } catch (IOException e) {
-                    Minecraft.getInstance().execute(() -> status = "Couldn't list agents: " + e.getMessage());
-                }
-            });
+            AgentOffice.call(client, () -> true, AgentOfficeClient::agents, found -> {
+                agents = found;
+                status = found.size() + " agents";
+                if (minecraft.screen == this) rebuildWidgets();
+            }, e -> status = "Couldn't list agents: " + Async.message(e));
         }
     }
 
@@ -89,47 +81,21 @@ final class AddAgentScreen extends TabletScreen {
                 || (a.description() != null && a.description().toLowerCase(Locale.ROOT).contains(q))).toList();
     }
 
-    private void add(Api.Agent agent, boolean force) {
+    /** Through SeatAdder like every seat added: a slow worktree that times out never ends up as two seats. */
+    private void add(Api.Agent agent) {
         if (adding) return;
         adding = true;
         status = "Adding " + AgentNames.of(agent.name()) + "…";
         rebuildWidgets();
-        Connection.IO.execute(() -> {
-            try {
-                client.addInstance(project.id(), agent.name(), force);
-                Minecraft.getInstance().execute(() -> {
-                    // Only if the player is still here: never pull them out of the game.
-                    if (Minecraft.getInstance().screen == this) Minecraft.getInstance().setScreen(parent);
-                    parent.load();
-                });
-            } catch (Api.ApiException e) {
-                Minecraft.getInstance().execute(() -> {
-                    adding = false;
-                    // Only the soft cap can be overridden; at the hard cap the server always says no.
-                    if ("INSTANCE_CAP_EXCEEDED".equals(e.code) && e.softCap && !force && minecraft.screen == this) {
-                        confirmOverCap(agent);
-                    } else {
-                        status = "Couldn't add: " + e.getMessage();
-                        if (minecraft.screen == this) rebuildWidgets();
-                    }
-                });
-            } catch (IOException e) {
-                Minecraft.getInstance().execute(() -> {
-                    adding = false;
-                    status = "Couldn't add: " + e.getMessage();
-                    if (minecraft.screen == this) rebuildWidgets();
-                });
-            }
+        SeatAdder.add(this, client, project, agent.name(), slot -> {
+            // Only if the player is still here: never pull them out of the game.
+            if (minecraft.screen == this) minecraft.setScreen(parent);
+            parent.load();
+        }, message -> {
+            adding = false;
+            status = message;
+            if (minecraft.screen == this) rebuildWidgets();
         });
-    }
-
-    private void confirmOverCap(Api.Agent agent) {
-        minecraft.setScreen(new ConfirmScreen(yes -> {
-            minecraft.setScreen(this);
-            if (yes) add(agent, true);
-        }, Component.literal(project.name() + " already has a lot of agents"),
-                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + AgentNames.of(agent.name()) + " anyway?"),
-                Component.literal("Add anyway"), Component.literal("Cancel")));
     }
 
     @Override

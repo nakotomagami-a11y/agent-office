@@ -1,23 +1,21 @@
 package dev.agentoffice.mc.client.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.agentoffice.mc.client.service.AgentStatus;
 import dev.agentoffice.mc.client.service.Bodies;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.SeatAdder;
+import dev.agentoffice.mc.client.service.WorkspaceStore;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
-import dev.agentoffice.mc.core.Protocol;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -30,8 +28,8 @@ import net.minecraft.util.FormattedCharSequence;
 /**
  * The tablet laid out like Agent Office's window: the desktop app's open projects as tabs on the
  * window's top edge (vanilla's advancement tabs), the project's roster (each agent and its sessions, a
- * vanilla selection list in a well) on the left, the screen's own content (a chat) in the rest. What it knows of the office is shared by every workspace screen (main thread
- * only), so moving between sessions never starts from an empty sidebar.
+ * vanilla selection list in a well) on the left, the screen's own content (a chat) in the rest. What it shows of
+ * the office is {@link WorkspaceStore}'s, shared by every workspace screen; agents' statuses are {@link AgentStatus}'s.
  */
 public abstract class WorkspaceScreen extends TabletScreen {
     /** The sidebar takes a fifth of the screen, within these. */
@@ -50,31 +48,6 @@ public abstract class WorkspaceScreen extends TabletScreen {
     private static final ResourceLocation TAB = ResourceLocation.withDefaultNamespace("advancements/tab_above_middle");
     private static final ResourceLocation TAB_SELECTED = ResourceLocation.withDefaultNamespace("advancements/tab_above_middle_selected");
     private static final int REFRESH_TICKS = 100;
-    private static final long STALE_MS = 4_000;
-    /** Projects, the app's tabs and every tab's roster; the shown project is polled more often. */
-    private static final long FULL_STALE_MS = 30_000;
-
-    private static AgentOfficeClient client;
-    private static List<Api.Project> projects = List.of();
-    private static List<String> openTabs = List.of();
-    private static final Map<String, List<Api.Instance>> rosters = new HashMap<>();
-    private static final Map<String, String> statuses = new HashMap<>();
-    private static final Map<String, Api.Slot> lastSlot = new HashMap<>();
-    private static final Set<String> collapsed = new HashSet<>();
-    private static final Map<String, Double> scrolls = new HashMap<>();
-    private static String lastProject;
-    private static String problem;
-    /** What "+ New session" is doing or why it failed; refreshes leave it alone. */
-    private static String addNote;
-    private static long addingSince;
-    private static long addNoteUntil;
-    /** SeatAdder gives up within about four minutes; a confirm screen dropped meanwhile never calls back. */
-    private static final long ADD_EXPIRES_MS = 240_000;
-    private static long loadedAt;
-    private static long fullLoadedAt;
-    private static boolean loading;
-    /** Bumped when what is loaded is known to be out of date (a session added). */
-    private static int generation;
 
     private sealed interface Entry permits Group, Session, Add {}
 
@@ -84,14 +57,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
     private record Add(String agentId) implements Entry {}
 
-    private record Loaded(AgentOfficeClient client, List<Api.Project> projects, List<String> tabs,
-                          Map<String, List<Api.Instance>> rosters, Map<String, String> statuses) {}
-
     private int wsTicks;
-
-    private static boolean adding() {
-        return addingSince > 0 && System.currentTimeMillis() - addingSince < ADD_EXPIRES_MS;
-    }
     private Roster roster;
     private String rosterProject;
     private List<FormattedCharSequence> noteLines = List.of();
@@ -120,25 +86,16 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
     /** The tablet opens where it was left: the last chat, else its project, else the first tab. */
     public static void openHome(Minecraft mc) {
-        Api.Slot last = lastProject == null ? null : remembered(lastProject);
-        mc.setScreen(last != null && client != null ? new ChatScreen(null, client, last) : new ProjectScreen(lastProject));
-    }
-
-    /** The last chat in that project, unless its session was removed since. */
-    private static Api.Slot remembered(String projectId) {
-        Api.Slot last = lastSlot.get(projectId);
-        List<Api.Instance> roster = rosters.get(projectId);
-        if (last != null && roster != null && roster.stream().noneMatch(i -> i.slot().instanceId().equals(last.instanceId()))) {
-            lastSlot.remove(projectId);
-            return null;
-        }
-        return last;
+        String project = WorkspaceStore.lastProject();
+        Api.Slot last = project == null ? null : WorkspaceStore.lastSlot(project);
+        AgentOfficeClient client = WorkspaceStore.client();
+        mc.setScreen(last != null && client != null ? new ChatScreen(null, client, last) : new ProjectScreen(project));
     }
 
     /** That session's chat. {@code moveBody}: the agent's body in this world talks to it from now on. */
     static void openSlot(Api.Slot slot, boolean moveBody) {
         Minecraft mc = Minecraft.getInstance();
-        AgentOfficeClient c = client;
+        AgentOfficeClient c = WorkspaceStore.client();
         if (c == null) return;
         if (moveBody) {
             Api.Slot standing = Bodies.seatOf(mc, slot);
@@ -155,7 +112,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
     /** "Session N" by roster order, as Agent Office shows it, unless the session has a label. */
     static String sessionName(Api.Slot slot) {
         if (slot.label() != null && !slot.label().isBlank()) return slot.label();
-        List<Api.Instance> roster = rosters.get(slot.projectId());
+        List<Api.Instance> roster = WorkspaceStore.roster(slot.projectId());
         if (roster != null) {
             int n = 0;
             for (Api.Instance i : roster) {
@@ -173,15 +130,11 @@ public abstract class WorkspaceScreen extends TabletScreen {
         super.init();
         String current = projectId();
         Api.Slot active = activeSlot();
-        if (active != null) {
-            lastSlot.put(active.projectId(), active);
-            lastProject = active.projectId();
-        } else if (current != null) {
-            lastProject = current;
-        }
-        long age = System.currentTimeMillis() - loadedAt;
-        if (System.currentTimeMillis() - fullLoadedAt > FULL_STALE_MS) refresh(current, true);
-        else if (age > STALE_MS) refresh(current, false);
+        if (active != null) WorkspaceStore.opened(active);
+        else if (current != null) WorkspaceStore.openedProject(current);
+        WorkspaceStore.refreshIfStale(current, outcome -> refreshed(current, outcome));
+        List<Api.Instance> shownRoster = WorkspaceStore.roster(current);
+        AgentStatus.watch(this, shownRoster == null ? List.of() : shownRoster.stream().map(Api.Instance::slot).toList());
 
         boolean narrow = sidebarWidth() == 0;
         int manageW = font.width("Manage") + 16;
@@ -194,7 +147,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
         }
 
         int sw = sidebarWidth();
-        String note = addNote != null ? addNote : problem;
+        String note = WorkspaceStore.addNote() != null ? WorkspaceStore.addNote() : WorkspaceStore.problem();
         noteLines = note == null ? List.of() : font.split(Component.literal(note), sw - 12);
         int listBottom = bottom - 26 - (noteLines.isEmpty() ? 0 : noteLines.size() * 10 + 4);
         // Inside the roster's well (1-px bevel), which ends 6 short of the chat column.
@@ -217,24 +170,25 @@ public abstract class WorkspaceScreen extends TabletScreen {
             }
         }
         rosterProject = current;
-        roster.setScrollAmount(scrolls.getOrDefault(current, 0.0));
+        roster.setScrollAmount(WorkspaceStore.scroll(current));
         addRenderableWidget(roster);
         addRenderableWidget(new FlatButton(frameLeft, bottom - 20, sw - 6, 20, "Manage agents", FlatButton.Kind.NORMAL,
                 b -> minecraft.setScreen(new OfficeScreen())));
     }
 
     private void saveScroll() {
-        if (roster != null && rosterProject != null) scrolls.put(rosterProject, roster.getScrollAmount());
+        if (roster != null && rosterProject != null) WorkspaceStore.scroll(rosterProject, roster.getScrollAmount());
     }
 
     @Override
     protected void onRemoved() {
         saveScroll();
+        AgentStatus.unwatch(this);
     }
 
     /** Every tab shrinks before any is dropped, and the shown project's tab is never the one dropped. */
     private void addTabs(String current, int reserved) {
-        List<Api.Project> tabs = tabProjects(current);
+        List<Api.Project> tabs = WorkspaceStore.tabProjects(current);
         int x0 = panelLeft;
         // Clear of the panel's rounded top-right corner (unless Manage already sits there).
         int avail = panelRight - (reserved == 0 ? 4 : 0) - x0 - reserved;
@@ -252,40 +206,27 @@ public abstract class WorkspaceScreen extends TabletScreen {
         }
     }
 
-    /** The desktop app's open tabs; all projects when it has none. The shown project is always a tab. */
-    private static List<Api.Project> tabProjects(String current) {
-        List<Api.Project> out = new ArrayList<>();
-        for (String id : openTabs) {
-            for (Api.Project p : projects) if (p.id().equals(id)) out.add(p);
-        }
-        if (out.isEmpty()) out.addAll(projects);
-        if (current != null && out.stream().noneMatch(p -> p.id().equals(current))) {
-            projects.stream().filter(p -> p.id().equals(current)).findFirst().ifPresent(out::add);
-        }
-        return out;
-    }
-
     static String firstTab() {
-        List<Api.Project> tabs = tabProjects(null);
+        List<Api.Project> tabs = WorkspaceStore.tabProjects(null);
         return tabs.isEmpty() ? null : tabs.get(0).id();
     }
 
     /** For a screen with nothing open yet: why the workspace is empty, or null when it isn't. */
     static String emptyReason() {
-        if (problem != null) return problem;
-        if (client == null || loading && projects.isEmpty()) return "Connecting to Agent Office…";
-        return projects.isEmpty() ? "No projects in Agent Office yet." : null;
+        if (WorkspaceStore.problem() != null) return WorkspaceStore.problem();
+        if (WorkspaceStore.client() == null || WorkspaceStore.loading() && WorkspaceStore.projects().isEmpty()) return "Connecting to Agent Office…";
+        return WorkspaceStore.projects().isEmpty() ? "No projects in Agent Office yet." : null;
     }
 
     private static List<Entry> entries(String projectId) {
         List<Entry> out = new ArrayList<>();
-        List<Api.Instance> roster = projectId == null ? null : rosters.get(projectId);
+        List<Api.Instance> roster = WorkspaceStore.roster(projectId);
         if (roster == null) return out;
         Map<String, List<Api.Slot>> byAgent = new LinkedHashMap<>();
         for (Api.Instance i : roster) byAgent.computeIfAbsent(i.slot().agentId(), k -> new ArrayList<>()).add(i.slot());
         byAgent.forEach((agent, slots) -> {
             out.add(new Group(agent, slots.size()));
-            if (collapsed.contains(projectId + "/" + agent)) return;
+            if (WorkspaceStore.collapsed(projectId + "/" + agent)) return;
             for (int n = 0; n < slots.size(); n++) out.add(new Session(slots.get(n), n + 1));
             out.add(new Add(agent));
         });
@@ -294,127 +235,54 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
     /** A tab click never moves a body: only picking a session does. */
     private void openProject(String id) {
-        List<Api.Instance> roster = rosters.get(id);
-        Api.Slot last = remembered(id);
+        List<Api.Instance> roster = WorkspaceStore.roster(id);
+        Api.Slot last = WorkspaceStore.lastSlot(id);
         if (last == null && roster != null && !roster.isEmpty()) last = roster.get(0).slot();
-        if (last != null && client != null) {
+        if (last != null && WorkspaceStore.client() != null) {
             openSlot(last, false);
             return;
         }
-        lastProject = id;
+        WorkspaceStore.openedProject(id);
         if (!id.equals(projectId())) minecraft.setScreen(new ProjectScreen(id));
     }
 
     private void addSession(String projectId, String agentId) {
-        Api.Project project = projects.stream().filter(p -> p.id().equals(projectId)).findFirst().orElse(null);
-        if (project == null || client == null || adding()) return;
-        addingSince = System.currentTimeMillis();
-        addNoteUntil = Long.MAX_VALUE;
-        addNote = "Adding a " + AgentNames.of(agentId) + " session… (making a git worktree can take a while)";
+        Api.Project project = WorkspaceStore.project(projectId);
+        AgentOfficeClient client = WorkspaceStore.client();
+        if (project == null || client == null || WorkspaceStore.adding()) return;
+        WorkspaceStore.addStarted(agentId);
         rebuildWidgets();
         SeatAdder.add(this, client, project, agentId, slot -> {
-            addingSince = 0;
-            addNote = null;
-            generation++;
+            WorkspaceStore.added();
             refresh(projectId, false);
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen == this) openSlot(slot, true);
             else mc.gui.setOverlayMessage(Component.literal("Added a " + AgentNames.of(agentId) + " session to " + project.name()), false);
         }, msg -> {
-            addingSince = 0;
-            addNote = msg;
-            addNoteUntil = System.currentTimeMillis() + 10_000;
+            WorkspaceStore.addFailed(msg);
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof WorkspaceScreen ws) ws.rebuildWidgets();
             else mc.gui.setOverlayMessage(Component.literal(msg), false);
         });
     }
 
-    /**
-     * The shown project's roster and session statuses; with {@code full}, also the projects, the app's
-     * tabs and every tab's roster. A project that fails to load keeps what was known of it.
-     */
     private static void refresh(String focus, boolean full) {
-        if (loading) return;
-        loading = true;
-        int gen = generation;
-        List<Api.Project> knownProjects = projects;
-        List<String> knownTabs = openTabs;
-        Connection.client().thenApplyAsync(c -> {
-            try {
-                List<Api.Project> ps = full || knownProjects.isEmpty() ? c.projects() : knownProjects;
-                List<String> tabs = knownTabs;
-                if (full) {
-                    try {
-                        tabs = c.openTabs();
-                    } catch (IOException e) {
-                        tabs = List.of(); // an older app without the setting: every project is a tab
-                    }
-                }
-                Map<String, List<Api.Instance>> rs = new HashMap<>();
-                for (Api.Project p : ps) {
-                    boolean wanted = p.id().equals(focus) || full && (tabs.isEmpty() || tabs.contains(p.id()));
-                    if (!wanted) continue;
-                    try {
-                        rs.put(p.id(), c.instances(p));
-                    } catch (IOException | RuntimeException e) {
-                        // keep what was known of this one
-                    }
-                }
-                Map<String, String> st = new HashMap<>();
-                for (Api.Instance i : rs.getOrDefault(focus, List.of())) {
-                    try {
-                        st.put(i.slot().instanceId(), c.current(i.slot()).map(Api.Conversation::status).orElse(Protocol.Conversation.IDLE));
-                    } catch (IOException | RuntimeException e) {
-                        st.put(i.slot().instanceId(), "unknown");
-                    }
-                }
-                return new Loaded(c, ps, tabs, rs, st);
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }, Connection.IO).whenComplete((r, err) -> Minecraft.getInstance().execute(() -> {
-            loading = false;
-            long now = System.currentTimeMillis();
-            boolean changed;
-            if (err != null) {
-                String was = problem;
-                problem = "Agent Office isn't reachable (" + OfficeScreen.rootMessage(err) + ")";
-                changed = !problem.equals(was);
-                loadedAt = now;
-            } else {
-                changed = !r.projects().equals(projects) || !r.tabs().equals(openTabs) || problem != null
-                        || r.rosters().entrySet().stream().anyMatch(e -> !e.getValue().equals(rosters.get(e.getKey())))
-                        || r.statuses().entrySet().stream().anyMatch(e -> !e.getValue().equals(statuses.get(e.getKey())));
-                client = r.client();
-                projects = r.projects();
-                openTabs = r.tabs();
-                rosters.putAll(r.rosters());
-                statuses.putAll(r.statuses());
-                problem = null;
-                if (gen == generation) {
-                    loadedAt = now;
-                    if (full) fullLoadedAt = now;
-                }
-            }
-            Minecraft mc = Minecraft.getInstance();
-            if (!(mc.screen instanceof WorkspaceScreen ws)) return;
-            // Out of date already (another project shown, or a session added meanwhile): go again.
-            String shown = ws.projectId();
-            if (gen != generation || shown != null && !shown.equals(focus)) refresh(shown, false);
-            if (changed) ws.rebuildWidgets();
-        }));
+        WorkspaceStore.refresh(focus, full, outcome -> refreshed(focus, outcome));
+    }
+
+    /** A refresh landed: whatever workspace screen is up shows it, and one that is out of date already goes again. */
+    private static void refreshed(String focus, WorkspaceStore.Outcome outcome) {
+        if (!(Minecraft.getInstance().screen instanceof WorkspaceScreen ws)) return;
+        String shown = ws.projectId();
+        if (outcome.superseded() || shown != null && !shown.equals(focus)) refresh(shown, false);
+        if (outcome.changed()) ws.rebuildWidgets();
     }
 
     @Override
     public void tick() {
         super.tick();
-        long now = System.currentTimeMillis();
-        if (++wsTicks % REFRESH_TICKS == 0) refresh(projectId(), now - fullLoadedAt > FULL_STALE_MS);
-        if (addNote != null && now > addNoteUntil) {
-            addNote = null;
-            rebuildWidgets();
-        }
+        if (++wsTicks % REFRESH_TICKS == 0) refresh(projectId(), WorkspaceStore.fullDue());
+        if (WorkspaceStore.expireNote()) rebuildWidgets();
     }
 
     /** The roster's well; the screen's own content draws the rest. */
@@ -429,7 +297,8 @@ public abstract class WorkspaceScreen extends TabletScreen {
         if (sidebarWidth() == 0) return;
         int x = frameLeft + 6;
         String current = projectId();
-        if (current != null && rosters.containsKey(current) && rosters.get(current).isEmpty()) {
+        List<Api.Instance> shownRoster = WorkspaceStore.roster(current);
+        if (shownRoster != null && shownRoster.isEmpty()) {
             g.drawString(font, "No agents yet", x + 2, top + 8, Theme.TXT_3);
         }
         int y = bottom - 24 - noteLines.size() * 10;
@@ -544,7 +413,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
                            boolean hovering, float partialTick) {
             int y = top + (height - 8) / 2;
-            g.drawString(font, collapsed.contains(key) ? "▸" : "▾", left, y, Theme.TXT_4);
+            g.drawString(font, WorkspaceStore.collapsed(key) ? "▸" : "▾", left, y, Theme.TXT_4);
             String count = String.valueOf(group.count());
             int countX = left + width - 2 - font.width(count);
             g.drawString(font, count, countX, y, Theme.TXT_4);
@@ -553,7 +422,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            if (!collapsed.remove(key)) collapsed.add(key);
+            WorkspaceStore.toggleCollapsed(key);
             rebuildWidgets();
             return true;
         }
@@ -577,7 +446,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
         @Override
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
                            boolean hovering, float partialTick) {
-            g.blitSprite(Theme.dot(statuses.get(slot.instanceId())), left + 8, top + (height - 6) / 2, 6, 6);
+            g.blitSprite(Theme.dot(AgentStatus.of(slot)), left + 8, top + (height - 6) / 2, 6, 6);
             int y = top + (height - 8) / 2;
             int end = left + width - 2;
             if (hasBody) {
@@ -607,13 +476,13 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
         @Override
         String label() {
-            return adding() ? "Adding…" : "+ New session";
+            return WorkspaceStore.adding() ? "Adding…" : "+ New session";
         }
 
         @Override
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
                            boolean hovering, float partialTick) {
-            int color = adding() ? Theme.TXT_4 : hovering ? Theme.HOVER : Theme.TXT_3;
+            int color = WorkspaceStore.adding() ? Theme.TXT_4 : hovering ? Theme.HOVER : Theme.TXT_3;
             g.drawString(font, label(), left + 18, top + (height - 8) / 2, color);
         }
 

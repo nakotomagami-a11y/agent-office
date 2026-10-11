@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { API_ROUTES } from "@agent-office/api-contract";
 import { EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { MODEL_IDS } from "@agent-office/domain/config/models";
+import { PR_LINK_SOURCES, REVIEW_ERROR_CODES } from "@agent-office/domain/config/review";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import { MAX_UPLOAD_BYTES } from "@agent-office/domain/services/infra/paths";
 import { z } from "zod";
@@ -81,6 +82,12 @@ test("Protocol.java uses only words the server sends", () => {
     Turn: union(types, /export interface PersistedRun \{[\s\S]*?\n {2}status: ([^;]+);/),
     SubAgent: union(types, /export type SubAgentStatus = ([^;]+);/),
     Event: [.../export type SseEvent =([\s\S]*?)\n\n/.exec(runs)![1]!.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]!),
+    ReviewError: [...REVIEW_ERROR_CODES],
+    PrLink: [...PR_LINK_SOURCES],
+    ApiError: [
+      ...union(read("apps/server/src/lib/api-helpers.ts"), /export function notFound\(message = ("[^"]+")\)/),
+      ...union(read("packages/domain/src/services/projects/projects.ts"), /readonly code = ("[^"]+") as const/),
+    ],
   };
   const vocabularies = javaVocabularies();
   assert.deepStrictEqual([...vocabularies.keys()].sort(), Object.keys(server).sort(), "a Protocol class per mirrored vocabulary");

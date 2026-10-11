@@ -1,7 +1,7 @@
 package dev.agentoffice.mc.client.screen;
 
 import com.google.gson.JsonObject;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.TabletScreen;
@@ -9,12 +9,11 @@ import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Async;
 import dev.agentoffice.mc.core.ServerMirror;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -77,21 +76,17 @@ final class SeatSettingsScreen extends TabletScreen {
         }
         saving = true;
         rebuildWidgets();
-        Connection.IO.execute(() -> {
-            try {
-                client.patchInstance(seat.slot(), patch);
-                Minecraft.getInstance().execute(() -> {
-                    // Only if the player is still here: never pull them out of the game.
-                    if (Minecraft.getInstance().screen == this) Minecraft.getInstance().setScreen(parent);
-                    parent.load();
-                });
-            } catch (IOException e) {
-                Minecraft.getInstance().execute(() -> {
-                    saving = false;
-                    error = "Couldn't save: " + e.getMessage();
-                    if (minecraft.screen == this) rebuildWidgets();
-                });
-            }
+        AgentOffice.call(client, () -> true, c -> {
+            c.patchInstance(seat.slot(), patch);
+            return null;
+        }, done -> {
+            // Only if the player is still here: never pull them out of the game.
+            if (minecraft.screen == this) minecraft.setScreen(parent);
+            parent.load();
+        }, e -> {
+            saving = false;
+            error = "Couldn't save: " + Async.message(e);
+            if (minecraft.screen == this) rebuildWidgets();
         });
     }
 

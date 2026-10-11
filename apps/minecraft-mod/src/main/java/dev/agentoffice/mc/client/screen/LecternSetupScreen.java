@@ -1,6 +1,6 @@
 package dev.agentoffice.mc.client.screen;
 
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
@@ -8,13 +8,11 @@ import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
+import dev.agentoffice.mc.core.Async;
 import dev.agentoffice.mc.core.LecternStore;
 import dev.agentoffice.mc.core.Review;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -41,21 +39,14 @@ public final class LecternSetupScreen extends TabletScreen {
     }
 
     private void load() {
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return client.projects();
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            }
-        }, Connection.IO).whenComplete((ps, err) -> onMain(() -> {
-            if (err != null) {
-                status = "Couldn't load projects: " + OfficeScreen.rootMessage(err);
-            } else {
-                projects = ps;
-                status = ps.isEmpty() ? "No projects in Agent Office yet." : null;
-            }
+        AgentOffice.call(client, () -> !closed, AgentOfficeClient::projects, ps -> {
+            projects = ps;
+            status = ps.isEmpty() ? "No projects in Agent Office yet." : null;
             rebuildWidgets();
-        }));
+        }, e -> {
+            status = "Couldn't load projects: " + Async.message(e);
+            rebuildWidgets();
+        });
     }
 
     @Override
@@ -109,11 +100,5 @@ public final class LecternSetupScreen extends TabletScreen {
     @Override
     protected void onRemoved() {
         closed = true;
-    }
-
-    private void onMain(Runnable r) {
-        Minecraft.getInstance().execute(() -> {
-            if (!closed) r.run();
-        });
     }
 }

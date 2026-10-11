@@ -1,7 +1,7 @@
 package dev.agentoffice.mc.client.ui;
 
+import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Ids;
-import dev.agentoffice.mc.core.Protocol;
 import net.minecraft.resources.ResourceLocation;
 
 /**
@@ -80,12 +80,18 @@ public final class Theme {
     private static final ResourceLocation DOT_RUNNING_DIM = sprite("dot_running_dim");
     private static final ResourceLocation DOT_ATTENTION = sprite("dot_attention");
 
-    /** A session or tool status as a 6×6 dot sprite; running blinks between two frames. */
+    /** A conversation or tool status as a 6×6 dot sprite; running blinks between two frames. */
     public static ResourceLocation dot(String status) {
-        return switch (status == null ? "" : status) {
-            case Protocol.Conversation.RUNNING -> System.currentTimeMillis() / 400 % 2 == 0 ? DOT_RUNNING : DOT_RUNNING_DIM;
-            case Protocol.Conversation.NEEDS_ATTENTION -> DOT_ATTENTION;
-            default -> DOT_IDLE;
+        return dot(status == null ? null : AgentState.of(status));
+    }
+
+    /** An agent's state as its dot; not known yet (null), offline or unknown reads as idle. */
+    public static ResourceLocation dot(AgentState state) {
+        if (state == null) return DOT_IDLE;
+        return switch (state) {
+            case WORKING -> System.currentTimeMillis() / 400 % 2 == 0 ? DOT_RUNNING : DOT_RUNNING_DIM;
+            case NEEDS_YOU -> DOT_ATTENTION;
+            case IDLE, OFFLINE, UNKNOWN -> DOT_IDLE;
         };
     }
 

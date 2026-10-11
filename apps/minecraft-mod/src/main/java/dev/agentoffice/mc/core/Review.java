@@ -3,8 +3,12 @@ package dev.agentoffice.mc.core;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Pull-request review, as /api/projects/:id/reviews serves it (packages/domain/src/types/review.ts).
@@ -19,6 +23,50 @@ public final class Review {
                        String reviewDecision, String updatedAt) {}
 
     public record Queue(List<Pull> pulls, boolean truncated) {}
+
+    /** A lectern's whole queue. {@code skipped}: projects that aren't GitHub repos. {@code error}: only when nothing could be read. */
+    public record Gathered(List<Pull> pulls, boolean truncated, int skipped, IOException error) {}
+
+    /**
+     * The open pull requests a lectern shows: its project's, or every project's read in parallel on {@code io} ("All
+     * projects"), newest first. A project that fails is skipped, not fatal. Blocking.
+     */
+    public static Gathered gather(AgentOfficeClient client, LecternStore.Binding binding, Executor io) throws IOException {
+        if (!binding.all()) {
+            Queue q = client.pulls(binding.projectId(), binding.projectName());
+            return new Gathered(q.pulls(), q.truncated(), 0, null);
+        }
+        List<CompletableFuture<Object>> parts = new ArrayList<>();
+        for (Api.Project p : client.projects()) {
+            parts.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    return client.pulls(p.id(), p.name());
+                } catch (IOException e) {
+                    return e;
+                }
+            }, io));
+        }
+        List<Pull> all = new ArrayList<>();
+        boolean cut = false;
+        int notGithub = 0;
+        int read = 0;
+        IOException first = null;
+        for (CompletableFuture<Object> f : parts) {
+            Object r = f.join();
+            if (r instanceof Queue q) {
+                all.addAll(q.pulls());
+                cut |= q.truncated();
+                read++;
+            } else if (r instanceof Api.ApiException a && Protocol.ReviewError.NOT_GITHUB_REPO.equals(a.code)) {
+                notGithub++;
+            } else if (first == null) {
+                first = (IOException) r;
+            }
+        }
+        all.sort(Comparator.comparing((Pull p) -> p.updatedAt() == null ? "" : p.updatedAt()).reversed());
+        // Some projects not being GitHub repos is normal; only "gh can't read anything" is an error.
+        return new Gathered(all, cut, notGithub, read == 0 && first != null ? first : null);
+    }
 
     public enum Kind { CONTEXT, ADD, DEL }
 

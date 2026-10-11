@@ -11,8 +11,9 @@ import dev.agentoffice.mc.client.screen.AgentInventoryScreen;
 import dev.agentoffice.mc.client.screen.AgentSetupScreen;
 import dev.agentoffice.mc.client.screen.ChatScreen;
 import dev.agentoffice.mc.client.screen.WorkspaceScreen;
+import dev.agentoffice.mc.client.service.AgentStatus;
 import dev.agentoffice.mc.client.service.Bodies;
-import dev.agentoffice.mc.client.service.Connection;
+import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Lecterns;
 import dev.agentoffice.mc.client.ui.ImageCache;
 import dev.agentoffice.mc.core.Api;
@@ -56,6 +57,7 @@ public final class ClientSetup {
         TabletItem.openOnClient = ClientSetup::openOffice;
         ReviewLecternBlock.openOnClient = (pos, rebind) -> Lecterns.open(Minecraft.getInstance(), pos, rebind);
         AgentNet.onPlaced = Bodies::onPlaced;
+        AgentStatus.onUpdate(Bodies::report);
         container.registerConfig(ModConfig.Type.CLIENT, SPEC);
         modBus.addListener(ClientSetup::registerKeys);
         modBus.addListener(ClientSetup::itemColors);
@@ -85,7 +87,7 @@ public final class ClientSetup {
         event.setSwingHand(false);
         if (opening) return;
         opening = true;
-        Connection.client().whenComplete((client, err) -> mc.execute(() -> {
+        AgentOffice.client().whenComplete((client, err) -> mc.execute(() -> {
             opening = false;
             if (err != null) {
                 mc.gui.setOverlayMessage(Component.literal("Agent Office isn't running"), false);
@@ -131,6 +133,7 @@ public final class ClientSetup {
         DevHooks.tick(mc);
         ImageCache.clearUnlessShowing(mc.screen);
         Bodies.tick(mc);
+        AgentStatus.tick();
         while (OPEN.consumeClick()) {
             if (mc.screen == null) openOffice();
         }
