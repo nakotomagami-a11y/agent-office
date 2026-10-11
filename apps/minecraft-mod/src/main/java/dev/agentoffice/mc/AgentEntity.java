@@ -150,7 +150,8 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         goalSelector.addGoal(3, new WanderGoal(this));
         goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8f));
         goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-        // Hit back (never at a village's own), and the agents around it come too; any monster it can reach is a target.
+        // Hit back, and the agents around it come too; any monster it can reach is a target. A village's own can't hurt
+        // it (Combat.VILLAGE_ALLIES, the main rule); the classes here also cover modded villagers and golems not tagged.
         targetSelector.addGoal(1, new HurtByTargetGoal(this, Player.class, AbstractVillager.class, IronGolem.class, SnowGolem.class).setAlertOthers());
         targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Mob.class, 5, true, true, e -> Combat.threat(this, e)));
     }

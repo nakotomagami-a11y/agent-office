@@ -40,9 +40,12 @@ items and no Review Lectern.
   work. A report holds 30 s, so an agent whose owner left goes back to roaming.
 - **Fighting**: it goes after monsters near its place, even while working. It spares creepers, wardens, calm neutral
   mobs, named ones, ones being cured, and ones in a boat or minecart or ridden by a player. Melee with what it holds
-  (a crossbow too), or a bow. Its blows and arrows never land on a player, villager, golem, pet or another agent.
-- **Damage**: only mobs that fight it can hurt it (and a fall right after their hit, `/kill`, the void). Nothing a
-  player does hurts it. It heals slowly out of a fight.
+  (a crossbow too), or a bow. Its blows and arrows never land on a player, village ally, golem, pet or another agent.
+- **Village allies** (`agentoffice:village_allies`, an entity type tag: villagers, wandering traders, Guard
+  Villagers' guards): they can't hurt it and it never fights them. A modpack adds its own mobs with a datapack file
+  `data/agentoffice/tags/entity_type/village_allies.json` (without `"replace": true`).
+- **Damage**: only mobs that fight it, not village allies, can hurt it (and a fall right after their hit, `/kill`,
+  the void). Nothing a player does hurts it. It heals slowly out of a fight.
 - **Death**: its items stay in its record; its owner is told and places it again from the tablet. **It loses all its
   XP.** A **dismiss** gives its items back to the owner and keeps its level for when it is placed again.
 - **Levels**: XP from kills (the mob's own reward, under vanilla's rules: `doMobLoot`, once per death; nothing for

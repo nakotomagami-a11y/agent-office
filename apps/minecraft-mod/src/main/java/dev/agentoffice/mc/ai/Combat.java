@@ -2,9 +2,13 @@ package dev.agentoffice.mc.ai;
 
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.core.Ids;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
@@ -32,7 +36,7 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingUseTotemEvent;
 
 /**
- * Who an agent fights and how: monsters near its place, whatever it is doing; never a player, villager, golem, pet,
+ * Who an agent fights and how: monsters near its place, whatever it is doing; never a player, village ally, golem, pet,
  * another agent or something in the way. Only mobs that fight it can hurt it (AgentEntity#isInvulnerableTo).
  */
 public final class Combat {
@@ -40,6 +44,12 @@ public final class Combat {
     public static final int CHASE_BEYOND = 16;
     /** On a dead mob: its kill XP went to an agent already. */
     private static final String PAID = Ids.MOD_ID + ":xp_paid";
+    /**
+     * The village's side, by entity type: villagers, traders, other mods' guards (data/agentoffice/tags/entity_type).
+     * A modpack adds its own to the tag, no code needed.
+     */
+    public static final TagKey<EntityType<?>> VILLAGE_ALLIES = TagKey.create(Registries.ENTITY_TYPE,
+            ResourceLocation.fromNamespaceAndPath(Ids.MOD_ID, "village_allies"));
 
     private Combat() {}
 
@@ -52,7 +62,7 @@ public final class Combat {
             if (e.getProjectile() instanceof FishingHook && hit.getEntity() instanceof AgentEntity) e.setCanceled(true);
             if (e.getProjectile().getOwner() instanceof AgentEntity agent && !foe(agent, hit.getEntity())) e.setCanceled(true);
         });
-        // An agent's blows and arrows land on its foes only: never a player, villager, golem, pet or agent in the way.
+        // An agent's blows and arrows land on its foes only: never a player, village ally, golem, pet or agent in the way.
         bus.addListener((LivingIncomingDamageEvent e) -> {
             if (e.getSource().getEntity() instanceof AgentEntity agent && !foe(agent, e.getEntity())) e.setCanceled(true);
         });
@@ -76,11 +86,11 @@ public final class Combat {
     /**
      * Left alone even though it's a monster: a creeper (in its face it blows up), a warden, a calm neutral one
      * (endermen, zombified piglins: hitting one starts a fight it needn't have), one being cured, one carried in a
-     * boat or minecart or ridden by a player, or a named one (someone's prize).
+     * boat or minecart or ridden by a player, a named one (someone's prize), or a village ally.
      */
     private static boolean spared(LivingEntity e) {
         // Riding: in a boat or minecart (someone moving it), not a jockey; ridden: by a player.
-        return e instanceof Creeper || e instanceof Warden || e.hasCustomName()
+        return e instanceof Creeper || e instanceof Warden || e.hasCustomName() || e.getType().is(VILLAGE_ALLIES)
                 || e.getVehicle() != null && !(e.getVehicle() instanceof Mob) || e.hasPassenger(p -> p instanceof Player)
                 || e instanceof ZombieVillager zv && zv.isConverting() || e instanceof NeutralMob neutral && !neutral.isAngry();
     }
@@ -93,17 +103,17 @@ public final class Combat {
     }
 
     /**
-     * What may hurt an agent: a mob that isn't anybody's pet, a golem or another agent (a wild wolf, bee or goat too). A
-     * snow golem's snowball must not make the agent turn on it.
+     * What may hurt an agent: a mob (a wild wolf, bee or goat too) that isn't anybody's pet, a golem, another agent or a
+     * village ally. A snow golem's snowball, or a guard's stray arrow, must not make the agent turn on it.
      */
     public static boolean hostile(Entity e) {
         return e instanceof Mob && !(e instanceof AgentEntity) && !(e instanceof OwnableEntity pet && pet.getOwnerUUID() != null)
-                && !(e instanceof AbstractGolem && !(e instanceof Enemy));
+                && !(e instanceof AbstractGolem && !(e instanceof Enemy)) && !e.getType().is(VILLAGE_ALLIES);
     }
 
     /**
      * What an agent's blows and arrows may land on: whoever is fighting it, and monsters it would go after anyway.
-     * Never a player, villager, golem, pet, agent, armor stand or item frame in the way.
+     * Never a player, village ally, golem, pet, agent, armor stand or item frame in the way.
      */
     public static boolean foe(AgentEntity agent, Entity e) {
         // One being cured is spared even mid-fight: curing doesn't make it drop its target.

@@ -94,6 +94,25 @@ public final class AgentGameTests {
         });
     }
 
+    /** A villager stands in for every village ally (guards aren't in the dev run): the tag decides, not the class. */
+    @GameTest(template = "empty")
+    public static void aVillageAllyNeverHurtsAnAgent(GameTestHelper helper) {
+        AgentRecords.Record[] record = new AgentRecords.Record[1];
+        AgentEntity agent = place(helper, record);
+        helper.runAfterDelay(2, () -> {
+            helper.assertFalse(agent.isShell(), "a placed agent, not a shell (a shell takes no damage at all)");
+            Villager ally = helper.spawn(EntityType.VILLAGER, new BlockPos(3, 0, 1));
+            float before = agent.getHealth();
+            agent.hurt(agent.damageSources().mobAttack(ally), 5);
+            helper.assertTrue(agent.getHealth() == before, "an ally's stray blow does nothing");
+            helper.assertTrue(agent.getLastHurtByMob() == null, "so the agent has nobody to turn on");
+            Zombie monster = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 0, 3));
+            agent.hurt(agent.damageSources().mobAttack(monster), 5);
+            helper.assertTrue(agent.getHealth() < before, "while a monster's blow lands");
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "empty")
     public static void aSpawnEggAsksLandClaimsFirst(GameTestHelper helper) {
         // Not a mock player: one in the player list is sent Curios packets it cannot take.

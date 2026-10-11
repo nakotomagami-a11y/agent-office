@@ -96,6 +96,6 @@ checked in NeoForge 21.1.257's source). The channel's version is `"1"`:
 | Command | What | Where |
 |---|---|---|
 | `gradlew test` (in `build`) | `core/` logic (the HTTP client and chat against fake servers); the game loaded (ModDevGradle `unitTest`) for payloads, records, schedule; `ArchitectureTest` | `src/test` |
-| `gradlew runGameTestServer` | in a real world: kill XP, death loses XP, desk-only work XP, agents never hurt villagers, a Spawn Egg asks land claims | `src/gametest` (dev runs only, never in the jar) |
+| `gradlew runGameTestServer` | in a real world: kill XP, death loses XP, desk-only work XP, agents never hurt villagers, village allies never hurt agents, a Spawn Egg asks land claims | `src/gametest` (dev runs only, never in the jar) |
 
 CI runs both (`.github/workflows/ci.yml`, job `minecraft-mod`).
