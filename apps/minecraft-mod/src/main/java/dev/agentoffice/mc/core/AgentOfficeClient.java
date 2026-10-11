@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
@@ -224,6 +225,33 @@ public final class AgentOfficeClient {
     }
 
     /** Starts a turn, or queues it if the agent is busy (server decides). */
+    /** Uploads a file to the project (as the web composer does); returns where it was saved, for the message. */
+    public String upload(String projectId, String filename, String contentType, byte[] data) throws IOException {
+        writable();
+        String boundary = "agentoffice-" + UUID.randomUUID();
+        HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/projects/" + enc(projectId) + "/uploads"))
+                .timeout(SEAT_TIMEOUT)
+                .header("content-type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Attachments.multipart(boundary, filename, contentType, data)))
+                .build();
+        JsonElement el = call(req);
+        return parse(() -> str(el.getAsJsonObject(), "path"));
+    }
+
+    /** The clipboard image as Agent Office's host reads it (Linux/Wayland only: wl-paste); empty when there is none. */
+    public Optional<byte[]> clipboardImage() throws IOException {
+        HttpRequest req = HttpRequest.newBuilder(base.resolve("/api/clipboard-image")).timeout(TIMEOUT)
+                .POST(HttpRequest.BodyPublishers.noBody()).build();
+        HttpResponse<byte[]> res;
+        try {
+            res = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("interrupted", e);
+        }
+        return res.statusCode() == 200 && res.body().length > 0 ? Optional.of(res.body()) : Optional.empty();
+    }
+
     public Api.Conversation send(String conversationId, String text) throws IOException {
         writable();
         JsonObject body = new JsonObject();
