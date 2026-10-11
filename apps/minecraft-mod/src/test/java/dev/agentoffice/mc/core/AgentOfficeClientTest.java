@@ -56,6 +56,7 @@ class AgentOfficeClientTest {
                 {"id":"p1","meta":{"name":"Agent Office","roster":[
                   {"instanceId":"developer-a1","agentId":"developer"},
                   {"instanceId":"qa-b2","agentId":"qa-code-review","label":"Reviewer","model":"haiku","effort":"low"}]}}""");
+        route("/api/agents", 200, "[{\"name\":\"council-names-test\",\"displayName\":\"Business Council\"},{\"name\":\"plain-names-test\"}]");
         route("/api/conversations", 200, VIEW);
         route("/api/conversations/c1/messages", 200, VIEW);
         route("/api/conversations/busted/messages", 400, "{\"error\":\"text_required\"}");
@@ -113,6 +114,13 @@ class AgentOfficeClientTest {
     @Test
     void shelvedProjectsAreHidden() throws IOException {
         assertEquals(List.of(new Api.Project("p1", "Agent Office", 0)), client.projects());
+    }
+
+    @Test
+    void readingTheAgentsLearnsTheirStoredNames() throws IOException {
+        client.agents();
+        assertEquals("Business Council", AgentNames.of("council-names-test"));
+        assertEquals("Plain Names Test", AgentNames.of("plain-names-test"), "no stored name: the id made readable");
     }
 
     @Test

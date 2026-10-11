@@ -84,7 +84,7 @@ final class AddAgentScreen extends TabletScreen {
     private List<Api.Agent> shown() {
         String q = filter == null ? "" : filter.getValue().trim().toLowerCase(Locale.ROOT);
         if (q.isEmpty()) return agents;
-        return agents.stream().filter(a -> a.name().toLowerCase(Locale.ROOT).contains(q)
+        return agents.stream().filter(a -> a.name().toLowerCase(Locale.ROOT).contains(q) || AgentNames.of(a.name()).toLowerCase(Locale.ROOT).contains(q)
                 || (a.description() != null && a.description().toLowerCase(Locale.ROOT).contains(q))).toList();
     }
 

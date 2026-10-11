@@ -10,6 +10,7 @@ import dev.agentoffice.mc.client.ui.ImageScreen;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.client.ui.TranscriptView;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.Transcript;
@@ -723,7 +724,7 @@ public final class ChatScreen extends WorkspaceScreen {
         int tx = left + 10;
         int end = headerRight - 8;
         int ty = top + 6;
-        FormattedCharSequence name = bold(slot.agentId(), end - tx);
+        FormattedCharSequence name = bold(AgentNames.of(slot.agentId()), end - tx);
         g.drawString(font, name, tx, ty, PANEL_TEXT, false);
         tx += font.width(name) + 6;
         String which = sessionName(slot);

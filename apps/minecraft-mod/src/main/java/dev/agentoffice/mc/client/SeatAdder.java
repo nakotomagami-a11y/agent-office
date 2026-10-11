@@ -1,5 +1,6 @@
 package dev.agentoffice.mc.client;
 
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -61,7 +62,7 @@ final class SeatAdder {
                             if (yes) add(owner, client, project, agentId, true, done, failed);
                             else failed.message("Not added.");
                         }, Component.literal(project.name() + " already has a lot of agents"),
-                                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + agentId + " anyway?"),
+                                Component.literal("Agent Office suggests keeping fewer seats per project. Add " + AgentNames.of(agentId) + " anyway?"),
                                 Component.literal("Add anyway"), Component.literal("Cancel")));
                     } else if ("INSTANCE_CAP_EXCEEDED".equals(e.code) && e.softCap && !force) {
                         failed.message(project.name() + " already has a lot of agents. Not added.");

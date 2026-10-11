@@ -1,5 +1,6 @@
 package dev.agentoffice.mc;
 
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.Api;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -282,8 +283,20 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     void setSeat(Api.Slot seat) {
         this.seat = seat;
         entityData.set(AGENT, seat == null ? "" : seat.agentId());
-        // Every player near it sees the name: a label is the owner's text, so no formatting or control codes.
-        setCustomName(seat == null ? SHELL_NAME : Component.literal(StringUtil.filterText(seat.displayName())).withStyle(ChatFormatting.WHITE));
+        // The server can't ask Agent Office for the agent's name: its label, else its id made readable, until the
+        // owner's client says the name (showName). The same whoever hosts the world.
+        boolean labelled = seat != null && seat.label() != null && !seat.label().isBlank();
+        setCustomName(seat == null ? SHELL_NAME : plate(labelled ? seat.label() : AgentNames.format(seat.agentId())));
+    }
+
+    /** Server: the name its owner's client knows it by (already length-checked by the codec). */
+    void showName(String name) {
+        if (seat != null && !name.isBlank()) setCustomName(plate(name));
+    }
+
+    /** Every player near it sees the name: a label is the owner's text, so no formatting or control codes. */
+    private static Component plate(String name) {
+        return Component.literal(StringUtil.filterText(name)).withStyle(ChatFormatting.WHITE);
     }
 
     /** Client: what each Curios slot shows. */
@@ -385,7 +398,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         record.entity = null;
         record = null;
         owner().map(getServer().getPlayerList()::getPlayer).ifPresent(p -> {
-            p.sendSystemMessage(Component.literal(StringUtil.filterText(seat.displayName()) + " is down. Place it again from the tablet:"
+            p.sendSystemMessage(Component.literal(getName().getString() + " is down. Place it again from the tablet:"
                     + " it keeps everything it had.").withStyle(ChatFormatting.GOLD));
             AgentNet.sendPlaced(p);
         });

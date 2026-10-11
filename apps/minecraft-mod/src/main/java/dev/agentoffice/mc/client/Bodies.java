@@ -271,7 +271,7 @@ final class Bodies {
             String status = statuses.get(body);
             body.setCustomName(nameplate(slot, status));
             boolean working = "running".equals(status) || "needs_attention".equals(status);
-            work.add(new AgentNet.Work(body.getUUID(), working, working ? lectern(mc, body, slot) : Optional.empty()));
+            work.add(new AgentNet.Work(body.getUUID(), working, working ? lectern(mc, body, slot) : Optional.empty(), cut(slot.displayName(), AgentNet.MAX_TEXT)));
         });
         if (!work.isEmpty() && available(mc)) PacketDistributor.sendToServer(new AgentNet.Status(work));
     }

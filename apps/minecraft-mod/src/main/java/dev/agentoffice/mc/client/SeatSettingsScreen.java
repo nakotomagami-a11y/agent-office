@@ -5,6 +5,7 @@ import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Theme;
+import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
 import java.io.IOException;
@@ -48,7 +49,7 @@ final class SeatSettingsScreen extends TabletScreen {
         label = new EditBox(font, x + 90, y, w - 90, 16, Component.literal("Label"));
         label.setMaxLength(60);
         label.setValue(labelValue);
-        label.setHint(Component.literal(seat.slot().agentId()).withColor(Theme.TXT_4));
+        label.setHint(Component.literal(AgentNames.of(seat.slot().agentId())).withColor(Theme.TXT_4)); // what an empty label shows
         addRenderableWidget(label);
         model = addRenderableWidget(new FlatCycle<>(x + 90, y + 24, w - 90, 16, options(Api.MODELS, seat.model()),
                 model != null ? model.value() : nz(seat.model()), v -> v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v));

@@ -13,6 +13,8 @@ class AgentNamesTest {
         assertEquals("QA Code Review", AgentNames.format("qa-code-review"));
         assertEquals("Cs Boardroom", AgentNames.format("cs-boardroom"));
         assertEquals("", AgentNames.format(null));
+        assertEquals("Developer ", AgentNames.format("developer-"), "hyphens kept as the web app keeps them");
+        assertEquals(" X", AgentNames.format("-x"));
     }
 
     @Test

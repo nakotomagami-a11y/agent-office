@@ -1,9 +1,11 @@
 package dev.agentoffice.mc.core;
 
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * What an agent is called on screen, as in the web app (apps/web/src/lib/agent-display-name.ts): its stored name
@@ -33,16 +35,11 @@ public final class AgentNames {
         String slug = id == null ? "" : id.trim();
         if (slug.isEmpty()) return "";
         if (slug.toLowerCase(Locale.ROOT).matches("cs-[a-z]{2,4}")) return slug.substring(3).toUpperCase(Locale.ROOT);
-        String[] parts = slug.split("-");
+        String[] parts = slug.split("-", -1); // keeps trailing empties, as JS does
         if (parts.length == 2 && VARIANTS.contains(parts[1].toLowerCase(Locale.ROOT))) {
             return word(parts[0]) + " (" + word(parts[1]) + ")";
         }
-        StringBuilder out = new StringBuilder();
-        for (String part : parts) {
-            if (out.length() > 0) out.append(' ');
-            out.append(word(part));
-        }
-        return out.toString();
+        return Arrays.stream(parts).map(AgentNames::word).collect(Collectors.joining(" "));
     }
 
     private static String word(String token) {

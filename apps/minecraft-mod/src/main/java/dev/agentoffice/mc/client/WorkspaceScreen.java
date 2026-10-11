@@ -307,7 +307,7 @@ abstract class WorkspaceScreen extends TabletScreen {
         if (project == null || client == null || adding()) return;
         addingSince = System.currentTimeMillis();
         addNoteUntil = Long.MAX_VALUE;
-        addNote = "Adding a " + agentId + " session… (making a git worktree can take a while)";
+        addNote = "Adding a " + AgentNames.of(agentId) + " session… (making a git worktree can take a while)";
         rebuildWidgets();
         SeatAdder.add(this, client, project, agentId, slot -> {
             addingSince = 0;

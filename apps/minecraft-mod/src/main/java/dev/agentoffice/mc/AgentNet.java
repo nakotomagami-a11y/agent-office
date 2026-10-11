@@ -132,10 +132,13 @@ public final class AgentNet {
         }
     }
 
-    /** One body's agent is working in Agent Office (running, or waiting on its owner), at this lectern if any. */
-    public record Work(UUID entity, boolean working, Optional<BlockPos> lectern) {
-        static final StreamCodec<ByteBuf, Work> CODEC = StreamCodec.composite(UUIDUtil.STREAM_CODEC, Work::entity,
-                ByteBufCodecs.BOOL, Work::working, ByteBufCodecs.optional(BlockPos.STREAM_CODEC), Work::lectern, Work::new);
+    /**
+     * One body's agent is working in Agent Office (running, or waiting on its owner), at this lectern if any; and its
+     * name as Agent Office has it (only the owner's client knows), for everyone's nameplate.
+     */
+    public record Work(UUID entity, boolean working, Optional<BlockPos> lectern, String name) {
+        static final StreamCodec<ByteBuf, Work> CODEC = StreamCodec.composite(UUIDUtil.STREAM_CODEC, Work::entity, ByteBufCodecs.BOOL,
+                Work::working, ByteBufCodecs.optional(BlockPos.STREAM_CODEC), Work::lectern, TEXT, Work::name, Work::new);
     }
 
     /** From the owner's client every few seconds: only it can ask Agent Office whether its agents are working. */
@@ -288,6 +291,7 @@ public final class AgentNet {
             BlockPos lectern = w.lectern().filter(p -> p.closerToCenterThan(body.position(), LECTERN_RANGE)
                     && player.serverLevel().isLoaded(p) && player.serverLevel().getBlockState(p).is(AgentOfficeMod.REVIEW_LECTERN.get())).orElse(null);
             body.reportWork(w.working() && lectern != null, lectern);
+            body.showName(w.name());
         }
     }
 
