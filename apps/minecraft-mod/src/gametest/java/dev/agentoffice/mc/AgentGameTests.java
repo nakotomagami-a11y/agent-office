@@ -8,9 +8,11 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -77,6 +79,60 @@ public final class AgentGameTests {
                 })
                 .thenIdle(2)
                 .thenExecute(() -> helper.assertTrue(record[0].xp == 1, "at its desk it earns, got " + record[0].xp))
+                .thenSucceed();
+    }
+
+    /** Never hurt, so out of harm's way once the world is 10 s old (each run is a new world): then each 40-tick beat it mends 1, if it has eaten. */
+    @GameTest(template = "empty", timeoutTicks = 500)
+    public static void itHealsOnlyOnFood(GameTestHelper helper) {
+        AgentRecords.Record[] record = new AgentRecords.Record[1];
+        AgentEntity agent = place(helper, record);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(helper.getLevel().getGameTime() > 210, "out of harm's way"))
+                .thenExecute(() -> {
+                    agent.setHealth(10);
+                    record[0].items.set(5, new ItemStack(Items.ROTTEN_FLESH, 4));
+                    record[0].items.set(7, new ItemStack(Items.SUSPICIOUS_STEW));
+                })
+                .thenIdle(81) // two beats or more
+                .thenExecute(() -> {
+                    helper.assertTrue(agent.getHealth() == 10, "no plain food, no healing, got " + agent.getHealth());
+                    agent.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.MUSHROOM_STEW));
+                    record[0].items.set(6, new ItemStack(Items.MUSHROOM_STEW));
+                })
+                .thenIdle(81)
+                .thenExecute(() -> {
+                    helper.assertTrue(agent.getHealth() >= 12, "a meal mends it, got " + agent.getHealth());
+                    helper.assertTrue(agent.getMainHandItem().is(Items.BOWL), "the bowl is left in its hand, got " + agent.getMainHandItem());
+                    helper.assertTrue(agent.getMainHandItem() == record[0].items.get(0), "its hand is its record's slot");
+                    helper.assertTrue(record[0].items.get(6).is(Items.MUSHROOM_STEW), "one meal lasts more than a beat");
+                    helper.assertTrue(record[0].items.get(5).getCount() == 4, "rotten flesh is never eaten");
+                    helper.assertTrue(record[0].items.get(7).is(Items.SUSPICIOUS_STEW), "nor a suspicious stew");
+                    helper.assertTrue(record[0].health == agent.getHealth(), "its record knows its health");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aNewBodyKeepsItsWoundsUntilDeath(GameTestHelper helper) {
+        AgentRecords.Record[] record = new AgentRecords.Record[1];
+        AgentEntity agent = place(helper, record);
+        AgentEntity[] moved = new AgentEntity[1];
+        helper.startSequence()
+                .thenIdle(2)
+                .thenExecute(() -> { // a Place, as AgentNet does it: a new body, the old one discarded
+                    agent.setHealth(5);
+                    moved[0] = AgentEntity.spawn(helper.getLevel(), agent.position(), 0, record[0].owner, record[0].seat);
+                    record[0].entity = moved[0].getUUID();
+                    agent.discard();
+                })
+                .thenIdle(2)
+                .thenExecute(() -> {
+                    helper.assertTrue(moved[0].getHealth() == 5, "moving it heals nothing, got " + moved[0].getHealth());
+                    record[0].fed = 3;
+                    moved[0].kill();
+                    helper.assertTrue(record[0].health == 0 && record[0].fed == 0, "placed again after its death, it comes back whole and unfed");
+                })
                 .thenSucceed();
     }
 

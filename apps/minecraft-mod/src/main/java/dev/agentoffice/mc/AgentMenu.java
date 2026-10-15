@@ -137,7 +137,7 @@ public final class AgentMenu extends AbstractContainerMenu {
         agent.curiosChanged();
 
         Container items = new View(AgentRecords.SIZE, r.items::get, (stack, i) -> {
-            EquipmentSlot eq = equipment(i);
+            EquipmentSlot eq = AgentEntity.equipmentAt(i);
             if (eq != null) agent.setItemSlot(eq, stack);
             else r.items.set(i, stack);
         }, () -> { }, p -> agent.isAlive() && agent.record() == r && agent.isOwnedBy(p) && p.canInteractWithEntity(agent, 4.0));
@@ -191,13 +191,6 @@ public final class AgentMenu extends AbstractContainerMenu {
             }
         }
         shape.forEach(s -> r.curios.computeIfAbsent(s.id(), k -> NonNullList.withSize(s.count(), ItemStack.EMPTY)));
-    }
-
-    private static EquipmentSlot equipment(int index) {
-        for (EquipmentSlot s : EquipmentSlot.values()) {
-            if (AgentEntity.index(s) == index) return s;
-        }
-        return null;
     }
 
     @Override

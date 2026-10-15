@@ -40,6 +40,10 @@ public final class AgentRecords extends SavedData {
         public int xp;
         /** Working time towards its next work XP (Tuning.WORK_XP_TICKS). */
         public int workTicks;
+        /** Its body's health, so a new body keeps its wounds; 0 for whole (new, or placed again after its death). */
+        public float health;
+        /** Health its last meal has yet to give back, 1 per nutrition point. */
+        public int fed;
 
         Record(UUID owner, Api.Slot seat) {
             this.owner = owner;
@@ -136,6 +140,8 @@ public final class AgentRecords extends SavedData {
             t.put("Curios", curios);
             t.putInt("Xp", r.xp);
             t.putInt("WorkTicks", r.workTicks);
+            t.putFloat("Health", r.health);
+            t.putInt("Fed", r.fed);
             list.add(t);
         }
         tag.put("Agents", list);
@@ -163,6 +169,9 @@ public final class AgentRecords extends SavedData {
             }
             r.xp = Math.max(0, t.getInt("Xp"));
             r.workTicks = Mth.clamp(t.getInt("WorkTicks"), 0, Tuning.WORK_XP_TICKS - 1);
+            float health = t.getFloat("Health");
+            r.health = Float.isFinite(health) ? Math.max(0, health) : 0;
+            r.fed = Math.max(0, t.getInt("Fed"));
             out.byKey.put(r.key(), r);
         }
         CompoundTag retired = tag.getCompound("RetiredXp");

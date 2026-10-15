@@ -46,7 +46,11 @@ items and no Review Lectern.
   Villagers' guards): they can't hurt it and it never fights them. A modpack adds its own mobs with a datapack file
   `data/agentoffice/tags/entity_type/village_allies.json` (without `"replace": true`).
 - **Damage**: only mobs that fight it, not village allies, can hurt it (and a fall right after their hit, `/kill`,
-  the void). Nothing a player does hurts it. It heals slowly out of a fight.
+  the void). Nothing a player does hurts it. Out of a fight it heals slowly, **but only on food from its
+  inventory**: it eats one plain food at a time (nothing with an effect, so no rotten flesh, golden apples or
+  suspicious stew) and gets 1 health per nutrition point (bread 5, steak 8), keeping any bowl or bottle (at its feet if
+  its pack is full). No food, no natural healing: its record keeps its health, so placing it again (a move) heals
+  nothing; a death or a dismiss brings it back whole.
 - **Death**: its items stay in its record; its owner is told and places it again from the tablet. **It loses all its
   XP.** A **dismiss** gives its items back to the owner and keeps its level for when it is placed again.
 - **Levels**: XP from kills (the mob's own reward, under vanilla's rules: `doMobLoot`, once per death; nothing for

@@ -39,6 +39,8 @@ class AgentRecordsTest {
         r.curios.put("ring", ring);
         r.xp = 123;
         r.workTicks = 4500;
+        r.health = 7.5f;
+        r.fed = 3;
         AgentRecords.Record shellless = records.getOrCreate(UUID.randomUUID(), new Api.Slot("p", null, "cs-ceo", "cs-ceo-1", null));
 
         CompoundTag saved = records.save(new CompoundTag(), server.registryAccess());
@@ -54,6 +56,8 @@ class AgentRecordsTest {
         assertTrue(ItemStack.matches(new ItemStack(Items.GOLD_INGOT), b.curios.get("ring").get(1)));
         assertEquals(123, b.xp);
         assertEquals(4500, b.workTicks);
+        assertEquals(7.5f, b.health);
+        assertEquals(3, b.fed);
         assertNull(back.find(shellless.owner, shellless.seat).entity);
         assertEquals(2, back.bodiesOf(owner).size() + back.bodiesOf(shellless.owner).size());
     }

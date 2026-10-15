@@ -20,6 +20,7 @@ import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -27,6 +28,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
@@ -54,6 +56,7 @@ import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
@@ -205,8 +208,12 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     protected void customServerAiStep() {
         super.customServerAiStep();
         if (home == null) home = blockPosition(); // placed before agents could walk
-        // Mends out of harm's way, like a player with a full food bar, only slower.
-        if (tickCount % 40 == 0 && getHealth() < getMaxHealth() && level().getGameTime() - lastHurtAt > 200) heal(1);
+        // Mends out of harm's way, but only on what it has eaten: no food in its inventory, no healing.
+        if (tickCount % 40 == 0 && getHealth() < getMaxHealth() && level().getGameTime() - lastHurtAt > 200
+                && record != null && (record.fed > 0 || eat())) {
+            record.fed--;
+            heal(1);
+        }
         // Work pays only at the desk: its owner's client says it works, but it has to be standing there.
         if (isWorking() && record != null && distanceToSqr(Vec3.atCenterOf(workplace)) < DESK * DESK && ++record.workTicks >= Tuning.WORK_XP_TICKS) {
             record.workTicks = 0;
@@ -216,6 +223,48 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         if (isWorking() && getTarget() == null && getNavigation().isDone() && distanceToSqr(Vec3.atCenterOf(workplace)) < DESK * DESK) {
             getLookControl().setLookAt(Vec3.atCenterOf(workplace));
         }
+    }
+
+    /**
+     * Eats one plain food from its inventory (none with an effect, good or bad: a golden apple or a suspicious stew
+     * is its owner's to spend), keeping any bowl or bottle. False if it has nothing to eat.
+     */
+    private boolean eat() {
+        for (int i = 0; i < AgentRecords.SIZE; i++) {
+            ItemStack stack = record.items.get(i);
+            FoodProperties food = stack.get(DataComponents.FOOD);
+            if (food == null || food.nutrition() <= 0 || !food.effects().isEmpty() || stack.has(DataComponents.SUSPICIOUS_STEW_EFFECTS)) continue;
+            ItemStack left = food.usingConvertsTo().map(ItemStack::copy).orElseGet(stack::getCraftingRemainingItem);
+            if (left.is(stack.getItem())) continue; // a meal that gives itself back would heal forever
+            stack.shrink(1);
+            if (!left.isEmpty()) keep(i, left);
+            record.fed = food.nutrition();
+            playSound(SoundEvents.GENERIC_EAT, 0.5f, 1f);
+            return true;
+        }
+        return false;
+    }
+
+    /** What a meal leaves: in the slot it emptied, else with its like or in a free slot of the pack, else at its feet. */
+    private void keep(int eaten, ItemStack left) {
+        if (record.items.get(eaten).isEmpty()) {
+            EquipmentSlot eq = equipmentAt(eaten);
+            if (eq != null) setItemSlot(eq, left);
+            else record.items.set(eaten, left);
+            return;
+        }
+        int free = -1;
+        for (int i = 1; i <= 35; i++) { // the pack: not its hand, armor or offhand
+            ItemStack s = record.items.get(i);
+            if (s.isEmpty()) {
+                if (free < 0) free = i;
+            } else if (ItemStack.isSameItemSameComponents(s, left) && s.getCount() + left.getCount() <= s.getMaxStackSize()) {
+                s.grow(left.getCount());
+                return;
+            }
+        }
+        if (free >= 0) record.items.set(free, left);
+        else spawnAtLocation(left);
     }
 
     /**
@@ -374,10 +423,27 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
             int i = index(s);
             if (i >= 0) super.setItemSlot(s, r.items.get(i));
         }
+        // No health in the record: a new agent, one placed again after its death, or a record saved before it kept health.
+        setHealth(r.health > 0 ? r.health : getHealth());
         if (!r.seat.equals(seat)) setSeat(r.seat);
         curiosChanged();
         sendStats();
         return true;
+    }
+
+    /** Its wounds are its record's: a new body (every Place, even a move) takes them on, so only food mends them. */
+    @Override
+    public void setHealth(float health) {
+        super.setHealth(health);
+        if (record != null) record.health = getHealth();
+    }
+
+    /** The equipment slot at an Inventory index, or null. */
+    static EquipmentSlot equipmentAt(int index) {
+        for (EquipmentSlot s : EquipmentSlot.values()) {
+            if (index(s) == index) return s;
+        }
+        return null;
     }
 
     /** Its Inventory index for an equipment slot, or -1. */
@@ -430,6 +496,8 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         record.entity = null;
         record.xp = 0;
         record.workTicks = 0;
+        record.health = 0; // placed again, it comes back whole
+        record.fed = 0;
         record = null;
         owner().map(getServer().getPlayerList()::getPlayer).ifPresent(p -> {
             p.sendSystemMessage(Component.literal(getName().getString() + " is down" + lost + ". Place it again from the"
