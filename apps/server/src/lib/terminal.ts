@@ -14,6 +14,9 @@ const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 // Single-instance terminals (ptyxis, gnome-terminal, macOS Terminal) exit after handing
 // off the window, so the pid we track is the one the shell inside it reports.
 const PID_WAIT_MS = 10_000;
+// A cold PowerShell start plus an antivirus scan can take seconds; timing out after
+// Start-Process ran would leave an untracked window, and a retry opens a duplicate.
+const POWERSHELL_WAIT_MS = 30_000;
 
 declare global {
   var __aoLaunchedShells: Set<number> | undefined;
@@ -86,16 +89,33 @@ function spawnWindows(title: string, cwd: string, argv: string[], env: NodeJS.Pr
     execFile(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-Command", START_CONSOLE],
-      { env: { ...env, AO_TERM_ARGS: cmdLine, AO_TERM_CWD: cwd }, windowsHide: true, timeout: PID_WAIT_MS },
+      { env: { ...env, AO_TERM_ARGS: cmdLine, AO_TERM_CWD: cwd }, windowsHide: true, timeout: POWERSHELL_WAIT_MS },
       (err, stdout, stderr) => {
         const pid = parseInt(String(stdout).trim(), 10);
-        if (err || !(pid > 0)) {
+        if (err?.killed) {
+          log.error("terminal.start_timeout", { title, cwd, terminal: "win32", note: "the console may be open, untracked" });
+          resolve(null);
+        } else if (err || !(pid > 0)) {
           log.error("terminal.spawn_failed", { title, cwd, message: err?.message ?? String(stderr).slice(0, 300) });
           resolve(null);
         } else resolve(pid);
       },
     );
   });
+}
+
+function terminalArgs(termBin: string, title: string, scriptFile: string): string[] {
+  const run = ["bash", scriptFile];
+  switch (basename(termBin)) {
+    case "gnome-terminal": return ["--title", title, "--", ...run];
+    case "ptyxis": return ["--", ...run];
+    case "xterm": return ["-title", title, "-e", ...run];
+    case "konsole": return ["--title", title, "-e", ...run];
+    case "alacritty": return ["-T", title, "-e", ...run];
+    case "kitty": return ["--title", title, ...run];
+    // xfce4-terminal and some x-terminal-emulator targets take `-e` as one string.
+    default: return ["-e", scriptFile];
+  }
 }
 
 async function spawnPosix(title: string, cwd: string, argv: string[], port: number | null, env: NodeJS.ProcessEnv): Promise<number | null> {
@@ -132,19 +152,7 @@ async function spawnPosix(title: string, cwd: string, argv: string[], port: numb
   const termBin = headless || process.platform === "darwin" ? null : detectTerminal();
   if (!headless && process.platform === "darwin") launch("open", ["-a", "Terminal", scriptFile]);
   else if (!termBin) launch("bash", [scriptFile]);
-  else {
-    const run = ["bash", scriptFile];
-    switch (basename(termBin)) {
-      case "gnome-terminal": launch(termBin, ["--title", title, "--", ...run]); break;
-      case "ptyxis": launch(termBin, ["--", ...run]); break;
-      case "xterm": launch(termBin, ["-title", title, "-e", ...run]); break;
-      case "konsole": launch(termBin, ["--title", title, "-e", ...run]); break;
-      case "alacritty": launch(termBin, ["-T", title, "-e", ...run]); break;
-      case "kitty": launch(termBin, ["--title", title, ...run]); break;
-      // xfce4-terminal and some x-terminal-emulator targets take `-e` as one string.
-      default: launch(termBin, ["-e", scriptFile]);
-    }
-  }
+  else launch(termBin, terminalArgs(termBin, title, scriptFile));
 
   try {
     for (let waited = 0; waited < PID_WAIT_MS; waited += 100) {
