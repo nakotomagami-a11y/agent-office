@@ -30,6 +30,7 @@ import { SkillUpdatesBell } from "./skill-updates-bell";
 import { UpdateBell } from "./update-bell";
 import { VersionBadge } from "./version-badge";
 import { DevMenu } from "@/components/dev/dev-menu";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 /**
  * The top row every page renders at the top of `<main>` — project tabs,
@@ -252,10 +253,13 @@ export function MainTopBar() {
     };
     place();
     const close = () => setNavMenuOpen(false);
-    window.addEventListener("scroll", close, { passive: true, capture: true });
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, navMenuTriggerRef.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [navMenuOpen]);

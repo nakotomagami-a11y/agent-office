@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 import { Portal } from "@/components/ui/portal";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 export type DropdownItem = {
   key: string;
@@ -81,14 +82,10 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
       }
     };
     const close = () => setOpen(false);
-    // Close when the PAGE scrolls (the menu is position:fixed and would detach
-    // from its trigger) — but NOT when the user scrolls *inside* the menu's own
-    // overflow area. The capture-phase listener sees inner scrolls too, so skip
-    // any scroll whose target is within the menu.
+    // The menu is position:fixed, so it only detaches when something holding
+    // the trigger scrolls — not the menu's own list or a sibling scroller.
     const onScroll = (e: Event) => {
-      const t = e.target as Node | null;
-      if (t && menuRef.current?.contains(t)) return;
-      setOpen(false);
+      if (scrollMovesAnchor(e, triggerRef.current)) setOpen(false);
     };
     document.addEventListener("mousedown", onClick);
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });

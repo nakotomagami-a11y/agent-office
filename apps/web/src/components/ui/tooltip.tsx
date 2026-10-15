@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, useId, isValidElement, cloneE
 import { createPortal } from "react-dom";
 import { assertNever } from "@/lib/assert-never";
 import { cn } from "@/lib/cn";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 type Side = "top" | "bottom" | "left" | "right";
 
@@ -81,10 +82,13 @@ export function Tooltip({ content, children, side = "top", delayMs = 450, classN
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
-    window.addEventListener("scroll", close, { passive: true, capture: true });
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, ref.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);

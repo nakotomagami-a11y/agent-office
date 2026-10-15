@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 export type PopoverProps = {
   /** Content rendered inside the trigger <button>. */
@@ -94,9 +95,7 @@ export function Popover({
       setOpen(false);
     };
     const onScroll = (e: Event) => {
-      const t = e.target as Node | null;
-      if (t && panelRef.current?.contains(t)) return;
-      setOpen(false);
+      if (scrollMovesAnchor(e, triggerRef.current)) setOpen(false);
     };
     const onResize = () => setOpen(false);
     document.addEventListener("mousedown", onClick);

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 /**
  * The app's one hover-triggered *interactive* popover — for rich hover cards
@@ -116,7 +117,6 @@ export function HoverCard({ width = 336, placement = "right", panel, children }:
   const [style, setStyle] = useState<CSSProperties>({});
   const [maxHeight, setMaxHeight] = useState(DEFAULT_MAX_HEIGHT);
   const elRef = useRef<HTMLElement | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
   const showTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -151,13 +151,8 @@ export function HoverCard({ width = 336, placement = "right", panel, children }:
 
   useEffect(() => {
     if (!open) return;
-    // Close when the page scrolls under the trigger (anchor goes stale), but
-    // not when the card's own content scrolls — the capture-phase listener
-    // sees both, so ignore scrolls targeting inside the card.
     const onScroll = (e: Event) => {
-      const target = e.target;
-      if (target instanceof Node && wrapRef.current?.contains(target)) return;
-      close();
+      if (scrollMovesAnchor(e, elRef.current)) close();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
@@ -176,7 +171,7 @@ export function HoverCard({ width = 336, placement = "right", panel, children }:
     <>
       {children({ ref: setRef, onMouseEnter: scheduleShow, onMouseLeave: scheduleHide })}
       {open && typeof document !== "undefined" && createPortal(
-        <div ref={wrapRef} style={{ ...style, width }} onMouseEnter={cancelHide} onMouseLeave={scheduleHide}>
+        <div style={{ ...style, width }} onMouseEnter={cancelHide} onMouseLeave={scheduleHide}>
           {panel({ close, maxHeight })}
         </div>,
         document.body,

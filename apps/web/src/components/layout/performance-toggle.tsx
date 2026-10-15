@@ -7,6 +7,7 @@ import { Portal } from "@/components/ui/portal";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
 /**
  * Top-bar performance toggle — sits next to the theme toggle. Reflects the
@@ -77,16 +78,19 @@ export function PerformanceToggle() {
       }
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    const onScroll = () => setOpen(false);
+    const close = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, triggerRef.current)) close();
+    };
     document.addEventListener("mousedown", onMouse);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("mousedown", onMouse);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", close);
     };
   }, [open]);
 

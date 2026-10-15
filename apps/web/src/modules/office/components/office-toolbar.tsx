@@ -9,6 +9,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { Portal } from "@/components/ui/portal";
 import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
@@ -32,6 +33,11 @@ const TBTN = "inline-flex items-center gap-[5px] px-[9px] h-[30px] rounded-[7px]
 
 // Full-width labelled row used when an action is rendered inside the kebab menu
 const MROW = "flex items-center gap-[10px] w-full h-[34px] px-[10px] rounded-[7px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors duration-[120ms] cursor-pointer select-none text-left disabled:cursor-default disabled:hover:bg-transparent";
+
+// Same thin scrollbar as the project picker; scrollbars.css forbids ::-webkit-scrollbar.
+const MENU_SCROLL = "[scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]";
+// Long command lists ran off the bottom of the window: cap at 440px or the space below the trigger.
+const menuMaxHeight = (rect: DOMRect) => Math.min(440, window.innerHeight - rect.bottom - 18);
 
 // Icon-only toolbar buttons that render a decorative PNG (folder, VS Code, bin) —
 // no hover background, the icon itself scales up on hover instead.
@@ -153,15 +159,19 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
         top: rect.bottom + 6,
         right: window.innerWidth - rect.right,
         width: 220,
+        maxHeight: menuMaxHeight(rect),
       });
     };
     place();
-    // A fixed-position panel detaches from its trigger on scroll/resize.
+    // A fixed-position panel detaches when something holding its trigger scrolls.
     const close = () => setOpen(false);
-    window.addEventListener("scroll", close, { passive: true, capture: true });
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, triggerRef.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
@@ -416,53 +426,55 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
               <div
                 ref={panelRef}
                 style={panelStyle}
-                className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] py-1 overflow-hidden"
+                className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col"
               >
-                {commands.map((cmd) => {
-                  const s = getState(cmd.key);
-                  const busy = s.phase === "starting" || s.phase === "stopping";
-                  return (
-                    <div key={cmd.key} className="flex items-center gap-2 px-3 py-[7px] hover:bg-[var(--bg-3)] group">
-                      <span className={cn("flex-1 text-[13px] truncate", s.phase === "running" ? "text-[var(--txt)]" : "text-[var(--txt-2)]")}>
-                        {cmd.name}
-                      </span>
-                      {s.phase === "running" && s.port !== null && (
-                        <a
-                          href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
-                          className="font-mono text-[11px] text-[var(--working)] no-underline px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--working)_12%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          :{s.port}
-                        </a>
-                      )}
-                      {busy && (
-                        <Icon name="refresh" size={13} className="text-[var(--txt-3)] [animation:spin_1s_linear_infinite] shrink-0" />
-                      )}
-                      {!busy && s.phase === "idle" && (
-                        <Tooltip content={`Start ${cmd.name}`} side="left" delayMs={300}>
-                          <button
-                            type="button"
-                            onClick={() => { void startCmd(cmd.key); }}
-                            className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                <div className={cn("min-h-0 overflow-y-auto grid", MENU_SCROLL)}>
+                  {commands.map((cmd) => {
+                    const s = getState(cmd.key);
+                    const busy = s.phase === "starting" || s.phase === "stopping";
+                    return (
+                      <div key={cmd.key} className="flex items-center gap-2 px-3 py-[7px] rounded-[7px] hover:bg-[var(--bg-3)] group">
+                        <span className={cn("flex-1 text-[13px] truncate", s.phase === "running" ? "text-[var(--txt)]" : "text-[var(--txt-2)]")}>
+                          {cmd.name}
+                        </span>
+                        {s.phase === "running" && s.port !== null && (
+                          <a
+                            href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[11px] text-[var(--working)] no-underline px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--working)_12%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)]"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Icon name="play" size={11} />
-                          </button>
-                        </Tooltip>
-                      )}
-                      {!busy && s.phase === "running" && (
-                        <Tooltip content={`Stop ${cmd.name}`} side="left" delayMs={300}>
-                          <button
-                            type="button"
-                            onClick={() => { void stopCmd(cmd.key); }}
-                            className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          >
-                            <Icon name="stop" size={11} />
-                          </button>
-                        </Tooltip>
-                      )}
-                    </div>
-                  );
-                })}
+                            :{s.port}
+                          </a>
+                        )}
+                        {busy && (
+                          <Icon name="refresh" size={13} className="text-[var(--txt-3)] [animation:spin_1s_linear_infinite] shrink-0" />
+                        )}
+                        {!busy && s.phase === "idle" && (
+                          <Tooltip content={`Start ${cmd.name}`} side="left" delayMs={300}>
+                            <button
+                              type="button"
+                              onClick={() => { void startCmd(cmd.key); }}
+                              className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            >
+                              <Icon name="play" size={11} />
+                            </button>
+                          </Tooltip>
+                        )}
+                        {!busy && s.phase === "running" && (
+                          <Tooltip content={`Stop ${cmd.name}`} side="left" delayMs={300}>
+                            <button
+                              type="button"
+                              onClick={() => { void stopCmd(cmd.key); }}
+                              className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            >
+                              <Icon name="stop" size={11} />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               </Portal>
             )}
@@ -803,14 +815,18 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
         top: rect.bottom + 6,
         right: window.innerWidth - rect.right,
         width: 240,
+        maxHeight: menuMaxHeight(rect),
       });
     };
     place();
     const close = () => setOpen(false);
-    window.addEventListener("scroll", close, { passive: true, capture: true });
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, triggerRef.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
@@ -840,19 +856,23 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
           <div
             ref={panelRef}
             style={panelStyle}
-            className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col gap-[1px]"
+            className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col"
           >
-            <OpenFolderButton projectId={projectId} menu />
-            <OpenInVSCodeButton projectId={projectId} menu />
-            <ClearCacheButton projectId={projectId} menu />
-            <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
-            {hasBuild && (
-              <>
-                <BuildButton projectId={projectId} menu />
-                <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
-              </>
-            )}
-            <DevServerButton projectId={projectId} menu />
+            <div className="shrink-0 flex flex-col gap-[1px]">
+              <OpenFolderButton projectId={projectId} menu />
+              <OpenInVSCodeButton projectId={projectId} menu />
+              <ClearCacheButton projectId={projectId} menu />
+              <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+              {hasBuild && (
+                <>
+                  <BuildButton projectId={projectId} menu />
+                  <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+                </>
+              )}
+            </div>
+            <div className={cn("min-h-0 overflow-y-auto grid gap-[1px]", MENU_SCROLL)}>
+              <DevServerButton projectId={projectId} menu />
+            </div>
           </div>
         </Portal>
       )}
