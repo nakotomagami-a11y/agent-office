@@ -88,12 +88,22 @@ export function accountConfigDir(id: string): string {
 
 // Per-project GitHub account: each non-default account owns a GH_CONFIG_DIR
 // (the dir `gh` reads its hosts.yml/token from) under GITHUB_ACCOUNTS_DIR. The
-// `default` id maps to the system's own gh config (`~/.config/gh`) and is NEVER
-// injected — a run with the default github account inherits whatever gh auth the
-// machine has active, identical to pre-feature behavior.
+// `default` id maps to the system's own gh config and is NEVER injected — a run
+// with the default github account inherits whatever gh auth the machine has
+// active, identical to pre-feature behavior.
 export const GITHUB_ACCOUNTS_DIR = join(APP_STATE_DIR, "github-accounts");
 export const DEFAULT_GITHUB_ACCOUNT_ID = "default";
-export const SYSTEM_GH_CONFIG_DIR = join(HOME, ".config", "gh");
+// gh's own lookup order. On Windows that is %APPDATA%\GitHub CLI, not ~/.config/gh —
+// reading the latter showed a signed-in default account as "needs login".
+export function ghConfigDir(env: NodeJS.ProcessEnv, os: NodeJS.Platform, home: string): string {
+  return (
+    env.GH_CONFIG_DIR ||
+    (env.XDG_CONFIG_HOME && join(env.XDG_CONFIG_HOME, "gh")) ||
+    (os === "win32" && env.APPDATA && join(env.APPDATA, "GitHub CLI")) ||
+    join(home, ".config", "gh")
+  );
+}
+export const SYSTEM_GH_CONFIG_DIR = ghConfigDir(process.env, platform(), HOME);
 
 /**
  * GH_CONFIG_DIR for a given github account id, or `null` for `default`/unset —

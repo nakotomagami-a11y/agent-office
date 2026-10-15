@@ -35,8 +35,11 @@ if (files.length === 0) {
 
 const tsxCli = createRequire(join(process.cwd(), "package.json")).resolve("tsx/cli");
 const home = mkdtempSync(join(tmpdir(), "ao-test-home-"));
-const env = { ...process.env, HOME: home, USERPROFILE: home };
-for (const key of ["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "PORT", "CLAUDE_CONFIG_DIR"]) delete env[key];
+// gh config (paths.ts ghConfigDir): else tests read the developer's real gh login. APPDATA is
+// overridden, not deleted — without it Windows falls to a different branch than real users take.
+const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData", "Roaming") };
+const dropped = ["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "PORT", "CLAUDE_CONFIG_DIR", "GH_CONFIG_DIR", "XDG_CONFIG_HOME"];
+for (const key of dropped) delete env[key];
 
 const result = spawnSync(process.execPath, [tsxCli, "--test", ...files], { stdio: "inherit", env });
 if (result.error) console.error("run-tests: could not start the test runner:", result.error);

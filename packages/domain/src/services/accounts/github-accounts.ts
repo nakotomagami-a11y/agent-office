@@ -5,7 +5,7 @@
  * token/hosts from. git-over-HTTPS is pointed at the same dir per-run by
  * `resolveSpawnEnv`, which injects a `gh auth git-credential` credential helper
  * via GIT_CONFIG_* env (no global ~/.gitconfig / `gh auth setup-git` needed). The
- * `default` account maps to the system gh config (`~/.config/gh`) and is NEVER
+ * `default` account maps to the system gh config (SYSTEM_GH_CONFIG_DIR) and is NEVER
  * injected — a project on the default account inherits the machine's active gh
  * auth, identical to pre-feature behavior.
  *
@@ -167,7 +167,8 @@ export function getStatus(id: string): GithubAccountWithStatus | null {
   // GITHUB_ACCOUNTS_DIR.
   const configDir = githubAccountConfigDir(id) ?? SYSTEM_GH_CONFIG_DIR;
   const { username, usernames, ready } = readHostsUser(configDir);
-  const status: GithubAccountWithStatus = { ...account, ready };
+  // configDir: the dir actually read — the default row's stored path was seeded once and goes stale.
+  const status: GithubAccountWithStatus = { ...account, configDir, ready };
   if (username) status.username = username;
   if (usernames.length) status.usernames = usernames;
   return status;

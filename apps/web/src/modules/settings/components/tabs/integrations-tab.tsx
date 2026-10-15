@@ -501,7 +501,7 @@ function GithubAccountRow({ account, onDelete }: { account: GithubAccountWithSta
           </div>
         )}
         <span className="font-mono text-[10.5px] text-txt-4 mt-[4px] block truncate">
-          {isDefault ? t("github_system_path") : account.configDir}
+          {isDefault ? t("github_system_path", { path: account.configDir }) : account.configDir}
         </span>
       </div>
       {!editing ? (
