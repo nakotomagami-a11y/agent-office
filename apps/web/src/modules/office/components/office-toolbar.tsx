@@ -10,6 +10,7 @@ import { Portal } from "@/components/ui/portal";
 import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
+import { toast } from "@/lib/toast-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
@@ -245,6 +246,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       setKeyState(key, { phase: "running", pid: body.pid ?? 0, port: body.port ?? null, url: body.url ?? null });
     } catch {
       setKeyState(key, { phase: "idle" });
+      toast(`Couldn't start ${commands.find((c) => c.key === key)?.name ?? key}`);
     }
   }
 

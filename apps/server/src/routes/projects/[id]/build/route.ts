@@ -1,10 +1,10 @@
 // GET /api/projects/<id>/build — report whether a build command is detectable.
 // POST — detect it (.ao.json override, else a package.json build script) and run it
-// in a spawned OS terminal window; returns the child pid.
+// in a spawned OS terminal window; returns the pid of the shell running it.
 import { existsSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { projects } from "@agent-office/domain/services";
-import { validateIdParam, notFound, badRequest } from "../../../../lib/api-helpers";
+import { validateIdParam, notFound, badRequest, serverError } from "../../../../lib/api-helpers";
 import { detectPackageManager, detectBuildCommand } from "../../../../lib/project-runtime";
 import { spawnInTerminal } from "../../../../lib/terminal";
 
@@ -36,6 +36,7 @@ export async function POST(_req: Request, { params }: Params) {
   const argv = detectBuildCommand(cwd, detectPackageManager(cwd));
   if (!argv) return badRequest("no_build_command");
 
-  const child = spawnInTerminal("Build", cwd, argv);
-  return Response.json({ pid: child.pid ?? null });
+  const pid = await spawnInTerminal("Build", cwd, argv);
+  if (pid === null) return serverError("terminal_start_failed");
+  return Response.json({ pid });
 }

@@ -2,7 +2,7 @@
 // resolve each owning PID via /proc, and match it to a project by cwd. Linux-only
 // (returns [] elsewhere). Backs GET /api/processes.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readlinkSync } from "node:fs";
+import { readFileSync, readlinkSync } from "node:fs";
 import * as os from "node:os";
 import { normalize } from "node:path";
 import type { ProcessInfo } from "../../types/index";
@@ -150,22 +150,26 @@ export function parsePid(raw: string): number | null {
 }
 
 export function isProcessAlive(pid: number): boolean {
-  return existsSync(`/proc/${pid}/status`);
+  return db.isPidAlive(pid);
 }
 
 export type KillResult = { ok: true } | { ok: false; error: string; status: number };
 
-/** SIGKILL a process, refusing to kill one owned by another uid. SIGKILL (not
- *  SIGTERM) because tracked dev servers were observed ignoring SIGTERM. */
-export function killProcess(pid: number): KillResult {
-  const currentUid = typeof process.getuid === "function" ? process.getuid() : null;
+/** SIGKILL (dev servers were seen ignoring SIGTERM) a pid another uid doesn't own. `tree`
+ *  takes its children too: only for a pid the caller launched, a reused one isn't ours. */
+export function killProcess(pid: number, { tree = false }: { tree?: boolean } = {}): KillResult {
+  // kill(-1) signals every process the user owns.
+  if (pid <= 1 || pid === process.pid) return { ok: false, error: "forbidden", status: 403 };
+  // The owner is read from /proc; elsewhere the OS refuses another user's pid itself (EPERM).
+  const currentUid = process.platform === "linux" && typeof process.getuid === "function" ? process.getuid() : null;
   if (currentUid !== null) {
     const uid = readProcUid(pid);
     if (uid === null) return { ok: false, error: "not_found", status: 404 };
     if (uid !== currentUid) return { ok: false, error: "forbidden", status: 403 };
   }
   try {
-    process.kill(pid, "SIGKILL");
+    if (tree) killTree(pid);
+    else process.kill(pid, "SIGKILL");
     // User-initiated kill (Servers modal) — drop any background_shells row
     // for this pid now, so the watcher never mistakes this for an
     // unattended task finishing and nudges the agent about something the
@@ -176,7 +180,26 @@ export function killProcess(pid: number): KillResult {
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ESRCH") return { ok: false, error: "not_found", status: 404 };
+    if (err.code === "EPERM") return { ok: false, error: "forbidden", status: 403 };
     return { ok: false, error: "internal_error", status: 500 };
+  }
+}
+
+function killTree(pid: number): void {
+  if (process.platform === "win32") {
+    try {
+      execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+    } catch (e) {
+      if (!isProcessAlive(pid)) throw Object.assign(new Error("process not found"), { code: "ESRCH" });
+      throw e;
+    }
+    return;
+  }
+  // A terminal shell leads its group; children that regrouped (turborepo tasks) survive.
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    process.kill(pid, "SIGKILL");
   }
 }
 

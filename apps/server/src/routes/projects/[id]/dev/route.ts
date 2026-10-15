@@ -1,10 +1,10 @@
 // GET /api/projects/<id>/dev — detect runnable dev commands for the project.
 // POST — pick a free port, then launch the chosen dev command in an OS terminal
-// window with an nvm-safe PATH; returns the child pid.
+// window with an nvm-safe PATH; returns the pid of the shell running it.
 import { existsSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
 import { projects } from "@agent-office/domain/services";
-import { validateIdParam, notFound, badRequest } from "../../../../lib/api-helpers";
+import { validateIdParam, notFound, badRequest, serverError } from "../../../../lib/api-helpers";
 import { detectPackageManager, detectDevCommands, findFreePort } from "../../../../lib/project-runtime";
 import { spawnInTerminal } from "../../../../lib/terminal";
 
@@ -59,12 +59,13 @@ export async function POST(req: Request, { params }: Params) {
   // `-- -p port` breaks Next.js ≥ v13, which treats `--` as a directory argument.
   if (command.portMode === "flutter") argv.push("--web-port", String(port));
 
-  const child = spawnInTerminal(command.name, command.cwd ?? cwd, argv, needsPort ? port : null);
+  const pid = await spawnInTerminal(command.name, command.cwd ?? cwd, argv, needsPort ? port : null);
+  if (pid === null) return serverError("terminal_start_failed");
 
   return Response.json({
     key: command.key,
     port: needsPort ? port : null,
     url: needsPort ? `http://localhost:${port}` : null,
-    pid: child.pid,
+    pid,
   });
 }
