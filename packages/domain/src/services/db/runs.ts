@@ -2,6 +2,7 @@ import { getDb } from "./connection";
 import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
 import { isRunErrorCode } from "../../config/run-errors";
 
+/** Parse, don't cast: the column is TEXT and old rows predate it. */
 export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
 
 export interface RunInsert {

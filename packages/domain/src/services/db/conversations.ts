@@ -8,8 +8,6 @@ import { getDb } from "./connection";
 import { asOrigin, rowToRun, type RunRow } from "./runs";
 import type { MessageOrigin, PersistedRun } from "../../types/index";
 
-/** Parse, don't cast: the column is TEXT and old rows predate it. */
-
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
 export interface ConversationRow {
@@ -140,7 +138,6 @@ export function listQueue(conversationId: string): QueuedMessageRow[] {
   return rows.map(toQueued);
 }
 
-/** Append a message to the end of the conversation's queue. */
 export function enqueueMessage(conversationId: string, text: string, attachments: string | null = null, origin: MessageOrigin = "user"): QueuedMessageRow {
   const db = getDb();
   const now = Date.now();

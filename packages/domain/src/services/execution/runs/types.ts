@@ -86,9 +86,7 @@ export interface LiveRun {
   aborted?: boolean;
   /** First error event broadcast for this run — replayed on attach and persisted for history. */
   error?: { code: RunErrorCode; detail?: string; interrupted?: boolean };
-  /** The `--resume` result said the session is gone; the close handler retries without it. */
   missingSession?: boolean;
-  /** The retry started a fresh session; the persisted output says so. */
   freshSession?: boolean;
   sessionId?: string;
   proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
@@ -175,7 +173,6 @@ export interface StreamEvent {
   total_cost_usd?: number;
   session_id?: string;
   is_error?: boolean;
-  /** Set instead of `error` by some failures, e.g. a `--resume` with an unknown session. */
   errors?: string[];
   error?: string;
   rate_limit_info?: { status?: string; resetsAt?: number; rateLimitType?: string };
