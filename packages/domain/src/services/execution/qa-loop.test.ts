@@ -209,3 +209,20 @@ test("the pill ranks a STOPPED or failed loop like a finished one, not above it"
   db.updateLoopState(passed, { ...db.getLoop(passed)!.state, phase: "done", binding: "converged" }, null, 33);
   assert.equal(db.latestLoopForInstance("proj", "dev-on")!.id, passed);
 });
+
+test("a message whose start fails is put back at the head of the queue, not lost", async () => {
+  const conversation = await import("./conversation");
+  const conv = db.startNewConversation("developer", "dev-on", "proj");
+  const down = async () => { throw Object.assign(new Error("down"), { code: "claude_unavailable" }); };
+  let calls = 0;
+  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
+    startRun: async () => {
+      if (++calls === 1) await conversation.sendMessageToConversation(conv.id, "users message", { startRun: down });
+      return down();
+    },
+  });
+  assert.deepEqual(r, { code: "claude_unavailable" });
+  assert.equal(calls, 2, "the fix round, then the user's message");
+  assert.equal(db.getConversation(conv.id)!.status, "needs_attention");
+  assert.deepEqual(db.listQueue(conv.id).map((m) => m.text), ["users message"], "both starts failed; the user's text survives");
+});

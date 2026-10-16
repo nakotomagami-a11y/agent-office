@@ -121,8 +121,13 @@ async function apply(
   const conv = db.getConversation(convId);
   if (!conv) throw new Error(`conversation not found: ${convId}`);
 
-  const { state: next, effects } = reduce(buildState(conv), action);
+  const prev = buildState(conv);
+  const { state: next, effects } = reduce(prev, action);
   persist(convId, next);
+  // The message this start consumes: a send from idle, or the queue head `advance` took.
+  const consumed = action.type === "send" && prev.status === "idle"
+    ? action.message
+    : prev.queue.length > next.queue.length ? prev.queue[0] : undefined;
 
   const startEffect = effects.find((e) => e.type === "startRun");
   if (startEffect) {
@@ -151,6 +156,8 @@ async function apply(
         message: e instanceof Error ? e.message : String(e),
       });
       db.updateConversation(convId, { status: "needs_attention", activeRunId: null });
+      // Back at the head: a failed start has no run row, so nothing else holds the text.
+      if (consumed) db.replaceQueue(convId, [consumed, ...db.listQueue(convId)]);
       emitAppEvent("conversations:changed");
       return view(convId);
     }
