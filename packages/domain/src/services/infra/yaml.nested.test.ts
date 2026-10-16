@@ -41,6 +41,17 @@ test("a list of mappings still uses block style", () => {
   assert.match(stringifyYaml({ roster: roster as YamlValue }), /^roster:\n- instanceId:/m);
 });
 
+test("a mapping nested in a list item survives a round-trip", () => {
+  // Every roster instance with a worktree pin: written as `worktree:   branch: …` on one line,
+  // the pin was dropped on the next read and the worktree leaked.
+  const roster = [
+    { instanceId: "developer-aaa", agentId: "developer", cwd: "/p/.worktrees/a", worktree: { branch: "agent/a", basePath: "/p/.worktrees/a", createdAt: 1 } },
+    { worktree: { branch: "first-key", basePath: "/x", createdAt: 2 }, instanceId: "developer-bbb" },
+    { instanceId: "x", tags: [{ name: "deep", at: { n: 1 } }] },
+  ];
+  assert.deepStrictEqual(roundTrip(roster), roster);
+});
+
 test("a string that merely looks like a list stays a string", () => {
   assert.strictEqual(roundTrip("[1, 2]"), "[1, 2]");
   assert.strictEqual(roundTrip("a[b],c ]x["), "a[b],c ]x[");

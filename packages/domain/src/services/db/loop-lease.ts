@@ -2,7 +2,7 @@ import { getDb } from "./connection";
 import { isPidAlive } from "../infra/pid";
 import { log } from "../infra/log";
 
-export type LoopName = "scheduler" | "orphan-shells";
+export type LoopName = "scheduler" | "orphan-shells" | "missions";
 
 // Every tick by the owner refreshes updated_at. Windows reuses pids quickly, so
 // "owner pid is alive" alone could lock the loops out behind an unrelated process.

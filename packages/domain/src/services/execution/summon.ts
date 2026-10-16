@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { AgentInstance, ApiAgent, SummonRequest } from "../../types/index";
+import * as db from "../db";
 import { APP_STATE_DIR, REPO_SCRIPTS_DIR } from "../infra/paths";
 
 export interface BuiltCommand {
@@ -98,10 +99,17 @@ export const PERMISSION_SERVER_PATH = join(
   "mcp-permission-server.mjs",
 );
 
+/** Any seat can push to a hub branch, so never load its project settings (docs/missions.md, Trust). */
+export function isMissionWorktree(instance: AgentInstance | null): boolean {
+  if (!instance) return false;
+  return (instance.worktree?.branch.startsWith("mission/") ?? false) || db.wasMissionSeat(instance.instanceId);
+}
+
 export function buildClaudeArgs(opts: {
   request: SummonRequest;
   agent: ApiAgent;
   instance: AgentInstance | null;
+  isolate?: boolean;
   appendedSystemPrompt: string;
   priorContext?: string;
 }): BuiltCommand {
@@ -133,12 +141,12 @@ export function buildClaudeArgs(opts: {
   }
   const needsPermissionServer = !!permissionMode && permissionMode !== "bypassPermissions";
   const excludePlaywright = instance?.playwrightEnabled === false;
-  if (excludePlaywright || needsPermissionServer) {
+  const onHubBranch = opts.isolate ?? isMissionWorktree(instance);
+  if (onHubBranch) args.push("--setting-sources", "user");
+  if (excludePlaywright || needsPermissionServer || onHubBranch) {
     args.push(...mcpArgs({ excludePlaywright, withPermissionServer: needsPermissionServer }));
   }
-  for (const dir of agent.addDirs ?? []) {
-    args.push("--add-dir", dir.replace(/^~/, homedir()));
-  }
+  for (const dir of agent.addDirs ?? []) args.push("--add-dir", dir.replace(/^~/, homedir()));
   let systemPromptFile: string | undefined;
   if (appendedSystemPrompt) {
     systemPromptFile = writeSystemPromptFile(appendedSystemPrompt);

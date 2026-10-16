@@ -329,7 +329,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v26**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v27**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -350,13 +350,14 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
-| `saved_prompts` | id, title, body, category, created_at, use_count | Reusable multi-step workflow library |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude` |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
 | `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Values encrypted at rest (AES-256-GCM, machine-local key: `services/accounts/secret-crypto.ts`) |
 | `project_secrets` | PK(project_id, secret_id) | Many-to-many link attaching a secret to projects |
 | `pr_links` | PK(repo, number), project_id, agent_id, instance_id, source, created_at | Which agent seat opened which GitHub PR (`source`: `recorded` when its `gh pr create` returned the URL, `branch` from an `agent/<instanceId>-…` head, `manual` when picked at the Review Lectern) — review feedback is routed to that seat's chat. `repo` is lowercase `owner/name` |
+| `mission_seats` | PK(mission_id, seat), project_id, pr_number, agent_id, instance_id, hub_branch, lead_device, manifest_json, cursor_id, cursor_at, status_comment_id, cap_usd, spent_usd, left_at, created_at, updated_at | The mission seats THIS device holds (`docs/missions.md`): which chat each is, the last hub comment routed, its spend cap, and the lead device + manifest pinned when the human started or joined (a fold naming another lead means the hub's history was rewritten). The mission itself (roster, asks, phase) is folded from the hub PR's comments, never stored |
+| `mission_posts` | PK(mission_id, nonce), comment_id (NULL until GitHub answers), created_at | Every hub comment THIS device posted, logged AHEAD of the post by a nonce the envelope carries. A comment claiming this device that is not here is a forgery of it (`forged_self`) |
 
 ### Virtual table
 
@@ -364,7 +365,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ### Indexes
 
-`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_saved_prompts_category`, `idx_saved_prompts_created`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`
+`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`, `idx_mission_seats_instance`, `idx_mission_posts_comment`
 
 ---
 

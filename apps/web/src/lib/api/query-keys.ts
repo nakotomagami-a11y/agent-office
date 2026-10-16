@@ -73,12 +73,6 @@ export const queryKeys = {
     recent: () => [...queryKeys.prompts.all, "recent"] as const,
   },
 
-  workflows: {
-    all: ["workflows"] as const,
-    list: (opts?: { category?: string; q?: string }) =>
-      [...queryKeys.workflows.all, "list", opts ?? {}] as const,
-  },
-
   agentDocs: {
     all: ["agent-docs"] as const,
     list: () => [...queryKeys.agentDocs.all, "list"] as const,
@@ -130,6 +124,13 @@ export const queryKeys = {
     /** The current conversation for one (agentId, instanceId) slot. */
     bySlot: (agentId: string, instanceId: string) => [...queryKeys.conversations.all, "slot", agentId, instanceId] as const,
     detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
+  },
+
+  missions: {
+    all: ["missions"] as const,
+    seat: (instanceId: string) => [...queryKeys.missions.all, "seat", instanceId] as const,
+    detail: (missionId: string) => [...queryKeys.missions.all, "detail", missionId] as const,
+    hubs: (projectId: string) => [...queryKeys.missions.all, "hubs", projectId] as const,
   },
 
   loops: {

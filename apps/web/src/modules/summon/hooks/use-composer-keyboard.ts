@@ -16,7 +16,7 @@ export type UseComposerKeyboardInput = {
   filteredPromptsLength: number;
   onPickPrompt: () => void;
   onSend: () => void;
-  onOpenPicker: () => void;
+  onOpenMissions: () => void;
 };
 
 /**
@@ -28,7 +28,7 @@ export function useComposerKeyboard(input: UseComposerKeyboardInput): (e: Keyboa
   return (e) => {
     if (isCtrlP(e)) {
       e.preventDefault();
-      input.onOpenPicker();
+      input.onOpenMissions();
       return;
     }
     if (input.promptsOpen && handlePromptsMenuKey(e, input)) return;

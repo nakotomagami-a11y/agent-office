@@ -1,4 +1,4 @@
-import type { PersistedRun, RunErrorCode, Workflow } from "../../types/index";
+import type { PersistedRun, RunErrorCode } from "../../types/index";
 import * as db from "../db";
 
 export function getRuns(opts: { agentId?: string; projectId?: string; instanceId?: string; limit?: number } = {}): PersistedRun[] {
@@ -65,30 +65,3 @@ export function getAllRecentPrompts(): Record<string, string[]> {
   return db.getAllRecentPrompts();
 }
 
-// ─── Workflows ─────────────────────────────────────────────────────────────
-
-export function getWorkflows(opts?: { category?: string; q?: string }): Workflow[] {
-  return db.getWorkflows(opts);
-}
-
-export function getWorkflow(id: string): Workflow | null {
-  return db.getWorkflow(id);
-}
-
-export function createWorkflow(data: { title: string; body: string; category?: string }): Workflow {
-  return db.createWorkflow(data);
-}
-
-export function deleteWorkflow(id: string): void {
-  db.deleteWorkflow(id);
-}
-
-export function recordWorkflowUsage(id: string): void {
-  db.recordWorkflowUsage(id);
-}
-
-export function bulkInsertWorkflows(
-  workflows: Array<{ title: string; body: string; category: string }>
-): number {
-  return db.bulkInsertWorkflows(workflows);
-}

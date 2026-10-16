@@ -2,7 +2,7 @@
 // attachment cleanup, and lightweight syntax/inline-markdown highlighting.
 
 import { GENERATED_IMAGE_EXT } from "@agent-office/domain/config/generated-images";
-import { escapeHtml } from "@/lib/markdown";
+import { escapeHtml, linkMd } from "@/lib/markdown";
 import { API_ROUTES, parseJson, strField } from "@agent-office/api-contract";
 
 /** Wall-clock "you" item ids are `y_<epoch-ms>` — extract a real HH:MM from
@@ -186,9 +186,8 @@ export function highlightTS(src: string): string {
 }
 
 export function inlineMd(s: string): string {
-  return escapeHtml(s)
+  return linkMd(escapeHtml(s)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>"));
 }

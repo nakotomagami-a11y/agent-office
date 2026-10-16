@@ -1,9 +1,8 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
-import { STARTER_WORKFLOWS, STARTER_WORKFLOW_CATEGORY } from "../execution/workflow-seed";
+import { BACKUPS_DIR, CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // v0 → v1: initial schema
@@ -176,15 +175,9 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // data), wipe all legacy rows, and seed the starter workflows in a
   // dedicated `starter` category. User-created workflows added later will
   // sit alongside these in other categories.
+  // The starter rows it seeded went with the Workflows feature; v27 drops the table.
   (db) => {
     db.exec(`DELETE FROM saved_prompts;`);
-    const insert = db.prepare(
-      "INSERT INTO saved_prompts (id, title, body, category, created_at, use_count) VALUES (?, ?, ?, ?, ?, 0)",
-    );
-    const now = Date.now();
-    for (const w of STARTER_WORKFLOWS) {
-      insert.run(randomUUID(), w.title, w.body, STARTER_WORKFLOW_CATEGORY, now);
-    }
   },
   // v7 → v8: multi-account support. Adds the `accounts` table and auto-inserts
   // the `default` row pointing at ~/.claude when its .credentials.json exists.
@@ -504,7 +497,57 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       ALTER TABLE runs ADD COLUMN error_detail TEXT;
     `);
   },
+  // v26 -> v27: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
+  // Missions replaced Workflows: its saved-prompt table goes, after a copy of any rows is on disk.
+  (db) => {
+    backupSavedPrompts(db);
+    db.exec(`
+      DROP TABLE IF EXISTS saved_prompts;
+      CREATE TABLE IF NOT EXISTS mission_seats (
+        mission_id TEXT NOT NULL,
+        seat TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        pr_number INTEGER NOT NULL,
+        agent_id TEXT NOT NULL,
+        instance_id TEXT NOT NULL,
+        hub_branch TEXT NOT NULL,
+        lead_device TEXT NOT NULL,
+        manifest_json TEXT NOT NULL,
+        cursor_id INTEGER,
+        cursor_at TEXT,
+        status_comment_id INTEGER,
+        cap_usd REAL NOT NULL,
+        spent_usd REAL NOT NULL DEFAULT 0,
+        left_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (mission_id, seat)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mission_seats_instance ON mission_seats(instance_id);
+      CREATE TABLE IF NOT EXISTS mission_posts (
+        mission_id TEXT NOT NULL,
+        nonce TEXT NOT NULL,
+        comment_id INTEGER,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (mission_id, nonce)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mission_posts_comment ON mission_posts(mission_id, comment_id);
+    `);
+  },
 ];
+
+/** The rows v27 drops, as JSON in the backups folder; null when there were none. Throws rather than
+ *  return when the file cannot be written, so the migration stops before anything is lost. */
+export function backupSavedPrompts(db: Database.Database, dir = BACKUPS_DIR): string | null {
+  const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'saved_prompts'").get();
+  if (!table) return null;
+  const rows = db.prepare("SELECT * FROM saved_prompts").all();
+  if (rows.length === 0) return null;
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `saved_prompts-${Date.now()}.json`);
+  writeFileSync(file, JSON.stringify(rows, null, 2));
+  return file;
+}
 
 /**
  * Create one conversation per legacy (agent, instance) slot that lacks one and
@@ -595,5 +638,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
     if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
     if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
+    if (v < 27) { MIGRATIONS[26]!(db); v = 27; db.pragma("user_version = 27"); }
   })();
 }

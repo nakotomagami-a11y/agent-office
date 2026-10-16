@@ -29,6 +29,7 @@ import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import { statusFromRuns, statusFromRunsForInstance } from "../../derive/derive-status";
 import { cn } from "@/lib/cn";
+import { MissionPill } from "@/modules/missions/components/mission-pill";
 import { QaLoopToggle, LatestLoopPill } from "@/modules/loops/components/qa-loop-controls";
 
 type Tab = AgentTab;
@@ -451,6 +452,9 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {/* The chat below renders with noHeader, so its own MissionPill never shows: the lead's
+                  claims, questions and rulings must be reachable from here. */}
+              <MissionPill instanceId={selectedInstanceId ?? undefined} />
               {activeProjectId && selectedInstanceId && (
                 <LatestLoopPill
                   projectId={activeProjectId}

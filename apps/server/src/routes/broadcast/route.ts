@@ -1,7 +1,7 @@
 // POST /api/broadcast — start a background run for every agent on a project's
 // roster (build claude args + startRun per instance), outside the summon flow.
 import { randomUUID } from "node:crypto";
-import { agents, projects, runs, summon } from "@agent-office/domain/services";
+import { agents, missions, projects, runs, summon } from "@agent-office/domain/services";
 import type { AgentInstance, Project } from "@agent-office/domain/types";
 import { validateBody } from "../../lib/validation";
 import { broadcastRequestSchema } from "@agent-office/api-contract";
@@ -16,7 +16,7 @@ function startRunForRosterInstance(
   req: { agentId?: string; prompt: string; model?: string; effort?: string; cwd?: string; projectId: string },
 ): { runId: string } | { bridgeMissing: string } | null {
   const agentResult = agents.readAgent(inst.agentId);
-  if (!agentResult) return null;
+  if (!agentResult || missions.seatForInstance(inst.instanceId)) return null;
 
   const instance = projects.findInstance(project, inst.instanceId);
   const appendedSystemPrompt = agents.buildAppendedPrompt(inst.agentId, project, inst.instanceId);

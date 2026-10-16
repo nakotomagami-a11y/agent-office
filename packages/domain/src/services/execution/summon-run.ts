@@ -1,6 +1,8 @@
 import { existsSync, statSync } from "node:fs";
 import type { ContextProfile, SummonRequest } from "../../types/index";
+import { MIN_SEAT_TURN_USD } from "../../config/missions";
 import * as agents from "../agents/agents";
+import * as db from "../db";
 import * as health from "../infra/health";
 import * as history from "../projects/history";
 import { log } from "../infra/log";
@@ -44,6 +46,18 @@ function buildPriorContext(req: SummonRequest): { priorContext?: string; hasMess
   return { hasMessages: true, priorContext: history.formatPriorContext(msgs, profile) };
 }
 
+/** A mission seat's turn may spend at most what is left of its cap on this device: spend is only
+ *  counted when a run ends, so without this one turn could run past the cap with no limit. */
+export function withSeatBudget(req: SummonRequest, instanceId: string | undefined): SummonRequest | SummonError {
+  const seat = instanceId ? db.missionSeatForInstance(instanceId) : null;
+  if (!seat) return req;
+  const left = seat.capUsd - seat.spentUsd;
+  if (left < MIN_SEAT_TURN_USD) {
+    return { status: 409, code: "seat_cap_reached", message: `Mission seat ${seat.seat} has spent ${seat.spentUsd.toFixed(2)} of its ${seat.capUsd.toFixed(2)} cap on this device.` };
+  }
+  return { ...req, maxBudgetUsd: req.maxBudgetUsd && req.maxBudgetUsd > 0 ? Math.min(req.maxBudgetUsd, left) : left };
+}
+
 /**
  * Compose and start a run from a validated SummonRequest. Shared by the
  * /api/summon route and the scheduler so both drive runs identically
@@ -67,11 +81,15 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
   const { priorContext, hasMessages } = buildPriorContext(req);
   const appendedSystemPrompt = agents.buildAppendedPrompt(req.agentId, project, req.instanceId, hasMessages);
 
+  const budgeted = withSeatBudget(req, instance?.instanceId);
+  if ("status" in budgeted) return { error: budgeted };
   const ownInstance = instance?.agentId === req.agentId ? instance : null; // a loop reviewer borrows only the seat's cwd
   const built = summon.buildClaudeArgs({
-    request: req,
+    request: budgeted,
     agent: agent.info,
     instance: ownInstance,
+    // A borrowed hub-branch worktree is still one: isolate by where it runs, not whose chat it is.
+    isolate: summon.isMissionWorktree(instance),
     appendedSystemPrompt,
     priorContext,
   });

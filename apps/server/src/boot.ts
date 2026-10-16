@@ -157,7 +157,7 @@ export async function boot({ serve }: BootOptions): Promise<void> {
     console.warn("[domain-services] failed to load:", err);
     return;
   }
-  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db } = domainServices;
+  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions } = domainServices;
 
   // Out-of-process clients (the Minecraft mod) find this server's random port here.
   try {
@@ -216,5 +216,11 @@ export async function boot({ serve }: BootOptions): Promise<void> {
     backgroundShellWatcher.startBackgroundShellWatcher();
   } catch (err) {
     console.warn("[background-shell-watcher] failed to start:", err);
+  }
+  // Routes hub comments into the mission seats this device holds (docs/missions.md).
+  try {
+    missions.startMissionPoller();
+  } catch (err) {
+    console.warn("[missions] failed to start:", err);
   }
 }

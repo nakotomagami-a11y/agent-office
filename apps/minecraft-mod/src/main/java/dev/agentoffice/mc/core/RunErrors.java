@@ -18,6 +18,7 @@ public final class RunErrors {
             Map.entry("worktree_missing", "Worktree missing"),
             Map.entry("claude_unavailable", "Claude unavailable"),
             Map.entry("secret_invalid", "Secret check failed"),
+            Map.entry("seat_cap_reached", "Mission seat out of budget"),
             Map.entry("unknown_agent", "Agent unavailable"),
             Map.entry("max_runtime", "Run timed out"),
             Map.entry("spawn_failed", "Couldn't start"),

@@ -3,6 +3,7 @@
 import type { MessageOrigin } from "@agent-office/domain/types";
 import { ChatHead } from "./chat-head";
 import { WorkflowPill } from "./workflow-pill";
+import { MissionPill } from "@/modules/missions/components/mission-pill";
 import { PermissionCard } from "./permission-card";
 import { usePendingPermissions } from "../hooks/use-pending-permissions";
 import { ChatThread } from "./chat-thread";
@@ -80,6 +81,7 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
           actions={
             <>
               <BackgroundTaskIndicator thread={props.thread} resetKey={props.tKey} />
+              <MissionPill instanceId={props.instanceId} />
               {props.activeRunId ? <WorkflowPill runId={props.activeRunId} active={props.isStreaming} /> : null}
             </>
           }
