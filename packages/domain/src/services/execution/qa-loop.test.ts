@@ -151,3 +151,61 @@ test("a fix round never pushes into a busy chat: it is refused as retryable and 
   assert.equal(db.listQueue(conv.id).length, 0, "the user's queue is untouched");
   assert.equal(db.getConversation(conv.id)!.activeRunId, "users-own-turn", "the user's turn is untouched");
 });
+
+test("startIfIdle: a failed start leaves the user's chat idle, not parked over a turn they never sent", async () => {
+  const conversation = await import("./conversation");
+  const conv = db.startNewConversation("developer", "dev-on", "proj");
+  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
+    startRun: async () => { throw Object.assign(new Error("down"), { code: "claude_unavailable" }); },
+  });
+  assert.deepEqual(r, { code: "claude_unavailable" }, "the real code survives, so the loop can retry");
+  assert.equal(db.getConversation(conv.id)!.status, "idle");
+  assert.equal(db.listQueue(conv.id).length, 0);
+});
+
+test("startIfIdle: a message the user queued during a failed start is not lost, it starts next", async () => {
+  const conversation = await import("./conversation");
+  const conv = db.startNewConversation("developer", "dev-on", "proj");
+  const prompts: string[] = [];
+  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
+    startRun: async (i) => {
+      prompts.push(i.prompt);
+      if (prompts.length === 1) {
+        await conversation.sendMessageToConversation(conv.id, "users message", { startRun: async () => "never" });
+        throw Object.assign(new Error("down"), { code: "claude_unavailable" });
+      }
+      return "users-run";
+    },
+  });
+  assert.deepEqual(r, { code: "claude_unavailable" });
+  assert.deepEqual(prompts, ["Round 2. Fix", "users message"]);
+  assert.equal(db.getConversation(conv.id)!.activeRunId, "users-run");
+  assert.equal(db.listQueue(conv.id).length, 0);
+});
+
+test("after Resume, the goal is the user's last real request, not the canned resume prompt", async () => {
+  const { RESUME_PROMPT } = await import("./conversation-machine");
+  const conv = db.startNewConversation("developer", "dev-on", "proj").id;
+  db.insertRun({
+    id: "asked-1", agentId: "developer", agentName: "Developer", instanceId: "dev-on", projectId: "proj",
+    status: "error", prompt: "build the settings page", model: "m", effort: "e", startedAt: 1000, conversationId: conv,
+  });
+  db.insertRun({
+    id: "resumed-1", agentId: "developer", agentName: "Developer", instanceId: "dev-on", projectId: "proj",
+    status: "done", prompt: RESUME_PROMPT, model: "m", effort: "e", startedAt: 1001, conversationId: conv,
+    cwd: join(projectsRoot, "proj"),
+  });
+  db.insertToolCall("resumed-1", "Write", { file_path: "settings.ts" }, 1001);
+  const id = await maybeStartQaLoop("resumed-1", true, runner, 20);
+  assert.match(db.getLoop(id!)!.goal, /^build the settings page/);
+});
+
+test("the pill ranks a STOPPED or failed loop like a finished one, not above it", async () => {
+  db.getDb().prepare(`UPDATE loops SET phase='done', binding='converged', created_at=0`).run();
+  const conv = () => db.startNewConversation("developer", "dev-on", "proj").id;
+  const stopped = (await maybeStartQaLoop(turn({ tool: "Edit", conversationId: conv() }), true, runner, 30))!;
+  db.updateLoopState(stopped, { ...db.getLoop(stopped)!.state, phase: "escalated", binding: "user_stopped" }, null, 31);
+  const passed = (await maybeStartQaLoop(turn({ tool: "Edit", conversationId: conv() }), true, runner, 32))!;
+  db.updateLoopState(passed, { ...db.getLoop(passed)!.state, phase: "done", binding: "converged" }, null, 33);
+  assert.equal(db.latestLoopForInstance("proj", "dev-on")!.id, passed);
+});

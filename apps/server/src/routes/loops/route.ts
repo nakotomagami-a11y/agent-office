@@ -4,7 +4,7 @@
 import { loopRunner, loopProductionRunner, db } from "@agent-office/domain/services";
 import { validateBody } from "../../lib/validation";
 import { startLoopSchema } from "@agent-office/api-contract";
-import { tryService, validateIdParam } from "../../lib/api-helpers";
+import { badRequest, tryService, validateIdParam } from "../../lib/api-helpers";
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
@@ -19,6 +19,13 @@ export async function POST(request: Request) {
   const raw: unknown = await request.json();
   const { data, error } = validateBody(startLoopSchema, raw);
   if (error) return error;
+  // The author's rounds run AS that conversation's agent, so it must be this loop's.
+  if (data.conversationId) {
+    const conv = db.getConversation(data.conversationId);
+    if (!conv || conv.agentId !== data.agentId || (data.instanceId !== undefined && conv.instanceId !== data.instanceId)) {
+      return badRequest("conversation_mismatch");
+    }
+  }
   return tryService(async () => ({
     id: await loopRunner.startLoop(
       {

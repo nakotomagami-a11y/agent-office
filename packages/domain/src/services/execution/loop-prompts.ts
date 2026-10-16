@@ -30,7 +30,7 @@ export function reviewPrompt(goal: string, round: number, ruleIds: readonly stri
 
 /** Reviewer text reaches the author's prompt. One line per field, so a `why`
  *  cannot forge prompt structure such as a fake "Round 3." header. */
-const oneLine = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);
+export const oneLine = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);
 const MAX_FIX_FINDINGS = 20;
 
 export function fixPrompt(goal: string, round: number, open: Finding[]): string {

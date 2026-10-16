@@ -11,20 +11,12 @@ import type { LoopRunner } from "./loop-runner";
 
 const fail = (code: string, message: string) => Object.assign(new Error(message), { code });
 
-/** Only into an IDLE chat with an empty queue: queued behind the user's
- *  messages, the round would have no run id for the loop to wait on. */
+/** A busy chat is `already_running`, which is retryable: `rekickConversationLoops`
+ *  tries again when the chat's turn ends. */
 async function startInConversation(conversationId: string, prompt: string, maxBudgetUsd?: number): Promise<string> {
-  const conv = db.getConversation(conversationId);
-  if (!conv) throw fail("conversation_not_found", `conversation ${conversationId} is gone`);
-  // Retryable: `rekickConversationLoops` tries again when the chat's turn ends.
-  if (conv.status !== "idle" || db.listQueue(conversationId).length > 0) {
-    throw fail("already_running", "the chat is busy");
-  }
-  const view = await conversation.sendMessageToConversation(
-    conversationId, prompt, productionConversationRunner, undefined, "system", maxBudgetUsd,
-  );
-  if (!view.activeRunId) throw fail("start_failed", "the chat could not start the round");
-  return view.activeRunId;
+  const started = await conversation.startIfIdle(conversationId, prompt, productionConversationRunner, maxBudgetUsd);
+  if ("code" in started) throw fail(started.code, `the chat could not start the round: ${started.code}`);
+  return started.runId;
 }
 
 export const productionLoopRunner: LoopRunner = {

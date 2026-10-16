@@ -3,7 +3,7 @@
 // finishing run is traced back to its loop through it.
 
 import { getDb } from "./connection";
-import { clampLoopConfig, type Finding, type LoopConfig, type LoopPhase, type LoopState, type BindingConstraint } from "../execution/loop-machine";
+import { ACCEPTABLE_AS_IS, clampLoopConfig, type Finding, type LoopConfig, type LoopPhase, type LoopState, type BindingConstraint } from "../execution/loop-machine";
 
 export interface LoopRow {
   id: string;
@@ -239,15 +239,17 @@ export function listAllLoopIds(): string[] {
   return rows.map((r) => r.id);
 }
 
-/** The chat header's pill. A live loop first, then one waiting on the user,
- *  so a newer converged loop never hides an older "allow one more round". */
+/** The chat header's pill. A live loop first, then one stopped by a ceiling
+ *  (waiting on the user's decision), then the newest of the rest. */
 export function latestLoopForInstance(projectId: string, instanceId: string): LoopRow | null {
   const r = getDb()
     .prepare(
       `SELECT * FROM loops WHERE project_id=? AND instance_id=?
-         ORDER BY CASE WHEN binding IS NULL THEN 0 WHEN phase='escalated' THEN 1 ELSE 2 END, created_at DESC
+         ORDER BY CASE WHEN binding IS NULL THEN 0
+                       WHEN phase='escalated' AND binding IN (${ACCEPTABLE_AS_IS.map(() => "?").join(",")}) THEN 1
+                       ELSE 2 END, created_at DESC
          LIMIT 1`,
     )
-    .get(projectId, instanceId) as RawLoopRow | undefined;
+    .get(projectId, instanceId, ...ACCEPTABLE_AS_IS) as RawLoopRow | undefined;
   return r ? toRow(r) : null;
 }

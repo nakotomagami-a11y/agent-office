@@ -1,6 +1,5 @@
-// The header's "QA loop" toggle: a chat turn that changed files is followed by
-// a review loop. The APP starts it, not the agent — a loop the agent has to
-// remember to start is the honor system the loop exists to replace.
+// The header's "QA loop" toggle: the APP starts a review loop after a turn that changed
+// files. A loop the agent had to remember to start is the honor system it replaces.
 
 import * as db from "../db/index";
 import { getDb } from "../db/connection";
@@ -9,6 +8,8 @@ import * as projects from "../projects/projects";
 import { log } from "../infra/log";
 import { FILE_EDIT_TOOLS, QA_LOOP_CONFIG, QA_LOOP_REVIEWER } from "../../config/loop";
 import { startLoop, type LoopRunner } from "./loop-runner";
+import { oneLine } from "./loop-prompts";
+import { RESUME_PROMPT } from "./conversation-machine";
 
 /** Goal text is repeated in every round's prompt; a pasted log must not be. */
 const MAX_GOAL = 2000;
@@ -31,13 +32,12 @@ function changedFiles(runId: string): string[] {
     if (typeof parsed !== "object" || parsed === null) continue;
     const o = parsed as Record<string, unknown>;
     const path = o.file_path ?? o.notebook_path;
-    files.add(typeof path === "string" ? path : "(unknown file)");
+    files.add(typeof path === "string" ? oneLine(path, 300) : "(unknown file)"); // author-written, reaches its reviewer
   }
   return [...files];
 }
 
-/** A prompting reviewer would wait on approvals no chat shows: its runs belong
- *  to no conversation. Refuse up front rather than pay for a stalled round. */
+/** Reviewer runs belong to no chat, so a prompting reviewer would stall on approvals nobody sees. */
 function reviewerProblem(): string | null {
   const reviewer = agents.readAgent(QA_LOOP_REVIEWER);
   if (!reviewer) return "reviewer_missing";
@@ -46,7 +46,15 @@ function reviewerProblem(): string | null {
   return null;
 }
 
-/** The loop's id when one was started, else null. */
+/** "Resume" sends a canned prompt as `user`: the goal is the real request before it. */
+function goalOf(prompt: string, conversationId: string): string {
+  if (prompt !== RESUME_PROMPT) return prompt;
+  const asked = db.listConversationTurns(conversationId)
+    .filter((t) => t.origin === "user" && t.prompt !== RESUME_PROMPT)
+    .at(-1);
+  return asked?.prompt ?? prompt;
+}
+
 export async function maybeStartQaLoop(
   runId: string,
   ok: boolean,
@@ -55,10 +63,8 @@ export async function maybeStartQaLoop(
 ): Promise<string | null> {
   if (!ok) return null;
   const run = db.getRun(runId);
-  // A loop's own reviewer rounds carry no conversationId; its fix rounds are `system`.
   if (!run?.conversationId || !run.projectId || !run.instanceId) return null;
-  // System turns (a fix round, a background shell's wake) are not the user
-  // asking for work, and would chain loops with nobody present.
+  // Not `user`: a loop's fix round or a shell wake — would chain loops with nobody present.
   if (run.origin !== "user") return null;
   // Runs after the conversation's own listener (services/index.ts import order),
   // which has already started any queued message: the work is not finished yet.
@@ -85,7 +91,7 @@ export async function maybeStartQaLoop(
       projectId: run.projectId,
       conversationId: run.conversationId,
       cwd: run.cwd ?? null,
-      goal: `${run.prompt.slice(0, MAX_GOAL)}\n\nFiles that turn edited:\n${listed}`,
+      goal: `${goalOf(run.prompt, run.conversationId).slice(0, MAX_GOAL)}\n\nFiles that turn edited:\n${listed}`,
       config: { ...QA_LOOP_CONFIG },
       startAt: "reviewing",
     },

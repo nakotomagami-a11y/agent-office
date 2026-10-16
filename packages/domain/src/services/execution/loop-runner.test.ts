@@ -467,3 +467,30 @@ test("a fix refused by a busy chat is retried when that chat's turn ends", async
   assert.equal(calls.at(-1)!.agentId, "dev");
   assert.equal(db.getLoop(id)!.state.phase, "fixing");
 });
+
+test("a fix round ending in the chat advances to review, even with the rekick listener racing it", async () => {
+  // Both listeners fire for the SAME finished fix run, in wiring order, with no
+  // await between them. The rekick once read the mid-dispatch null activeRunId
+  // as "stranded" and killed every loop at its first fix.
+  const yieldFirst = recordingRunner();
+  const { runner } = recordingRunner({
+    startRun: async (i) => { await new Promise((r) => setImmediate(r)); return yieldFirst.runner.startRun(i); },
+  });
+  const id = await startLoop({ ...chatLoop, conversationId: "conv-race" }, runner, 0);
+  await onLoopRunFinished(db.getLoop(id)!.activeRunId!, true, runner, 1);
+  const fixRun = db.getLoop(id)!.activeRunId!;
+  db.insertRun({
+    id: fixRun, agentId: "dev", agentName: "Dev", instanceId: "dev-1", status: "done", prompt: "fix", origin: "system",
+    model: "m", effort: "e", startedAt: 2, conversationId: "conv-race",
+  });
+
+  await Promise.all([
+    onLoopRunFinished(fixRun, true, runner, 3),
+    rekickConversationLoops(fixRun, runner, 3),
+  ]);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.binding, undefined, `the loop must survive, got ${loop.state.binding}`);
+  assert.equal(loop.state.phase, "reviewing");
+  assert.equal(yieldFirst.calls.at(-1)!.agentId, "qa", "round 2's review is dispatched and tracked");
+  assert.ok(loop.activeRunId);
+});

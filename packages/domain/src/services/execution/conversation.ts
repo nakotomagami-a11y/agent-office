@@ -207,6 +207,46 @@ export function sendMessageToConversation(
 }
 
 /**
+ * Start `text` as the next turn ONLY if the chat is idle with an empty queue:
+ * never queued, and a failed start puts the chat back to idle instead of
+ * parking it in `needs_attention` over a turn the user never sent. For a loop's
+ * fix round, which must know the run it started or wait (docs/chat-refactor.md, principle 6).
+ */
+export async function startIfIdle(
+  convId: string,
+  text: string,
+  runner: ConversationRunner,
+  maxBudgetUsd?: number,
+): Promise<{ runId: string } | { code: string }> {
+  await reconcileIfStale(convId, runner);
+  const conv = db.getConversation(convId);
+  if (!conv) return { code: "conversation_not_found" };
+  const before = buildState(conv);
+  if (before.status !== "idle" || before.queue.length > 0) return { code: "already_running" };
+  const { state: next, effects } = reduce(before, { type: "send", message: { id: cryptoRandomId(), text, origin: "system" } });
+  const start = effects.find((e) => e.type === "startRun");
+  if (!start) return { code: "already_running" };
+  persist(convId, next);
+  emitAppEvent("conversations:changed");
+  try {
+    const runId = await runner.startRun({
+      agentId: conv.agentId, instanceId: conv.instanceId, projectId: conv.projectId, prompt: start.prompt,
+      origin: start.origin, resumeSessionId: start.resumeSessionId, conversationId: convId, maxBudgetUsd,
+    });
+    persist(convId, reduce(buildState(db.getConversation(convId)!), { type: "runStarted", runId }).state);
+    emitAppEvent("conversations:changed");
+    return { runId };
+  } catch (e) {
+    // Not `persist(before)`: the user may have queued a message meanwhile.
+    // Skip the failed round, which drains that message or goes idle.
+    const now = buildState(db.getConversation(convId)!);
+    persist(convId, { ...now, status: "needs_attention", activeRunId: null });
+    await apply(convId, { type: "skip" }, runner);
+    return { code: (e as { code?: string }).code ?? "start_failed" };
+  }
+}
+
+/**
  * A run finished. Looked up by the run's `conversationId` (top-level turns
  * only — sub-agent runs have no conversationId and are ignored). On success
  * the next queued message auto-starts; on failure the conversation parks in

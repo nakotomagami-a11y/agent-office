@@ -253,7 +253,7 @@ export async function rekickConversationLoops(runId: string, runner: LoopRunner,
   const conversationId = db.getRun(runId)?.conversationId;
   if (!conversationId) return;
   for (const loop of db.listLoopsForConversation(conversationId)) {
-    if (loop.state.binding || loop.activeRunId === runId) continue;
+    if (loop.state.binding || !loop.activeRunId || loop.activeRunId === runId) continue; // null = mid-dispatch
     await reconcileLoopIfStale(loop.id, runner, now);
   }
 }

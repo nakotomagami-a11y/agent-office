@@ -20,7 +20,12 @@ const cache = new Map<string, { mtimeMs: number; ids: Set<string> }>();
 function projectRuleIds(cwd: string): Set<string> {
   const file = join(cwd, "docs", "conventions.md");
   const st = lstatSync(file, { throwIfNoEntry: false });
-  if (!st?.isFile() || st.size > MAX_BYTES) return new Set();
+  if (!st) return new Set();
+  if (!st.isFile() || st.size > MAX_BYTES) {
+    // Loud: without its rules every project-specific citation becomes invalid_findings.
+    log.warn("loop.conventions_skipped", { file, size: st.size, regularFile: st.isFile() });
+    return new Set();
+  }
   const hit = cache.get(file);
   if (hit && hit.mtimeMs === st.mtimeMs) return hit.ids;
   const ids = new Set<string>();
