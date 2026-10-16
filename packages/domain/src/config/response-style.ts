@@ -1,5 +1,3 @@
-// Adapted from github.com/ayghri/i-have-adhd (MIT, (c) 2026 Ayoub Ghriss); the notice ships as apps/web/public/licenses/i-have-adhd-LICENSE.txt.
-
 /** How every agent writes to the user; part of every agent's system prompt. */
 export const RESPONSE_STYLE = `The reader has ADHD. Output is not just brief. It is shaped so an ADHD brain can act on it.
 
