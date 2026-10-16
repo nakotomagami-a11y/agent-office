@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-15-2",
-  "generated": "2026-10-15",
+  "version": "2026-10-11-1",
+  "generated": "2026-10-11",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
     {
@@ -85,7 +85,7 @@
       "file": "developer.md",
       "name": "developer",
       "description": "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors.",
-      "hash": "ced4d567e93ea489"
+      "hash": "fca1ed9eae369a61"
     },
     {
       "file": "devops-engineer.md",

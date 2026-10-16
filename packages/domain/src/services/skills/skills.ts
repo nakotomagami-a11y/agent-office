@@ -257,12 +257,11 @@ async function fetchSkillMd(source: string, ref: string, path: string): Promise<
 }
 
 /** Pull description + trimmed body out of a SKILL.md document. */
-function parseSkillMd(content: string): { description: string; body: string; alwaysInline: boolean } {
+function parseSkillMd(content: string): { description: string; body: string } {
   const { fm, body } = parseFrontmatter(content);
   return {
     description: typeof fm.description === "string" ? fm.description : "",
     body: body.trim(),
-    alwaysInline: fm["always-inline"] === true,
   };
 }
 
@@ -561,12 +560,11 @@ export function listInstalled(): InstalledSkill[] {
     if (dir.startsWith("_")) continue;
     const skillMdPath = join(SKILLS_DIR, dir, "SKILL.md");
     if (!existsSync(skillMdPath)) continue;
-    const { description, body, alwaysInline } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
+    const { description, body } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
     out.push({
       name: dir,
       description,
       body,
-      ...(alwaysInline && { alwaysInline }),
       provenance: readProvenance(dir) ?? undefined,
     });
   }
@@ -576,12 +574,11 @@ export function listInstalled(): InstalledSkill[] {
 export function readInstalledSkill(name: string): InstalledSkill | null {
   const skillMdPath = join(SKILLS_DIR, name, "SKILL.md");
   if (!existsSync(skillMdPath)) return null;
-  const { description, body, alwaysInline } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
+  const { description, body } = parseSkillMd(readFileSync(skillMdPath, "utf8").replace(/\r\n/g, "\n"));
   return {
     name,
     description,
     body,
-    ...(alwaysInline && { alwaysInline }),
     provenance: readProvenance(name) ?? undefined,
   };
 }
@@ -773,12 +770,8 @@ export function resolveSkillBody(name: string, rawBody: string): string {
 // impact_tier doesn't separate behavioral guardrails from reference skills
 // (ponytail and db-designer are both "high"), so any always-inline allowlist
 // would be arbitrary config. Raise INLINE_MAX_CHARS if short guardrail skills
-// start getting deferred and losing residency. A skill that must shape every
-// reply whatever its size opts in itself with `always-inline: true`.
+// start getting deferred and losing residency.
 const INLINE_MAX_CHARS = 1500;
-// `always-inline` comes from the skill's author, so an upstream update could
-// otherwise push an 80K reference skill into every turn.
-const ALWAYS_INLINE_MAX_CHARS = 12_000;
 
 export interface SkillBreakdownRow {
   name: string;
@@ -821,11 +814,7 @@ function classifySkills(skills: string[]): ClassifiedSkill[] {
       out.push({ name, chars: 0, mode: "missing", fragment: "" });
       continue;
     }
-    const forced = skill.alwaysInline === true && body.length <= ALWAYS_INLINE_MAX_CHARS;
-    if (skill.alwaysInline && !forced) {
-      log.warn("skill.always_inline_ignored", { skill: name, chars: body.length, max: ALWAYS_INLINE_MAX_CHARS });
-    }
-    if (body.length <= INLINE_MAX_CHARS || isSkillCustomized(cfg) || forced) {
+    if (body.length <= INLINE_MAX_CHARS || isSkillCustomized(cfg)) {
       const fragment = `### Skill: ${skill.name}\n\n${body}`;
       out.push({ name: skill.name, chars: fragment.length, mode: "inline", fragment });
     } else {

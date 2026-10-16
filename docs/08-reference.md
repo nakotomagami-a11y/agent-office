@@ -31,7 +31,7 @@ Everything Agent Office writes to disk is under `~/.claude/`. Nothing else, nowh
 │   └── agent-manifest-skipped.json    # Per-version skip choices from the migration modal
 │
 ├── .credentials.json                  # Claude auth (plan detection)
-└── agent-office-settings.json         # projectsRoot, excluded, firstRunComplete
+└── agent-office-settings.json         # projectsRoot, excluded, firstRunComplete, integrations
 ```
 
 ### Backup
@@ -525,7 +525,7 @@ Subprocess exit
 | `--max-budget-usd <n>` | `request.maxBudgetUsd`, omitted if ≤ 0 |
 | `--permission-mode <mode>` | `permission-mode` |
 | `--add-dir <path>` | One flag per entry in `add-dirs[]` (tilde-expanded) |
-| `--append-system-prompt-file <path>` | The composed appended prompt (skills, identity, memory tiers, history note — see `docs/03-agents.md`), written to a temp file to sidestep `execve` arg-length limits, not passed inline |
+| `--append-system-prompt-file <path>` | The composed appended prompt (skills, identity, response style, memory tiers, history note — see `docs/03-agents.md`), written to a temp file to sidestep `execve` arg-length limits, not passed inline |
 | `--resume <sessionId>` | Present when continuing an existing conversation |
 | *(final positional arg)* | Prior-context text (if any) + the prompt |
 
@@ -580,7 +580,7 @@ Any other key returns `400 forbidden_key`.
 
 ### App settings (`~/.claude/agent-office-settings.json`)
 
-Persisted at `~/.claude/agent-office-settings.json`. Read/write via `GET/PUT /api/settings`.
+Persisted at `~/.claude/agent-office-settings.json`. `GET /api/settings` reads it. `PUT` replaces `projectsRoot` and `excluded` and keeps every other field. `PATCH` merges `features`, `integrations` and `firstRunComplete`; fields a patch leaves out keep their stored value.
 
 | Field | Type | Description |
 |---|---|---|
@@ -588,6 +588,7 @@ Persisted at `~/.claude/agent-office-settings.json`. Read/write via `GET/PUT /ap
 | `excluded` | string[] | Directory names to skip during scan |
 | `firstRunComplete` | boolean | Set to `true` when the first-run wizard finishes |
 | `features.multiInstance` | boolean? | Optional feature flag — enable multi-instance workflow |
+| `integrations` | Record<string, boolean>? | Per-integration toggle; absent key = registry default |
 
 ### Zustand stores
 

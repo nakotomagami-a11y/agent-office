@@ -45,6 +45,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Multi-instance agents** - run the same agent 3x in parallel on different scopes (each gets its own transcript, draft, and run history)
 - **Workflows library** - a curated set of reusable, multi-step prompts; opened from the composer (Ctrl+P) or saved from any message
 - **Abort all** - kill every running agent with one click
+- **ADHD-friendly replies** - every agent leads with the next action, numbers its steps and skips filler (built-in response style; say "normal mode" to drop it for a conversation)
 - **Rate-limit warning** - dedicated card in the chat thread when a run hits API rate limits
 
 ### The office

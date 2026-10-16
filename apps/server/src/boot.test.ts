@@ -9,7 +9,7 @@ import { seedStarterSkills } from "./boot";
 function fixture(): { root: string; skills: string; starter: string } {
   const root = mkdtempSync(join(tmpdir(), "ao-seed-"));
   const starter = join(root, "starter");
-  for (const name of ["claude-api", "i-have-adhd"]) {
+  for (const name of ["claude-api", "late-skill"]) {
     mkdirSync(join(starter, "skills", name), { recursive: true });
     writeFileSync(join(starter, "skills", name, "SKILL.md"), `# ${name}`);
   }
@@ -27,8 +27,8 @@ test("a fresh machine gets every bundled skill and a marker naming them", () => 
   const f = fixture();
   try {
     seedStarterSkills(f.skills, f.starter);
-    assert.deepEqual(installed(f.skills), ["claude-api", "i-have-adhd"]);
-    assert.deepEqual(marker(f.skills), ["claude-api", "i-have-adhd"]);
+    assert.deepEqual(installed(f.skills), ["claude-api", "late-skill"]);
+    assert.deepEqual(marker(f.skills), ["claude-api", "late-skill"]);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -40,7 +40,7 @@ test("an install seeded before the marker existed gets only skills bundled since
     mkdirSync(join(f.skills, "my-own"), { recursive: true });
     seedStarterSkills(f.skills, f.starter);
     // claude-api was in the pre-marker bundle and is absent: the user removed it.
-    assert.deepEqual(installed(f.skills), ["i-have-adhd", "my-own"]);
+    assert.deepEqual(installed(f.skills), ["late-skill", "my-own"]);
     assert.ok(marker(f.skills).includes("claude-api"));
   } finally {
     rmSync(f.root, { recursive: true, force: true });
@@ -51,12 +51,12 @@ test("an uninstalled bundled skill stays gone, and an unchanged marker is not re
   const f = fixture();
   try {
     seedStarterSkills(f.skills, f.starter);
-    rmSync(join(f.skills, "i-have-adhd"), { recursive: true });
+    rmSync(join(f.skills, "late-skill"), { recursive: true });
     // Compact on purpose: a rewrite pretty-prints, so equal bytes prove no write happened.
-    writeFileSync(join(f.skills, "_seeded.json"), '["claude-api","i-have-adhd"]');
+    writeFileSync(join(f.skills, "_seeded.json"), '["claude-api","late-skill"]');
     seedStarterSkills(f.skills, f.starter);
     assert.deepEqual(installed(f.skills), ["claude-api"]);
-    assert.equal(readFileSync(join(f.skills, "_seeded.json"), "utf8"), '["claude-api","i-have-adhd"]');
+    assert.equal(readFileSync(join(f.skills, "_seeded.json"), "utf8"), '["claude-api","late-skill"]');
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -68,7 +68,7 @@ test("a corrupt marker is rebuilt, and an emptied one (cleanup) seeds everything
     seedStarterSkills(f.skills, f.starter);
     writeFileSync(join(f.skills, "_seeded.json"), "{bad");
     seedStarterSkills(f.skills, f.starter);
-    assert.ok(marker(f.skills).includes("claude-api") && marker(f.skills).includes("i-have-adhd"));
+    assert.ok(marker(f.skills).includes("claude-api") && marker(f.skills).includes("late-skill"));
 
     rmSync(join(f.skills, "claude-api"), { recursive: true });
     mkdirSync(join(f.skills, "installed-after-wipe"));
@@ -84,7 +84,7 @@ test("a skill whose copy fails is left unmarked and unstaged, the rest still lan
   const f = fixture();
   const realRename = fs.renameSync;
   mock.method(fs, "renameSync", (from: fs.PathLike, to: fs.PathLike) => {
-    if (String(to).endsWith("i-have-adhd")) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
+    if (String(to).endsWith("late-skill")) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
     realRename(from, to);
   });
   syncBuiltinESMExports();
@@ -97,7 +97,7 @@ test("a skill whose copy fails is left unmarked and unstaged, the rest still lan
     mock.restoreAll();
     syncBuiltinESMExports();
     seedStarterSkills(f.skills, f.starter);
-    assert.deepEqual(installed(f.skills), ["claude-api", "i-have-adhd"]);
+    assert.deepEqual(installed(f.skills), ["claude-api", "late-skill"]);
   } finally {
     mock.restoreAll();
     syncBuiltinESMExports();

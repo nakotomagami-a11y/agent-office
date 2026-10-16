@@ -25,8 +25,6 @@ export interface InstalledSkill {
   name: string;
   description: string;
   body: string;
-  /** Frontmatter `always-inline: true`: injected in full even past the inline size threshold. */
-  alwaysInline?: boolean;
   provenance?: SkillProvenance;
 }
 

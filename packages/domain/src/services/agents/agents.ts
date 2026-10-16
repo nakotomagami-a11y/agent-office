@@ -18,6 +18,7 @@ import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatter, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
 import { buildSkillsBundle } from "../skills/skills";
+import { RESPONSE_STYLE } from "../../config/response-style";
 import { unknownTools, retiredToolHints } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
@@ -27,6 +28,8 @@ import { buildProjectMap } from "../projects/project-map";
 import { tierBody } from "./context-tier";
 import { log } from "../infra/log";
 import { PERMISSION_MODE_OPTS, PERMISSION_MODE_ALIASES } from "../../config/agent-opts";
+
+const NO_RESPONSE_STYLE = new Set(["user-analyst"]);
 
 function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
@@ -317,7 +320,7 @@ export function buildProjectEnvironmentBlock(project: Project): string | null {
  * The structured, itemized description of everything agent-office appends to
  * the agent's system prompt — the SINGLE source of truth for the composition.
  * The real spawn joins `segment.text`; the Context & Cost tab measures the same
- * segments (see context-cost.ts). Composition order: skills → identity → global
+ * segments (see context-cost.ts). Composition order: skills → identity → response-style → global
  * → project → project-env → project-memory → per-agent → history-note.
  */
 export function composeAppendedPrompt(
@@ -385,6 +388,16 @@ export function composeAppendedPrompt(
       text: `## Identity (${agentName} — part of who this agent is)\n` + identity, body: identity,
       sub: `${identityPathFor(agentName)} · ${lineCount(identity)} lines`,
       locked: false, phase: "always",
+    });
+  }
+
+  // The style opens with a claim about the reader; a profiler would report it as evidence.
+  if (!NO_RESPONSE_STYLE.has(agentName)) {
+    segments.push({
+      key: "response-style", name: "Response style",
+      text: "## Response style (how to write every reply to the user)\n\n" + RESPONSE_STYLE, body: RESPONSE_STYLE,
+      sub: `built in · ${lineCount(RESPONSE_STYLE)} lines`,
+      locked: true, phase: "always",
     });
   }
 

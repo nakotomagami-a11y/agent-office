@@ -280,12 +280,13 @@ Segment order:
 
 1. Skills (most stable — each skill's SKILL.md body, inlined or referenced by path depending on size)
 2. Identity (`~/.claude/agents/<id>.identity.md`) — foundational, ships with the agent
-3. Global memory (`~/.claude/agents/_global.memory.md`)
-4. Active project (name, cwd, description)
-5. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
-6. Project memory (`~/.claude/projects/<id>/project.md` body section)
-7. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
-8. History note — **omitted if permission-mode is `plan`**, or if the conversation already has messages
+3. Response style (`config/response-style.ts`) — built in, every agent except `user-analyst`, every turn
+4. Global memory (`~/.claude/agents/_global.memory.md`)
+5. Active project (name, cwd, description)
+6. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
+7. Project memory (`~/.claude/projects/<id>/project.md` body section)
+8. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
+9. History note — **omitted if permission-mode is `plan`**, or if the conversation already has messages
 
 Prior-turn conversation history (when *not* using `--resume`) is a **separate** mechanism — it's prepended to the user's prompt text, not this appended system prompt, so it's billed once (first message of a new thread) rather than on every turn. See `projects/history.ts` (`getContextMessages` / `formatPriorContext`, profiles `tight`/`balanced`/`deep`) and `docs/03-agents.md`'s "Prior context injection".
 
@@ -384,7 +385,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `~/.claude/projects/<id>/project.md` | R/W | Project metadata + roster YAML + memory body |
 | `~/.claude/projects/<id>/_uploads/` | R/W | Per-project file uploads |
 | `~/.claude/agent-office/db.sqlite` | R/W | SQLite database |
-| `~/.claude/agent-office-settings.json` | R/W | App settings (projectsRoot, excluded, firstRunComplete) |
+| `~/.claude/agent-office-settings.json` | R/W | App settings (projectsRoot, excluded, firstRunComplete, integrations) |
 | `~/.claude/.credentials.json` | R | Claude auth credentials (plan detection) |
 | `<projectCwd>/.worktrees/<instanceId>/` | R/W | Git worktree per agent instance |
 | `<projectCwd>/.ao.json` | R | Per-project build/dev command overrides |
