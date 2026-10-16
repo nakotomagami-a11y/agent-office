@@ -42,6 +42,8 @@ export interface StartRunInput {
    *  call (a per-message client preference), not stored on the conversation
    *  itself. */
   contextProfile?: ContextProfile;
+  /** A loop's fix round sent through the chat carries what is left of the loop's budget. */
+  maxBudgetUsd?: number;
 }
 
 /** Abstracts "spawn a run and give me its id". Throws if the run can't start. */
@@ -109,7 +111,7 @@ async function apply(
   convId: string,
   action: ConversationAction,
   runner: ConversationRunner,
-  opts: { contextProfile?: ContextProfile } = {},
+  opts: { contextProfile?: ContextProfile; maxBudgetUsd?: number } = {},
 ): Promise<ConversationView> {
   // Skip reconciliation when the action itself IS a reconciling runFinished
   // dispatch — `reconcileIfStale` calling back into `apply` for that exact
@@ -119,8 +121,13 @@ async function apply(
   const conv = db.getConversation(convId);
   if (!conv) throw new Error(`conversation not found: ${convId}`);
 
-  const { state: next, effects } = reduce(buildState(conv), action);
+  const prev = buildState(conv);
+  const { state: next, effects } = reduce(prev, action);
   persist(convId, next);
+  // The message this start consumes: a send from idle, or the queue head `advance` took.
+  const consumed = action.type === "send" && prev.status === "idle"
+    ? action.message
+    : prev.queue.length > next.queue.length ? prev.queue[0] : undefined;
 
   const startEffect = effects.find((e) => e.type === "startRun");
   if (startEffect) {
@@ -135,6 +142,7 @@ async function apply(
         resumeSessionId: startEffect.resumeSessionId,
         conversationId: convId,
         contextProfile: opts.contextProfile,
+        maxBudgetUsd: opts.maxBudgetUsd,
       });
     } catch (e) {
       // Couldn't spawn — park for attention, keep the queue. The failed
@@ -148,6 +156,8 @@ async function apply(
         message: e instanceof Error ? e.message : String(e),
       });
       db.updateConversation(convId, { status: "needs_attention", activeRunId: null });
+      // Back at the head: a failed start has no run row, so nothing else holds the text.
+      if (consumed) db.replaceQueue(convId, [consumed, ...db.listQueue(convId)]);
       emitAppEvent("conversations:changed");
       return view(convId);
     }
@@ -197,9 +207,50 @@ export function sendMessageToConversation(
   runner: ConversationRunner,
   contextProfile?: ContextProfile,
   origin: MessageOrigin = "user",
+  maxBudgetUsd?: number,
 ): Promise<ConversationView> {
   const message = { id: cryptoRandomId(), text, origin };
-  return apply(convId, { type: "send", message }, runner, { contextProfile });
+  return apply(convId, { type: "send", message }, runner, { contextProfile, maxBudgetUsd });
+}
+
+/**
+ * Start `text` as the next turn ONLY if the chat is idle with an empty queue:
+ * never queued, and a failed start puts the chat back to idle instead of
+ * parking it in `needs_attention` over a turn the user never sent. For a loop's
+ * fix round, which must know the run it started or wait (docs/chat-refactor.md, principle 6).
+ */
+export async function startIfIdle(
+  convId: string,
+  text: string,
+  runner: ConversationRunner,
+  maxBudgetUsd?: number,
+): Promise<{ runId: string } | { code: string }> {
+  await reconcileIfStale(convId, runner);
+  const conv = db.getConversation(convId);
+  if (!conv) return { code: "conversation_not_found" };
+  const before = buildState(conv);
+  if (before.status !== "idle" || before.queue.length > 0) return { code: "already_running" };
+  const { state: next, effects } = reduce(before, { type: "send", message: { id: cryptoRandomId(), text, origin: "system" } });
+  const start = effects.find((e) => e.type === "startRun");
+  if (!start) return { code: "already_running" };
+  persist(convId, next);
+  emitAppEvent("conversations:changed");
+  try {
+    const runId = await runner.startRun({
+      agentId: conv.agentId, instanceId: conv.instanceId, projectId: conv.projectId, prompt: start.prompt,
+      origin: start.origin, resumeSessionId: start.resumeSessionId, conversationId: convId, maxBudgetUsd,
+    });
+    persist(convId, reduce(buildState(db.getConversation(convId)!), { type: "runStarted", runId }).state);
+    emitAppEvent("conversations:changed");
+    return { runId };
+  } catch (e) {
+    // Not `persist(before)`: the user may have queued a message meanwhile.
+    // Skip the failed round, which drains that message or goes idle.
+    const now = buildState(db.getConversation(convId)!);
+    persist(convId, { ...now, status: "needs_attention", activeRunId: null });
+    await apply(convId, { type: "skip" }, runner);
+    return { code: (e as { code?: string }).code ?? "start_failed" };
+  }
 }
 
 /**

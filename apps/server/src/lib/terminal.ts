@@ -3,11 +3,13 @@
 // stale default nvm alias (e.g. `lts/*` with no LTS installed) leaving node/npm/
 // pnpm off PATH in the spawned shell, since terminals start bash with a minimal PATH.
 import { spawn, execFile, execFileSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { log } from "@agent-office/domain/services/infra/log";
+import { isPidAlive } from "@agent-office/domain/services/infra/pid";
 
 const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 
@@ -20,16 +22,62 @@ const POWERSHELL_WAIT_MS = 30_000;
 
 declare global {
   var __aoLaunchedShells: Set<number> | undefined;
+  var __aoShellExitFiles: Map<number, string> | undefined;
+  var __aoExitedShells: Set<number> | undefined;
 }
 const launched = (globalThis.__aoLaunchedShells ??= new Set<number>());
+// The window outlives its command, so the shell's pid outlives a crashed server: the shell touches
+// a marker on exit instead, recorded once seen so every later poll (another tab, a retry) agrees.
+const exitFiles = (globalThis.__aoShellExitFiles ??= new Map<number, string>());
+const exited = (globalThis.__aoExitedShells ??= new Set<number>());
+
+// One subdir per server: servers share tmpdir, and a dead server's markers are unread.
+const EXIT_ROOT = join(tmpdir(), "ao-term-exit");
+let exitDir: string | undefined;
+
+function serverExitDir(): string {
+  if (!exitDir) {
+    mkdirSync(EXIT_ROOT, { recursive: true });
+    for (const name of readdirSync(EXIT_ROOT)) {
+      const owner = Number(name);
+      if (owner !== process.pid && !isPidAlive(owner)) removeQuietly(join(EXIT_ROOT, name));
+    }
+    exitDir = join(EXIT_ROOT, String(process.pid));
+  }
+  // Every call: a %TEMP% cleaned while we run would otherwise leave nowhere to write the marker.
+  mkdirSync(exitDir, { recursive: true });
+  return exitDir;
+}
+
+function removeQuietly(path: string): void {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 3 });
+  } catch (err) {
+    log.warn("terminal.exit_marker_cleanup_failed", { path, message: (err as Error).message });
+  }
+}
 
 /** Whether `pid` is a terminal shell this server launched, so stopping it may take its tree. */
 export function isLaunchedShell(pid: number): boolean {
   return launched.has(pid);
 }
 
+export function hasShellCommandExited(pid: number): boolean {
+  if (exited.has(pid)) return true;
+  const file = exitFiles.get(pid);
+  if (file === undefined || !existsSync(file)) return false;
+  exited.add(pid);
+  exitFiles.delete(pid);
+  removeQuietly(file);
+  return true;
+}
+
 export function forgetLaunchedShell(pid: number): void {
   launched.delete(pid);
+  exited.delete(pid);
+  const file = exitFiles.get(pid);
+  exitFiles.delete(pid);
+  if (file) removeQuietly(file);
 }
 
 let cachedTerminal: string | null | undefined;
@@ -46,6 +94,10 @@ function detectTerminal(): string | null {
   return (cachedTerminal = null);
 }
 
+// This server's own identity. An Agent Office started from here would advertise our URL
+// (AO_BASE_URL outranks PORT), send its agents' permission callbacks to us, and read our bundle.
+const SERVER_IDENTITY_VARS = new Set(["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "AO_SERVER_PORT", "PORT"]);
+
 /** Env for the spawned terminal — drop Next-internal vars so the child shell is
  *  clean (`__NEXT_PRIVATE_STANDALONE_CONFIG` crashes Turbopack; `NODE_ENV=production`
  *  breaks child dev servers), then inject PORT when one is given. */
@@ -54,6 +106,7 @@ function spawnEnv(port: number | null): NodeJS.ProcessEnv {
   for (const [k, v] of Object.entries(process.env)) {
     if (k.startsWith("__NEXT_")) continue;
     if (k === "NODE_ENV") continue;
+    if (SERVER_IDENTITY_VARS.has(k.toUpperCase())) continue;
     env[k] = v;
   }
   if (port !== null) env.PORT = String(port);
@@ -70,26 +123,42 @@ const NVM_SAFE_PATH_SETUP = [
 /** Run `argv` in a new terminal window at `cwd` that stays open after exit, with PORT
  *  set when given. Resolves to the pid of the shell in that window, or null if none came up. */
 export async function spawnInTerminal(title: string, cwd: string, argv: string[], port: number | null = null): Promise<number | null> {
-  const pid = process.platform === "win32"
-    ? await spawnWindows(title, cwd, argv, spawnEnv(port))
-    : await spawnPosix(title, cwd, argv, port, spawnEnv(port));
-  if (pid !== null) launched.add(pid);
+  // A shell whose window closed unpolled is never forgotten by GET; its pid may now be anyone's.
+  for (const old of launched) if (!isPidAlive(old)) forgetLaunchedShell(old);
+  let exitFile: string | undefined;
+  let pid: number | null = null;
+  try {
+    exitFile = join(serverExitDir(), randomUUID());
+    pid = process.platform === "win32"
+      ? await spawnWindows(title, cwd, argv, spawnEnv(port), exitFile)
+      : await spawnPosix(title, cwd, argv, spawnEnv(port), exitFile);
+  } catch (err) {
+    log.error("terminal.spawn_failed", { title, cwd, message: (err as Error).message });
+  } finally {
+    if (pid === null && exitFile) removeQuietly(exitFile);
+  }
+  if (pid === null || !exitFile) return null;
+  forgetLaunchedShell(pid); // a reused pid's leftovers
+  launched.add(pid);
+  exitFiles.set(pid, exitFile);
   return pid;
 }
 
 // `start`'s pid is a helper that exits at once; Start-Process returns the console cmd.
 // Values go in env vars, not script text: PowerShell quotes include `’` and `[` is a wildcard.
 // cmd expands %VAR% even inside quotes, so quoting here does not neutralise `%`.
+// Own `cmd /c`: Ctrl+C then Y on a .cmd shim drops the rest of its line, marker included. `!AO_TERM_CMD!`
+// expands after the outer line is split on `&`, so only the inner cmd parses the command's quoting.
 const START_CONSOLE = "$ProgressPreference='SilentlyContinue'; (Start-Process -FilePath cmd.exe -ArgumentList $env:AO_TERM_ARGS -WorkingDirectory ([WildcardPattern]::Escape($env:AO_TERM_CWD)) -PassThru).Id";
 
-function spawnWindows(title: string, cwd: string, argv: string[], env: NodeJS.ProcessEnv): Promise<number | null> {
+function spawnWindows(title: string, cwd: string, argv: string[], env: NodeJS.ProcessEnv, exitFile: string): Promise<number | null> {
   const winArg = (a: string) => (/[\s"&|<>^()!]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a);
-  const cmdLine = `/s /k "title ${title.replace(/[&|<>^"%]/g, "")}&${argv.map(winArg).join(" ")}"`;
+  const cmdLine = `/v:on /s /k "title ${title.replace(/[&|<>^"%!]/g, "")}&cmd /d /s /c "!AO_TERM_CMD!"&type nul>"%AO_TERM_EXIT%""`;
   return new Promise((resolve) => {
     execFile(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-Command", START_CONSOLE],
-      { env: { ...env, AO_TERM_ARGS: cmdLine, AO_TERM_CWD: cwd }, windowsHide: true, timeout: POWERSHELL_WAIT_MS },
+      { env: { ...env, AO_TERM_ARGS: cmdLine, AO_TERM_CMD: argv.map(winArg).join(" "), AO_TERM_CWD: cwd, AO_TERM_EXIT: exitFile }, windowsHide: true, timeout: POWERSHELL_WAIT_MS },
       (err, stdout, stderr) => {
         const pid = parseInt(String(stdout).trim(), 10);
         if (err?.killed) {
@@ -118,7 +187,7 @@ function terminalArgs(termBin: string, title: string, scriptFile: string): strin
   }
 }
 
-async function spawnPosix(title: string, cwd: string, argv: string[], port: number | null, env: NodeJS.ProcessEnv): Promise<number | null> {
+async function spawnPosix(title: string, cwd: string, argv: string[], env: NodeJS.ProcessEnv, exitFile: string): Promise<number | null> {
   const dir = mkdtempSync(join(tmpdir(), "ao-term-"));
   const pidFile = join(dir, "pid");
   // `.command` so macOS Terminal runs it when handed the file.
@@ -128,9 +197,10 @@ async function spawnPosix(title: string, cwd: string, argv: string[], port: numb
     "#!/bin/bash",
     `echo $$ > ${shellQuote(pidFile)} || exit 1`,
     ...NVM_SAFE_PATH_SETUP,
-    ...(port !== null ? [`export PORT=${port}`] : []),
+    ...(env.PORT ? [`export PORT=${env.PORT}`] : []),
     `cd ${shellQuote(cwd)} && ${cmdStr}`,
     "code=$?",
+    `: > ${shellQuote(exitFile)}`,
     'echo; echo "Process ended (exit $code)."; read -rp "Press Enter to close..."',
     "",
   ].join("\n"));

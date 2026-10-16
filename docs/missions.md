@@ -277,7 +277,7 @@ agent working on a branch does.
 GitHub holds the mission. Each device stores only what it needs to act:
 
 ```
-mission_seats(                         -- v26
+mission_seats(                         -- v27
   mission_id, seat, project_id, pr_number,
   agent_id, instance_id,               -- the seat's chat (a roster instance, worktree on the hub branch)
   hub_branch, lead_device, manifest_json,  -- pinned at start / join
@@ -285,7 +285,7 @@ mission_seats(                         -- v26
   status_comment_id,                   -- the in-place status comment
   cap_usd, spent_usd, left_at, created_at, updated_at
 )
-mission_posts(                         -- v26, PK(mission_id, nonce)
+mission_posts(                         -- v27, PK(mission_id, nonce)
   mission_id, nonce,                   -- reserved before the post; the nonce rides in the envelope
   comment_id,                          -- NULL until GitHub answers
   created_at

@@ -100,7 +100,7 @@ export const PERMISSION_SERVER_PATH = join(
 );
 
 /** Any seat can push to a hub branch, so never load its project settings (docs/missions.md, Trust). */
-function isMissionWorktree(instance: AgentInstance | null): boolean {
+export function isMissionWorktree(instance: AgentInstance | null): boolean {
   if (!instance) return false;
   return (instance.worktree?.branch.startsWith("mission/") ?? false) || db.wasMissionSeat(instance.instanceId);
 }
@@ -109,6 +109,7 @@ export function buildClaudeArgs(opts: {
   request: SummonRequest;
   agent: ApiAgent;
   instance: AgentInstance | null;
+  isolate?: boolean;
   appendedSystemPrompt: string;
   priorContext?: string;
 }): BuiltCommand {
@@ -140,7 +141,7 @@ export function buildClaudeArgs(opts: {
   }
   const needsPermissionServer = !!permissionMode && permissionMode !== "bypassPermissions";
   const excludePlaywright = instance?.playwrightEnabled === false;
-  const onHubBranch = isMissionWorktree(instance);
+  const onHubBranch = opts.isolate ?? isMissionWorktree(instance);
   if (onHubBranch) args.push("--setting-sources", "user");
   if (excludePlaywright || needsPermissionServer || onHubBranch) {
     args.push(...mcpArgs({ excludePlaywright, withPermissionServer: needsPermissionServer }));

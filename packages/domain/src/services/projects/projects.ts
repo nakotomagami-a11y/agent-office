@@ -134,7 +134,7 @@ function yamlToProjectMeta(m: YamlMapping): Partial<ProjectMeta> {
 /** Per-instance keys this module models; anything else is carried through. */
 const KNOWN_INSTANCE_KEYS = new Set([
   "instanceId", "agentId", "label", "model", "effort",
-  "permissionMode", "playwrightEnabled", "room", "cwd", "worktree",
+  "permissionMode", "playwrightEnabled", "qaLoopEnabled", "room", "cwd", "worktree",
 ]);
 
 /** Re-emits unmodelled per-instance keys, as `carry` does for top-level ones. */
@@ -157,6 +157,7 @@ function rosterToYaml(roster: AgentInstance[], carried?: unknown): YamlValue {
     if (inst.effort !== undefined) o.effort = inst.effort;
     if (inst.permissionMode !== undefined) o.permissionMode = inst.permissionMode;
     if (inst.playwrightEnabled !== undefined) o.playwrightEnabled = inst.playwrightEnabled;
+    if (inst.qaLoopEnabled !== undefined) o.qaLoopEnabled = inst.qaLoopEnabled;
     if (inst.room !== undefined) o.room = inst.room;
     if (inst.cwd !== undefined) o.cwd = inst.cwd;
     if (inst.worktree !== undefined) {
@@ -224,6 +225,7 @@ function normalizeRoster(raw: unknown): AgentInstance[] {
     if (typeof o.effort === "string") inst.effort = o.effort;
     if (typeof o.permissionMode === "string") inst.permissionMode = o.permissionMode;
     if (typeof o.playwrightEnabled === "boolean") inst.playwrightEnabled = o.playwrightEnabled;
+    if (typeof o.qaLoopEnabled === "boolean") inst.qaLoopEnabled = o.qaLoopEnabled;
     if (typeof o.room === "string") inst.room = o.room;
     if (typeof o.cwd === "string") inst.cwd = o.cwd;
     if (o.worktree && typeof o.worktree === "object") {

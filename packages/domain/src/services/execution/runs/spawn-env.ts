@@ -49,7 +49,7 @@ export function isReservedEnvName(name: string): boolean {
  * Exported for unit testing (env plumbing is the entire multi-account
  * spawn contract). `startRun` is the sole production caller.
  */
-export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined } {
+export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined; secretValues: string[] } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.
   const project = opts.projectId ? readProject(opts.projectId) : undefined;
@@ -60,6 +60,13 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
     const account = accounts.get(resolvedId);
     if (account) {
       env.CLAUDE_CONFIG_DIR = account.configDir;
+      // Heals an account dir created before its links worked, so this run can
+      // still resume a session another account started. Never blocks a spawn.
+      try {
+        accounts.symlinkSharedAssets(account.id);
+      } catch (err) {
+        log.warn("run.account_links_failed", { accountId: account.id, err: String(err) });
+      }
     } else {
       log.warn("run.account_missing", { runId: opts.projectId, accountId: resolvedId });
     }
@@ -94,6 +101,7 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
   // Per-project secrets: inject each linked secret as its named env var. Free-
   // form — `env[name] = value` verbatim (see secrets.ts). Only sourced from the
   // project; a run with no projectId gets none.
+  const secretValues: string[] = [];
   if (opts.projectId) {
     for (const secret of secrets.listRawForProject(opts.projectId)) {
       if (isReservedEnvName(secret.name)) {
@@ -101,8 +109,9 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
         continue;
       }
       env[secret.name] = secret.value;
+      if (secret.value) secretValues.push(secret.value);
     }
   }
 
-  return { env, accountId: resolvedId };
+  return { env, accountId: resolvedId, secretValues };
 }

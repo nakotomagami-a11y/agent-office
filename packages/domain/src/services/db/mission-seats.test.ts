@@ -57,7 +57,7 @@ test("a left seat drops out of the active list and its chat; claiming again star
   assert.deepStrictEqual([again.leftAt, again.spentUsd, again.cursor?.id], [null, 0, 99]);
 });
 
-test("v26 writes saved Workflows to a backup file before it drops their table", () => {
+test("v27 writes saved Workflows to a backup file before it drops their table", () => {
   const old = new Database(":memory:");
   old.exec("CREATE TABLE saved_prompts (id TEXT PRIMARY KEY, title TEXT, body TEXT, category TEXT, created_at INTEGER, use_count INTEGER)");
   assert.strictEqual(backupSavedPrompts(old, mkdtempSync(join(tmpdir(), "ao-bk-"))), null, "no rows, no file");

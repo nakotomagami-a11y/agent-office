@@ -20,3 +20,8 @@ test("an ordinary worktree keeps the project's settings", () => {
   assert.ok(!args(instance("agent/developer-abc-1")).includes("--setting-sources"));
   assert.ok(!args(null).includes("--setting-sources"));
 });
+
+test("another agent borrowing a seat's worktree is isolated too", () => {
+  const a = buildClaudeArgs({ request: { agentId: "qa-code-review", prompt: "hi" }, agent, instance: null, isolate: true, appendedSystemPrompt: "" }).args;
+  assert.ok(a.includes("--setting-sources") && a.includes("--strict-mcp-config"));
+});

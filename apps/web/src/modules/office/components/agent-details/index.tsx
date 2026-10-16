@@ -30,6 +30,7 @@ import type { AgentInstance } from "@agent-office/domain/types";
 import { statusFromRuns, statusFromRunsForInstance } from "../../derive/derive-status";
 import { cn } from "@/lib/cn";
 import { MissionPill } from "@/modules/missions/components/mission-pill";
+import { QaLoopToggle, LatestLoopPill } from "@/modules/loops/components/qa-loop-controls";
 
 type Tab = AgentTab;
 
@@ -436,6 +437,13 @@ export function AgentDetailsModal() {
                     </button>
                   </Tooltip>
                 )}
+                {activeProjectId && selectedInstanceId && (
+                  <QaLoopToggle
+                    projectId={activeProjectId}
+                    instanceId={selectedInstanceId}
+                    enabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                  />
+                )}
                 {branchLabel && (
                   <span className="text-ao-fg-3 truncate max-w-[220px]" title={branchLabel}>
                     {branchLabel}
@@ -447,6 +455,13 @@ export function AgentDetailsModal() {
               {/* The chat below renders with noHeader, so its own MissionPill never shows: the lead's
                   claims, questions and rulings must be reachable from here. */}
               <MissionPill instanceId={selectedInstanceId ?? undefined} />
+              {activeProjectId && selectedInstanceId && (
+                <LatestLoopPill
+                  projectId={activeProjectId}
+                  instanceId={selectedInstanceId}
+                  enabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                />
+              )}
               {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive && (
                 <BackgroundTaskPill task={backgroundTask} onDismiss={() => setDismissedBgTaskId(backgroundTask.id)} />
               )}

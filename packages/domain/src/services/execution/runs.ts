@@ -16,17 +16,20 @@ import spawn from "cross-spawn";
 import { execFileSync, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
-import type { PersistedRun, SubAgentStatus } from "../../types/index";
+import type { PersistedRun, RunErrorCode, SseErrorEvent, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
 import { appBaseUrl } from "../infra/discovery";
 import { denyAllForRun, type PermissionRequest } from "./permissions";
 import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
+import { isInterruptionCode } from "../../config/run-errors";
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "../infra/sleep-inhibit";
 import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent, SubAgentRecord } from "./runs/types";
-import { buildRateLimitEvent, classifyResultError, classifySpawnError, detectRateLimitResult } from "./runs/errors";
+import {
+  buildRateLimitEvent, classifyExitFailure, classifyResultError, classifySpawnError, detectRateLimitResult, redactSecrets,
+} from "./runs/errors";
 import {
   detectSubAgentSpawn,
   isAsyncTaskLaunchAck,
@@ -127,23 +130,34 @@ if (!globalThis.__agentOfficeRunsInstalled) {
   globalThis.__agentOfficeRunsInstalled = true;
 }
 
+function spawnClaude(
+  args: string[],
+  cwd: string | undefined,
+  env: NodeJS.ProcessEnv,
+  stdin: string | undefined,
+): ChildProcessByStdio<Writable | null, Readable, Readable> {
+  // AO_CLAUDE_BIN is for tests: an absolute stub path no install on PATH can shadow.
+  const proc = spawn(process.env.AO_CLAUDE_BIN ?? "claude", args, {
+    stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    cwd,
+    env,
+  }) as ChildProcessByStdio<Writable | null, Readable, Readable>;
+  if (stdin !== undefined && proc.stdin) {
+    // EPIPE if the CLI dies before reading; the exit handler reports the cause.
+    proc.stdin.on("error", () => {});
+    proc.stdin.end(stdin);
+  }
+  return proc;
+}
+
 export function startRun(opts: StartRunOpts): { runId: string } {
   const runId = randomUUID();
-  const { env, accountId } = resolveSpawnEnv(opts);
+  const { env, accountId, secretValues } = resolveSpawnEnv(opts);
   // The MCP permission bridge is spawned by the CLI and inherits this env; it
   // has no other way to know which run it is answering for.
   env.AO_RUN_ID = runId;
   env.AO_BASE_URL = appBaseUrl();
-  const proc = spawn("claude", opts.args, {
-    stdio: [opts.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-    cwd: opts.cwd,
-    env,
-  }) as ChildProcessByStdio<Writable | null, Readable, Readable>;
-  if (opts.stdin !== undefined && proc.stdin) {
-    // EPIPE if the CLI dies before reading; the exit handler reports the cause.
-    proc.stdin.on("error", () => {});
-    proc.stdin.end(opts.stdin);
-  }
+  const proc = spawnClaude(opts.args, opts.cwd, env, opts.stdin);
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,
@@ -170,6 +184,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     toolSinceText: false,
     args: opts.args,
     stderrBuf: "",
+    secretValues,
     lastActivityAt: Date.now(),
     eventLog: [],
     parentRunId: opts.parentRunId,
@@ -212,38 +227,37 @@ export function startRun(opts: StartRunOpts): { runId: string } {
   // Use 'close' not 'exit': 'exit' fires before stdout finishes draining,
   // so the final 'result' line (which carries session_id) may not be
   // processed yet. 'close' guarantees all stdio streams have ended first.
-  proc.on("close", (code) => {
+  proc.on("close", (code, signal) => {
     // If --resume failed because the session no longer exists (different cwd,
     // server restart, etc.), retry once without the --resume flag so the agent
     // starts a fresh session instead of erroring out.
-    if (
-      code === 1 &&
-      run.stderrBuf.includes("No conversation found with session ID") &&
-      run.args.includes("--resume")
-    ) {
+    if (code !== 0 && !run.aborted && run.status === "running" && isMissingSessionFailure(run)) {
       const resumeIdx = run.args.indexOf("--resume");
       const retryArgs = resumeIdx === -1 ? run.args : [
         ...run.args.slice(0, resumeIdx),
         ...run.args.slice(resumeIdx + 2), // drop "--resume" and the session ID value after it
       ];
-      log.info("run.retry_no_resume", { runId: run.id });
-      const retryProc = spawn("claude", retryArgs, {
-        stdio: ["ignore", "pipe", "pipe"],
-        cwd: run.cwd,
-        env,
-      }) as ChildProcessByStdio<null, Readable, Readable>;
+      log.warn("run.retry_no_resume", { runId: run.id, accountId });
+      const retryProc = spawnClaude(retryArgs, run.cwd, env, opts.stdin);
       run.proc = retryProc;
       run.stderrBuf = "";
+      run.error = undefined;
+      // The failed attempt reported the dead session; never hand it on again.
+      run.sessionId = undefined;
+      // Say so: the agent now answers without the earlier conversation. Kept out
+      // of run.output, which error classification reads (empty output → Sign-in).
+      run.freshSession = true;
+      broadcast(run, { name: "chunk", data: { runId: run.id, text: FRESH_SESSION_NOTICE } });
       pumpStdout(run);
       pumpStderr(run);
-      retryProc.on("close", (retryCode) => finalizeRun(run, retryCode ?? 1));
+      retryProc.on("close", (retryCode, retrySignal) => finalizeRun(run, retryCode ?? 1, retrySignal));
       retryProc.on("error", (err) => {
         broadcast(run, { name: "error", data: { runId: run.id, ...classifySpawnError(err, run.cwd) } });
         if (run.status === "running") finalizeRun(run, 1);
       });
       return;
     }
-    finalizeRun(run, code ?? 1);
+    finalizeRun(run, code ?? 1, signal);
   });
   proc.on("error", (err) => {
     broadcast(run, { name: "error", data: { runId: run.id, ...classifySpawnError(err, run.cwd) } });
@@ -279,6 +293,8 @@ export function attachEmit(runId: string, emit: SseEmit): boolean {
   for (const event of run.eventLog) {
     void emit(event);
   }
+  // Not only once finished: max_runtime is broadcast before the kill lands.
+  if (run.error) void emit({ name: "error", data: { runId, ...run.error } });
   if (run.status !== "running") {
     void emit({
       name: "done",
@@ -311,9 +327,9 @@ export function detachEmit(runId: string, emit: SseEmit): void {
  * this DB (e.g. a leftover `pnpm dev`), and a passive caller would wrongly
  * kill-on-paper a run that's genuinely alive under a different process.
  */
-function finalizeDetachedRun(runId: string, persisted: PersistedRun | null): boolean {
+function finalizeDetachedRun(runId: string, persisted: PersistedRun | null, code: RunErrorCode): boolean {
   if (!persisted || persisted.status !== "running") return false;
-  markRunAborted(runId);
+  markRunAborted(runId, code);
   for (const listener of runFinishedListeners) listener(runId, false, persisted.sessionId ?? null);
   return true;
 }
@@ -337,7 +353,7 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
 
   const stillRunning = persisted.status === "running";
   const orphaned = stillRunning && isRunOrphaned(runId);
-  if (orphaned) finalizeDetachedRun(runId, persisted);
+  if (orphaned) finalizeDetachedRun(runId, persisted, "server_restart");
 
   // Alive on another worker (e.g. dev server restarted mid-run, or a stray
   // second `pnpm dev` process). Not a failure - its real result lands in
@@ -361,11 +377,16 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
       name: "error",
       data: orphaned
         ? { runId, code: "server_restart", interrupted: true }
-        : { runId, code: "unknown" },
+        : errorEventFromRow(runId, persisted),
     });
   }
   events.push({ name: "done", data: { runId, exitCode: exitCode ?? (failed ? 1 : 0), sessionId: persisted.sessionId } });
   return events;
+}
+
+function errorEventFromRow(runId: string, row: PersistedRun): SseErrorEvent {
+  const code = row.errorCode ?? "unknown";
+  return { runId, code, detail: row.errorDetail, interrupted: isInterruptionCode(code) || undefined };
 }
 
 /** True while the run is live and could still act on a decision. */
@@ -391,7 +412,7 @@ export function abortRun(runId: string): boolean {
   // owner that will never come back to it either way (see
   // `finalizeDetachedRun`). Finalize directly instead of silently no-op'ing,
   // which is what left Abort unable to unstick a stranded conversation.
-  return finalizeDetachedRun(runId, getRun(runId));
+  return finalizeDetachedRun(runId, getRun(runId), "stopped");
 }
 
 export function killAllRuns(): void {
@@ -403,13 +424,21 @@ export function killAllRuns(): void {
     // finalizeRun is idempotent against status checks, so a real exit
     // landing after this is a no-op.
     if (run.status === "running") {
+      broadcast(run, { name: "error", data: { runId: run.id, code: "server_restart", interrupted: true } });
       finalizeRun(run, 130);
     }
   }
   forceReleaseInhibit();
 }
 
-function broadcast(run: LiveRun, event: SseEvent): void {
+function broadcast(run: LiveRun, raw: SseEvent): void {
+  let event = raw;
+  if (raw.name === "error") {
+    const data = { ...raw.data, detail: redactSecrets(raw.data.detail, run.secretValues) };
+    event = { name: "error", data };
+    // The first error is the cause; later ones (e.g. the kill after max_runtime) are fallout.
+    run.error ??= { code: data.code, detail: data.detail, interrupted: data.interrupted };
+  }
   if (
     event.name === "chunk" ||
     event.name === "tool" ||
@@ -665,7 +694,13 @@ function handleStreamLine(run: LiveRun, line: string): void {
           if (event.resetsAt) db.setRunRateLimitResetsAt(run.id, event.resetsAt);
           broadcast(run, { name: "rate-limit", data: event });
         } else {
-          broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(evt.error ?? "", run.output) } });
+          const raw = evt.error ?? evt.errors?.join("\n") ?? "";
+          if (run.args.includes("--resume") && raw.includes(MISSING_SESSION)) {
+            // The retry without --resume follows; this attempt's error is not the outcome.
+            run.missingSession = true;
+          } else {
+            broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(raw, run.output) } });
+          }
         }
       }
     }
@@ -880,6 +915,16 @@ function finalizeSubAgentFromTask(parentRun: LiveRun, task: TaskCompletion): voi
   });
 }
 
+const MISSING_SESSION = "No conversation found with session ID";
+const FRESH_SESSION_NOTICE =
+  "_Previous session not found for this account — started a fresh session without the earlier conversation._\n\n";
+
+/** `--resume` named a session this account's projects dir doesn't have. The
+ *  close handler retries without it, so this is not the run's real outcome. */
+function isMissingSessionFailure(run: LiveRun): boolean {
+  return run.args.includes("--resume") && (run.missingSession === true || run.stderrBuf.includes(MISSING_SESSION));
+}
+
 /** A backgrounded child whose notification never arrived (parent killed, CLI
  *  exited first) would otherwise leave a card spinning forever. */
 function sweepUnfinishedSubAgents(run: LiveRun): void {
@@ -894,23 +939,29 @@ function sweepUnfinishedSubAgents(run: LiveRun): void {
 }
 
 
-function finalizeRun(run: LiveRun, exitCode: number): void {
+function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | null): void {
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
 
-  // Auth failures (expired/unrefreshable OAuth) make the CLI print to stderr and
-  // exit non-zero *before* emitting any stream-json result event, so the
-  // result-error classification (which needs that event) never runs — the run
-  // would surface as a generic error with no way to re-authenticate. Detect it
-  // from stderr here and broadcast the auth card, which offers in-app Sign in.
-  // Gated on empty output so it can't double up with the result-event path,
-  // which always has streamed output by the time a result arrives.
-  if (exitCode !== 0 && !run.aborted && run.output.trim() === "") {
-    const cls = classifyResultError(run.stderrBuf, run.output);
-    if (cls.code === "auth_expired") {
-      broadcast(run, { name: "error", data: { runId: run.id, ...cls } });
-    }
+  // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
+  // stream-json result event, so nothing has said why. Its stderr is the only
+  // explanation — surface it (auth still gets its Sign-in card via the same
+  // classifier) instead of a bare "The agent hit an error.". A hard rate-limit
+  // card already explains the exit.
+  const limitShown = run.eventLog.some((e) => e.name === "rate-limit" && e.data.severity === "limit");
+  if (exitCode !== 0 && run.aborted) {
+    if (!run.error) broadcast(run, { name: "error", data: { runId: run.id, code: "stopped", interrupted: true } });
+  } else if (exitCode !== 0 && !run.error && !limitShown) {
+    const stderr = redactSecrets(run.stderrBuf, run.secretValues) ?? "";
+    log.warn("run.exit_failure", { runId: run.id, exitCode, signal, stderr: stderr.slice(-500) });
+    broadcast(run, {
+      name: "error",
+      data: {
+        runId: run.id,
+        ...classifyExitFailure(stderr, exitCode, { signal, lastTool: run.currentTool, output: run.output }),
+      },
+    });
   }
 
   sweepUnfinishedSubAgents(run);
@@ -934,7 +985,7 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     prompt: run.prompt,
     status: run.status,
     exitCode: run.exitCode,
-    output: run.output,
+    output: run.freshSession ? FRESH_SESSION_NOTICE + run.output : run.output,
     tokensIn: run.tokensIn,
     tokensOut: run.tokensOut,
     cacheCreationTokens: run.cacheCreationTokens,
@@ -950,6 +1001,8 @@ function finalizeRun(run: LiveRun, exitCode: number): void {
     sessionId: run.sessionId,
     parentRunId: run.parentRunId,
     conversationId: run.conversationId,
+    errorCode: run.error?.code,
+    errorDetail: run.error?.detail,
   };
 
   // Persist best-effort - a DB failure must never swallow the broadcast below.

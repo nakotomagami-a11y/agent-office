@@ -1,6 +1,9 @@
 import { getDb } from "./connection";
-import type { MessageOrigin, PersistedRun } from "../../types/index";
-import { asOrigin } from "./conversations";
+import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
+import { isRunErrorCode } from "../../config/run-errors";
+
+/** Parse, don't cast: the column is TEXT and old rows predate it. */
+export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
 
 export interface RunInsert {
   id: string; agentId: string; agentName: string;
@@ -24,6 +27,7 @@ export interface RunUpdate {
   tokensIn: number; tokensOut: number; costUsd: number;
   cacheCreationTokens?: number; cacheReadTokens?: number;
   durMs: number; sessionId?: string; endedAt: number;
+  errorCode?: RunErrorCode; errorDetail?: string;
 }
 
 export function updateRun(id: string, u: RunUpdate): void {
@@ -31,22 +35,24 @@ export function updateRun(id: string, u: RunUpdate): void {
     UPDATE runs SET status=@status, exit_code=@exitCode, output=@output,
       tokens_in=@tokensIn, tokens_out=@tokensOut, cost_usd=@costUsd,
       cache_creation_tokens=@cacheCreationTokens, cache_read_tokens=@cacheReadTokens,
-      dur_ms=@durMs, session_id=@sessionId, ended_at=@endedAt
+      dur_ms=@durMs, session_id=@sessionId, ended_at=@endedAt,
+      error_code=@errorCode, error_detail=@errorDetail
     WHERE id=@id
   `).run({
     id, ...u, exitCode: u.exitCode ?? null, sessionId: u.sessionId ?? null,
     cacheCreationTokens: u.cacheCreationTokens ?? 0, cacheReadTokens: u.cacheReadTokens ?? 0,
+    errorCode: u.errorCode ?? null, errorDetail: u.errorDetail ?? null,
   });
 }
 
-export function markRunAborted(id: string): void {
+export function markRunAborted(id: string, code: RunErrorCode): void {
   const now = Date.now();
   getDb().prepare(
-    "UPDATE runs SET status='error', exit_code=-1, ended_at=@now, dur_ms=MAX(0, @now-started_at) WHERE id=@id AND status='running'"
-  ).run({ now, id });
+    "UPDATE runs SET status='error', exit_code=-1, error_code=@code, ended_at=@now, dur_ms=MAX(0, @now-started_at) WHERE id=@id AND status='running'"
+  ).run({ now, id, code });
 }
 
-interface RunRow {
+export interface RunRow {
   id: string; agent_id: string; agent_name: string; instance_id: string;
   instance_label: string | null; project_id: string | null; session_id: string | null;
   status: string; exit_code: number | null; prompt: string; origin: string; output: string;
@@ -54,9 +60,10 @@ interface RunRow {
   cache_creation_tokens: number | null; cache_read_tokens: number | null;
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
   parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
+  error_code: string | null; error_detail: string | null;
 }
 
-function rowToRun(row: RunRow): PersistedRun {
+export function rowToRun(row: RunRow): PersistedRun {
   return {
     id: row.id, agentId: row.agent_id, agentName: row.agent_name,
     instanceId: row.instance_id === "default" ? undefined : row.instance_id,
@@ -72,6 +79,8 @@ function rowToRun(row: RunRow): PersistedRun {
     parentRunId: row.parent_run_id ?? undefined,
     accountId: row.account_id ?? undefined,
     conversationId: row.conversation_id ?? undefined,
+    errorCode: isRunErrorCode(row.error_code) ? row.error_code : undefined,
+    errorDetail: row.error_detail ?? undefined,
   };
 }
 

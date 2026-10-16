@@ -88,7 +88,7 @@ const DEFAULT_BLOCKING: Severity[] = ["must-fix"];
  *  relabels the user's own decision as convergence, and accepting
  *  `invalid_findings` converts a miswired reviewer into a pass — which is the
  *  one thing that state exists to prevent. */
-const ACCEPTABLE_AS_IS: BindingConstraint[] = ["max_rounds", "budget", "wall_clock"];
+export const ACCEPTABLE_AS_IS: BindingConstraint[] = ["max_rounds", "budget", "wall_clock"];
 
 export function canAcceptAsIs(state: LoopState): boolean {
   if (state.phase === "reviewing" || state.phase === "fixing") return true;
@@ -125,8 +125,8 @@ export function clampLoopConfig(cfg: LoopConfig): LoopConfig {
   };
 }
 
-export function initialLoopState(startedAt: number): LoopState {
-  return { phase: "authoring", round: 1, spentUsd: 0, startedAt, open: [], history: [] };
+export function initialLoopState(startedAt: number, phase: "authoring" | "reviewing" = "authoring"): LoopState {
+  return { phase, round: 1, spentUsd: 0, startedAt, open: [], history: [] };
 }
 
 function blocking(findings: Finding[], cfg: LoopConfig): Finding[] {

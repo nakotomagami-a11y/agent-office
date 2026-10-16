@@ -83,10 +83,13 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
 
   const budgeted = withSeatBudget(req, instance?.instanceId);
   if ("status" in budgeted) return { error: budgeted };
+  const ownInstance = instance?.agentId === req.agentId ? instance : null; // a loop reviewer borrows only the seat's cwd
   const built = summon.buildClaudeArgs({
     request: budgeted,
     agent: agent.info,
-    instance,
+    instance: ownInstance,
+    // A borrowed hub-branch worktree is still one: isolate by where it runs, not whose chat it is.
+    isolate: summon.isMissionWorktree(instance),
     appendedSystemPrompt,
     priorContext,
   });
@@ -166,7 +169,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
 
   store.pushRecentPrompt(req.agentId, req.prompt);
 
-  const instanceLabel = instance?.label ?? (instance ? agent.info.name : undefined);
+  const instanceLabel = ownInstance?.label ?? (instance ? agent.info.name : undefined);
   const { runId } = runs.startRun({
     agentId: req.agentId,
     agentName: instanceLabel ?? agent.info.name,

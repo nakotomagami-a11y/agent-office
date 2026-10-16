@@ -23,6 +23,7 @@ export function buildSummonRequest(input: StartRunInput): SummonRequest {
     resumeSessionId: input.resumeSessionId ?? undefined,
     conversationId: input.conversationId,
     contextProfile: input.contextProfile,
+    maxBudgetUsd: input.maxBudgetUsd,
   };
 }
 

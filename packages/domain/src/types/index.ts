@@ -106,6 +106,8 @@ export interface PersistedRun {
   currentTool?: string;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  errorCode?: RunErrorCode;
+  errorDetail?: string;
   /** Set from the run's own tool_calls when it started a `run_in_background`
    *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
   backgroundTaskCommand?: string;
@@ -169,6 +171,8 @@ export interface AgentInstance {
   room?: string;
   /** Undefined/true = Playwright MCP loaded; false = excluded from the spawn. */
   playwrightEnabled?: boolean;
+  /** True = a turn that edits files is followed by a review loop (`execution/qa-loop.ts`). */
+  qaLoopEnabled?: boolean;
   /** Falls back to project.meta.cwd when unset. */
   cwd?: string;
   worktree?: {

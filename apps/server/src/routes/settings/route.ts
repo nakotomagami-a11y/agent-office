@@ -27,11 +27,7 @@ export async function PUT(request: Request) {
   const raw: unknown = await request.json();
   const { data, error } = validateBody(settingsPatchSchema, raw);
   if (error) return error;
-  const next = {
-    projectsRoot: data.projectsRoot.trim(),
-    excluded: data.excluded.filter((s) => typeof s === "string"),
-    firstRunComplete: true,
-  };
+  const next = settings.withProjectsConfig(settings.readSettings(), data);
   settings.writeSettings(next);
   return Response.json(next);
 }

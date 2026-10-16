@@ -7,7 +7,7 @@
  * drafts cleared".
  */
 
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import type { CleanupKind } from "../../config/cleanup";
 import { join } from "node:path";
 import { getDb, deleteRunsWhere } from "../db";
@@ -115,7 +115,7 @@ export function resetUserAnalysis(): CleanupResult {
 }
 
 // ─── Skills install cache ────────────────────────────────────────────────────
-// Every subdirectory under ~/.claude/agents/_skills/. Skips top-level files.
+// Every skill dir; the seeding marker (server boot.ts) is reset so bundled skills seed again.
 
 export function clearSkillInstallCache(dir: string = SKILLS_DIR): CleanupResult {
   if (!existsSync(dir)) return { cleared: 0 };
@@ -126,6 +126,7 @@ export function clearSkillInstallCache(dir: string = SKILLS_DIR): CleanupResult 
     rmSync(p, { recursive: true, force: true });
     cleared++;
   }
+  writeFileSync(join(dir, "_seeded.json"), "[]");
   return { cleared };
 }
 

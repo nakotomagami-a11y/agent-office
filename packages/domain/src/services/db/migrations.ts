@@ -175,7 +175,7 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // data), wipe all legacy rows, and seed the starter workflows in a
   // dedicated `starter` category. User-created workflows added later will
   // sit alongside these in other categories.
-  // The starter rows it seeded went with the Workflows feature; v26 drops the table.
+  // The starter rows it seeded went with the Workflows feature; v27 drops the table.
   (db) => {
     db.exec(`DELETE FROM saved_prompts;`);
   },
@@ -489,7 +489,15 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
-  // v25 -> v26: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
+  // v25 -> v26: why a failed run failed (RunErrorCode + stderr/CLI reason), so
+  // history and reconnects show the real error instead of "The agent hit an error."
+  (db) => {
+    db.exec(`
+      ALTER TABLE runs ADD COLUMN error_code TEXT;
+      ALTER TABLE runs ADD COLUMN error_detail TEXT;
+    `);
+  },
+  // v26 -> v27: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
   // Missions replaced Workflows: its saved-prompt table goes, after a copy of any rows is on disk.
   (db) => {
     backupSavedPrompts(db);
@@ -528,7 +536,7 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   },
 ];
 
-/** The rows v26 drops, as JSON in the backups folder; null when there were none. Throws rather than
+/** The rows v27 drops, as JSON in the backups folder; null when there were none. Throws rather than
  *  return when the file cannot be written, so the migration stops before anything is lost. */
 export function backupSavedPrompts(db: Database.Database, dir = BACKUPS_DIR): string | null {
   const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'saved_prompts'").get();
@@ -630,5 +638,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
     if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
     if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
+    if (v < 27) { MIGRATIONS[26]!(db); v = 27; db.pragma("user_version = 27"); }
   })();
 }

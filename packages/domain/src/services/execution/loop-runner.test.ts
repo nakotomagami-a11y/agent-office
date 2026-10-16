@@ -17,7 +17,7 @@ process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 mkdirSync(join(sandbox, ".claude", "agent-office"), { recursive: true });
 
-const { startLoop, advanceLoop, onLoopRunFinished, reconcileLoopIfStale } = await import("./loop-runner");
+const { startLoop, advanceLoop, onLoopRunFinished, reconcileLoopIfStale, rekickConversationLoops } = await import("./loop-runner");
 const db = await import("../db/index");
 import type { LoopRunner } from "./loop-runner";
 import type { Finding } from "./loop-machine";
@@ -394,4 +394,103 @@ test("accept-as-is cannot relabel a stopped or miswired loop as converged", asyn
   const r = await advanceLoop(id, { type: "acceptAsIs" }, runner, 3);
   assert.equal(r.ok, false, "the machine must refuse, and the refusal must be reported");
   assert.equal(db.getLoop(id)!.state.binding, "invalid_findings", "still named, not laundered into converged");
+});
+
+type Dispatch = Parameters<LoopRunner["startRun"]>[0];
+
+/** Records the full dispatch input — what the toggle-started loop relies on. */
+function recordingRunner(over: Partial<LoopRunner> = {}) {
+  const calls: Dispatch[] = [];
+  const tag = `rec${++suite}`;
+  let verdict: Finding[] | null = [MUST];
+  const runner: LoopRunner = {
+    startRun: async (i) => { calls.push(i); return `${tag}-run-${calls.length}`; },
+    costOf: () => 2,
+    ruleExists: () => true,
+    ruleIds: () => ["general.correctness"],
+    findingsFor: () => verdict,
+    ...over,
+  };
+  return { runner, calls, rid: (k: number) => `${tag}-run-${k}`, report: (f: Finding[] | null) => { verdict = f; } };
+}
+
+const chatLoop = {
+  agentId: "dev", reviewerAgentId: "qa", instanceId: "dev-1", conversationId: "conv-1", cwd: "/repo",
+  goal: "g", config: { maxRounds: 3, budgetUsd: 10 }, startAt: "reviewing" as const,
+};
+
+test("a loop started at REVIEW: reviewer outside the chat, fixes through it, budget shrinking", async () => {
+  const { runner, calls, rid } = recordingRunner();
+  const id = await startLoop(chatLoop, runner, 0);
+  assert.equal(calls[0]!.agentId, "qa");
+  assert.equal(calls[0]!.conversationId, null, "a reviewer run must not enter the user's chat");
+  assert.equal(calls[0]!.maxBudgetUsd, 10);
+
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  assert.equal(calls[1]!.agentId, "dev", "a blocking finding goes back to the AUTHOR");
+  assert.equal(calls[1]!.conversationId, "conv-1", "through the chat, so it queues with the user's messages");
+  assert.equal(calls[1]!.maxBudgetUsd, 8, "the round may spend only what the loop has left");
+  assert.equal(db.getLoop(id)!.state.phase, "fixing");
+});
+
+test("citations are resolved against the LOOP's project, not a global set", async () => {
+  const seen: Array<string | null> = [];
+  const { runner, rid } = recordingRunner({ ruleExists: (_id, cwd) => { seen.push(cwd); return true; } });
+  await startLoop(chatLoop, runner, 0);
+  await onLoopRunFinished(rid(1), true, runner, 1);
+  assert.ok(seen.length > 0 && seen.every((c) => c === "/repo"));
+});
+
+test("a fix refused by a busy chat is retried when that chat's turn ends", async () => {
+  let busy = true;
+  const { runner, calls } = recordingRunner({
+    startRun: async (i) => {
+      if (i.conversationId && busy) throw Object.assign(new Error("busy"), { code: "already_running" });
+      calls.push(i);
+      return `rekick-${calls.length}`;
+    },
+  });
+  const id = await startLoop({ ...chatLoop, conversationId: "conv-rekick" }, runner, 0);
+  const review = db.getLoop(id)!.activeRunId!;
+  db.insertRun({ id: review, agentId: "qa", agentName: "QA", status: "done", prompt: "r", model: "m", effort: "e", startedAt: 0 });
+
+  await onLoopRunFinished(review, true, runner, 1);
+  assert.equal(db.getLoop(id)!.activeRunId, review, "the claim is handed back, so the loop is not stranded");
+  assert.equal(db.getLoop(id)!.state.phase, "reviewing");
+
+  busy = false;
+  db.insertRun({
+    id: "user-turn-rekick", agentId: "dev", agentName: "Dev", instanceId: "dev-1", status: "done", prompt: "u",
+    model: "m", effort: "e", startedAt: 2, conversationId: "conv-rekick",
+  });
+  await rekickConversationLoops("user-turn-rekick", runner, 3);
+  assert.equal(calls.at(-1)!.agentId, "dev");
+  assert.equal(db.getLoop(id)!.state.phase, "fixing");
+});
+
+test("a fix round ending in the chat advances to review, even with the rekick listener racing it", async () => {
+  // Both listeners fire for the SAME finished fix run, in wiring order, with no
+  // await between them. The rekick once read the mid-dispatch null activeRunId
+  // as "stranded" and killed every loop at its first fix.
+  const yieldFirst = recordingRunner();
+  const { runner } = recordingRunner({
+    startRun: async (i) => { await new Promise((r) => setImmediate(r)); return yieldFirst.runner.startRun(i); },
+  });
+  const id = await startLoop({ ...chatLoop, conversationId: "conv-race" }, runner, 0);
+  await onLoopRunFinished(db.getLoop(id)!.activeRunId!, true, runner, 1);
+  const fixRun = db.getLoop(id)!.activeRunId!;
+  db.insertRun({
+    id: fixRun, agentId: "dev", agentName: "Dev", instanceId: "dev-1", status: "done", prompt: "fix", origin: "system",
+    model: "m", effort: "e", startedAt: 2, conversationId: "conv-race",
+  });
+
+  await Promise.all([
+    onLoopRunFinished(fixRun, true, runner, 3),
+    rekickConversationLoops(fixRun, runner, 3),
+  ]);
+  const loop = db.getLoop(id)!;
+  assert.equal(loop.state.binding, undefined, `the loop must survive, got ${loop.state.binding}`);
+  assert.equal(loop.state.phase, "reviewing");
+  assert.equal(yieldFirst.calls.at(-1)!.agentId, "qa", "round 2's review is dispatched and tracked");
+  assert.ok(loop.activeRunId);
 });

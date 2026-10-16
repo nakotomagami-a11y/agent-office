@@ -11,7 +11,10 @@
  * no UI, no spawn integration yet.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, lstatSync } from "node:fs";
+import {
+  existsSync, linkSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Account, AccountWithStatus, ClaudePlan } from "../../types/index";
@@ -23,7 +26,7 @@ import {
   accountConfigDir,
   isValidIdSegment,
 } from "../infra/paths";
-import { getDb } from "../db";
+import { getDb, isPidAlive } from "../db";
 import { log } from "../infra/log";
 
 // Assets we symlink into every non-default account dir so agents/skills/etc.
@@ -140,21 +143,177 @@ export function symlinkSharedAssets(id: string): void {
     const source = join(CLAUDE_DIR, asset);
     if (!existsSync(source)) continue;
     const target = join(dir, asset);
-    // Skip if a link (or anything) is already at that path — never clobber.
-    let alreadyExists = false;
+    let existing: ReturnType<typeof lstatSync> | undefined;
     try {
-      lstatSync(target);
-      alreadyExists = true;
+      existing = lstatSync(target);
     } catch {
       // ENOENT — good, path is free.
     }
-    if (alreadyExists) continue;
+    if (existing && asset === "projects" && existing.isDirectory() && !existing.isSymbolicLink()) {
+      if (!absorbProjectsDir(id, target, source)) continue;
+      existing = undefined;
+    }
+    // Anything else already at that path is left alone — never clobber.
+    if (existing) continue;
     try {
-      symlinkSync(source, target);
+      linkAsset(source, target, statSync(source).isDirectory());
     } catch (err) {
       log.warn("account.symlink_failed", { id, asset, err: String(err) });
     }
   }
+}
+
+/** Windows refuses symlinks without Developer Mode (EPERM), which left accounts
+ *  with no shared assets at all. A junction needs no privilege. Files get no
+ *  fallback: a hard link silently goes stale on the first atomic save. */
+function linkAsset(source: string, target: string, isDir: boolean): void {
+  if (process.platform !== "win32") return symlinkSync(source, target);
+  symlinkSync(source, target, isDir ? "junction" : "file");
+}
+
+/**
+ * A real `projects/` dir (the CLI made one where the link failed) hides every
+ * session the other accounts wrote, so `--resume` dies after an account switch.
+ * Merge its sessions into the shared dir — never overwriting one — then drop it.
+ * Returns false when it must stay for now (live writer, failed link).
+ */
+function absorbProjectsDir(id: string, dir: string, shared: string): boolean {
+  // A live CLI of this account appends to its session file by path: moving it
+  // now would split the transcript. A later spawn finishes the job.
+  if (accountHasLiveRun(id)) return deferMerge(id, "live_run");
+  // Phase 1 only adds hard links, so a deferred merge leaves every session
+  // visible from both sides — an append through either path hits one inode.
+  const scan = newScan();
+  linkInto(dir, shared, scan);
+  if (scan.crossDevice) return deferMerge(id, "cross_device");
+  if (scan.failures > 0) return deferMerge(id, "link_failed");
+  // No runs row covers `claude` in an Agent Office terminal under this account.
+  if (scan.recent) return deferMerge(id, "recently_written");
+  // Phase 2: drop only sources verified to be the very file now in `shared`.
+  if (pruneLinked(dir, shared) > 0) return deferMerge(id, "prune_failed");
+  try {
+    rmdirSync(dir);
+    return true;
+  } catch {
+    // Only same-named conflicts remain (a project's own memory files, say): keep them aside.
+  }
+  const aside = `${dir}.unmerged-${Date.now()}`;
+  try {
+    renameSync(dir, aside);
+  } catch (err) {
+    return deferMerge(id, `aside_failed: ${String(err)}`);
+  }
+  log.warn("account.projects_unmerged", { id, kept: aside });
+  return true;
+}
+
+function accountHasLiveRun(id: string): boolean {
+  const rows = getDb()
+    .prepare("SELECT owner_pid FROM runs WHERE status = 'running' AND account_id = ?")
+    .all(id) as Array<{ owner_pid: number | null }>;
+  return rows.some((r) => isPidAlive(r.owner_pid));
+}
+
+const deferredLogged = new Set<string>();
+
+function deferMerge(id: string, reason: string): false {
+  if (!deferredLogged.has(id + reason)) log.warn("account.projects_merge_deferred", { id, reason });
+  deferredLogged.add(id + reason);
+  return false;
+}
+
+const RECENT_WRITE_MS = 10 * 60_000;
+
+interface LinkScan { conflicts: number; failures: number; crossDevice: boolean; recent: boolean; now: number }
+
+function newScan(): LinkScan {
+  return { conflicts: 0, failures: 0, crossDevice: false, recent: false, now: Date.now() };
+}
+
+/** Hard-link every file of `from` into `to`, never replacing a name already
+ *  there (link fails with EEXIST). Unlinks nothing. */
+function linkInto(from: string, to: string, scan: LinkScan): void {
+  let names: string[];
+  try {
+    names = readdirSync(from);
+  } catch {
+    scan.failures++;
+    return;
+  }
+  for (const name of names) {
+    const src = join(from, name);
+    const dst = join(to, name);
+    try {
+      const st = lstatSync(src);
+      if (st.isDirectory()) {
+        if (ensureDir(dst)) linkInto(src, dst, scan);
+        else scan.conflicts++;
+      } else if (st.isFile()) {
+        if (scan.now - st.mtimeMs < RECENT_WRITE_MS) scan.recent = true;
+        linkFile(src, dst, scan);
+      } else {
+        scan.conflicts++;
+      }
+    } catch {
+      scan.failures++;
+    }
+  }
+}
+
+/** True when `dst` is (now) a real directory. */
+function ensureDir(dst: string): boolean {
+  try {
+    mkdirSync(dst);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    const st = lstatSync(dst);
+    return st.isDirectory() && !st.isSymbolicLink();
+  }
+}
+
+function linkFile(src: string, dst: string, scan: LinkScan): void {
+  try {
+    linkSync(src, dst);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EXDEV") scan.crossDevice = true;
+    else if (code !== "EEXIST") scan.failures++;
+    else if (!sameFile(src, dst)) scan.conflicts++;
+  }
+}
+
+/** Same file, not merely an equal number: Windows file ids exceed 2^53, so a
+ *  plain `ino` loses its low bits and two different files can compare equal. */
+function sameFile(a: string, b: string): boolean {
+  const x = statSync(a, { bigint: true });
+  const y = statSync(b, { bigint: true });
+  return x.ino === y.ino && x.dev === y.dev && x.nlink >= 2n;
+}
+
+/** Unlink every file of `from` that is the very file in `to`; returns how many
+ *  such files could not be unlinked (locked). Conflicts simply stay. */
+function pruneLinked(from: string, to: string): number {
+  let failed = 0;
+  for (const name of readdirSync(from)) {
+    const src = join(from, name);
+    const dst = join(to, name);
+    if (lstatSync(src).isDirectory()) {
+      failed += pruneLinked(src, dst);
+      try {
+        rmdirSync(src);
+      } catch {
+        // Not empty: a conflict stays.
+      }
+    } else if (existsSync(dst) && sameFile(src, dst)) {
+      try {
+        unlinkSync(src);
+      } catch {
+        failed++;
+      }
+    }
+  }
+  return failed;
 }
 
 // ─── Plan + email detection ─────────────────────────────────────────────────

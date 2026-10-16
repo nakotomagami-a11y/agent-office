@@ -20,17 +20,25 @@ export interface LoopRunner {
     projectId: string | null;
     cwd: string | null;
     prompt: string;
+    /** The loop's remaining budget; the machine only checks it BETWEEN rounds. */
+    maxBudgetUsd?: number;
+    /** Author rounds of a chat-bound loop go through the chat (docs/chat-refactor.md, principle 6). */
+    conversationId?: string | null;
   }): Promise<string>;
   costOf(runId: string): number;
-  /** A finding citing a rule that does not resolve is a miswired reviewer. */
-  ruleExists(id: string): boolean;
-  ruleIds(): readonly string[];
+  /** A finding citing a rule that does not resolve (in `cwd`'s project) is a miswired reviewer. */
+  ruleExists(id: string, cwd: string | null): boolean;
+  ruleIds(cwd: string | null): readonly string[];
   /** A review's verdict; `null` means none was reported, which is NOT a pass. */
   findingsFor(runId: string): Finding[] | null;
 }
 
 /** Worth another attempt rather than ending a loop mid-flight. */
 const RETRYABLE_DISPATCH = new Set(["claude_unavailable", "already_running", "secret_invalid"]);
+
+function budgetLeft(cfg: LoopConfig, spentUsd: number): number | undefined {
+  return cfg.budgetUsd === undefined ? undefined : Math.max(0.01, cfg.budgetUsd - spentUsd);
+}
 
 /** A refusal returned as success is a button that silently does nothing. */
 export type AdvanceResult =
@@ -46,11 +54,14 @@ export interface StartLoopInput {
   cwd?: string | null;
   goal: string;
   config: LoopConfig;
+  /** "reviewing" when the work already exists, e.g. a chat turn just made it. */
+  startAt?: "authoring" | "reviewing";
 }
 
 export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: number): Promise<string> {
   const id = randomUUID();
-  const state = initialLoopState(now);
+  const state = initialLoopState(now, input.startAt);
+  const config = clampLoopConfig(input.config);
   // Row first: a crash after spawning orphans the run.
   db.createLoop(
     {
@@ -63,22 +74,28 @@ export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: 
       cwd: input.cwd ?? null,
       goal: input.goal,
       state,
-      config: clampLoopConfig(input.config),
+      config,
       activeRunId: null,
     },
     now,
   );
 
+  const cwd = input.cwd ?? null;
   let runId: string;
   try {
+    // Both prompts are prefixed: startSummonRun returns an EXISTING run id on an
+    // identical prompt, so a bare goal lets the loop adopt the user's own chat run.
+    const first = state.phase === "reviewing"
+      ? { agentId: input.reviewerAgentId, prompt: reviewPrompt(input.goal, 1, runner.ruleIds(cwd)) }
+      : { agentId: input.agentId, prompt: authorPrompt(input.goal) };
     runId = await runner.startRun({
-      agentId: input.agentId,
+      agentId: first.agentId,
       instanceId: input.instanceId ?? null,
       projectId: input.projectId ?? null,
-      cwd: input.cwd ?? null,
-      // Prefixed: startSummonRun returns an EXISTING run id on an identical
-      // prompt, so a bare goal lets the loop adopt the user's own chat run.
-      prompt: authorPrompt(input.goal),
+      cwd,
+      prompt: first.prompt,
+      maxBudgetUsd: budgetLeft(config, 0),
+      conversationId: first.agentId === input.agentId ? (input.conversationId ?? null) : null,
     });
   } catch (e) {
     log.error("loop.dispatch_failed", { loopId: id, round: 1, message: String(e) });
@@ -102,11 +119,13 @@ function actionFor(state: LoopState, ok: boolean, costUsd: number, findings: Fin
   }
 }
 
-async function dispatch(loop: db.LoopRow, e: LoopEffect | undefined, runner: LoopRunner): Promise<string | null> {
+async function dispatch(
+  loop: db.LoopRow, e: LoopEffect | undefined, spentUsd: number, runner: LoopRunner,
+): Promise<string | null> {
   if (!e || e.type === "finish") return null;
   {
     const prompt = e.type === "startReview"
-      ? reviewPrompt(loop.goal, e.round, runner.ruleIds())
+      ? reviewPrompt(loop.goal, e.round, runner.ruleIds(loop.cwd))
       : fixPrompt(loop.goal, e.round, e.findings);
     const agentId = e.type === "startReview" ? loop.reviewerAgentId : loop.agentId;
     return await runner.startRun({
@@ -115,6 +134,8 @@ async function dispatch(loop: db.LoopRow, e: LoopEffect | undefined, runner: Loo
       projectId: loop.projectId,
       cwd: loop.cwd,
       prompt,
+      maxBudgetUsd: budgetLeft(loop.config, spentUsd),
+      conversationId: agentId === loop.agentId ? loop.conversationId : null,
     });
   }
 }
@@ -131,7 +152,9 @@ export async function advanceLoop(
   const loop = db.getLoop(loopId);
   if (!loop) return { ok: false, code: "loop_not_found" };
 
-  const { state, effects } = reduceLoop(loop.state, action, loop.config, now, runner.ruleExists);
+  const { state, effects } = reduceLoop(
+    loop.state, action, loop.config, now, (rule) => runner.ruleExists(rule, loop.cwd),
+  );
   if (effects.length > 1) {
     log.error("loop.multiple_effects", { loopId, count: effects.length });
   }
@@ -144,7 +167,7 @@ export async function advanceLoop(
 
   let nextRunId: string | null;
   try {
-    nextRunId = await dispatch(loop, effects[0], runner);
+    nextRunId = await dispatch(loop, effects[0], state.spentUsd, runner);
   } catch (e) {
     const code = (e as { code?: string }).code;
     if (code && RETRYABLE_DISPATCH.has(code)) {
@@ -223,4 +246,14 @@ export async function onLoopRunFinished(
     return;
   }
   await advanceLoop(loop.id, action, runner, now, runId);
+}
+
+/** A fix round refused by a busy chat is retried when the chat's turn ends, not only on a poll. */
+export async function rekickConversationLoops(runId: string, runner: LoopRunner, now: number): Promise<void> {
+  const conversationId = db.getRun(runId)?.conversationId;
+  if (!conversationId) return;
+  for (const loop of db.listLoopsForConversation(conversationId)) {
+    if (loop.state.binding || !loop.activeRunId || loop.activeRunId === runId) continue; // null = mid-dispatch
+    await reconcileLoopIfStale(loop.id, runner, now);
+  }
 }

@@ -280,12 +280,13 @@ Segment order:
 
 1. Skills (most stable — each skill's SKILL.md body, inlined or referenced by path depending on size)
 2. Identity (`~/.claude/agents/<id>.identity.md`) — foundational, ships with the agent
-3. Global memory (`~/.claude/agents/_global.memory.md`)
-4. Active project (name, cwd, description)
-5. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
-6. Project memory (`~/.claude/projects/<id>/project.md` body section)
-7. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
-8. History note — **omitted if permission-mode is `plan`**, or if the conversation already has messages
+3. Response style (`config/response-style.ts`) — built in, every agent except `user-analyst`, every turn
+4. Global memory (`~/.claude/agents/_global.memory.md`)
+5. Active project (name, cwd, description)
+6. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
+7. Project memory (`~/.claude/projects/<id>/project.md` body section)
+8. Per-agent memory (`~/.claude/agents/<id>.memory.md`)
+9. History note — **omitted if permission-mode is `plan`**, or if the conversation already has messages
 
 Prior-turn conversation history (when *not* using `--resume`) is a **separate** mechanism — it's prepended to the user's prompt text, not this appended system prompt, so it's billed once (first message of a new thread) rather than on every turn. See `projects/history.ts` (`getContextMessages` / `formatPriorContext`, profiles `tight`/`balanced`/`deep`) and `docs/03-agents.md`'s "Prior context injection".
 
@@ -328,21 +329,21 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v26**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v27**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
 
 | Table | Key columns | Notes |
 |-------|------------|-------|
-| `runs` | id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at, parent_run_id, account_id, owner_pid, rate_limited_resets_at, conversation_id, cache_creation_tokens, cache_read_tokens, origin | Core run record. `origin` is `user` or `system` — Agent Office writes into conversations through the same path the reply box uses, so without it its own messages rendered as the user's. `parent_run_id` links sub-agents |
+| `runs` | id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at, parent_run_id, account_id, owner_pid, rate_limited_resets_at, conversation_id, cache_creation_tokens, cache_read_tokens, origin, error_code, error_detail | Core run record. `error_code`/`error_detail` are the failure's `RunErrorCode` and its stderr/CLI reason. `origin` is `user` or `system` — Agent Office writes into conversations through the same path the reply box uses, so without it its own messages rendered as the user's. `parent_run_id` links sub-agents |
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
 | `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
 | `transcripts` | PK(agent_id, instance_id), items, active_run_id, session_id, updated_at, queued_messages | Legacy full chat thread as a JSON array — superseded by `conversations` + `queued_messages` (below). The v14 migration (`backfillConversations`) created one `conversations` row per pre-existing (agent, instance) slot that lacked one, carrying over its session id |
 | `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to |
 | `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at, origin | Messages typed while a run is in flight, dispatched in order once it finishes |
-| `loops` | id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round, spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at | Loop v0 state (#145/#150/#151/#153). Was missing from this table entirely |
+| `loops` | id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round, spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at | Loop v0 state (#145/#150/#151/#153). Started by `POST /api/loops`, or by the chat header's "QA loop" toggle (`execution/qa-loop.ts`): a seat with `qaLoopEnabled` gets a loop at the review phase after any user turn that edited files, once the chat is idle. The reviewer runs on its own agent settings outside the chat; fix rounds go through the conversation as `system` messages, each capped at the loop's remaining budget. The reviewer may cite the `general.*` rules (`config/loop.ts`) plus the `## <id>` headings of the reviewed project's own `docs/conventions.md` |
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
@@ -385,7 +386,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `~/.claude/projects/<id>/project.md` | R/W | Project metadata + roster YAML + memory body |
 | `~/.claude/projects/<id>/_uploads/` | R/W | Per-project file uploads |
 | `~/.claude/agent-office/db.sqlite` | R/W | SQLite database |
-| `~/.claude/agent-office-settings.json` | R/W | App settings (projectsRoot, excluded, firstRunComplete) |
+| `~/.claude/agent-office-settings.json` | R/W | App settings (projectsRoot, excluded, firstRunComplete, integrations) |
 | `~/.claude/.credentials.json` | R | Claude auth credentials (plan detection) |
 | `<projectCwd>/.worktrees/<instanceId>/` | R/W | Git worktree per agent instance |
 | `<projectCwd>/.ao.json` | R | Per-project build/dev command overrides |

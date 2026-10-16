@@ -32,6 +32,14 @@ export function readSettings(): AppSettings | null {
   }
 }
 
+/** Replaces the projects config only: integrations and feature flags survive. */
+export function withProjectsConfig(
+  current: AppSettings | null,
+  core: { projectsRoot: string; excluded: string[] },
+): AppSettings {
+  return { ...current, projectsRoot: core.projectsRoot.trim(), excluded: core.excluded, firstRunComplete: true };
+}
+
 export function isFeatureEnabled(
   settings: AppSettings | null,
   feature: keyof NonNullable<AppSettings["features"]>,
