@@ -21,7 +21,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -317,6 +317,21 @@ test("the skill-cache sweep deletes only directories", () => {
 
     assert.equal(clearSkillInstallCache(dir).cleared, 1);
     assert.deepEqual(readdirSync(dir).sort(), ["dangling", "index.json"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the skill-cache sweep resets the seeding marker, so bundled skills seed again", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ao-skills-"));
+  try {
+    mkdirSync(join(dir, "skill-a"));
+    writeFileSync(join(dir, "_seeded.json"), '["skill-a"]');
+    writeFileSync(join(dir, "_registry.json"), "{}");
+
+    assert.equal(clearSkillInstallCache(dir).cleared, 1);
+    assert.deepEqual(readdirSync(dir).sort(), ["_registry.json", "_seeded.json"]);
+    assert.equal(readFileSync(join(dir, "_seeded.json"), "utf8"), "[]");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

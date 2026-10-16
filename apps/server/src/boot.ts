@@ -4,13 +4,13 @@
  * isolated: one failing never stops the next, and none of them is something a
  * request depends on.
  *
- * Installs the bundled starter SKILLS into `~/.claude/agents/_skills/`
- * on a fresh machine. Agents are NOT auto-installed here - the
+ * Installs each bundled starter SKILL into `~/.claude/agents/_skills/`
+ * the first time this install sees it. Agents are NOT auto-installed here - the
  * first-run wizard lets the user pick which of the bundled agents to
  * import, so seeding all 13 on boot would defeat that choice.
  *
- * Existing user data is never overwritten - subsequent restarts are
- * no-ops.
+ * Existing user data is never overwritten - restarts with no new bundled
+ * skill are no-ops.
  */
 
 import {
@@ -18,7 +18,11 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -57,34 +61,79 @@ function isDir(p: string): boolean {
   }
 }
 
+// Each bundled skill is offered once per install: one added to the bundle later
+// still reaches machines seeded before it existed, and one the user uninstalls
+// is not put back on the next boot. The settings "skill cache" cleanup resets
+// this marker to [] (packages/domain/src/services/projects/cleanup.ts).
+const SEEDED_FILE = "_seeded.json";
+// The bundle as of the last fresh-machine-only seeding. An install with skill
+// folders but no marker was already offered these, so they are not offered again.
+const PRE_MARKER_BUNDLE = ["claude-api", "frontend-design", "web-artifacts-builder", "webapp-testing"];
+
 function hasSkillFolders(dir: string): boolean {
-  if (!existsSync(dir)) return false;
   try {
-    return readdirSync(dir).some(
-      (name) => !name.startsWith("_") && isDir(join(dir, name)),
-    );
+    return readdirSync(dir).some((name) => !name.startsWith("_") && isDir(join(dir, name)));
   } catch {
     return false;
   }
 }
 
-function seedStarterSkills(): void {
+function readSeeded(skillsDir: string): Set<string> | null {
+  const file = join(skillsDir, SEEDED_FILE);
+  if (!existsSync(file)) return null;
   try {
-    const starterDir = resolveStarterDataDir();
+    const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (Array.isArray(raw)) return new Set(raw.filter((n): n is string => typeof n === "string"));
+    console.warn("[starter-bootstrap] _seeded.json is not a list; rebuilding it");
+  } catch (err) {
+    console.warn("[starter-bootstrap] unreadable _seeded.json; rebuilding it (uninstalled bundled skills may return):", err);
+  }
+  return null;
+}
+
+function writeSeeded(skillsDir: string, seeded: Set<string>): void {
+  const file = join(skillsDir, SEEDED_FILE);
+  const tmp = `${file}.tmp-${process.pid}`;
+  writeFileSync(tmp, JSON.stringify([...seeded].sort(), null, 2));
+  renameSync(tmp, file);
+}
+
+// Via a staging dir, so a copy that dies halfway never looks installed. Never
+// replaces an existing skill; returns whether it copied.
+function copyIn(from: string, to: string, staging: string): boolean {
+  if (existsSync(to)) return false;
+  try {
+    cpSync(from, staging, { recursive: true });
+    renameSync(staging, to);
+  } catch (err) {
+    rmSync(staging, { recursive: true, force: true });
+    throw err;
+  }
+  return true;
+}
+
+export function seedStarterSkills(skillsDir: string = SKILLS_DIR, starterDirOverride?: string): void {
+  try {
+    const starterDir = starterDirOverride ?? resolveStarterDataDir();
     if (!starterDir) return;
-    let skills = 0;
     const starterSkills = join(starterDir, "skills");
-    if (existsSync(starterSkills) && !hasSkillFolders(SKILLS_DIR)) {
-      mkdirSync(SKILLS_DIR, { recursive: true });
-      for (const name of readdirSync(starterSkills)) {
-        const from = join(starterSkills, name);
-        if (!isDir(from)) continue;
-        const to = join(SKILLS_DIR, name);
-        if (existsSync(to)) continue;
-        cpSync(from, to, { recursive: true });
-        skills++;
+    if (!existsSync(starterSkills)) return;
+    mkdirSync(skillsDir, { recursive: true });
+    const marker = readSeeded(skillsDir);
+    const seeded = marker ?? new Set(hasSkillFolders(skillsDir) ? PRE_MARKER_BUNDLE : []);
+    const before = seeded.size;
+    let skills = 0;
+    for (const name of readdirSync(starterSkills)) {
+      const from = join(starterSkills, name);
+      if (!isDir(from) || seeded.has(name)) continue;
+      try {
+        skills += copyIn(from, join(skillsDir, name), join(skillsDir, `_seeding-${name}-${process.pid}`)) ? 1 : 0;
+        seeded.add(name);
+      } catch (err) {
+        console.warn(`[starter-bootstrap] could not seed ${name}; will retry next boot:`, err);
       }
     }
+    if (!marker || seeded.size !== before) writeSeeded(skillsDir, seeded);
     if (skills > 0) console.log(`[starter-bootstrap] seeded ${skills} skill(s)`);
   } catch (err) {
     console.warn("[starter-bootstrap] skipped:", err);
