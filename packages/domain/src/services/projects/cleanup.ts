@@ -115,9 +115,7 @@ export function resetUserAnalysis(): CleanupResult {
 }
 
 // ─── Skills install cache ────────────────────────────────────────────────────
-// Every subdirectory under ~/.claude/agents/_skills/. Skips top-level files,
-// except the boot seeding marker (apps/server/src/boot.ts), reset to [] so the
-// next boot offers every bundled skill again, even if one is installed first.
+// Every skill dir; the seeding marker (server boot.ts) is reset so bundled skills seed again.
 
 export function clearSkillInstallCache(dir: string = SKILLS_DIR): CleanupResult {
   if (!existsSync(dir)) return { cleared: 0 };
