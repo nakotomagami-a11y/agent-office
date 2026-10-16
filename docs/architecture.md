@@ -37,7 +37,7 @@ two packages render the planet and weapon icons, not the scene.
 The API is one handler, `handle(Request): Promise<Response>` from `@agent-office/server`, and it runs two ways:
 
 - **Embedded (the desktop app, `pnpm dev`, `pnpm start`).** `apps/web/src/app/api/[...path]/route.ts` hands every `/api/*` request to it, and the instrumentation hook calls the server's `boot()`. One Node process serves UI and API, so Tauri packaging is unchanged.
-- **Standalone (`pnpm server`).** `apps/server/src/main.ts` serves the same handler on `127.0.0.1:3001` (`AO_SERVER_PORT` overrides — not `PORT`, which every shell opened from Agent Office inherits from the desktop app) with no UI, e.g. for the Minecraft mod with the desktop app closed. Both modes advertise themselves in `~/.claude/agent-office/servers/<pid>.json`.
+- **Standalone (`pnpm server`).** `apps/server/src/main.ts` serves the same handler on `127.0.0.1:3001` (`AO_SERVER_PORT` overrides — not `PORT`, which agent shells inherit from the desktop app) with no UI, e.g. for the Minecraft mod with the desktop app closed. Both modes advertise themselves in `~/.claude/agent-office/servers/<pid>.json`.
 
 Two servers share one `~/.claude` and one SQLite db, but a live run belongs to the process that spawned it: never drive one conversation from both. Background loops split ownership the same way. Each server wakes the background shells of its own runs; due scheduled jobs and the shells of a dead server's runs go to whichever server holds that loop's lease (`db.holdLoopLease`, a `_loop_owner:<loop>` row its ticks keep fresh), taken over when the owner dies or stops ticking for 90 s. The scheduler also treats an instance with a run alive in *any* server as busy. "Alive" means a live server (`discovery.isLiveServer`): every server rewrites its `servers/<pid>.json` every 30 s, and an entry stale for 90 s is a dead server's even when Windows has given its pid to another process. A pid with no entry (a server older than discovery), or any pid while this server's own beat is late (it just woke from sleep), falls back to plain pid liveness. This only holds work back; marking a run failed (crash recovery below) keeps plain pid liveness, so a slow heartbeat can never fail a live run.
 
@@ -328,7 +328,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v25**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v26**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -349,13 +349,14 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
-| `saved_prompts` | id, title, body, category, created_at, use_count | Reusable multi-step workflow library |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude` |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
 | `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Values encrypted at rest (AES-256-GCM, machine-local key: `services/accounts/secret-crypto.ts`) |
 | `project_secrets` | PK(project_id, secret_id) | Many-to-many link attaching a secret to projects |
 | `pr_links` | PK(repo, number), project_id, agent_id, instance_id, source, created_at | Which agent seat opened which GitHub PR (`source`: `recorded` when its `gh pr create` returned the URL, `branch` from an `agent/<instanceId>-…` head, `manual` when picked at the Review Lectern) — review feedback is routed to that seat's chat. `repo` is lowercase `owner/name` |
+| `mission_seats` | PK(mission_id, seat), project_id, pr_number, agent_id, instance_id, hub_branch, lead_device, manifest_json, cursor_id, cursor_at, status_comment_id, cap_usd, spent_usd, left_at, created_at, updated_at | The mission seats THIS device holds (`docs/missions.md`): which chat each is, the last hub comment routed, its spend cap, and the lead device + manifest pinned when the human started or joined (a fold naming another lead means the hub's history was rewritten). The mission itself (roster, asks, phase) is folded from the hub PR's comments, never stored |
+| `mission_posts` | PK(mission_id, comment_id), created_at | Every hub comment THIS device posted. A comment claiming this device that is not here is a forgery of it (`forged_self`) |
 
 ### Virtual table
 
@@ -363,7 +364,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ### Indexes
 
-`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_saved_prompts_category`, `idx_saved_prompts_created`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`
+`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`
 
 ---
 

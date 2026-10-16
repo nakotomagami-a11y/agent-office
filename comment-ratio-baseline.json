@@ -1285,9 +1285,9 @@
     "comment": 6
   },
   "apps/web/src/lib/markdown.ts": {
-    "ratio": 0.0685,
-    "code": 73,
-    "comment": 5
+    "ratio": 0.1146,
+    "code": 96,
+    "comment": 11
   },
   "apps/web/src/lib/modal-manager.ts": {
     "ratio": 0.375,
@@ -2690,9 +2690,9 @@
     "comment": 0
   },
   "packages/api-contract/src/schemas.ts": {
-    "ratio": 0.0929,
-    "code": 312,
-    "comment": 29
+    "ratio": 0.1038,
+    "code": 318,
+    "comment": 33
   },
   "packages/domain/src/config/agent-opts.ts": {
     "ratio": 1.5,

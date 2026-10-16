@@ -40,7 +40,7 @@ import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
-import { noteToolCall, startTextBlock } from "./runs/text-blocks";
+import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -473,6 +473,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
       ev.delta?.type === "text_delta" &&
       typeof ev.delta.text === "string"
     ) {
+      if (!isOwnText(evt)) return;
       run.sawStreamDelta = true;
       // The model is producing text again, not calling a tool — clear any
       // stale tool name so "what's it doing right now" dashboards don't keep
@@ -507,7 +508,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
 
   if (evt.type === "assistant" && evt.message?.content) {
     for (const block of evt.message.content) {
-      if (block.type === "text" && typeof block.text === "string" && !run.sawStreamDelta) {
+      if (block.type === "text" && typeof block.text === "string" && !run.sawStreamDelta && isOwnText(evt)) {
         run.currentTool = undefined;
         startTextBlock(run);
         run.output += block.text;

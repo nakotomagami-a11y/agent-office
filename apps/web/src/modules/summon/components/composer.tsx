@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { useAgentPrompts } from "../hooks/use-agent-prompts";
 import { clearDraft, saveDraft } from "../format/draft-store";
-import { WorkflowPickerDialog } from "@/modules/workflows/components/workflow-picker-dialog";
+import { MissionDialog } from "@/modules/missions/components/mission-dialog";
 import type { ContextProfile } from "@agent-office/domain/types";
 import { SLASH_COMMANDS } from "../format/composer-config";
 import { autosizeTextarea } from "../format/textarea-autosize";
@@ -122,11 +122,7 @@ export function Composer(props: ComposerProps) {
 
   return (
     <>
-      <WorkflowPickerDialog
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onSelect={(body) => { onChange(body); textRef.current?.focus(); }}
-      />
+      <MissionDialog open={pickerOpen} onClose={() => setPickerOpen(false)} projectId={props.projectId} />
       <ComposerShell att={att}>
         <ComposerMenuLayer menus={menus} onInsertSlash={insertSlash} onSelectPrompt={selectPrompt} />
         <ComposerInputShell dragOver={att.dragOver} attachments={att.attachments} onRemoveAttachment={att.removeAttachment}>
@@ -152,7 +148,7 @@ export function Composer(props: ComposerProps) {
             onSend={send}
             onAttachClick={() => fileRef.current?.click()}
             onSlashClick={() => onChange("/")}
-            onPromptPickerOpen={() => setPickerOpen(true)}
+            onMissionsOpen={() => setPickerOpen(true)}
           />
           <input
             ref={fileRef}

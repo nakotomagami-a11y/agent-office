@@ -23,3 +23,10 @@ export function textBlockSeparator(output: string): string {
   if (output === "" || output.endsWith("\n\n")) return "";
   return output.endsWith("\n") ? "\n" : "\n\n";
 }
+
+/** A sub-agent's (Task) text streams through the same pipe, tagged with the tool call that spawned
+ *  it. It is not the agent's own reply: saved into the output it would be posted as the agent's
+ *  mission outbox (missions/posting.ts), and shown as the agent speaking. */
+export function isOwnText(evt: { parent_tool_use_id?: string | null }): boolean {
+  return !(typeof evt.parent_tool_use_id === "string" && evt.parent_tool_use_id !== "");
+}

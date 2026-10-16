@@ -315,6 +315,23 @@ function quoteScalar(s: string): string {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
 }
 
+/** Nested values go below their key, as at top level: inline, `worktree:   branch: …` lost the pin. */
+function stringifyListMapping(item: Record<string, YamlValue>, indent: number, depth: number): string {
+  const pad = " ".repeat(indent);
+  const entries = Object.entries(item);
+  if (entries.length === 0) return `${pad}- {}`;
+  return entries
+    .map(([k, val], i) => {
+      const lead = `${pad}${i === 0 ? "- " : "  "}${k}:`;
+      const mapping = val && typeof val === "object" && !Array.isArray(val) && Object.keys(val).length > 0;
+      const listOfMappings = Array.isArray(val) && val.some((x) => x !== null && typeof x === "object" && !Array.isArray(x));
+      return mapping || listOfMappings
+        ? `${lead}\n${stringifyValue(val, indent + 4, depth + 1)}`
+        : `${lead} ${stringifyValue(val, indent + 2, depth + 1)}`;
+    })
+    .join("\n");
+}
+
 function stringifyValue(v: YamlValue, indent: number, depth = 0): string {
   // Legible failure instead of a bare RangeError.
   if (depth > MAX_SERIALIZE_DEPTH) {
@@ -333,19 +350,9 @@ function stringifyValue(v: YamlValue, indent: number, depth = 0): string {
       return `[${v.map((x) => stringifyValue(x, 0, depth + 1)).join(", ")}]`;
     }
     return v
-      .map((item) => {
-        if (item && typeof item === "object" && !Array.isArray(item)) {
-          const entries = Object.entries(item);
-          if (entries.length === 0) return `${pad}- {}`;
-          const [firstKey, firstVal] = entries[0]!;
-          const head = `${pad}- ${firstKey}: ${stringifyValue(firstVal, indent + 2)}`;
-          const rest = entries
-            .slice(1)
-            .map(([k, val]) => `${pad}  ${k}: ${stringifyValue(val, indent + 2)}`);
-          return [head, ...rest].join("\n");
-        }
-        return `${pad}- ${stringifyValue(item, indent + 2)}`;
-      })
+      .map((item) => item && typeof item === "object" && !Array.isArray(item)
+        ? stringifyListMapping(item, indent, depth)
+        : `${pad}- ${stringifyValue(item, indent + 2)}`)
       .join("\n");
   }
   // object - caller should handle nested context. For top-level use stringifyYaml.

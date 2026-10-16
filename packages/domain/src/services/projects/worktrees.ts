@@ -166,6 +166,30 @@ export function createWorktree(
   return { branch, basePath, createdAt };
 }
 
+/** A worktree on a mission's hub branch: a seat-local branch tracking `origin/<hubBranch>`, since
+ *  two seats on one device cannot both check out the hub branch itself. `env` carries the
+ *  project's GitHub credentials for the fetch. */
+export function createMissionWorktree(
+  projectCwd: string,
+  instanceId: string,
+  hubBranch: string,
+  env: NodeJS.ProcessEnv,
+): { branch: string; basePath: string; createdAt: number } {
+  const basePath = worktreePath(projectCwd, instanceId);
+  const branch = `${hubBranch}--${instanceId}`;
+  mkdirSync(join(projectCwd, ".worktrees"), { recursive: true });
+  const git = (args: string[]) => execFileSync("git", args, { cwd: projectCwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    git(["fetch", "origin", `+refs/heads/${hubBranch}:refs/remotes/origin/${hubBranch}`]);
+    git(["worktree", "add", "--track", "-b", branch, basePath, `origin/${hubBranch}`]);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`mission worktree for '${instanceId}' on '${hubBranch}' failed in '${projectCwd}': ${detail}`);
+  }
+  log.info("worktree.mission_created", { projectCwd, instanceId, branch, hubBranch });
+  return { branch, basePath, createdAt: Date.now() };
+}
+
 /**
  * Remove a git worktree and delete its branch.
  * If the path doesn't exist, logs a warning and returns without error.

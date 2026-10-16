@@ -16,7 +16,8 @@ export type AppEventType =
   | "spend:changed"
   | "conversations:changed"
   | "schedules:changed"
-  | "loops:changed";
+  | "loops:changed"
+  | "missions:changed";
 
 export type AppEventListener = (type: AppEventType) => void;
 

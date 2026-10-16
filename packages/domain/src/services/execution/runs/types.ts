@@ -170,4 +170,5 @@ export interface StreamEvent {
   rate_limit_info?: { status?: string; resetsAt?: number; rateLimitType?: string };
   /** The tool's structured Output, on a `user` event carrying one tool_result. */
   tool_use_result?: unknown;
+  parent_tool_use_id?: string | null;
 }

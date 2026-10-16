@@ -73,12 +73,6 @@ export const queryKeys = {
     recent: () => [...queryKeys.prompts.all, "recent"] as const,
   },
 
-  workflows: {
-    all: ["workflows"] as const,
-    list: (opts?: { category?: string; q?: string }) =>
-      [...queryKeys.workflows.all, "list", opts ?? {}] as const,
-  },
-
   agentDocs: {
     all: ["agent-docs"] as const,
     list: () => [...queryKeys.agentDocs.all, "list"] as const,
@@ -132,6 +126,12 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.conversations.all, "detail", id] as const,
   },
 
+  missions: {
+    all: ["missions"] as const,
+    seat: (instanceId: string) => [...queryKeys.missions.all, "seat", instanceId] as const,
+    detail: (missionId: string) => [...queryKeys.missions.all, "detail", missionId] as const,
+    hubs: (projectId: string) => [...queryKeys.missions.all, "hubs", projectId] as const,
+  },
   loops: {
     all: ["loops"] as const,
     detail: (id: string) => [...queryKeys.loops.all, "detail", id] as const,

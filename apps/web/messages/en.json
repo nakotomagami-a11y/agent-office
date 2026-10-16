@@ -922,21 +922,8 @@
       }
     }
   },
-  "workflows": {
-    "open_picker": "Workflows",
-    "save_current": "Save as workflow",
-    "saved_flash": "Saved!",
-    "search_placeholder": "Search workflows...",
-    "add_title_placeholder": "Workflow title...",
-    "add_body_placeholder": "Workflow prompt...",
-    "add_category_label": "Category",
-    "add_save_button": "Save workflow",
-    "empty_state": "No workflows found",
-    "empty_add_hint": "Add your first workflow above",
-    "delete_aria": "Delete workflow",
-    "category_all": "All",
-    "dialog_title": "Workflows",
-    "close_aria": "Close"
+  "missions": {
+    "open": "Missions"
   },
   "memory_page": {
     "title": "Memory",

@@ -16,7 +16,7 @@ export type ComposerToolbarProps = {
   onSend: () => void;
   onAttachClick: () => void;
   onSlashClick: () => void;
-  onPromptPickerOpen: () => void;
+  onMissionsOpen: () => void;
 };
 
 /**
@@ -33,7 +33,7 @@ export function ComposerToolbar(props: ComposerToolbarProps): React.ReactElement
       <Button variant="ghost" size="sm" title={t("composer.slash_insert_title")} onClick={props.onSlashClick} aria-label={t("composer.slash_insert_aria")}>
         <Icon name="slash" />
       </Button>
-      <Button variant="ghost" size="sm" title={`${t("workflows.open_picker")} (Ctrl+P)`} aria-label={t("workflows.open_picker")} onClick={props.onPromptPickerOpen}>
+      <Button variant="ghost" size="sm" title={`${t("missions.open")} (Ctrl+P)`} aria-label={t("missions.open")} aria-keyshortcuts="Control+P" onClick={props.onMissionsOpen}>
         <Icon name="sparkle" />
       </Button>
       <div className="ml-auto flex items-center gap-[6px]">

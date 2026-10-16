@@ -7,8 +7,21 @@ export type ProseItem =
   | { type: "code"; lang: string; body: string }
   | { type: "table"; header: string[]; align: TableAlign[]; rows: string[][] };
 
+/** Quotes too: the output also lands inside attribute values (a link's href), where an unescaped `"`
+ *  ends the attribute and starts an event handler — agent text can carry text from a mission hub. */
 export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** Only these schemes become links; `javascript:` and friends stay plain text. */
+export function safeHref(url: string): boolean {
+  return /^(https?:|mailto:|#|\/)/i.test(url);
+}
+
+/** `[text](url)` → a link, if the scheme is safe. Expects already-escaped input. */
+export function linkMd(s: string, className = ""): string {
+  return s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, url: string) =>
+    safeHref(url) ? `<a${className ? ` class="${className}"` : ""} href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>` : text);
 }
 
 /** GFM separator row, e.g. `| --- | :--: | --: |` (outer pipes optional). */
@@ -70,7 +83,8 @@ function mergeTables(lines: ProseItem[]): ProseItem[] {
 /** Split text into prose lines, ```fenced``` code blocks, and GFM tables. */
 export function splitProse(text: string): ProseItem[] {
   const lines: ProseItem[] = [];
-  const re = /```(\w*)\n([\s\S]*?)```/g;
+  // The info string may hold `-`, `+`, `#`, `.`: ```ao-post (mission outboxes), ```c++, ```objective-c.
+  const re = /```([\w+#.-]*)\n([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
@@ -87,7 +101,7 @@ export function splitProse(text: string): ProseItem[] {
       for (const line of tail.slice(0, open.index).split("\n")) lines.push(line);
       lines.push({ type: "code", lang: open.lang || "text", body: open.body });
     } else {
-      for (const line of tail.replace(/(?:^|\n)`{2,3}\w*$/, "").split("\n")) lines.push(line);
+      for (const line of tail.replace(/(?:^|\n)`{2,3}[\w+#.-]*$/, "").split("\n")) lines.push(line);
     }
   }
   return mergeTables(lines);
@@ -95,7 +109,7 @@ export function splitProse(text: string): ProseItem[] {
 
 // Unclosed fence → code block (CommonMark). Each clause guards a streaming frame — see markdown.test.ts.
 function openFence(tail: string): { index: number; lang: string; body: string } | null {
-  const m = /(?:^|\n)```(\w*)[^\S\n]*\n([\s\S]*)$/.exec(tail);
+  const m = /(?:^|\n)```([\w+#.-]*)[^\S\n]*\n([\s\S]*)$/.exec(tail);
   if (!m) return null;
   return {
     index: m.index === 0 ? 0 : m.index + 1,

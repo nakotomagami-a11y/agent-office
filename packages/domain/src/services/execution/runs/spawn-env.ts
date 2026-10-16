@@ -23,7 +23,7 @@ import * as secrets from "../../accounts/secrets";
  * otherwise win), then `!gh auth git-credential`, which reads GH_CONFIG_DIR at
  * runtime. `gh` is resolved via the augmented PATH already set on `env`.
  */
-function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
+export function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
   const base = Number.parseInt(env.GIT_CONFIG_COUNT ?? "", 10);
   const start = Number.isNaN(base) || base < 0 ? 0 : base;
   env[`GIT_CONFIG_KEY_${start}`] = "credential.https://github.com.helper";

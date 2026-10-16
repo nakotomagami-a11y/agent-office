@@ -399,16 +399,6 @@ export interface HealthInfo {
   error?: string;
 }
 
-/** A saved multi-step prompt in the workflow library (DB table: saved_prompts). */
-export interface Workflow {
-  id: string;
-  title: string;
-  body: string;
-  /** Category slug; "starter" for built-ins. */
-  category: string;
-  createdAt: number;
-  useCount: number;
-}
 
 export interface SummonRequest {
   agentId: string;
@@ -806,3 +796,4 @@ export interface UserAnalysis {
 }
 export * from "./thread";
 export * from "./review";
+export * from "./missions";

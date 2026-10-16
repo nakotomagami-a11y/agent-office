@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
-import { STARTER_WORKFLOWS, STARTER_WORKFLOW_CATEGORY } from "../execution/workflow-seed";
 
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // v0 → v1: initial schema
@@ -176,15 +175,9 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // data), wipe all legacy rows, and seed the starter workflows in a
   // dedicated `starter` category. User-created workflows added later will
   // sit alongside these in other categories.
+  // The starter rows it seeded went with the Workflows feature; v26 drops the table.
   (db) => {
     db.exec(`DELETE FROM saved_prompts;`);
-    const insert = db.prepare(
-      "INSERT INTO saved_prompts (id, title, body, category, created_at, use_count) VALUES (?, ?, ?, ?, ?, 0)",
-    );
-    const now = Date.now();
-    for (const w of STARTER_WORKFLOWS) {
-      insert.run(randomUUID(), w.title, w.body, STARTER_WORKFLOW_CATEGORY, now);
-    }
   },
   // v7 → v8: multi-account support. Adds the `accounts` table and auto-inserts
   // the `default` row pointing at ~/.claude when its .credentials.json exists.
@@ -496,6 +489,42 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
+  // v25 -> v26: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
+  // Missions replaced Workflows, a saved-prompt library nobody used: its table goes.
+  (db) => {
+    db.exec(`
+      DROP TABLE IF EXISTS saved_prompts;
+      CREATE TABLE IF NOT EXISTS mission_seats (
+        mission_id TEXT NOT NULL,
+        seat TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        pr_number INTEGER NOT NULL,
+        agent_id TEXT NOT NULL,
+        instance_id TEXT NOT NULL,
+        hub_branch TEXT NOT NULL,
+        lead_device TEXT NOT NULL,
+        manifest_json TEXT NOT NULL,
+        cursor_id INTEGER,
+        cursor_at TEXT,
+        status_comment_id INTEGER,
+        cap_usd REAL NOT NULL,
+        spent_usd REAL NOT NULL DEFAULT 0,
+        left_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (mission_id, seat)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mission_seats_instance ON mission_seats(instance_id);
+      CREATE TABLE IF NOT EXISTS mission_posts (
+        mission_id TEXT NOT NULL,
+        nonce TEXT NOT NULL,
+        comment_id INTEGER,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (mission_id, nonce)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mission_posts_comment ON mission_posts(mission_id, comment_id);
+    `);
+  },
 ];
 
 /**
@@ -586,5 +615,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 23) { MIGRATIONS[22]!(db); v = 23; db.pragma("user_version = 23"); }
     if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
     if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
+    if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
   })();
 }

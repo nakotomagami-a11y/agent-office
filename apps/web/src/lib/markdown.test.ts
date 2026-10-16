@@ -104,3 +104,12 @@ test("inline code spans are left to the inline renderer", () => {
   assert.deepEqual(splitProse("run `pnpm dev` first"), ["run `pnpm dev` first"]);
   assert.deepEqual(splitProse("a ``double`` span"), ["a ``double`` span"]);
 });
+
+test("a fence whose language holds a hyphen is still a code block (```ao-post)", () => {
+  const items = splitProse("Posting now.\n\n```ao-post\nto: all\nkind: brief\n---\nGo.\n```\nDone.");
+  const code = items.find((i): i is Extract<ProseItem, { type: "code" }> => typeof i !== "string" && i.type === "code");
+  assert.ok(code);
+  assert.strictEqual(code.lang, "ao-post");
+  assert.strictEqual(code.body, "to: all\nkind: brief\n---\nGo.");
+  assert.ok(items.includes("Done."), "text after the block stays prose");
+});

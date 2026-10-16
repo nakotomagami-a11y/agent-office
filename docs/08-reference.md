@@ -215,18 +215,28 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 | `DELETE` | `/api/skills/:name` | Uninstall skill |
 | `POST` | `/api/skills/:name/update` | Update skill to latest SHA |
 
-### Workflows, prompts & drafts
+### Missions
 
-> Note: "Workflows" is the current name for what used to be "saved prompts" — a curated library of reusable, multi-step prompts. The underlying SQLite table is still called `saved_prompts`, but the API and UI are `workflows`.
+Agents on several devices coordinating through a GitHub draft PR — see `docs/missions.md`. Every route but `seat` runs `gh`, and refuses requests another site made. Errors are `{ error, hint, detail? }`.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/missions?projectId=` | Open mission hubs in a project, with each seat's state and the manifest hash a claim must send |
+| `POST` | `/api/missions` | Start a mission: opens the draft hub and seats this device as coordinator |
+| `POST` | `/api/missions/claim` | Claim a seat from this device (`manifestHash` must match what the human saw) |
+| `GET` | `/api/missions/seat?instanceId=` | Which mission seat a chat is (local, no `gh`) |
+| `GET` | `/api/missions/:id` | The mission as this device sees it, folded fresh from the hub |
+| `POST` | `/api/missions/:id/claims/:commentId` | Lead only: accept or reject a claim |
+| `POST` | `/api/missions/:id/asks/:commentId` | Answer a seat's question, or (lead) rule on a decision request |
+| `POST` | `/api/missions/:id/act` | Lead only: pause, resume or close |
+| `POST` | `/api/missions/:id/leave` | Give up a seat this device holds |
+| `POST` | `/api/missions/:id/cap` | Raise this device's spend cap for a seat |
+
+### Prompts & drafts
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/prompts` | Recent prompts across all agents (autocomplete history) |
-| `GET` | `/api/workflows` | List workflows |
-| `POST` | `/api/workflows` | Create a workflow |
-| `POST` | `/api/workflows/bulk` | Bulk create / update workflows |
-| `DELETE` | `/api/workflows/:id` | Delete a workflow |
-| `POST` | `/api/workflows/:id/use` | Record a usage (increments the use counter) |
 | `GET` | `/api/drafts` | Read drafts (per-agent, per-instance) |
 | `PUT` | `/api/drafts` | Write / update a draft |
 | `DELETE` | `/api/drafts` | Clear a draft |
@@ -453,7 +463,8 @@ Unused: left by an earlier version's migrations.
 - `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
 - `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
 - `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.
-- `saved_prompts` — workflow templates with usage counter (table name predates the "Workflows" rename; exposed via `/api/workflows`)
+- `mission_seats` — the mission seats this device holds: chat, hub branch, pinned lead + manifest, cursor, spend cap. The mission itself lives on GitHub (`docs/missions.md`).
+- `mission_posts` — every hub comment this device posted (nonce first, comment id after), so forgeries of it are caught.
 - `drafts` — chat draft persistence
 - `ui_settings` — key-value store for UI state (see the allow-list below)
 - `recent_prompts` — deduplicated prompt history for autocomplete

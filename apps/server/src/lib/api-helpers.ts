@@ -180,3 +180,12 @@ export function handleDeleteUpload(dir: string, filename: string): Response {
   rmSync(path);
   return Response.json({ deleted: safe });
 }
+
+/** For routes that run gh or git (reviews, missions). A browser marks a request another site made
+ *  (an `<img>` pointing here); refuse those even for GET. Non-browser clients send no such header. */
+export function refuseCrossSite(request: Request): Response | null {
+  const site = request.headers.get("sec-fetch-site");
+  return site && site !== "same-origin" && site !== "none"
+    ? Response.json({ error: "forbidden" }, { status: 403 })
+    : null;
+}
