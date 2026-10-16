@@ -3,7 +3,7 @@
 // finishing run is traced back to its loop through it.
 
 import { getDb } from "./connection";
-import type { Finding, LoopConfig, LoopPhase, LoopState, BindingConstraint } from "../execution/loop-machine";
+import { clampLoopConfig, type Finding, type LoopConfig, type LoopPhase, type LoopState, type BindingConstraint } from "../execution/loop-machine";
 
 export interface LoopRow {
   id: string;
@@ -97,12 +97,13 @@ function config(json: string): LoopConfig {
   const c = parsed as Record<string, unknown>;
   // A missing ceiling must never read as "unbounded" — 1 round is the safe floor.
   const rounds = positive(c.maxRounds);
-  return {
+  // Clamped on read too: a ceiling widened by editing the row is not a ceiling.
+  return clampLoopConfig({
     maxRounds: rounds !== undefined && Number.isInteger(rounds) ? rounds : 1,
     budgetUsd: positive(c.budgetUsd),
     wallClockMs: positive(c.wallClockMs),
     blockOn: Array.isArray(c.blockOn) ? (c.blockOn.filter((s) => s === "must-fix" || s === "should-fix" || s === "nit") as LoopConfig["blockOn"]) : undefined,
-  };
+  });
 }
 
 function toRow(r: RawLoopRow): LoopRow {
@@ -238,10 +239,15 @@ export function listAllLoopIds(): string[] {
   return rows.map((r) => r.id);
 }
 
-/** The chat header's pill: a seat's most recent loop, settled or not. */
-export function latestLoopForInstance(instanceId: string): LoopRow | null {
+/** The chat header's pill. A live loop first, then one waiting on the user,
+ *  so a newer converged loop never hides an older "allow one more round". */
+export function latestLoopForInstance(projectId: string, instanceId: string): LoopRow | null {
   const r = getDb()
-    .prepare(`SELECT * FROM loops WHERE instance_id=? ORDER BY created_at DESC LIMIT 1`)
-    .get(instanceId) as RawLoopRow | undefined;
+    .prepare(
+      `SELECT * FROM loops WHERE project_id=? AND instance_id=?
+         ORDER BY CASE WHEN binding IS NULL THEN 0 WHEN phase='escalated' THEN 1 ELSE 2 END, created_at DESC
+         LIMIT 1`,
+    )
+    .get(projectId, instanceId) as RawLoopRow | undefined;
   return r ? toRow(r) : null;
 }

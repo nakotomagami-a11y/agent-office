@@ -1,4 +1,4 @@
-// GET  /api/loops?instanceId=<id> — that seat's latest loop, or null (the chat header's pill).
+// GET  /api/loops?projectId=<id>&instanceId=<id> — that seat's latest loop, or null (the chat header's pill).
 // POST /api/loops — start a loop. The agent drives each round's content; the
 // app owns the ceilings, so they are validated here and never taken on trust.
 import { loopRunner, loopProductionRunner, db } from "@agent-office/domain/services";
@@ -7,9 +7,12 @@ import { startLoopSchema } from "@agent-office/api-contract";
 import { tryService, validateIdParam } from "../../lib/api-helpers";
 
 export async function GET(request: Request) {
-  const { value: instanceId, error } = validateIdParam(new URL(request.url).searchParams.get("instanceId") ?? "");
-  if (error) return error;
-  return tryService(() => db.latestLoopForInstance(instanceId));
+  const query = new URL(request.url).searchParams;
+  const project = validateIdParam(query.get("projectId") ?? "");
+  if (project.error) return project.error;
+  const instance = validateIdParam(query.get("instanceId") ?? "");
+  if (instance.error) return instance.error;
+  return tryService(() => db.latestLoopForInstance(project.value, instance.value));
 }
 
 export async function POST(request: Request) {

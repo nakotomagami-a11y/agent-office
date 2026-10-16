@@ -35,7 +35,16 @@ check("maps a full StartRunInput 1:1 into a SummonRequest", () => {
     resumeSessionId: "sess-1",
     conversationId: "conv-1",
     contextProfile: undefined,
+    maxBudgetUsd: undefined,
   });
+});
+
+check("threads a loop round's remaining budget through as --max-budget-usd", () => {
+  const req = buildSummonRequest({
+    agentId: "dev", instanceId: "s1", projectId: "proj", prompt: "x", origin: "system",
+    resumeSessionId: null, conversationId: "c", maxBudgetUsd: 4.5,
+  });
+  assert.equal(req.maxBudgetUsd, 4.5);
 });
 
 check("threads contextProfile through when supplied", () => {

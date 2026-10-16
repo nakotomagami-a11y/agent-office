@@ -67,10 +67,11 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
   const { priorContext, hasMessages } = buildPriorContext(req);
   const appendedSystemPrompt = agents.buildAppendedPrompt(req.agentId, project, req.instanceId, hasMessages);
 
+  const ownInstance = instance?.agentId === req.agentId ? instance : null; // a loop reviewer borrows only the seat's cwd
   const built = summon.buildClaudeArgs({
     request: req,
     agent: agent.info,
-    instance,
+    instance: ownInstance,
     appendedSystemPrompt,
     priorContext,
   });
@@ -150,7 +151,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
 
   store.pushRecentPrompt(req.agentId, req.prompt);
 
-  const instanceLabel = instance?.label ?? (instance ? agent.info.name : undefined);
+  const instanceLabel = ownInstance?.label ?? (instance ? agent.info.name : undefined);
   const { runId } = runs.startRun({
     agentId: req.agentId,
     agentName: instanceLabel ?? agent.info.name,

@@ -451,8 +451,12 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {selectedInstanceId && (
-                <LatestLoopPill instanceId={selectedInstanceId} enabled={currentInstanceForToggle?.qaLoopEnabled === true} />
+              {activeProjectId && selectedInstanceId && (
+                <LatestLoopPill
+                  projectId={activeProjectId}
+                  instanceId={selectedInstanceId}
+                  enabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                />
               )}
               {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive && (
                 <BackgroundTaskPill task={backgroundTask} onDismiss={() => setDismissedBgTaskId(backgroundTask.id)} />

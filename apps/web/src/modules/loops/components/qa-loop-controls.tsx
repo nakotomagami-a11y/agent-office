@@ -50,8 +50,8 @@ export function QaLoopToggle({ projectId, instanceId, enabled }: { projectId: st
 
 /** The seat's latest loop. Hidden once settled with nothing left to decide,
  *  unless the toggle is on — then the last verdict stays in view. */
-export function LatestLoopPill({ instanceId, enabled }: { instanceId: string; enabled: boolean }) {
-  const { data: loop } = useLatestLoop(instanceId);
+export function LatestLoopPill({ projectId, instanceId, enabled }: { projectId: string; instanceId: string; enabled: boolean }) {
+  const { data: loop } = useLatestLoop(projectId, instanceId);
   if (!loop) return null;
   const can = availableActions(loop, Date.now());
   if (!enabled && loop.state.binding && !can.acceptAsIs && !can.allowOneMore) return null;

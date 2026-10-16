@@ -44,6 +44,11 @@ Two incidents this fixes by construction:
 5. **Failures pause and ask.** A run that ends in error / interrupt / rate-limit sets
    the conversation to `needs_attention`, keeps the queue intact, and surfaces
    explicit actions. Nothing auto-fires.
+6. **Nothing else spawns the conversation's agent on its seat.** A review loop's fix
+   rounds (`execution/qa-loop.ts`) are `system` messages sent through the
+   conversation, and only while it is idle with an empty queue; a busy chat
+   makes the round wait (`rekickConversationLoops`). A run started beside the
+   conversation would hit the spawn guard and park the user's next message.
 
 ## Data model (SQLite)
 

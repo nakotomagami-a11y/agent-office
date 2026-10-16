@@ -4,7 +4,7 @@
  * cycle constraints as `conversation-wiring.ts`; see that file's header.
  */
 import { registerRunFinishedListener } from "./runs";
-import { onLoopRunFinished } from "./loop-runner";
+import { onLoopRunFinished, rekickConversationLoops } from "./loop-runner";
 import { productionLoopRunner } from "./loop-production-runner";
 import { maybeStartQaLoop } from "./qa-loop";
 import { log } from "../infra/log";
@@ -24,6 +24,10 @@ if (!globalThis.__agentOfficeLoopWiringInstalled) {
     void onLoopRunFinished(runId, ok, productionLoopRunner, Date.now())
       .catch((err) => {
         log.error("loop.on_run_finished_failed", { runId, err: String(err) });
+      });
+    void rekickConversationLoops(runId, productionLoopRunner, Date.now())
+      .catch((err) => {
+        log.error("loop.rekick_failed", { runId, err: String(err) });
       });
     void maybeStartQaLoop(runId, ok, productionLoopRunner, Date.now())
       .catch((err) => {

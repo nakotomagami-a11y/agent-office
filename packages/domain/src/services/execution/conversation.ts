@@ -42,6 +42,8 @@ export interface StartRunInput {
    *  call (a per-message client preference), not stored on the conversation
    *  itself. */
   contextProfile?: ContextProfile;
+  /** A loop's fix round sent through the chat carries what is left of the loop's budget. */
+  maxBudgetUsd?: number;
 }
 
 /** Abstracts "spawn a run and give me its id". Throws if the run can't start. */
@@ -109,7 +111,7 @@ async function apply(
   convId: string,
   action: ConversationAction,
   runner: ConversationRunner,
-  opts: { contextProfile?: ContextProfile } = {},
+  opts: { contextProfile?: ContextProfile; maxBudgetUsd?: number } = {},
 ): Promise<ConversationView> {
   // Skip reconciliation when the action itself IS a reconciling runFinished
   // dispatch — `reconcileIfStale` calling back into `apply` for that exact
@@ -135,6 +137,7 @@ async function apply(
         resumeSessionId: startEffect.resumeSessionId,
         conversationId: convId,
         contextProfile: opts.contextProfile,
+        maxBudgetUsd: opts.maxBudgetUsd,
       });
     } catch (e) {
       // Couldn't spawn — park for attention, keep the queue. The failed
@@ -197,9 +200,10 @@ export function sendMessageToConversation(
   runner: ConversationRunner,
   contextProfile?: ContextProfile,
   origin: MessageOrigin = "user",
+  maxBudgetUsd?: number,
 ): Promise<ConversationView> {
   const message = { id: cryptoRandomId(), text, origin };
-  return apply(convId, { type: "send", message }, runner, { contextProfile });
+  return apply(convId, { type: "send", message }, runner, { contextProfile, maxBudgetUsd });
 }
 
 /**
