@@ -61,6 +61,8 @@ export interface LocalSeatView {
   capUsd: number;
   spentUsd: number;
   accepted: boolean;
+  /** The seat's chat stopped on a failed turn: nothing reaches it until the human retries or skips. */
+  needsAttention: boolean;
 }
 
 export interface MissionView {

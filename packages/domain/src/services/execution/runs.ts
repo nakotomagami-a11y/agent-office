@@ -486,7 +486,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
     }
     // Saved output only: live views already split blocks around their tool rows.
     if (ev.type === "content_block_start" && ev.content_block?.type === "text") {
-      startTextBlock(run);
+      if (isOwnText(evt)) startTextBlock(run);
       return;
     }
     if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {

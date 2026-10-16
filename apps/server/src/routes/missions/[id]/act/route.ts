@@ -1,4 +1,4 @@
-// POST /api/missions/<id>/act — the lead pauses, resumes or closes.
+// POST /api/missions/<id>/act — the lead pauses, resumes, closes or evicts.
 import { missions } from "@agent-office/domain/services";
 import { missionActSchema } from "@agent-office/api-contract";
 import { missionBody, missionId, missionResponse, type MissionParams } from "../../../../lib/mission-route";

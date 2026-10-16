@@ -132,6 +132,7 @@ export const queryKeys = {
     detail: (missionId: string) => [...queryKeys.missions.all, "detail", missionId] as const,
     hubs: (projectId: string) => [...queryKeys.missions.all, "hubs", projectId] as const,
   },
+
   loops: {
     all: ["loops"] as const,
     detail: (id: string) => [...queryKeys.loops.all, "detail", id] as const,

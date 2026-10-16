@@ -27,6 +27,9 @@ export class FakeGitHub {
   readonly unpushed = new Set<string>();
   /** The next N comment POSTs fail, as a gh timeout would. */
   failPosts = 0;
+  /** The next N comment listings fail, as GitHub being unreachable would. */
+  failLists = 0;
+  visibility = "PRIVATE";
   login = "chaosandcurves";
   private nextComment = 1000;
   private nextPull = 690;
@@ -46,7 +49,7 @@ export class FakeGitHub {
   private handle(args: string[], input?: string): string {
     this.calls.push(args);
     const [cmd, sub] = args;
-    if (cmd === "repo" && sub === "view") return "main\n";
+    if (cmd === "repo" && sub === "view") return args.includes("visibility") ? `${this.visibility}\n` : "main\n";
     if (cmd === "label") return "";
     if (cmd === "pr" && sub === "create") return this.createPull(args, input ?? "");
     if (cmd === "pr" && sub === "view") return this.viewPull(Number(args[2]));
@@ -63,6 +66,11 @@ export class FakeGitHub {
     }
     if (cmd === "api") return this.api(args, input);
     throw new Error(`fake gh: unhandled ${args.join(" ")}`);
+  }
+
+  private failedList(): ReviewError {
+    this.failLists--;
+    return new ReviewError("gh_failed", "connect ETIMEDOUT");
   }
 
   private createPull(args: string[], body: string): string {
@@ -102,6 +110,7 @@ export class FakeGitHub {
       const id = this.addComment(body.body ?? "");
       return JSON.stringify({ id, created_at: this.comments.at(-1)?.created_at });
     }
+    if (m && this.failLists > 0) throw this.failedList();
     if (m) {
       const since = new URLSearchParams((m[2] ?? "").slice(1)).get("since");
       return this.comments

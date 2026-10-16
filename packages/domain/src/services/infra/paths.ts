@@ -68,6 +68,8 @@ export const REPO_DOCS_DIR = process.env.AO_BUNDLE_ROOT
 // New persistence root (only this app writes here).
 export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
 export const DB_PATH = join(APP_STATE_DIR, "db.sqlite");
+/** Data a migration removes is written here first. */
+export const BACKUPS_DIR = join(APP_STATE_DIR, "backups");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
 export const DOCS_GLOBAL_OWNER = "_global";
 // Where local clients (the Minecraft mod) find running servers: one <pid>.json each (random ports).

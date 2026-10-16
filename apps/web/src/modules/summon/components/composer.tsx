@@ -39,7 +39,7 @@ export type ComposerProps = {
 export function Composer(props: ComposerProps) {
   const t = useTranslations();
   const [value, setValue] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [missionsOpen, setMissionsOpen] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -115,14 +115,15 @@ export function Composer(props: ComposerProps) {
     filteredPromptsLength: menus.filteredPrompts.length,
     onPickPrompt: () => { const picked = menus.filteredPrompts[menus.promptsIdx]; if (picked) selectPrompt(picked.body); },
     onSend: send,
-    onOpenPicker: () => setPickerOpen(true),
+    onOpenMissions: () => setMissionsOpen(true),
   });
 
   const sendDisabled = props.disabled || att.hasPending || (!value.trim() && !att.hasReady);
 
   return (
     <>
-      <MissionDialog open={pickerOpen} onClose={() => setPickerOpen(false)} projectId={props.projectId} />
+      {/* Keyed: a half-written mission, or a public-repo confirm, must never carry over to another project. */}
+      <MissionDialog key={props.projectId ?? "none"} open={missionsOpen} onClose={() => setMissionsOpen(false)} projectId={props.projectId} />
       <ComposerShell att={att}>
         <ComposerMenuLayer menus={menus} onInsertSlash={insertSlash} onSelectPrompt={selectPrompt} />
         <ComposerInputShell dragOver={att.dragOver} attachments={att.attachments} onRemoveAttachment={att.removeAttachment}>
@@ -148,7 +149,7 @@ export function Composer(props: ComposerProps) {
             onSend={send}
             onAttachClick={() => fileRef.current?.click()}
             onSlashClick={() => onChange("/")}
-            onMissionsOpen={() => setPickerOpen(true)}
+            onMissionsOpen={() => setMissionsOpen(true)}
           />
           <input
             ref={fileRef}

@@ -78,6 +78,11 @@ export function missionSeatForInstance(instanceId: string): MissionSeat | null {
   return row ? toSeat(row) : null;
 }
 
+/** Whether this chat ever held a seat, left or not: its worktree still checks out a hub branch. */
+export function wasMissionSeat(instanceId: string): boolean {
+  return getDb().prepare("SELECT 1 FROM mission_seats WHERE instance_id = ? LIMIT 1").get(instanceId) !== undefined;
+}
+
 /** Only forward: a slow tick finishing after a fast one must not re-deliver what the fast one routed. */
 export function advanceMissionCursor(missionId: string, seat: string, cursor: CommentCursor): void {
   getDb().prepare(`

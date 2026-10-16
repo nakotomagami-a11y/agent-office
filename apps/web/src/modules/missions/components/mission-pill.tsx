@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/cn";
 import { useMission, useMissionSeat } from "../hooks/use-missions";
+import { FOCUS_RING } from "./mission-fields";
 import { MissionPanel } from "./mission-panel";
 
 /**
@@ -11,6 +14,7 @@ import { MissionPanel } from "./mission-panel";
  * waits on the human ON THIS DEVICE: claims (lead only) and questions.
  */
 export function MissionPill({ instanceId }: { instanceId: string | undefined }) {
+  const t = useTranslations("missions.pill");
   const { data: seatData } = useMissionSeat(instanceId);
   const seat = seatData?.seat ?? null;
   const { data: mission, error } = useMission(seat?.missionId ?? null);
@@ -18,6 +22,8 @@ export function MissionPill({ instanceId }: { instanceId: string | undefined }) 
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
+  // Answers being typed outlive the panel: it unmounts on every outside click or Escape.
+  const [drafts] = useState(() => new Map<number, string>());
 
   // Outside-click AND Escape, as LoopPill: a panel a keyboard user cannot dismiss is a trap.
   useEffect(() => {
@@ -26,19 +32,28 @@ export function MissionPill({ instanceId }: { instanceId: string | undefined }) 
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+      // An IME's Escape cancels a composition; an Escape typed elsewhere belongs to whatever has focus.
+      if (e.key !== "Escape" || e.isComposing || e.keyCode === 229 || !ref.current?.contains(document.activeElement)) return;
+      // Capture phase, and no further: the inspector around this pill closes on Escape too.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
     };
     document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
   if (!seat) return null;
   const waiting = (mission?.claims.length ?? 0) + (mission?.asks.length ?? 0);
   const alarm = !!mission?.alarm;
+  const label = mission
+    ? t("aria", { title: mission.title, seat: seat.seat, waiting, alarm: String(alarm) })
+    : t("aria_loading", { seat: seat.seat });
 
   return (
     <div className="relative" ref={ref}>
@@ -48,21 +63,22 @@ export function MissionPill({ instanceId }: { instanceId: string | undefined }) 
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={`Mission ${mission?.title ?? ""}, seat ${seat.seat}${waiting ? `, ${waiting} waiting on you` : ""}${alarm ? ", routing stopped" : ""}`}
-        className={`inline-flex items-center gap-[7px] h-7 px-[10px] rounded-lg border text-[12.5px] transition-[background,color,border-color] duration-[120ms] hover:bg-ao-bg-4 hover:text-ao-fg-0 ${
-          alarm ? "bg-ao-bg-3 border-ao-red text-ao-red" : "bg-ao-bg-3 border-ao-line-1 text-ao-fg-1 hover:border-ao-line-2"
-        }`}
+        aria-label={label}
+        className={cn(
+          "inline-flex h-7 items-center gap-[7px] rounded-lg border bg-card-3 px-[10px] text-[12.5px] transition-[color,border-color] duration-[120ms] hover:text-txt", FOCUS_RING,
+          alarm ? "border-red text-red" : "border-edge-2 text-txt-2 hover:border-line-strong",
+        )}
       >
-        <Icon name={alarm ? "alert-circle" : "users"} className="w-3.5 h-3.5" />
-        <span className="max-w-[160px] truncate">{mission?.title ?? "Mission"}</span>
-        <span className="text-ao-fg-2">{seat.seat}</span>
-        {waiting > 0 && <span className="px-1.5 rounded bg-ao-acc text-ao-bg-1">{waiting}</span>}
+        <Icon name={alarm ? "alert-circle" : "users"} className="h-3.5 w-3.5" />
+        <span className="max-w-[160px] truncate">{mission?.title ?? t("fallback_title")}</span>
+        <span className="text-txt-3">{seat.seat}</span>
+        {waiting > 0 && <span className="rounded bg-acc-cta px-1.5 text-acc-ink">{waiting}</span>}
       </button>
 
       {open && (
-        <div id={panelId} className="absolute right-0 z-30 mt-1.5 w-[460px] rounded-xl border border-ao-line-1 bg-ao-bg-2 p-3 shadow-lg">
-          {mission ? <MissionPanel mission={mission} /> : (
-            <p className="text-[12px] text-ao-fg-2">{error ? "Could not read the mission hub." : "Reading the mission hub…"}</p>
+        <div id={panelId} className="absolute right-0 z-30 mt-1.5 w-[460px] max-w-[calc(100vw-24px)] rounded-xl border border-edge-2 bg-card-2 p-3 shadow-[var(--lift)]">
+          {mission ? <MissionPanel mission={mission} drafts={drafts} /> : (
+            <p className="text-[12px] text-txt-3">{error ? t("load_failed") : t("loading")}</p>
           )}
         </div>
       )}

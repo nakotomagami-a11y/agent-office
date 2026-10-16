@@ -1,8 +1,8 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
+import { BACKUPS_DIR, CLAUDE_DIR, DEFAULT_ACCOUNT_ID, DEFAULT_GITHUB_ACCOUNT_ID, SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // v0 → v1: initial schema
@@ -490,8 +490,9 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
     `);
   },
   // v25 -> v26: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
-  // Missions replaced Workflows, a saved-prompt library nobody used: its table goes.
+  // Missions replaced Workflows: its saved-prompt table goes, after a copy of any rows is on disk.
   (db) => {
+    backupSavedPrompts(db);
     db.exec(`
       DROP TABLE IF EXISTS saved_prompts;
       CREATE TABLE IF NOT EXISTS mission_seats (
@@ -526,6 +527,19 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
     `);
   },
 ];
+
+/** The rows v26 drops, as JSON in the backups folder; null when there were none. Throws rather than
+ *  return when the file cannot be written, so the migration stops before anything is lost. */
+export function backupSavedPrompts(db: Database.Database, dir = BACKUPS_DIR): string | null {
+  const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'saved_prompts'").get();
+  if (!table) return null;
+  const rows = db.prepare("SELECT * FROM saved_prompts").all();
+  if (rows.length === 0) return null;
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `saved_prompts-${Date.now()}.json`);
+  writeFileSync(file, JSON.stringify(rows, null, 2));
+  return file;
+}
 
 /**
  * Create one conversation per legacy (agent, instance) slot that lacks one and

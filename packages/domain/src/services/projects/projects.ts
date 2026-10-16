@@ -506,6 +506,9 @@ function makeInstanceId(agentId: string, existing: AgentInstance[]): string {
   return `${agentId}-${Date.now()}`;
 }
 
+/** The hard cap on one agent's chats in a project; a manual add warns earlier (soft cap). */
+export const MAX_INSTANCES_PER_AGENT = 10;
+
 export class InstanceCapError extends Error {
   readonly code = "INSTANCE_CAP_EXCEEDED" as const;
   readonly softCap: boolean;
@@ -582,7 +585,7 @@ export function addInstance(
 
   const existingCount = p.meta.roster.filter((i) => i.agentId === agentId).length;
 
-  if (existingCount >= 10) {
+  if (existingCount >= MAX_INSTANCES_PER_AGENT) {
     // Hard cap — always enforced regardless of force flag.
     throw new InstanceCapError({ softCap: false, count: existingCount });
   }
@@ -610,18 +613,18 @@ export function addInstance(
 
 /** A mission seat's instance (docs/missions.md). Its worktree follows the hub branch, not local
  *  HEAD, and is named by the instance id so boot reconciliation keeps it. */
-export function addSeatInstance(
+export async function addSeatInstance(
   projectId: string,
   agentId: string,
   label: string,
-  makeWorktree: (instanceId: string) => NonNullable<AgentInstance["worktree"]>,
-): { project: Project; instance: AgentInstance } {
+  makeWorktree: (instanceId: string) => Promise<NonNullable<AgentInstance["worktree"]>>,
+): Promise<{ project: Project; instance: AgentInstance }> {
   const p = readProject(projectId);
   if (!p) throw new Error(`project '${projectId}' not found`);
   const count = p.meta.roster.filter((i) => i.agentId === agentId).length;
-  if (count >= 10) throw new InstanceCapError({ softCap: false, count });
+  if (count >= MAX_INSTANCES_PER_AGENT) throw new InstanceCapError({ softCap: false, count });
   const instanceId = makeInstanceId(agentId, p.meta.roster);
-  const worktree = makeWorktree(instanceId);
+  const worktree = await makeWorktree(instanceId);
   const instance: AgentInstance = { instanceId, agentId, label, worktree, cwd: worktree.basePath };
   let project: Project;
   try {

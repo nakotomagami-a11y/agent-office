@@ -1,6 +1,6 @@
 # Missions — design
 
-Status: **MVP built, in review (2026-10-16).** Domain, API and UI exist (`packages/domain/src/services/missions/`,
+Status: **MVP built, in review (2026-10-15).** Domain, API and UI exist (`packages/domain/src/services/missions/`,
 `apps/server/src/routes/missions/`, `apps/web/src/modules/missions/`); the coordinator agent and a live run on
 real devices are next. Decisions below were taken one at a time with the user. What is deliberately not built
 yet is listed at the end.
@@ -16,7 +16,7 @@ and a synthesizer, coordinating through one open PR. It worked. What hurt:
 |---|---|
 | Every comment came from one GitHub account; agents were told apart only by headers like "🍎 macOS". `@Windows` notified nobody, so the human relayed every message | a machine-readable envelope on every post; each device polls and routes |
 | "The hub is currently lying to you": four instructions disproved and never folded back | `supersedes` on a post; the coordinator keeps the hub body current |
-| Work orders pointed at a branch that was local-only ("pathspec did not match") | Agent Office checks every cited branch/sha exists on the remote before it posts |
+| Work orders pointed at a branch that was local-only ("pathspec did not match") | Agent Office stamps a post with the commit it was written at only when that commit is on the remote, and says so when it is not |
 | "Every 'it still does X' report had to be checked against which build is running" | every post is stamped with device, OS, branch, sha, dirty |
 | 164 KB of comments re-read by every agent | a turn gets a digest, not the thread |
 | "Answer independently", but Windows read the other two answers first | blind rounds: answers are held until every seat has posted |
@@ -154,16 +154,28 @@ Then:
   fold that names another lead (the seating deleted or edited), or any forgery of this
   device, stops all routing and posting for that hub until a human looks.
 - **Approvals are local clicks** (D6). A gate is enforced by the device that would act.
-- **Public repos** need an explicit opt-in at creation (it also publishes the hostname in
-  every envelope).
+- **Public repos** need an explicit yes, at Start and at every Claim (`repo_public`
+  otherwise): every post, and each device's name, OS and CPU in the envelopes, become public.
 
 **Residual risk, stated.** One shared account and no signatures: an agent with shell access
 on device A can post anything as device A, or claim to be device B. Device B's own log
 catches forgeries of B; other devices cannot tell. So an agent on A can make *other*
-devices see a fake `reply`, `pause`, `accept` or `moved` in the lead's name. What it can
-never do: approve a gate (decisions are local), raise a cap (local), seat a device where no
-human clicked Claim, or make the lead's own device follow (it pins). Signed envelopes
-(`ao:v2`, per-mission secret) are the upgrade path. Two more, stated plainly:
+devices see a fake `reply`, `pause`, `accept`, `close` or `moved` in the lead's name: a
+forged `close` ends every other device's seats, a forged `accept` seats a pending claim.
+Only the lead's own device is safe from that (it pins, and its log catches forgeries of it).
+
+**On its own device an agent can do whatever the human can.** Agents run as the same OS user,
+often with `bypassPermissions`, and Agent Office's API answers any local process. So an agent
+on the lead device *can* call the local API to rule on its own decision-request or raise its
+own cap, and any agent can edit the local database. "Approvals are local clicks" (D6) keeps
+GitHub, and other devices, from approving; it cannot keep an agent from acting as the user on
+the device it runs on. The protections there are the agent's permission mode, the per-turn
+budget and Stop. A token only the UI holds would not change this: an agent with
+`bypassPermissions` can raise `cap_usd` in `db.sqlite` directly, or log a nonce in
+`mission_posts` and post through `gh` so this device takes the post for its own. So give seat
+agents a prompting permission mode where that matters: then `curl`, database edits and
+`gh api` all reach a human click first. Signed envelopes (`ao:v2`, per-mission secret) are the
+upgrade path for the cross-device part. Two more, stated plainly:
 
 - **A plain PR comment** reaches the coordinator labelled "unverifiable": any agent with
   `gh` could have written it. It steers; it approves nothing.
@@ -175,14 +187,50 @@ human clicked Claim, or make the lead's own device follow (it pins). Signed enve
 Other hardening in the build: digest bodies are quoted so no post can imitate a header;
 rulings travel as the user's own message, never in a digest; a claim carries the hash of
 the manifest the human saw (`manifest_changed` otherwise); a seat's cursor is held while its
-chat is busy, so the cap is checked when a turn starts, not when a message is queued; only
-the agent's own text (not a sub-agent's) is read as its outbox.
+chat is busy, so the cap is checked when a turn starts, not when a message is queued; each seat
+turn runs with `--max-budget-usd` set to what is left of its cap (the CLI checks between calls,
+so a turn's last response can overshoot a little), and with less than $0.25 left no turn starts
+at all, typed by the human or not, until the cap is raised (`seat_cap_reached`); a broadcast
+skips seats; only the agent's own text (not a sub-agent's) is read as its outbox.
+
+**The hub branch cannot configure a seat.** A seat's worktree is a checkout of the hub branch,
+which every seat (and anyone with push access) can push to. So seat turns run with
+`--setting-sources user` and `--strict-mcp-config`. Checked against Claude Code 2.1.296: the
+branch's `.claude/settings.json` (hooks, permissions), `.mcp.json`, `.claude/agents/` (so no
+same-name override of the seat's agent) and `CLAUDE.md` are all left unloaded. The cost: seats
+do not see the repo's own `CLAUDE.md` either. Never add `project` back for seats. A chat that
+ever held a seat keeps these flags, even after it left or its worktree was rebuilt on another
+branch. Not covered: a seat that runs `pnpm install` or the tests runs the hub's code, as any
+agent working on a branch does.
 
 ## Not yet
 
 - **`moved`** is folded but nothing follows it, and no action posts it.
 - **The mission budget** (`budgetUsd`) is shown, not enforced; per-seat caps are.
-- **Outbox retry**: a post GitHub refuses is reported back to the agent, not queued and retried.
+- **Outbox retry**: a post GitHub refuses is reported back to the agent (as a new turn, below
+  its cap), not queued and retried. Posts that never reached GitHub because the hub was
+  tampered with or unreachable are named in the seat's next delivery, not as a turn of their own.
+- **Roll call is not enforced.** The coordinator is welcomed as soon as the mission starts, and
+  each seat as soon as it is accepted; "no work before every seat is ✅" is the coordinator's
+  instruction, not code.
+- **Blind rounds**, the **coordinator agent** and its **template** (D3, D7) are not built; the
+  removed Workflows prompts have not become briefs yet.
+- **Close** posts `close` and ends every seat; it does not mark the PR ready.
+- **`supersedes`** is parsed and posted, but nothing acts on it.
+- **Held notes and local rulings live in memory.** Posts that never reached the hub are named in
+  the seat's next delivery, and a ruling delivered but not recorded on the hub is hidden here so
+  it is not given twice; a server restart forgets both.
+- **Repo visibility is checked at Start and Claim only.** A repo made public later keeps
+  receiving posts, device names included.
+- **The manifest is not bound to the bootstrap `accept`**: someone with push access who edits
+  the hub body before a device joins changes what that device is shown and pins.
+- **An edited plain comment still routes**, and an old claim edited into a `status` can undo
+  it (the `edited` check runs after the plain-comment branch). Denial of service only.
+- **Cost**: actions and views look up the GitHub login on every call, and Join reads each open
+  hub with three `gh` calls.
+- **Seat chats and worktrees stay** after a seat is left or the mission closes (they may hold
+  unpushed work). Remove them from the roster by hand; the roster's per-agent cap
+  (`instance_cap`) says so when it is reached.
 - **ETag caching** of the hub thread; strict path ownership; OS notifications; more templates;
   Loops as a template.
 
@@ -191,21 +239,25 @@ the agent's own text (not a sub-agent's) is read as its outbox.
 1. **Start (lead device).** Composer sparkle → *Start mission* → template + goal →
    seats (agent, device requirement, owned paths; prefilled) → preview. Agent Office
    creates the mission branch, opens a **draft PR** (labelled `ao-mission`) whose body
-   holds the roster with every seat ⬜ open, and opens the **coordinator chat**. The
-   coordinator waits.
+   holds the roster with every seat ⬜ open (the same text is committed to the branch as
+   `.agent-office/missions/<id>.md`, so the PR has a commit), and opens the **coordinator
+   chat**. On a public repo the human first confirms that everything posted becomes public.
 2. **Join (each device, by a human).** Composer sparkle → *Join* lists open `ao-mission`
    PRs in projects configured on this device. *Claim <seat>* runs a **pre-flight**
-   (OS matches, repo cloned, branch fetched, `gh` can read the PR, a seat cap is set) and
-   posts a `claim` with the device stamp.
+   (OS matches, repo cloned, branch fetched, `gh` can read the PR, a seat cap is set), makes
+   the seat's chat and worktree, and only then posts a `claim` with the device stamp: a claim
+   that fails to post leaves nothing behind.
 3. **Accept (lead device, one click).** The coordinator chat shows "<device> wants
    <seat> — Accept / Reject". Accept posts `accept`; the roster flips to ✅. One device
-   per seat; posts from any other device for that seat are ignored.
+   per seat; posts from any other device for that seat are ignored. A seat whose device is
+   gone can be **evicted** by the lead (it posts `leave` for that seat), so another device
+   can claim it.
 4. **Roll call.** No work starts until every seat is ✅. Then the coordinator posts
    `roll-call` + the first `brief`, and the seat chats start.
 5. **Work.** Each seat is an ordinary chat on its own device:
    - streams like any chat; **Stop** is a hard local stop; **Leave mission** posts `leave`.
-   - its device keeps one `status` comment per seat, **edited in place** (🟢 working,
-     ⏸ waiting, ❓ asking, ✅ done, last seen) — edits notify nobody.
+   - its device keeps one `status` comment per seat, **edited in place** (🟢 seated, then
+     📮 posted or 💤 idle with the seat's spend after each turn) — edits notify nobody.
    - the lead can **pause** a seat (`pause` post) — cooperative, honoured on that
      device's next poll (≤ ~30 s). Only the device itself can hard-stop.
 6. **Questions.** An agent asks with `kind: question, to: human`, and its turn ends. The
@@ -233,7 +285,11 @@ mission_seats(                         -- v26
   status_comment_id,                   -- the in-place status comment
   cap_usd, spent_usd, left_at, created_at, updated_at
 )
-mission_posts(mission_id, comment_id)  -- every comment this device posted
+mission_posts(                         -- v26, PK(mission_id, nonce)
+  mission_id, nonce,                   -- reserved before the post; the nonce rides in the envelope
+  comment_id,                          -- NULL until GitHub answers
+  created_at
+)                                      -- every comment this device posted
 ```
 
 Which seats a device holds can be rebuilt from the PR (claims and accepts carry the device

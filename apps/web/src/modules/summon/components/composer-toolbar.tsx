@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { ACCENT_BTN, Button } from "@/components/ui/button";
+import { useMissionShortcut } from "@/modules/missions/hooks/use-mission-shortcut";
 import type { ContextProfile } from "@agent-office/domain/types";
 
 export type ComposerToolbarProps = {
@@ -24,6 +25,7 @@ export type ComposerToolbarProps = {
  * profile chip, cwd/model chips, abort or send.
  */
 export function ComposerToolbar(props: ComposerToolbarProps): React.ReactElement {
+  const shortcut = useMissionShortcut();
   const t = useTranslations();
   return (
     <div className="flex items-center gap-[4px] px-[8px] pb-[8px] pt-[6px]">
@@ -33,7 +35,7 @@ export function ComposerToolbar(props: ComposerToolbarProps): React.ReactElement
       <Button variant="ghost" size="sm" title={t("composer.slash_insert_title")} onClick={props.onSlashClick} aria-label={t("composer.slash_insert_aria")}>
         <Icon name="slash" />
       </Button>
-      <Button variant="ghost" size="sm" title={`${t("missions.open")} (Ctrl+P)`} aria-label={t("missions.open")} aria-keyshortcuts="Control+P" onClick={props.onMissionsOpen}>
+      <Button variant="ghost" size="sm" title={t("missions.open_title", { mac: String(shortcut.mac) })} aria-label={t("missions.open")} aria-keyshortcuts={shortcut.aria} onClick={props.onMissionsOpen}>
         <Icon name="sparkle" />
       </Button>
       <div className="ml-auto flex items-center gap-[6px]">

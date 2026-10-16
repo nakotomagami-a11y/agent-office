@@ -7,10 +7,14 @@ export type ProseItem =
   | { type: "code"; lang: string; body: string }
   | { type: "table"; header: string[]; align: TableAlign[]; rows: string[][] };
 
-/** Quotes too: the output also lands inside attribute values (a link's href), where an unescaped `"`
- *  ends the attribute and starts an event handler — agent text can carry text from a mission hub. */
+/** Text content only: `highlightTS` matches quotes in this output. Attributes add `escapeAttr`. */
 export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** A raw `"` would end the attribute and start an event handler. */
+function escapeAttr(s: string): string {
+  return s.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /** Only these schemes become links; `javascript:` and friends stay plain text. */
@@ -21,7 +25,7 @@ export function safeHref(url: string): boolean {
 /** `[text](url)` → a link, if the scheme is safe. Expects already-escaped input. */
 export function linkMd(s: string, className = ""): string {
   return s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, url: string) =>
-    safeHref(url) ? `<a${className ? ` class="${className}"` : ""} href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>` : text);
+    safeHref(url) ? `<a${className ? ` class="${className}"` : ""} href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text);
 }
 
 /** GFM separator row, e.g. `| --- | :--: | --: |` (outer pipes optional). */

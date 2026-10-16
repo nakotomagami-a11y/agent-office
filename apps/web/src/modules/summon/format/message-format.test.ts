@@ -6,7 +6,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { extractImages, inlineMd, pathToUrl } from "./message-format";
+import { extractImages, highlightTS, inlineMd, pathToUrl } from "./message-format";
 
 const DIR = "/home/u/Documents/Generated Images/2026-10-08";
 const IMG = `${DIR}/09-23-25_fox-logo_7.png`;
@@ -69,4 +69,12 @@ test("only safe link schemes become links", () => {
   assert.ok(!inlineMd("[x](data:text/html,hi)").includes("<a"));
   assert.match(inlineMd("[docs](https://example.com/a)"), /<a href="https:\/\/example\.com\/a"/);
   assert.match(inlineMd("[here](#top)"), /<a href="#top"/);
+});
+
+test("quotes in a code block stay quotes and are highlighted as strings", () => {
+  const html = highlightTS(`import x from 'react'; const s = "hi";`);
+  assert.ok(!html.includes("&#"), html);
+  assert.ok(!html.includes("&quot;"), html);
+  assert.match(html, /<span class="tk-str">'react'<\/span>/);
+  assert.match(html, /<span class="tk-str">"hi"<\/span>/);
 });

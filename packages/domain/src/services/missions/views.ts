@@ -4,9 +4,11 @@ import { platform } from "node:os";
 import { COORDINATOR_SEAT } from "../../config/missions";
 import type { HubView, MissionView } from "../../types/index";
 import * as db from "../db";
+import { log } from "../infra/log";
 import { readProject } from "../projects/projects";
 import { ghFor } from "../review/pulls";
 import { productionActionDeps, readHub, type ActionDeps } from "./actions";
+import { isRuledHere } from "./human-acts";
 import { ActionError, run } from "./result";
 import { listHubs } from "./hub";
 import { manifestHash, readManifest } from "./protocol";
@@ -31,10 +33,11 @@ export function missionView(missionId: string, deps: ActionDeps = productionActi
         };
       }),
       claims: leadHere ? s.claims : [],
-      asks: s.asks.filter((a) => a.kind !== "decision-request" || leadHere),
+      asks: s.asks.filter((a) => (a.kind !== "decision-request" || leadHere) && !isRuledHere(missionId, a.commentId)),
       local: local.map((l) => ({
         seat: l.seat, agentId: l.agentId, instanceId: l.instanceId, capUsd: l.capUsd, spentUsd: l.spentUsd,
         accepted: Object.hasOwn(s.roster, l.seat) && s.roster[l.seat] === h.me,
+        needsAttention: db.getActiveConversation(l.agentId, l.instanceId)?.status === "needs_attention",
       })),
     };
   });
@@ -49,7 +52,14 @@ export function joinableHubs(projectId: string, deps: ActionDeps = productionAct
     const pulls = (await listHubs(ghFor(project, deps.runner))).filter((p) => readManifest(p.body) !== null);
     const views: HubView[] = [];
     for (const p of pulls) {
-      const h = await readHub(projectId, p.number, deps);
+      // One labelled PR that is not a usable hub (a fork's branch, a gh hiccup) must not hide the rest.
+      let h: Awaited<ReturnType<typeof readHub>>;
+      try {
+        h = await readHub(projectId, p.number, deps);
+      } catch (err) {
+        log.warn("missions.hub_skipped", { projectId, pr: p.number, err: err instanceof Error ? err.message : String(err) });
+        continue;
+      }
       const held = new Set(db.listActiveMissionSeats().filter((s) => s.missionId === h.manifest.m).map((s) => s.seat));
       views.push({
         pr: p.number, title: h.manifest.title, goal: h.manifest.goal, url: p.url, missionId: h.manifest.m,

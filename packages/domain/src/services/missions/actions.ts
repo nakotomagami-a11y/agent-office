@@ -6,14 +6,16 @@ import { COORDINATOR_SEAT } from "../../config/missions";
 import type { MissionSeat, Project } from "../../types/index";
 import * as db from "../db";
 import { applyGitCredentialHelper } from "../execution/runs/spawn-env";
-import { addSeatInstance, readProject } from "../projects/projects";
+import { log } from "../infra/log";
+import { addSeatInstance, InstanceCapError, readProject, removeInstance } from "../projects/projects";
 import { createMissionWorktree } from "../projects/worktrees";
 import { ghEnv, type GhRunner } from "../review/gh";
 import { ghFor, type Gh } from "../review/pulls";
-import { ActionError, change } from "./result";
+import { ActionError, change, refused } from "./result";
 import { deviceLabel } from "./device";
+import { takeSeatNotes } from "./notices";
 import type { Envelope } from "./envelope";
-import { abandonHub, createHub, getHub, hubLogin, listComments, postEnvelope, remoteHasBranch } from "./hub";
+import { abandonHub, createHub, getHub, hubLogin, listComments, postEnvelope, remoteHasBranch, repoIsPublic } from "./hub";
 import { productionPollerDeps, type PollerDeps } from "./poller";
 import { hubBody, manifestHash, readManifest, type MissionManifest, type SeatSpec } from "./protocol";
 import { foldMission, type MissionState } from "./state";
@@ -68,21 +70,36 @@ export async function readHub(projectId: string, pr: number, deps: ActionDeps): 
 
 export async function post(h: Hub, header: string, text: string, env: Omit<Envelope, "m">) {
   const r = await postEnvelope(h.gh, h.pr, header, text, { m: h.manifest.m, ...env });
-  if (!r.ok) throw new ActionError("manifest_invalid", r.reason);
+  if (!r.ok) throw new ActionError("post_refused", r.reason);
   return r.cursor;
 }
 
 const stamp = () => ({ os: `${platform()} ${release()}`.slice(0, 64), hw: `${cpus()[0]?.model ?? arch()}`.trim().slice(0, 128) });
 
-/** The seat's chat and worktree, with the lead and manifest pinned as the human saw them now. */
-function seatUp(h: Hub, spec: SeatSpec, pin: { capUsd: number; lead: string; cursor: { id: number; at: string } }, deps: ActionDeps): MissionSeat {
-  let instanceId: string;
+/** The seat's chat and worktree. Made before the claim or seating is posted: a seat held on GitHub
+ *  with nothing behind it here would block that seat for every device, with no way to free it. */
+async function seatInstance(h: Hub, spec: SeatSpec, deps: ActionDeps): Promise<string> {
   try {
-    ({ instance: { instanceId } } = addSeatInstance(h.project.id, spec.agent, `🛰 ${spec.seat} · ${h.manifest.title}`.slice(0, 80),
-      (id) => deps.worktree(h.cwd, id, h.branch, gitEnv(h.project))));
+    const { instance } = await addSeatInstance(h.project.id, spec.agent, `🛰 ${spec.seat} · ${h.manifest.title}`.slice(0, 80),
+      (id) => deps.worktree(h.cwd, id, h.branch, gitEnv(h.project)));
+    return instance.instanceId;
   } catch (err) {
+    if (err instanceof InstanceCapError) throw new ActionError("instance_cap", spec.agent);
     throw new ActionError("worktree_failed", err instanceof Error ? err.message.slice(0, 300) : String(err));
   }
+}
+
+/** Undoes seatInstance when the post that should follow it failed. */
+function dropSeatInstance(h: Hub, instanceId: string): void {
+  try {
+    removeInstance(h.project.id, instanceId);
+  } catch (err) {
+    log.warn("missions.seat_instance_orphaned", { projectId: h.project.id, instanceId, err: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+/** The local seat row, with the lead and manifest pinned as the human saw them now. */
+function seatRow(h: Hub, spec: SeatSpec, instanceId: string, pin: { capUsd: number; lead: string; cursor: { id: number; at: string } }): MissionSeat {
   return db.insertMissionSeat({
     missionId: h.manifest.m, seat: spec.seat, projectId: h.project.id, prNumber: h.pr, agentId: spec.agent, instanceId,
     hubBranch: h.branch, leadDevice: pin.lead, manifestJson: JSON.stringify(h.manifest), capUsd: pin.capUsd, cursor: pin.cursor,
@@ -96,6 +113,8 @@ export interface StartInput {
   seats: SeatSpec[];
   /** This device's cap for the coordinator seat. */
   capUsd: number;
+  /** The human confirmed a public repo (every post and this device's name become public). */
+  allowPublic?: boolean;
 }
 
 export function startMission(projectId: string, input: StartInput, deps: ActionDeps = productionActionDeps) {
@@ -111,16 +130,20 @@ export function startMission(projectId: string, input: StartInput, deps: ActionD
     }
     const spec = manifest.seats.find((s) => s.seat === COORDINATOR_SEAT);
     if (!spec) throw new ActionError("manifest_invalid");
+    if (!input.allowPublic && (await repoIsPublic(gh))) throw new ActionError("repo_public");
     const hub = await createHub(gh, { missionId: manifest.m, title: `🛰 ${input.title}`, body });
     const me = deps.device();
     const h: Hub = { gh, project, cwd, pr: hub.number, url: hub.url, manifest, branch: hub.branch, state: foldMission(manifest.m, [], []).state, me };
+    let instanceId: string | null = null;
     try {
+      instanceId = await seatInstance(h, spec, deps);
       const cursor = await post(h, `**🛰 coordinator** seated on ${deviceLabel()}`, "The mission is open. Claim a seat from Agent Office on the device it needs.",
         { kind: "accept", from: { seat: "human", device: me }, to: [COORDINATOR_SEAT], data: { device: me }, stamp: stamp() });
-      const seat = seatUp(h, spec, { capUsd: input.capUsd, lead: me, cursor }, deps);
-      return { missionId: manifest.m, pr: hub.number, url: hub.url, instanceId: seat.instanceId };
+      seatRow(h, spec, instanceId, { capUsd: input.capUsd, lead: me, cursor });
+      return { missionId: manifest.m, pr: hub.number, url: hub.url, instanceId };
     } catch (err) {
       // Seated on GitHub but not here (or not even seated) is a hub nobody can recover: close it.
+      if (instanceId) dropSeatInstance(h, instanceId);
       await abandonHub(gh, hub.number);
       throw err;
     }
@@ -134,11 +157,24 @@ export interface ClaimInput {
   capUsd: number;
   /** The manifest hash the human saw in Join (views.ts joinableHubs). */
   manifestHash: string;
+  allowPublic?: boolean;
 }
 
-export function claimSeat({ projectId, pr, seat: seatId, capUsd, manifestHash: seen }: ClaimInput, deps: ActionDeps = productionActionDeps) {
+/** Claims in flight on this device: the fetch can take a minute, and a second click in that time
+ *  would pass the "already held here" check and claim the seat twice. */
+const claiming = new Set<string>();
+
+export function claimSeat(input: ClaimInput, deps: ActionDeps = productionActionDeps) {
+  const key = `${input.projectId}#${input.pr}#${input.seat}`;
+  if (claiming.has(key)) return Promise.resolve(refused<MissionSeat>("seat_held_here", input.seat));
+  claiming.add(key);
+  return claim(input, deps).finally(() => claiming.delete(key));
+}
+
+function claim({ projectId, pr, seat: seatId, capUsd, manifestHash: seen, allowPublic }: ClaimInput, deps: ActionDeps) {
   return change(async () => {
     const h = await readHub(projectId, pr, deps);
+    if (!allowPublic && (await repoIsPublic(h.gh))) throw new ActionError("repo_public");
     if (manifestHash(h.manifest) !== seen) throw new ActionError("manifest_changed");
     const spec = h.manifest.seats.find((s) => s.seat === seatId);
     if (!spec) throw new ActionError("seat_unknown", seatId);
@@ -149,9 +185,16 @@ export function claimSeat({ projectId, pr, seat: seatId, capUsd, manifestHash: s
     const local = db.getMissionSeat(h.manifest.m, seatId);
     if (local && local.leftAt === null) throw new ActionError("seat_held_here", seatId);
     if (!(await remoteHasBranch(h.gh, h.branch))) throw new ActionError("branch_missing", h.branch);
-    const cursor = await post(h, `**🛰 ${seatId}** claimed by ${deviceLabel()}`, `Asks for seat \`${seatId}\` (${spec.agent}). The lead accepts or rejects it in Agent Office.`,
-      { kind: "claim", from: { seat: seatId, device: h.me }, to: [COORDINATOR_SEAT], stamp: stamp() });
-    return seatUp(h, spec, { capUsd, lead: h.state.lead, cursor }, deps);
+    const instanceId = await seatInstance(h, spec, deps);
+    let cursor: { id: number; at: string };
+    try {
+      cursor = await post(h, `**🛰 ${seatId}** claimed by ${deviceLabel()}`, `Asks for seat \`${seatId}\` (${spec.agent}). The lead accepts or rejects it in Agent Office.`,
+        { kind: "claim", from: { seat: seatId, device: h.me }, to: [COORDINATOR_SEAT], stamp: stamp() });
+    } catch (err) {
+      dropSeatInstance(h, instanceId);
+      throw err;
+    }
+    return seatRow(h, spec, instanceId, { capUsd, lead: h.state.lead, cursor });
   });
 }
 
@@ -165,6 +208,7 @@ export function leaveSeat(missionId: string, seatId: string, deps: ActionDeps = 
       await post(h, `**🛰 ${seatId}** left`, `Device ${deviceLabel()} gave up the seat.`, { kind: "leave", from: { seat: seatId, device: h.me }, to: [COORDINATOR_SEAT] });
     }
     db.markMissionSeatLeft(missionId, seatId);
+    takeSeatNotes(seat.instanceId);
   });
 }
 

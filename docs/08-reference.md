@@ -228,7 +228,7 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 | `GET` | `/api/missions/:id` | The mission as this device sees it, folded fresh from the hub |
 | `POST` | `/api/missions/:id/claims/:commentId` | Lead only: accept or reject a claim |
 | `POST` | `/api/missions/:id/asks/:commentId` | Answer a seat's question, or (lead) rule on a decision request |
-| `POST` | `/api/missions/:id/act` | Lead only: pause, resume or close |
+| `POST` | `/api/missions/:id/act` | Lead only: pause, resume, close, or evict a seat whose device is gone |
 | `POST` | `/api/missions/:id/leave` | Give up a seat this device holds |
 | `POST` | `/api/missions/:id/cap` | Raise this device's spend cap for a seat |
 

@@ -13,7 +13,7 @@ declare global {
 if (!globalThis.__agentOfficeMissionsWiringInstalled) {
   registerRunFinishedListener((runId) => {
     void postRunOutbox(runId)
-      .then(() => emitAppEvent("missions:changed"))
+      .then((seat) => { if (seat) emitAppEvent("missions:changed"); })
       .catch((err: unknown) => log.error("missions.post_failed", { runId, err: err instanceof Error ? err.message : String(err) }));
   });
   globalThis.__agentOfficeMissionsWiringInstalled = true;

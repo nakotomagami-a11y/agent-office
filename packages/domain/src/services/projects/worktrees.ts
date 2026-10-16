@@ -1,9 +1,11 @@
 // Git worktree helpers for multi-instance agent support.
 // All git commands use execFileSync with an args array — never shell interpolation.
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { promisify } from "node:util";
+import { MISSION_GIT_TIMEOUT_MS } from "../../config/missions";
 import { log } from "../infra/log";
 
 /** Returns true if the given directory is the root of a git repository (has a .git entry). */
@@ -166,22 +168,26 @@ export function createWorktree(
   return { branch, basePath, createdAt };
 }
 
+const execFileAsync = promisify(execFile);
+
 /** A worktree on a mission's hub branch: a seat-local branch tracking `origin/<hubBranch>`, since
  *  two seats on one device cannot both check out the hub branch itself. `env` carries the
- *  project's GitHub credentials for the fetch. */
-export function createMissionWorktree(
+ *  project's GitHub credentials for the fetch. Async with a timeout and no prompts: it runs inside
+ *  a request, and a credential dialog must not freeze the server. */
+export async function createMissionWorktree(
   projectCwd: string,
   instanceId: string,
   hubBranch: string,
   env: NodeJS.ProcessEnv,
-): { branch: string; basePath: string; createdAt: number } {
+): Promise<{ branch: string; basePath: string; createdAt: number }> {
   const basePath = worktreePath(projectCwd, instanceId);
   const branch = `${hubBranch}--${instanceId}`;
   mkdirSync(join(projectCwd, ".worktrees"), { recursive: true });
-  const git = (args: string[]) => execFileSync("git", args, { cwd: projectCwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  const quiet = { ...env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" };
+  const git = (args: string[]) => execFileAsync("git", args, { cwd: projectCwd, env: quiet, timeout: MISSION_GIT_TIMEOUT_MS, windowsHide: true });
   try {
-    git(["fetch", "origin", `+refs/heads/${hubBranch}:refs/remotes/origin/${hubBranch}`]);
-    git(["worktree", "add", "--track", "-b", branch, basePath, `origin/${hubBranch}`]);
+    await git(["fetch", "origin", `+refs/heads/${hubBranch}:refs/remotes/origin/${hubBranch}`]);
+    await git(["worktree", "add", "--track", "-b", branch, basePath, `origin/${hubBranch}`]);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`mission worktree for '${instanceId}' on '${hubBranch}' failed in '${projectCwd}': ${detail}`);

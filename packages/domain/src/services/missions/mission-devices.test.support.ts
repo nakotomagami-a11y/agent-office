@@ -45,12 +45,12 @@ export function device(id: string, missionId: () => string) {
     device: () => id,
     send: async (s: MissionSeat, text: string) => { inbox.push({ seat: s.seat, text }); },
     // A real `git worktree add` leaves a folder; a roster pin to a missing folder is pruned on read.
-    worktree: (_cwd: string, instanceId: string, branch: string) => {
+    worktree: async (_cwd: string, instanceId: string, branch: string) => {
       const basePath = join(projectsRoot, "proj", ".worktrees", instanceId);
       mkdirSync(basePath, { recursive: true });
       return { branch: `${branch}--${instanceId}`, basePath, createdAt: 1 };
     },
-    git: () => ({ sha: "abc1234def", branch: "x", dirty: false }),
+    git: async () => ({ sha: "abc1234def", branch: "x", dirty: false }),
   };
   return {
     id, inbox, deps, chat,

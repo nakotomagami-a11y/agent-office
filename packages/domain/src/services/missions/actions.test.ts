@@ -45,7 +45,7 @@ function device(id: string) {
       device: () => id,
       send: async (seat: { seat: string }, text: string, origin?: "user" | "system") => { sentTo(id).push({ seat: seat.seat, text, origin }); },
       // A real `git worktree add` leaves a folder; a roster pin to a missing folder is pruned on read.
-      worktree: (_cwd: string, instanceId: string, branch: string) => {
+      worktree: async (_cwd: string, instanceId: string, branch: string) => {
         const basePath = join(projectsRoot, "proj", ".worktrees", instanceId);
         mkdirSync(basePath, { recursive: true });
         return { branch: `${branch}--${instanceId}`, basePath, createdAt: 1 };
@@ -204,7 +204,7 @@ test("a claim against a manifest that changed since the human looked is refused"
 
 test("a start whose seat cannot be set up closes the hub it opened, branch included", async () => {
   lead.use();
-  const broken = { ...lead.deps, worktree: () => { throw new Error("git worktree add failed"); } };
+  const broken = { ...lead.deps, worktree: async () => { throw new Error("git worktree add failed"); } };
   const before = new Set(github.pulls.keys());
   const r = await actions.startMission("proj", { title: "Broken", goal: "", budgetUsd: 5, seats, capUsd: 1 }, broken);
   assert.ok(!r.ok && r.error === "worktree_failed");

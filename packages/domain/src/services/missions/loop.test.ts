@@ -161,6 +161,7 @@ test("a rejected claim stops being polled; a welcome whose send failed comes aga
   pixel.deps.send = realSend;
   await pixel.poll();
   assert.ok(pixel.take()[0]?.text.startsWith("You hold seat `linux`"));
+  assert.strictEqual(github.comments.filter((c) => c.body.startsWith("**🛰 linux** · status")).length, 1, "the retry reuses its status comment");
 });
 
 test("a post written at a commit nobody else can fetch names it instead of stamping it", async () => {

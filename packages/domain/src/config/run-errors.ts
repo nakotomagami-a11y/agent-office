@@ -15,6 +15,7 @@ export const RUN_ERROR_CODES = [
   "worktree_missing",   // cwd/.worktrees gone → repair
   "claude_unavailable", // claude CLI not installed / not on PATH
   "secret_invalid",     // verify-before-run blocked the spawn
+  "seat_cap_reached",   // a mission seat has spent its cap on this device
   "unknown_agent",      // agent/instance deleted after scheduling
   "max_runtime",        // exceeded the wall-clock cap
   "spawn_failed",       // OS failed to spawn the claude process
@@ -43,6 +44,7 @@ export const RUN_ERROR_REMEDIATION: Record<RunErrorCode, string> = {
   worktree_missing: "The instance's worktree is gone. Repair it from the roster before running again; do not fall back to the shared project directory.",
   claude_unavailable: "The `claude` CLI is not installed or not on PATH. Report it — this is an environment problem, not a task problem.",
   secret_invalid: "A linked secret failed verification, so the spawn was blocked. The user must fix the secret; never print or guess its value.",
+  seat_cap_reached: "This mission seat has spent its cap on this device. The user raises it in the mission panel; do not retry until they do.",
   unknown_agent: "The target agent or instance no longer exists. Reassign the work or cancel it.",
   max_runtime: "The wall-clock cap was hit. Split the task into smaller steps rather than retrying it whole.",
   spawn_failed: "The OS refused to start the process. Check cwd and PATH before retrying.",

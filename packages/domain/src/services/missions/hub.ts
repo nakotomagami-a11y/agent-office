@@ -1,13 +1,14 @@
 // The hub: a draft PR whose comments carry the mission (docs/missions.md). Calls run as the
 // project's gh identity (review/pulls ghFor) and throw ReviewError.
 import { z } from "zod";
-import { MISSION_ID, MISSION_LABEL } from "../../config/missions";
+import { MAX_LISTED_HUBS, MISSION_ID, MISSION_LABEL, MISSION_LABEL_COLOR, MISSION_RELIST_DELAY_MS } from "../../config/missions";
 import * as db from "../db";
+import { log } from "../infra/log";
 import { ReviewError } from "../review/gh";
 import type { Gh } from "../review/pulls";
 import type { CommentCursor } from "../../types/index";
 import type { HubComment } from "./state";
-import { formatPost, type Envelope } from "./envelope";
+import { formatPost, parsePost, type Envelope } from "./envelope";
 
 // gh fills these from the project's git remote (ghEnv strips GH_REPO, so it is always that repo).
 const REPO = "repos/{owner}/{repo}";
@@ -56,17 +57,41 @@ export async function postEnvelope(gh: Gh, pr: number, header: string, text: str
   const nonce = db.reserveMissionPost(env.m);
   const made = formatPost(header, text, { ...env, data: { ...env.data, n: nonce } });
   if (!made.ok) return { ok: false, reason: made.reason };
-  const cursor = await postComment(gh, pr, made.body);
+  let cursor: CommentCursor;
+  try {
+    cursor = await postComment(gh, pr, made.body);
+  } catch (err) {
+    // A timeout can come after GitHub stored it: a retry would post it twice.
+    // GitHub said no (4xx): nothing was stored, so there is nothing to look for.
+    const stored = err instanceof ReviewError && /HTTP 4\d\d/.test(err.detail) ? undefined : await findOwnPost(gh, pr, nonce);
+    if (!stored) throw err;
+    cursor = { id: stored.id, at: stored.at };
+  }
   db.confirmMissionPost(env.m, nonce, cursor.id);
   return { ok: true, cursor };
 }
 
-export async function editComment(gh: Gh, commentId: number, body: string): Promise<void> {
-  await gh.run(["api", `${REPO}/issues/comments/${commentId}`, "--method", "PATCH", "--input", "-"], JSON.stringify({ body }));
+/** Only our login's comment carrying this nonce in its envelope: a stranger who copies the nonce
+ *  must not be taken for our post. GitHub can list a moment behind, so it looks twice. */
+async function findOwnPost(gh: Gh, pr: number, nonce: string): Promise<FetchedComment | undefined> {
+  const login = (await hubLogin(gh).catch(() => "")).toLowerCase();
+  if (!login) return undefined;
+  const ours = (c: FetchedComment) => {
+    const p = parsePost(c.body);
+    return c.author.toLowerCase() === login && p.ok && p.envelope.data?.n === nonce;
+  };
+  for (const wait of [0, MISSION_RELIST_DELAY_MS]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    const listed = await listComments(gh, pr, null).catch(() => null);
+    if (!listed) return undefined;
+    const found = listed.find(ours);
+    if (found) return found;
+  }
+  return undefined;
 }
 
-export async function editPullBody(gh: Gh, pr: number, body: string): Promise<void> {
-  await gh.run(["api", `${REPO}/pulls/${pr}`, "--method", "PATCH", "--input", "-"], JSON.stringify({ body }));
+export async function editComment(gh: Gh, commentId: number, body: string): Promise<void> {
+  await gh.run(["api", `${REPO}/issues/comments/${commentId}`, "--method", "PATCH", "--input", "-"], JSON.stringify({ body }));
 }
 
 const isMissing = (err: unknown) => err instanceof ReviewError && /HTTP (404|422)/.test(err.detail);
@@ -123,7 +148,12 @@ export async function getHub(gh: Gh, pr: number): Promise<HubPull & { state: str
 
 /** A start that failed half way: close the hub and drop its branch, so no lead-less PR is left. */
 export async function abandonHub(gh: Gh, pr: number): Promise<void> {
-  await gh.run(["pr", "close", String(pr), "--delete-branch", "--comment", "Mission start failed; closed by Agent Office."]).catch(() => undefined);
+  await gh.run(["pr", "close", String(pr), "--delete-branch", "--comment", "Mission start failed; closed by Agent Office."])
+    .catch((err: unknown) => log.warn("missions.hub_abandon_failed", { pr, err: err instanceof Error ? err.message : String(err) }));
+}
+
+export async function repoIsPublic(gh: Gh): Promise<boolean> {
+  return (await gh.run(["repo", "view", "--json", "visibility", "--jq", ".visibility"])).trim().toUpperCase() === "PUBLIC";
 }
 
 /** The account this project posts as: with one account for human and agents (D5), the only
@@ -136,7 +166,7 @@ export async function hubLogin(gh: Gh): Promise<string> {
 
 export async function listHubs(gh: Gh): Promise<HubPull[]> {
   const raw = await gh.run([
-    "pr", "list", "--label", MISSION_LABEL, "--state", "open", "--limit", "50",
+    "pr", "list", "--label", MISSION_LABEL, "--state", "open", "--limit", String(MAX_LISTED_HUBS),
     "--json", "number,title,url,headRefName,isDraft,body",
   ]);
   return z.array(hubPull).parse(JSON.parse(raw) as unknown).map((p) => ({ ...p, body: p.body ?? "" }));
@@ -171,7 +201,8 @@ export async function createHub(gh: Gh, hub: NewHub): Promise<{ number: number; 
     return { number, url, branch };
   } catch (err) {
     // A half-made hub would leave an orphan branch behind every failed start.
-    await gh.run(["api", `${REPO}/git/refs/heads/${branch}`, "--method", "DELETE"]).catch(() => undefined);
+    await gh.run(["api", `${REPO}/git/refs/heads/${branch}`, "--method", "DELETE"])
+      .catch((e: unknown) => log.warn("missions.hub_branch_orphaned", { branch, err: e instanceof Error ? e.message : String(e) }));
     throw err;
   }
 }
@@ -179,7 +210,7 @@ export async function createHub(gh: Gh, hub: NewHub): Promise<{ number: number; 
 /** Never `--force`: that would reset the user's own colour and description on every start. */
 async function ensureLabel(gh: Gh): Promise<void> {
   try {
-    await gh.run(["label", "create", MISSION_LABEL, "--color", "5319e7", "--description", "Agent Office mission hub"]);
+    await gh.run(["label", "create", MISSION_LABEL, "--color", MISSION_LABEL_COLOR, "--description", "Agent Office mission hub"]);
   } catch (err) {
     if (!(err instanceof ReviewError && /already exists/i.test(err.detail))) throw err;
   }
