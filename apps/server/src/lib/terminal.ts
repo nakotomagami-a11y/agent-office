@@ -26,10 +26,9 @@ declare global {
   var __aoExitedShells: Set<number> | undefined;
 }
 const launched = (globalThis.__aoLaunchedShells ??= new Set<number>());
-// The window stays open after its command ends, so the shell's pid outlives a crashed
-// server; the shell touches its marker file once the command returns.
+// The window outlives its command, so the shell's pid outlives a crashed server: the shell touches
+// a marker on exit instead, recorded once seen so every later poll (another tab, a retry) agrees.
 const exitFiles = (globalThis.__aoShellExitFiles ??= new Map<number, string>());
-// Recorded when the marker is first seen, so every later poll (another tab, a retry) agrees.
 const exited = (globalThis.__aoExitedShells ??= new Set<number>());
 
 // One subdir per server: servers share tmpdir, and a dead server's markers are unread.
@@ -50,7 +49,6 @@ function serverExitDir(): string {
   return exitDir;
 }
 
-// Called from a polled GET: a file an antivirus holds must not turn into a 500.
 function removeQuietly(path: string): void {
   try {
     rmSync(path, { recursive: true, force: true, maxRetries: 3 });
@@ -64,7 +62,6 @@ export function isLaunchedShell(pid: number): boolean {
   return launched.has(pid);
 }
 
-/** Whether the command in a launched terminal has ended, though its window may still be open. */
 export function hasShellCommandExited(pid: number): boolean {
   if (exited.has(pid)) return true;
   const file = exitFiles.get(pid);
@@ -150,8 +147,7 @@ export async function spawnInTerminal(title: string, cwd: string, argv: string[]
 // `start`'s pid is a helper that exits at once; Start-Process returns the console cmd.
 // Values go in env vars, not script text: PowerShell quotes include `’` and `[` is a wildcard.
 // cmd expands %VAR% even inside quotes, so quoting here does not neutralise `%`.
-// The command runs in its own `cmd /c`: Ctrl+C on a .cmd shim (pnpm, npm) asks "Terminate batch
-// job?", and Y there drops the rest of the line it runs in, exit marker included. `!AO_TERM_CMD!`
+// Own `cmd /c`: Ctrl+C then Y on a .cmd shim drops the rest of its line, marker included. `!AO_TERM_CMD!`
 // expands after the outer line is split on `&`, so only the inner cmd parses the command's quoting.
 const START_CONSOLE = "$ProgressPreference='SilentlyContinue'; (Start-Process -FilePath cmd.exe -ArgumentList $env:AO_TERM_ARGS -WorkingDirectory ([WildcardPattern]::Escape($env:AO_TERM_CWD)) -PassThru).Id";
 
@@ -201,7 +197,6 @@ async function spawnPosix(title: string, cwd: string, argv: string[], env: NodeJ
     "#!/bin/bash",
     `echo $$ > ${shellQuote(pidFile)} || exit 1`,
     ...NVM_SAFE_PATH_SETUP,
-    // Set here too: macOS Terminal runs the script without our env.
     ...(env.PORT ? [`export PORT=${env.PORT}`] : []),
     `cd ${shellQuote(cwd)} && ${cmdStr}`,
     "code=$?",

@@ -10,7 +10,6 @@ export async function GET(_request: Request, { params }: Params) {
   const pid = processes.parsePid((await params).pid);
   if (pid === null) return badRequest();
   const alive = processes.isProcessAlive(pid);
-  // Forget only a dead shell: one whose command ended still has its window and its tree to stop.
   if (!alive) forgetLaunchedShell(pid);
   return Response.json({ alive: alive && !hasShellCommandExited(pid) });
 }
@@ -19,8 +18,6 @@ export async function DELETE(_request: Request, { params }: Params) {
   const pid = processes.parsePid((await params).pid);
   if (pid === null) return badRequest();
 
-  // Once its command ended the shell has no children left, and the tree of a pid the
-  // shell's closed window freed could be anyone's.
   const result = processes.killProcess(pid, { tree: isLaunchedShell(pid) && !hasShellCommandExited(pid) });
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 
