@@ -316,7 +316,7 @@ test("the skill-cache sweep deletes only directories", () => {
     symlinkSync(join(dir, "nope"), join(dir, "dangling"));
 
     assert.equal(clearSkillInstallCache(dir).cleared, 1);
-    assert.deepEqual(readdirSync(dir).sort(), ["dangling", "index.json"]);
+    assert.deepEqual(readdirSync(dir).sort(), ["_seeded.json", "dangling", "index.json"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
