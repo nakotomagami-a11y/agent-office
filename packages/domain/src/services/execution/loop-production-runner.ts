@@ -37,6 +37,6 @@ export const productionLoopRunner: LoopRunner = {
   },
 
   ruleExists,
-  ruleIds: () => [...knownRuleIds()],
+  ruleIds: (cwd) => [...knownRuleIds(cwd)],
   findingsFor: findingsForRun,
 };

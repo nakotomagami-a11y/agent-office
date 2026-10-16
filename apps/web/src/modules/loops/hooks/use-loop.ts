@@ -32,3 +32,14 @@ export function useLoopAction(id: string) {
     onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.loops.detail(id) }),
   });
 }
+
+/** The seat's latest loop, for the chat header. Keyed under `loops.all`, so
+ *  `loops:changed` refreshes it the moment a toggle-started loop appears. */
+export function useLatestLoop(instanceId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.loops.forInstance(instanceId ?? "none"),
+    queryFn: () =>
+      apiFetch<LoopRow | null>(`${API_ROUTES.loops}?instanceId=${encodeURIComponent(instanceId as string)}`),
+    enabled: !!instanceId,
+  });
+}

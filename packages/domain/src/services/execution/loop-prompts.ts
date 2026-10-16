@@ -12,17 +12,18 @@ export function reviewPrompt(goal: string, round: number, ruleIds: readonly stri
     `Review the work just done against this goal:`,
     goal,
     ``,
+    `The work is in this working tree: start from \`git status\` and \`git diff\`.`,
+    ``,
     `Round ${round}. Report with the ReportFindings tool — NOT as prose. Call it`,
     `once, findings ranked most-severe first, empty array if nothing survives`,
     `verification. A review that reports no verdict is treated as a failed`,
     `review, not as a pass.`,
     ``,
-    // Inlined rather than pointed at a path: the loop runs in the USER's repo,
-    // which has no copy of our conventions. Simple, and it keeps the loop
-    // self-contained — revisit if rule bodies (not just ids) are ever needed.
+    // Ids inlined rather than pointed at a path: the general.* rules exist in
+    // no file, and the list keeps the loop self-contained.
     `Put the rule id in each finding's \`category\` field. This list IS the`,
-    `authority — do NOT look for a conventions file in the repo, it is not`,
-    `there. A finding citing anything outside this list rejects the whole batch:`,
+    `authority: cite nothing else. A finding citing anything outside this list`,
+    `rejects the whole batch:`,
     ...ruleIds.map((r) => `  - ${r}`),
   ].join("\n");
 }

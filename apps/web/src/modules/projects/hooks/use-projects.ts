@@ -104,7 +104,7 @@ export function useUpdateInstance() {
     }: {
       projectId: string;
       instanceId: string;
-      patch: { label?: string; model?: string; effort?: string; permissionMode?: string; playwrightEnabled?: boolean; room?: string };
+      patch: { label?: string; model?: string; effort?: string; permissionMode?: string; playwrightEnabled?: boolean; qaLoopEnabled?: boolean; room?: string };
     }) =>
       apiFetch<AgentInstance>(API_ROUTES.projectRosterItem(projectId, instanceId), {
         method: "PATCH",

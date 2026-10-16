@@ -29,6 +29,7 @@ import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import { statusFromRuns, statusFromRunsForInstance } from "../../derive/derive-status";
 import { cn } from "@/lib/cn";
+import { QaLoopToggle, LatestLoopPill } from "@/modules/loops/components/qa-loop-controls";
 
 type Tab = AgentTab;
 
@@ -435,6 +436,13 @@ export function AgentDetailsModal() {
                     </button>
                   </Tooltip>
                 )}
+                {activeProjectId && selectedInstanceId && (
+                  <QaLoopToggle
+                    projectId={activeProjectId}
+                    instanceId={selectedInstanceId}
+                    enabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                  />
+                )}
                 {branchLabel && (
                   <span className="text-ao-fg-3 truncate max-w-[220px]" title={branchLabel}>
                     {branchLabel}
@@ -443,6 +451,9 @@ export function AgentDetailsModal() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              {selectedInstanceId && (
+                <LatestLoopPill instanceId={selectedInstanceId} enabled={currentInstanceForToggle?.qaLoopEnabled === true} />
+              )}
               {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive && (
                 <BackgroundTaskPill task={backgroundTask} onDismiss={() => setDismissedBgTaskId(backgroundTask.id)} />
               )}

@@ -22,9 +22,9 @@ export interface LoopRunner {
     prompt: string;
   }): Promise<string>;
   costOf(runId: string): number;
-  /** A finding citing a rule that does not resolve is a miswired reviewer. */
-  ruleExists(id: string): boolean;
-  ruleIds(): readonly string[];
+  /** A finding citing a rule that does not resolve (in `cwd`'s project) is a miswired reviewer. */
+  ruleExists(id: string, cwd: string | null): boolean;
+  ruleIds(cwd: string | null): readonly string[];
   /** A review's verdict; `null` means none was reported, which is NOT a pass. */
   findingsFor(runId: string): Finding[] | null;
 }
@@ -46,11 +46,13 @@ export interface StartLoopInput {
   cwd?: string | null;
   goal: string;
   config: LoopConfig;
+  /** "reviewing" when the work already exists, e.g. a chat turn just made it. */
+  startAt?: "authoring" | "reviewing";
 }
 
 export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: number): Promise<string> {
   const id = randomUUID();
-  const state = initialLoopState(now);
+  const state = initialLoopState(now, input.startAt);
   // Row first: a crash after spawning orphans the run.
   db.createLoop(
     {
@@ -69,16 +71,20 @@ export async function startLoop(input: StartLoopInput, runner: LoopRunner, now: 
     now,
   );
 
+  const cwd = input.cwd ?? null;
+  // Both prompts are prefixed: startSummonRun returns an EXISTING run id on an
+  // identical prompt, so a bare goal lets the loop adopt the user's own chat run.
+  const first = state.phase === "reviewing"
+    ? { agentId: input.reviewerAgentId, prompt: reviewPrompt(input.goal, 1, runner.ruleIds(cwd)) }
+    : { agentId: input.agentId, prompt: authorPrompt(input.goal) };
   let runId: string;
   try {
     runId = await runner.startRun({
-      agentId: input.agentId,
+      agentId: first.agentId,
       instanceId: input.instanceId ?? null,
       projectId: input.projectId ?? null,
-      cwd: input.cwd ?? null,
-      // Prefixed: startSummonRun returns an EXISTING run id on an identical
-      // prompt, so a bare goal lets the loop adopt the user's own chat run.
-      prompt: authorPrompt(input.goal),
+      cwd,
+      prompt: first.prompt,
     });
   } catch (e) {
     log.error("loop.dispatch_failed", { loopId: id, round: 1, message: String(e) });
@@ -106,7 +112,7 @@ async function dispatch(loop: db.LoopRow, e: LoopEffect | undefined, runner: Loo
   if (!e || e.type === "finish") return null;
   {
     const prompt = e.type === "startReview"
-      ? reviewPrompt(loop.goal, e.round, runner.ruleIds())
+      ? reviewPrompt(loop.goal, e.round, runner.ruleIds(loop.cwd))
       : fixPrompt(loop.goal, e.round, e.findings);
     const agentId = e.type === "startReview" ? loop.reviewerAgentId : loop.agentId;
     return await runner.startRun({
@@ -131,7 +137,9 @@ export async function advanceLoop(
   const loop = db.getLoop(loopId);
   if (!loop) return { ok: false, code: "loop_not_found" };
 
-  const { state, effects } = reduceLoop(loop.state, action, loop.config, now, runner.ruleExists);
+  const { state, effects } = reduceLoop(
+    loop.state, action, loop.config, now, (rule) => runner.ruleExists(rule, loop.cwd),
+  );
   if (effects.length > 1) {
     log.error("loop.multiple_effects", { loopId, count: effects.length });
   }

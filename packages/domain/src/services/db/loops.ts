@@ -237,3 +237,11 @@ export function listAllLoopIds(): string[] {
   const rows = getDb().prepare(`SELECT id FROM loops ORDER BY created_at DESC LIMIT 20`).all() as Array<{ id: string }>;
   return rows.map((r) => r.id);
 }
+
+/** The chat header's pill: a seat's most recent loop, settled or not. */
+export function latestLoopForInstance(instanceId: string): LoopRow | null {
+  const r = getDb()
+    .prepare(`SELECT * FROM loops WHERE instance_id=? ORDER BY created_at DESC LIMIT 1`)
+    .get(instanceId) as RawLoopRow | undefined;
+  return r ? toRow(r) : null;
+}
