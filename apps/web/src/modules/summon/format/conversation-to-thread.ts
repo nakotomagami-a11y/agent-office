@@ -11,6 +11,7 @@
 // this function is only used for turns that have scrolled into history.
 import type { PersistedRun } from "@agent-office/domain/types";
 import type { ThreadItem } from "@agent-office/domain/types";
+import { isInterruptionCode } from "@agent-office/domain/config/run-errors";
 import { formatToolArg, isSubAgentSpawnTool, parseStoredToolInput } from "./tool-item";
 
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
@@ -45,10 +46,15 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
     items.push({ kind: "agent-text", id: `${turn.id}_out`, text: turn.output, streaming: false });
   }
   if (turn.status === "error") {
-    // No classified RunErrorCode survives past the live SSE event (it was
-    // never persisted per-turn) — "unknown" still renders a working Retry
-    // action, just without the specific auth/worktree/rate-limit copy.
-    items.push({ kind: "system-error", id: `${turn.id}_err`, code: "unknown" });
+    // Rows from before error_code was persisted fall back to "unknown".
+    const code = turn.errorCode ?? "unknown";
+    items.push({
+      kind: "system-error",
+      id: `${turn.id}_err`,
+      code,
+      detail: turn.errorDetail,
+      interrupted: isInterruptionCode(code) || undefined,
+    });
   } else if (turn.status === "done") {
     items.push({
       kind: "system-done",

@@ -5,10 +5,10 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
+import { asOrigin, rowToRun, type RunRow } from "./runs";
 import type { MessageOrigin, PersistedRun } from "../../types/index";
 
 /** Parse, don't cast: the column is TEXT and old rows predate it. */
-export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
@@ -200,34 +200,6 @@ export function queueLength(conversationId: string): number {
 }
 
 // ─── Turns (top-level runs of a conversation, oldest first) ───────────────────
-
-interface RunRow {
-  id: string; agent_id: string; agent_name: string; instance_id: string;
-  instance_label: string | null; project_id: string | null; session_id: string | null;
-  status: string; exit_code: number | null; prompt: string; origin: string; output: string;
-  tokens_in: number; tokens_out: number; cost_usd: number; dur_ms: number | null;
-  cache_creation_tokens: number | null; cache_read_tokens: number | null;
-  model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
-  parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
-}
-
-function rowToRun(row: RunRow): PersistedRun {
-  return {
-    id: row.id, agentId: row.agent_id, agentName: row.agent_name,
-    instanceId: row.instance_id === "default" ? undefined : row.instance_id,
-    instanceLabel: row.instance_label ?? undefined,
-    projectId: row.project_id ?? undefined, sessionId: row.session_id ?? undefined,
-    status: row.status as "running" | "done" | "error",
-    exitCode: row.exit_code ?? undefined, prompt: row.prompt, origin: asOrigin(row.origin), output: row.output,
-    tokensIn: row.tokens_in, tokensOut: row.tokens_out, cost: row.cost_usd,
-    cacheCreationTokens: row.cache_creation_tokens ?? undefined,
-    cacheReadTokens: row.cache_read_tokens ?? undefined,
-    durMs: row.dur_ms ?? (row.ended_at != null ? row.ended_at - row.started_at : 0),
-    model: row.model, effort: row.effort, cwd: row.cwd ?? undefined, ts: row.started_at,
-    parentRunId: row.parent_run_id ?? undefined, accountId: row.account_id ?? undefined,
-    conversationId: row.conversation_id ?? undefined,
-  };
-}
 
 interface ToolCallRow { id: string; run_id: string; name: string; input: string | null; ts: number; done_ts: number | null; backgrounded: number }
 

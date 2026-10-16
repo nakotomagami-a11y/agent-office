@@ -1,4 +1,4 @@
-import type { PersistedRun, Workflow } from "../../types/index";
+import type { PersistedRun, RunErrorCode, Workflow } from "../../types/index";
 import * as db from "../db";
 
 export function getRuns(opts: { agentId?: string; projectId?: string; instanceId?: string; limit?: number } = {}): PersistedRun[] {
@@ -9,8 +9,8 @@ export function getRun(id: string): PersistedRun | null {
   return db.getRun(id);
 }
 
-export function markRunAborted(id: string): void {
-  db.markRunAborted(id);
+export function markRunAborted(id: string, code: RunErrorCode): void {
+  db.markRunAborted(id, code);
 }
 
 /**
@@ -36,6 +36,8 @@ export function pushRun(run: PersistedRun): void {
     durMs: run.durMs,
     sessionId: run.sessionId,
     endedAt: run.ts + run.durMs,
+    errorCode: run.errorCode,
+    errorDetail: run.errorDetail,
   });
 }
 

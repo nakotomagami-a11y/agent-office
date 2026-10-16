@@ -496,6 +496,14 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       );
     `);
   },
+  // v25 -> v26: why a failed run failed (RunErrorCode + stderr/CLI reason), so
+  // history and reconnects show the real error instead of "The agent hit an error."
+  (db) => {
+    db.exec(`
+      ALTER TABLE runs ADD COLUMN error_code TEXT;
+      ALTER TABLE runs ADD COLUMN error_detail TEXT;
+    `);
+  },
 ];
 
 /**
@@ -586,5 +594,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 23) { MIGRATIONS[22]!(db); v = 23; db.pragma("user_version = 23"); }
     if (v < 24) { MIGRATIONS[23]!(db); v = 24; db.pragma("user_version = 24"); }
     if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
+    if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
   })();
 }

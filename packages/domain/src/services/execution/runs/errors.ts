@@ -24,6 +24,11 @@ export function classifySpawnError(err: unknown, cwd?: string): { code: RunError
 const AUTH_ERROR_RE =
   /failed to authenticate|oauth session|not (?:logged in|authenticated)|invalid api key|credentials?.*(?:expired|invalid|missing)|please run.*login/i;
 
+// The CLI's own sign-in copy ("Not logged in · Please run /login"). Streamed
+// text is matched only against this: an agent's last line can quote another
+// tool's "not logged in, please run gh auth login".
+const CLI_LOGIN_RE = /\bnot logged in\b.*\/login\b|please run \/login\b/i;
+
 // Distinct from an expired session: the account is valid but its Claude Code
 // access has been revoked at the org/subscription level, e.g. "Your organization
 // has disabled Claude subscription access for Claude Code". Signing in again
@@ -45,8 +50,62 @@ export function classifyResultError(raw: string, output: string): { code: RunErr
   // text with a blank `raw`, so `detail` (the last line) carries the real copy.
   if (SUBSCRIPTION_DISABLED_RE.test(text) || SUBSCRIPTION_DISABLED_RE.test(output))
     return { code: "subscription_disabled", detail: capDetail(text || detail) };
-  if (AUTH_ERROR_RE.test(text)) return { code: "auth_expired", detail: capDetail(text) };
+  if (AUTH_ERROR_RE.test(text) || (!text && CLI_LOGIN_RE.test(detail))) {
+    return { code: "auth_expired", detail: capDetail(text || detail) };
+  }
   return { code: "unknown", detail: capDetail(detail) };
+}
+
+/**
+ * The CLI exited non-zero without a result event saying why (crash, kill,
+ * failed resume). Its stderr is the only explanation, so the detail carries it
+ * — minus Node stack frames — plus the exit code and the last tool it ran.
+ */
+export function classifyExitFailure(
+  stderr: string,
+  exitCode: number,
+  opts: { signal?: string | null; lastTool?: string; output?: string } = {},
+): { code: RunErrorCode; detail?: string } {
+  const tail = stderr.slice(-8192);
+  const message = stderrReason(tail);
+  // Only a run that streamed nothing can be an auth failure: a later crash's
+  // stderr may quote some other tool's "not logged in" (gh, an MCP server).
+  if (!opts.output?.trim()) {
+    const { code } = classifyResultError(tail, "");
+    if (code !== "unknown") {
+      const line = tail.split("\n").find((l) => classifyResultError(l, "").code === code);
+      return { code, detail: capDetail(line ?? message) };
+    }
+  }
+  const how = opts.signal ? `was killed by ${opts.signal}` : `exited with code ${exitCode}`;
+  const where = opts.lastTool ? ` (last tool: ${opts.lastTool})` : "";
+  return {
+    code: "unknown",
+    detail: capDetail(`Claude CLI ${how}${where}: ${message || "no output on stderr"}`),
+  };
+}
+
+const STDERR_NOISE_RE = /^(?:at\s|Node\.js v|\^+$)/;
+const ERROR_LINE_RE = /^(?:Error|error)\b|\b[A-Z]\w*Error\b/;
+
+/** A Node crash prints path, source line and caret before the error, and the
+ *  version after it — so take the last error-looking line, else the tail. */
+function stderrReason(stderr: string): string {
+  const lines = stderr
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !STDERR_NOISE_RE.test(l));
+  const errorLine = [...lines].reverse().find((l) => ERROR_LINE_RE.test(l));
+  return errorLine ?? lines.slice(-3).join(" ");
+}
+
+/** Replace every injected secret value with *** before it is shown or stored. */
+export function redactSecrets(text: string | undefined, secrets: readonly string[]): string | undefined {
+  if (!text) return text;
+  // Longest first, so a secret containing another is scrubbed whole.
+  return [...secrets]
+    .sort((a, b) => b.length - a.length)
+    .reduce((acc, v) => (v.length >= 4 ? acc.split(v).join("***") : acc), text);
 }
 
 // Claude's plan/session/usage limit copy, e.g.
