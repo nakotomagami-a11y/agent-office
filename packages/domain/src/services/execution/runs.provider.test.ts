@@ -21,8 +21,11 @@ const args = process.argv.slice(2);
 const at = args.indexOf("--settings");
 const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(ANTHROPIC_|CLAUDE_CODE_|NO_PROXY)/i.test(k)));
 fs.writeFileSync(process.env.STUB_RECORD, JSON.stringify({ args, env, pin: at === -1 ? null : fs.readFileSync(args[at + 1], "utf8") }));
+for (const line of JSON.parse(process.env.STUB_LINES || "[]")) process.stdout.write(JSON.stringify(line) + "\\n");
+if (process.env.STUB_HANG) setInterval(() => {}, 1000);
 process.stdin.resume();
 process.stdin.on("end", () => {
+  if (process.env.STUB_HANG) return;
   process.stdout.write(JSON.stringify({ type: "result", is_error: false, session_id: "s" }) + "\\n");
   process.exit(0);
 });
@@ -130,4 +133,30 @@ test("a missing claude CLI refuses the run with cli_missing, before any spawn", 
   } finally {
     health.cached = saved;
   }
+});
+
+async function runEmitting(lines: unknown[]): Promise<string> {
+  process.env.STUB_LINES = JSON.stringify(lines);
+  process.env.STUB_HANG = "1";
+  try {
+    return (await run()).runId;
+  } finally {
+    delete process.env.STUB_LINES;
+    delete process.env.STUB_HANG;
+  }
+}
+
+test("fail-fast: a rejected key ends a gateway run at the first retry, and the mapped model is recorded", async () => {
+  store.setSelection("openai", "chosen");
+  const runId = await runEmitting([
+    { type: "system", subtype: "init", apiKeySource: "none", model: "big" },
+    { type: "system", subtype: "api_retry", attempt: 1, max_retries: 10, error_status: 401, error: "authentication_failed" },
+  ]);
+  assert.deepStrictEqual([getRun(runId)?.errorCode, getRun(runId)?.model], ["provider_auth_failed", "big"]);
+});
+
+test("a key source other than none is a mismatch that ends the run, on the subscription too", async () => {
+  store.setSelection("subscription", "chosen");
+  const runId = await runEmitting([{ type: "system", subtype: "init", apiKeySource: "ANTHROPIC_API_KEY", model: "claude-x" }]);
+  assert.deepStrictEqual([getRun(runId)?.errorCode, getRun(runId)?.errorDetail, getRun(runId)?.model], ["provider_mismatch", "ANTHROPIC_API_KEY", "m"]);
 });

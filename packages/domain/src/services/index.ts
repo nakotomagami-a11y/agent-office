@@ -48,3 +48,4 @@ export * as analytics from "./analytics/analytics";
 export * as analyticsSummary from "./analytics/analytics-summary";
 export * as analyticsPage from "./analytics/analytics-page";
 export * as providers from "./providers/index";
+export * as gateway from "./providers/gateway/index";

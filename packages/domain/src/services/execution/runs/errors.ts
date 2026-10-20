@@ -43,15 +43,17 @@ const SUBSCRIPTION_DISABLED_RE =
  * fall back to the LAST SINGLE LINE of output (capped), never the whole
  * paragraph, so the error card can never become a transcript dump.
  */
-export function classifyResultError(raw: string, output: string): { code: RunErrorCode; detail?: string } {
+export function classifyResultError(raw: string, output: string, provider = "subscription"): { code: RunErrorCode; detail?: string } {
   const text = raw.trim();
   const detail = text || output.trim().split("\n").filter(Boolean).at(-1) || "";
+  const subscription = provider === "subscription";
   // Scan the streamed output too: these failures usually arrive as assistant
   // text with a blank `raw`, so `detail` (the last line) carries the real copy.
-  if (SUBSCRIPTION_DISABLED_RE.test(text) || SUBSCRIPTION_DISABLED_RE.test(output))
+  if (subscription && (SUBSCRIPTION_DISABLED_RE.test(text) || SUBSCRIPTION_DISABLED_RE.test(output)))
     return { code: "subscription_disabled", detail: capDetail(text || detail) };
+  // Signing in to Claude cannot fix another provider's key: never the Sign-in card there.
   if (AUTH_ERROR_RE.test(text) || (!text && CLI_LOGIN_RE.test(detail))) {
-    return { code: "auth_expired", detail: capDetail(text || detail) };
+    return { code: subscription ? "auth_expired" : "provider_auth_failed", detail: capDetail(text || detail) };
   }
   return { code: "unknown", detail: capDetail(detail) };
 }
@@ -64,16 +66,16 @@ export function classifyResultError(raw: string, output: string): { code: RunErr
 export function classifyExitFailure(
   stderr: string,
   exitCode: number,
-  opts: { signal?: string | null; lastTool?: string; output?: string } = {},
+  opts: { signal?: string | null; lastTool?: string; output?: string; provider?: string } = {},
 ): { code: RunErrorCode; detail?: string } {
   const tail = stderr.slice(-8192);
   const message = stderrReason(tail);
   // Only a run that streamed nothing can be an auth failure: a later crash's
   // stderr may quote some other tool's "not logged in" (gh, an MCP server).
   if (!opts.output?.trim()) {
-    const { code } = classifyResultError(tail, "");
+    const { code } = classifyResultError(tail, "", opts.provider);
     if (code !== "unknown") {
-      const line = tail.split("\n").find((l) => classifyResultError(l, "").code === code);
+      const line = tail.split("\n").find((l) => classifyResultError(l, "", opts.provider).code === code);
       return { code, detail: capDetail(line ?? message) };
     }
   }
@@ -106,6 +108,14 @@ export function redactSecrets(text: string | undefined, secrets: readonly string
   return [...secrets]
     .sort((a, b) => b.length - a.length)
     .reduce((acc, v) => (v.length >= 4 ? acc.split(v).join("***") : acc), text);
+}
+
+// Provider error bodies echo keys, often masked ("sk-proj-****abcd"). Bounded and anchored, so a
+// 300-char detail cannot backtrack and "disk-backed" is not a key.
+const MASKED_KEY_RE = /(?<![A-Za-z0-9])sk-(?:ant-|proj-)?[A-Za-z0-9_*-]{8,200}/g;
+
+export function scrubMaskedKeys(text: string): string {
+  return text.replace(MASKED_KEY_RE, "***");
 }
 
 // Claude's plan/session/usage limit copy, e.g.

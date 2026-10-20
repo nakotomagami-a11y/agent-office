@@ -53,6 +53,16 @@ PATH="<stubdir>:$PATH" \
   pnpm --filter @agent-office/domain test src/services/execution/runs.auth-e2e.test.ts
 ```
 
+Two more need the **real** `claude` CLI on `PATH` (no stub, no network: they talk to local mock
+servers). Re-run both whenever the CLI version changes:
+
+```bash
+# a hostile repo's .claude/settings*.json cannot re-point the backend; fails on a new CLI version
+pnpm --filter @agent-office/domain test src/services/execution/runs.settings-pin.e2e.test.ts
+# CLI → AI-provider gateway → mock OpenAI, with a tool call round trip
+pnpm --filter @agent-office/server test src/gateway.e2e.test.ts
+```
+
 ## Non-obvious
 
 - Agents are spawned as `claude -p` child processes; **stdin is closed**, so a

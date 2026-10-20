@@ -40,6 +40,9 @@ import { spawnClaude } from "../infra/claude-bin";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
+import { classifyProviderResult, failFastOnEvent, initModel, type ProviderFailure } from "./runs/provider-stream";
+import { onGatewayFailure } from "../providers/gateway/failures";
+import { usesGateway } from "../../config/providers";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -64,6 +67,7 @@ declare global {
   // handler stays bound to the old one and our new finalize-on-kill logic
   // never runs until the dev server is fully restarted.
   var __agentOfficeKillAllRuns: (() => void) | undefined;
+  var __agentOfficeGatewayFailureOff: (() => void) | undefined;
 }
 
 const RUN_RETENTION_MS = 4 * 60 * 60_000;
@@ -521,6 +525,20 @@ function pumpStderr(run: LiveRun): void {
   });
 }
 
+/** A provider failure seen early: end the run with its code instead of riding out the CLI's retries. */
+function failRun(run: LiveRun, failure: ProviderFailure): void {
+  if (run.status !== "running" || run.error) return;
+  broadcast(run, { name: "error", data: { runId: run.id, code: failure.code, detail: failure.detail } });
+  killRunProc(run.proc);
+}
+
+// Re-registered on every HMR reload, so the listener always calls this module's failRun.
+globalThis.__agentOfficeGatewayFailureOff?.();
+globalThis.__agentOfficeGatewayFailureOff = onGatewayFailure((ownerId, code, detail) => {
+  const run = liveRuns.get(ownerId);
+  if (run) failRun(run, { code, detail });
+});
+
 function handleStreamLine(run: LiveRun, line: string): void {
   let evt: StreamEvent;
   try {
@@ -531,6 +549,13 @@ function handleStreamLine(run: LiveRun, line: string): void {
       log.warn("run.unparseable_line", { runId: run.id, line: line.slice(0, 200) });
     }
     return;
+  }
+  const failure = failFastOnEvent(run.provider, evt);
+  if (failure) return failRun(run, failure);
+  const model = usesGateway(run.provider) ? initModel(evt) : undefined;
+  if (model) {
+    run.model = model;
+    db.setRunModel(run.id, model);
   }
 
   if (evt.type === "stream_event" && evt.event) {
@@ -719,8 +744,11 @@ function handleStreamLine(run: LiveRun, line: string): void {
       // A user-initiated abort makes the CLI exit with is_error too. Surface it
       // as a neutral "interrupted" card, not a red failure with the whole
       // transcript dumped in as the error message.
+      const providerFailure = classifyProviderResult(run.provider, evt);
       if (run.aborted) {
         broadcast(run, { name: "error", data: { runId: run.id, code: "stopped", interrupted: true } });
+      } else if (providerFailure) {
+        broadcast(run, { name: "error", data: { runId: run.id, ...providerFailure } });
       } else {
         // A hit session/usage limit often arrives as a plain is_error result
         // (no structured rate_limit_event). Surface it as a rate-limit card with
@@ -737,7 +765,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
             // The retry without --resume follows; this attempt's error is not the outcome.
             run.missingSession = true;
           } else {
-            broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(raw, run.output) } });
+            broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(raw, run.output, run.provider) } });
           }
         }
       }
@@ -998,7 +1026,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
       name: "error",
       data: {
         runId: run.id,
-        ...classifyExitFailure(stderr, exitCode, { signal, lastTool: run.currentTool, output: run.output }),
+        ...classifyExitFailure(stderr, exitCode, { signal, lastTool: run.currentTool, output: run.output, provider: run.provider }),
       },
     });
   }
