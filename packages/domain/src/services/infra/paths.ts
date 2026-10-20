@@ -73,6 +73,7 @@ export const BACKUPS_DIR = join(APP_STATE_DIR, "backups");
 /** Per-run files handed to the CLI by path: appended system prompts and `--settings` pins. */
 export const TMP_PROMPTS_DIR = join(APP_STATE_DIR, "tmp-prompts");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
+export const PRICE_CATALOG_FILE = join(APP_STATE_DIR, "price-catalog.json");
 export const DOCS_GLOBAL_OWNER = "_global";
 // Where local clients (the Minecraft mod) find running servers: one <pid>.json each (random ports).
 export const DISCOVERY_DIR = join(APP_STATE_DIR, "servers");

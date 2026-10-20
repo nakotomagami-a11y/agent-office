@@ -47,5 +47,9 @@ export const modelPricesResponseSchema = z.object({
   source: z.enum(["litellm", "openrouter"]).nullable(),
   fetchedAt: z.number().nullable(),
   stale: z.boolean(),
+  fetchEnabled: z.boolean(),
   entries: z.record(z.string(), modelPriceSchema),
 });
+
+/** PUT /api/model-prices/settings: the outbound price-fetch switch. */
+export const modelPricesSettingsPutSchema = z.object({ fetchEnabled: z.boolean() }).strict();

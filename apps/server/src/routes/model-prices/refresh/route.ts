@@ -1,6 +1,13 @@
-// POST /api/model-prices/refresh — re-fetch the price catalog. No catalog yet: answers the empty one.
-import { EMPTY_CATALOG } from "../../../lib/model-prices";
+// POST /api/model-prices/refresh — re-fetch the catalog now. One upstream attempt per minute (429
+// otherwise); 409 price_fetch_disabled when the switch is off; 502 when both sources failed.
+import { providers } from "@agent-office/domain/services";
+import { conflict } from "../../../lib/api-helpers";
+
+const STATUS = { rate_limited: 429, price_fetch_failed: 502 } as const;
 
 export async function POST() {
-  return Response.json(EMPTY_CATALOG);
+  const result = await providers.refreshPrices();
+  if (result.ok) return Response.json(result.view);
+  if (result.error === "price_fetch_disabled") return conflict(result.error);
+  return Response.json({ error: result.error }, { status: STATUS[result.error] });
 }

@@ -5,6 +5,7 @@ import type { Provider, ProviderConfig, ProvidersResponse, ProviderStatus, Provi
 import { getHealth, peekHealth } from "../infra/health";
 import { currentProvider, presenceFor } from "./current";
 import { ensureProviderMigrated } from "./migrate";
+import { priceTableDate } from "./prices/catalog";
 import { presenceReason } from "./resolve";
 import { probeProvider, toStatus, type ProbeDeps } from "./status";
 import { getSelection, keyHint, readProvider, readProviderKey, saveProviderConfig, setSelection, type ProviderConfigInput, type SaveResult } from "./store";
@@ -34,6 +35,7 @@ function viewOf(provider: Provider): ProviderView {
     config: stored?.config ?? {},
     status: statusOf(provider),
     capabilities: CAPABILITIES[provider],
+    ...(provider === "openai" ? { priceTableDate: priceTableDate() } : {}),
   };
 }
 

@@ -630,6 +630,7 @@ export interface ContextCostBreakdown {
   avgTurnsPerSession: number;
   writeRatePerTokUsd: number;
   readRatePerTokUsd: number;
+  priceKnown: boolean;
   contextWindowTokens: number;
   windowPct: number;
   /** Other CLAUDE.md/AGENTS.md in the project, informational only. */

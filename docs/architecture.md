@@ -318,6 +318,15 @@ with a per-run bearer token, so no provider key ever enters a child process.
 - **Refusal:** a provider that cannot run (no key, invalid config, unmapped model tiers, a budget cap
   it cannot enforce) refuses the spawn, recorded as the run error `provider_unavailable` with the
   status reason as its detail.
+- **Prices:** no price is hardcoded. `services/providers/prices/` fetches LiteLLM's public catalog
+  (OpenRouter's as the fallback) at boot when the cache is a day old, then hourly checks; both fixed
+  URLs, no redirects, a 20 s timeout and a 16 MB cap. Only `openai`/`anthropic` chat models are
+  kept, per million tokens, each rate at its **highest** tier; a model with a pricing field the
+  parser does not know is unknown. A fetch is merged into the last good cache
+  (`~/.claude/agent-office/price-catalog.json`, atomic): a rate more than 100× off its old value
+  keeps the old one. Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
+  ui_settings key (`PUT /api/model-prices/settings`) turns every fetch off; then every price is
+  unknown. `POST /api/model-prices/refresh` makes at most one upstream attempt a minute (429).
 
 ## SSE events
 

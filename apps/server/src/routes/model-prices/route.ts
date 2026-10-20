@@ -1,6 +1,6 @@
-// GET /api/model-prices — per-model prices with their source and date. No catalog yet: every price is unknown.
-import { EMPTY_CATALOG } from "../../lib/model-prices";
+// GET /api/model-prices — per-model prices with their source, date, staleness and the fetch switch.
+import { providers } from "@agent-office/domain/services";
 
 export async function GET() {
-  return Response.json(EMPTY_CATALOG);
+  return Response.json(providers.pricesView());
 }

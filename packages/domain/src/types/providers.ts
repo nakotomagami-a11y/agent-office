@@ -78,5 +78,7 @@ export interface ModelPricesResponse {
   source: "litellm" | "openrouter" | null;
   fetchedAt: number | null;
   stale: boolean;
+  /** Off: nothing is fetched and every price is unknown. */
+  fetchEnabled: boolean;
   entries: Record<string, ModelPrice>;
 }

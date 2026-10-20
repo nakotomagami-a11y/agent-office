@@ -5,3 +5,4 @@ export { currentProvider } from "./current";
 export { ensureProviderMigrated, migrateAtBoot } from "./migrate";
 export { sweepPinFiles } from "./pin-file";
 export { accountPlan, forgetAccountPlan, type AccountPlan } from "./plan";
+export { priceFor, pricesView, refreshPrices, setPriceFetchEnabled, startPriceRefresh } from "./prices/catalog";

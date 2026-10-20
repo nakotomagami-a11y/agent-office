@@ -168,6 +168,7 @@ export async function boot({ serve }: BootOptions): Promise<void> {
   } catch (err) {
     console.warn("[providers] pin sweep failed:", err);
   }
+  providers.startPriceRefresh();
 
   // Out-of-process clients (the Minecraft mod) find this server's random port here.
   try {
