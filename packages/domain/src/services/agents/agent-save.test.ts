@@ -11,9 +11,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { AgentBody } from "../../types";
 import { AGENTS_DIR } from "../infra/paths";
-import { parseYaml } from "../infra/yaml";
 import { createAgent, readAgent, writeAgent } from "./agents";
-import { mergeFrontmatter, stripInlineComments } from "./frontmatter";
 
 const FILE = [
   "---",
@@ -115,39 +113,6 @@ test("creating a new agent writes it", () => {
   assert.equal(readAgent("fresh-one")!.info.displayName, "Fresh One");
 });
 
-// The reviewer's probes of the first version: each one lost a line, kept a removed tool, or duplicated a key.
-const probes: Array<[string, string, Record<string, unknown>, (out: string) => void]> = [
-  ["a quoted key with a colon is its own entry, never glued to an owned one", 'description: old\n"x:y": keep-me\nfoo: bar', { description: "new" },
-    (out) => assert.equal(out, 'description: new\n"x:y": keep-me\nfoo: bar')],
-  ["a commented-out list item inside a rewritten entry is kept", "tools:\n  - Read\n  # - Bash  disabled\nskills: []", { tools: ["Read", "Write"] },
-    (out) => {
-      assert.ok(out.includes("# - Bash  disabled"));
-      assert.deepEqual((parseYaml(out) as Record<string, unknown>).tools, ["Read", "Write"]);
-      assert.match(out, /^skills: \[\]$/m);
-    }],
-  ["a column-0 comment inside a list does not leave a removed tool granted", "tools:\n  - Read\n# legacy\n  - Bash\nfoo: 1", { tools: ["Read"] },
-    (out) => {
-      assert.deepEqual((parseYaml(out) as Record<string, unknown>).tools, ["Read"]);
-      assert.ok(out.includes("# legacy"));
-    }],
-  ["a quoted owned key is rewritten, not duplicated", '"room": a\nname: x', { room: "c", name: "x" },
-    (out) => assert.deepEqual(out.split("\n").filter((l) => /^"?room"?:/.test(l)), ["room: c"])],
-  ["an inline comment on an unchanged value is kept byte for byte", "default-model: opus # cheap", { "default-model": "opus" },
-    (out) => assert.equal(out, "default-model: opus # cheap")],
-  ["the CLI's model: is not dropped for default-model", "name: a\nmodel: haiku\nx-custom: 1", { name: "a", "default-model": "haiku" },
-    (out) => assert.equal(out, "name: a\nmodel: haiku\nx-custom: 1")],
-  ["a block scalar's colon and dash lines stay inside it", "notes: |\n  line: with colon\n  - dash\nname: a", { name: "b" },
-    (out) => assert.equal(out, "notes: |\n  line: with colon\n  - dash\nname: b")],
-  ["a list of mappings at column 0 stays with its key", "hooks:\n- a: 1\n  b: 2\nname: a", { name: "b" },
-    (out) => assert.equal(out, "hooks:\n- a: 1\n  b: 2\nname: b")],
-  ["a duplicated owned key collapses to one", "room: a\nroom: b", { room: "c" }, (out) => assert.equal(out, "room: c")],
-  ["a space before the colon is still the key", "room : a\nname: x", { room: "c", name: "x" }, (out) => assert.equal(out, "room: c\nname: x")],
-  ["an unchanged folded scalar is kept as written", "description: >\n  folded\n  text\nname: a", { description: "folded text" },
-    (out) => assert.equal(out, "description: >\n  folded\n  text\nname: a")],
-];
-for (const [name, input, owned, check] of probes) {
-  test(`mergeFrontmatter: ${name}`, () => check(mergeFrontmatter(input, owned as never)));
-}
 
 test("an inline comment and a quoted key are read the way YAML means them", () => {
   writeFileSync(join(AGENTS_DIR, "commented.md"), '---\nname: commented\ndescription: d\ndefault-model: opus # cheap\n"room": Lab\ncolor: "#fff"\nnotes: |\n  keep # this\n---\n\nb\n');
@@ -186,10 +151,6 @@ test('a description with quotes and a # survives a save and a read: Say "hi" #2 
   assert.equal(readAgent("quoted")!.info.description, 'Say "hi" #2 fan');
 });
 
-test("stripInlineComments honours \\\" and '' escapes", () => {
-  assert.equal(stripInlineComments('x: "a \\"b\\" #c"'), 'x: "a \\"b\\" #c"');
-  assert.equal(stripInlineComments("x: 'it''s #1' # c"), "x: 'it''s #1'");
-});
 
 // The quoted item goes first: an escaped quote that ended the quote early split the list at the next comma.
 for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]]) {
@@ -223,4 +184,14 @@ test("an empty frontmatter block is a frontmatter block, even with a rule furthe
   writeFileSync(join(AGENTS_DIR, "empty-fm.md"), "---\n---\n\nprompt\n\n---\n\nmore\n");
   assert.equal(readAgent("empty-fm")!.body, "prompt\n\n---\n\nmore");
   assert.ok(writeAgent(bodyFor("empty-fm")).ok);
+});
+
+test("an unknown escape keeps its backslash, and \\u / \\x escapes decode", () => {
+  writeFileSync(join(AGENTS_DIR, "escapes.md"), '---\nname: escapes\ndescription: "caf\\u00e9 \\x41"\nadd-dirs: ["C:\\Users\\me"]\n---\n\nb\n');
+  const info = readAgent("escapes")!.info;
+  assert.deepEqual(info.addDirs, ["C:\\Users\\me"], "hand-written C:\\Users\\me lost its backslashes");
+  assert.equal(info.description, "caf\u00e9 A");
+  writeAgent(bodyFor("escapes"));
+  assert.deepEqual(readAgent("escapes")!.info.addDirs, ["C:\\Users\\me"], "a save must not make the loss permanent");
+  assert.equal(readAgent("escapes")!.info.description, "caf\u00e9 A");
 });

@@ -57,6 +57,8 @@ export function parseFrontmatter(content: string): { fm: YamlMapping; body: stri
   return { fm, body };
 }
 
+const ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "0": "\0", "\\": "\\", '"': '"', "/": "/" };
+
 const SCALAR_RE = /^[A-Za-z0-9_./@:+\-]+$/;
 
 function unquote(raw: string): string {
@@ -65,7 +67,8 @@ function unquote(raw: string): string {
     const q = t[0]!;
     if (t.endsWith(q)) {
       if (q === "'") return t.slice(1, -1).replace(/''/g, "'");
-      return t.slice(1, -1).replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
+      return t.slice(1, -1).replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/g, (m, c: string) =>
+        c.length > 1 ? String.fromCharCode(parseInt(c.slice(1), 16)) : ESCAPES[c] ?? m);
     }
   }
   return t;
