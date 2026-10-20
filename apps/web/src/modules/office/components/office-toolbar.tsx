@@ -260,12 +260,14 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       await killProcess(s.pid);
     } catch (e) {
       const errorKey = killErrorKey(e);
-      // Still listening: showing it idle invites a second server onto the busy port.
-      if (errorKey !== "kill_error_not_found") {
-        setKeyState(key, s);
+      // Maybe still our server: showing it idle invites a second one onto the busy port.
+      // A 403 means the pid is no longer ours (reused), so that one goes idle.
+      if (errorKey === "kill_error_ownership_unverified" || errorKey === "kill_error_failed") {
+        if (getState(key).phase === "stopping") setKeyState(key, s);
         toast(tProcesses(errorKey, { pid: s.pid }));
         return;
       }
+      if (errorKey === "kill_error_forbidden") toast(tProcesses(errorKey, { pid: s.pid }));
     }
     setKeyState(key, { phase: "idle" });
   }

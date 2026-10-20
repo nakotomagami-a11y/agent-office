@@ -70,8 +70,9 @@ export function parseSs(out: string): Listener[] {
   return found;
 }
 
-export async function listeners(): Promise<Listener[]> {
-  return parseSs((await commandOutput("ss", ["-tlnp"])) ?? "");
+export async function listeners(): Promise<Listener[] | null> {
+  const out = await commandOutput("ss", ["-tlnp"]);
+  return out === null ? null : parseSs(out);
 }
 
 export async function details(pids: number[]): Promise<Map<number, ProcDetails>> {

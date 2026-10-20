@@ -107,8 +107,9 @@ export function parseDetails(raw: string): Map<number, ProcDetails> | null {
 
 const system32 = (...parts: string[]): string => join(process.env.SystemRoot ?? "C:\\Windows", "System32", ...parts);
 
-export async function listeners(): Promise<Listener[]> {
-  return parseNetstat((await commandOutput(system32("NETSTAT.EXE"), ["-ano"])) ?? "");
+export async function listeners(): Promise<Listener[] | null> {
+  const out = await commandOutput(system32("NETSTAT.EXE"), ["-ano"]);
+  return out === null ? null : parseNetstat(out);
 }
 
 // A cold PowerShell start under an antivirus scan can take seconds (see terminal.ts).

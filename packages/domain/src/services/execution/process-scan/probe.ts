@@ -8,8 +8,8 @@ export type Listener = { pid: number; port: number; address: string; name: strin
 export type ProcDetails = { name: string; cmd: string; cwd: string; startedAt: number; memMb: number };
 
 export interface ProcessScanner {
-  /** Listening TCP sockets. May include other users' pids; `details` drops those. */
-  listeners(): Promise<Listener[]>;
+  /** Listening TCP sockets, null when the probe couldn't run. May include other users' pids; `details` drops those. */
+  listeners(): Promise<Listener[] | null>;
   /** One entry per pid that is still alive and belongs to the current user;
    *  null when the check itself failed, which must not read as "not ours". */
   details(pids: number[]): Promise<Map<number, ProcDetails> | null>;

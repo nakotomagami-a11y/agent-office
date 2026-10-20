@@ -188,24 +188,20 @@ export function listProcesses(): Promise<ProcessInfo[]> {
   return entry.result;
 }
 
-async function scanDetails(pids: number[]): Promise<Map<number, ProcDetails>> {
-  const info = await scanner!.details(pids).catch(() => null);
-  if (info) return info;
-  // Without this, a blocked or timed-out probe just looks like "no servers running".
-  if (Date.now() - lastWarnAt > WARN_EVERY_MS) {
-    lastWarnAt = Date.now();
-    log.warn("processes.details_failed", { platform: process.platform, pids: pids.length });
-  }
-  return new Map();
+// Without this, a blocked or timed-out probe just looks like "no servers running".
+function warnProbeFailed(probe: "listeners" | "details"): void {
+  if (Date.now() - lastWarnAt <= WARN_EVERY_MS) return;
+  lastWarnAt = Date.now();
+  log.warn(`processes.${probe}_failed`, { platform: process.platform });
 }
 
 async function scanProcesses(): Promise<ProcessInfo[]> {
   if (!scanner) return [];
   const projectList = buildSortedProjectList();
-  const listening = await scanner.listeners().catch(() => []);
+  const listening = (await scanner.listeners().catch(() => null)) ?? (warnProbeFailed("listeners"), []);
   const shells = liveBackgroundShells();
   const pids = [...new Set([...listening.map((l) => l.pid), ...shells.map((r) => r.pid)])];
-  const info = await scanDetails(pids);
+  const info = (await scanner.details(pids).catch(() => null)) ?? (warnProbeFailed("details"), new Map<number, ProcDetails>());
 
   const byPid = new Map<number, ProcessInfo>();
   for (const l of listening) {

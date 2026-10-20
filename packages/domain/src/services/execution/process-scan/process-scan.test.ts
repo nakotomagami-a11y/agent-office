@@ -14,7 +14,7 @@ test("live: the scanner finds this process's own listening socket and its cwd", 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
     const { port } = server.address() as AddressInfo;
-    const found = (await scanner!.listeners()).find((l) => l.pid === process.pid && l.port === port);
+    const found = (await scanner!.listeners())?.find((l) => l.pid === process.pid && l.port === port);
     assert.ok(found, "listeners() did not report our socket: is ss / netstat / lsof missing or timing out?");
     assert.strictEqual(found.address, "127.0.0.1");
     const mine = (await scanner!.details([process.pid]))?.get(process.pid);

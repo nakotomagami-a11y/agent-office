@@ -56,10 +56,11 @@ export function parsePs(out: string, uid: number | null, cwds: Map<number, strin
 // `ps -o uid` and `lsof -u` both mean the effective uid.
 const currentUid = (): number | null => (typeof process.geteuid === "function" ? process.geteuid() : null);
 
-export async function listeners(): Promise<Listener[]> {
+export async function listeners(): Promise<Listener[] | null> {
   const uid = currentUid();
   const byUid = uid === null ? [] : ["-u", String(uid)];
-  return parseLsofListeners((await commandOutput("lsof", ["+c", "0", "-nP", "-a", "-iTCP", "-sTCP:LISTEN", ...byUid, "-Fpcn"])) ?? "");
+  const out = await commandOutput("lsof", ["+c", "0", "-nP", "-a", "-iTCP", "-sTCP:LISTEN", ...byUid, "-Fpcn"]);
+  return out === null ? null : parseLsofListeners(out);
 }
 
 export async function details(pids: number[]): Promise<Map<number, ProcDetails> | null> {
