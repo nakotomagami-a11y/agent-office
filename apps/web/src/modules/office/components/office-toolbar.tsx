@@ -261,9 +261,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
     } catch (e) {
       const errorKey = killErrorKey(e);
       // Maybe still our server: showing it idle invites a second one onto the busy port.
-      // A 403 means the pid is no longer ours (reused), so that one goes idle.
+      // A 403 means the pid isn't ours to kill (reused, or another user's), so that one goes idle.
       if (errorKey === "kill_error_ownership_unverified" || errorKey === "kill_error_failed") {
-        if (getState(key).phase === "stopping") setKeyState(key, s);
+        setKeyState(key, s);
         toast(tProcesses(errorKey, { pid: s.pid }));
         return;
       }
