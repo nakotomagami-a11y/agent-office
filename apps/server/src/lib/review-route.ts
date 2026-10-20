@@ -3,24 +3,15 @@ import { projects, type review } from "@agent-office/domain/services";
 import type { Project } from "@agent-office/domain/types";
 import { MAX_REVIEW_BODY_BYTES, REVIEW_ERROR_REMEDIATION } from "@agent-office/domain/config/review";
 import { parseJson, prNumberSchema } from "@agent-office/api-contract";
-import { badRequest, notFound, readBoundedText, validateIdParam } from "./api-helpers";
+import { badRequest, notFound, readBoundedText, refuseCrossSite, validateIdParam } from "./api-helpers";
 
 export type ProjectParams = { params: Promise<{ id: string }> };
 export type PullParams = { params: Promise<{ id: string; number: string }> };
 
 type Found<T> = ({ error: null } & T) | { error: Response };
 
-/** Every review call runs gh. A browser marks a request another site made (an `<img>`
- *  pointing here); refuse those even for GET. Non-browser clients send no such header. */
-function crossSite(request: Request): Response | null {
-  const site = request.headers.get("sec-fetch-site");
-  return site && site !== "same-origin" && site !== "none"
-    ? Response.json({ error: "forbidden" }, { status: 403 })
-    : null;
-}
-
 export async function reviewProject(request: Request, { params }: ProjectParams): Promise<Found<{ project: Project }>> {
-  const denied = crossSite(request);
+  const denied = refuseCrossSite(request);
   if (denied) return { error: denied };
   const id = validateIdParam((await params).id);
   if (id.error) return { error: id.error };

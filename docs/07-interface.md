@@ -8,7 +8,7 @@ This page is long. Here's the lay of the land — every section below, grouped:
 
 - **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface)
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
-- **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Workflows](#/interface)
+- **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
 - **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface) · [Activity](#/interface)
 - **Modals & panels** — [Compare runs](#/interface) · [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Flutter](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
@@ -156,13 +156,12 @@ Start typing `/` in the composer to open a scoped command menu:
 - `/prompt` — view the composed system prompt
 - `/history` — show recent runs
 
-### Workflows
+### Missions
 
-Workflows (formerly "saved prompts") are a curated library of reusable, multi-step prompts, organised by category.
+For work across devices or days: several agents, on several machines, coordinating through a GitHub draft PR (`docs/missions.md`).
 
-- **Open** — the **Workflows** button in the composer toolbar (`Ctrl+P`) opens the picker; choosing one pastes its body into the composer and records a use via `POST /api/workflows/:id/use`.
-- **Save** — right-click a message → *Save as workflow* creates one from existing text.
-- **Add / delete** — the picker dialog has an inline add form; workflows are stored in the `saved_prompts` table and served from `/api/workflows`.
+- **Start / Join** — the **Missions** button in the composer toolbar (`Ctrl+P`, inside a project chat). *Start* opens the hub with a coordinator seat on this device; *Join* lists the project's open missions, and *Claim* takes a seat on this device. The lead accepts every claim.
+- **The pill** — a mission chat shows a pill in its header: seats and their devices, claims and questions waiting on you, this device's spend per seat (*Allow +$5*), *Leave*, and for the lead *Pause / Resume / Close*. It turns red if routing stopped because the hub's history changed.
 
 ## Compare runs modal
 

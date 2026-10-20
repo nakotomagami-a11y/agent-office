@@ -6,7 +6,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { extractImages, pathToUrl } from "./message-format";
+import { extractImages, inlineMd, pathToUrl } from "./message-format";
 
 const DIR = "/home/u/Documents/Generated Images/2026-10-08";
 const IMG = `${DIR}/09-23-25_fox-logo_7.png`;
@@ -55,4 +55,18 @@ test("a long punctuation run inside a generated-image path stays fast", () => {
   const start = performance.now();
   extractImages(`/Generated Images/2026-01-01/${".".repeat(100_000)}x`);
   assert.ok(performance.now() - start < 500);
+});
+
+test("a markdown link cannot break out of its href into an event handler", () => {
+  const payload = `[log](#"onmouseover="alert(1)"style="position:fixed"x=")`;
+  const html = inlineMd(payload);
+  assert.ok(!/<a[^>]*\sonmouseover=/i.test(html), html);
+  assert.ok(!html.includes('"onmouseover="'), html);
+});
+
+test("only safe link schemes become links", () => {
+  assert.ok(!inlineMd("[x](javascript:alert%281%29)").includes("<a"));
+  assert.ok(!inlineMd("[x](data:text/html,hi)").includes("<a"));
+  assert.match(inlineMd("[docs](https://example.com/a)"), /<a href="https:\/\/example\.com\/a"/);
+  assert.match(inlineMd("[here](#top)"), /<a href="#top"/);
 });

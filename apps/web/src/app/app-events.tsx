@@ -28,6 +28,9 @@ const HANDLERS: Record<string, (qc: QueryClient) => void> = {
   "loops:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: queryKeys.loops.all });
   },
+  "missions:changed": (qc) => {
+    void qc.invalidateQueries({ queryKey: queryKeys.missions.all });
+  },
   "schedules:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: ["schedules"] });
   },

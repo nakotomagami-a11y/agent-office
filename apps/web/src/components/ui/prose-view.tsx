@@ -3,14 +3,13 @@
 import React from "react";
 import { CodeBlock } from "./code-block";
 import { TableBlock } from "./table-block";
-import { splitProse, escapeHtml, type ProseItem } from "@/lib/markdown";
+import { splitProse, escapeHtml, linkMd, type ProseItem } from "@/lib/markdown";
 
 function inlineMd(s: string): string {
-  return escapeHtml(s)
+  return linkMd(escapeHtml(s)
     .replace(/`([^`]+)`/g, '<code class="px-[4px] py-[1px] rounded-[4px] bg-[var(--md-inline-bg)] text-[var(--code-inline-fg)] font-mono text-[0.9em]">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a class="text-acc underline underline-offset-2 hover:opacity-80" href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>"), "text-acc underline underline-offset-2 hover:opacity-80");
 }
 
 function Prose({ items }: { items: ProseItem[] }) {

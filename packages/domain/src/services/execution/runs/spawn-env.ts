@@ -23,7 +23,7 @@ import * as secrets from "../../accounts/secrets";
  * otherwise win), then `!gh auth git-credential`, which reads GH_CONFIG_DIR at
  * runtime. `gh` is resolved via the augmented PATH already set on `env`.
  */
-function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
+export function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
   const base = Number.parseInt(env.GIT_CONFIG_COUNT ?? "", 10);
   const start = Number.isNaN(base) || base < 0 ? 0 : base;
   env[`GIT_CONFIG_KEY_${start}`] = "credential.https://github.com.helper";
@@ -49,7 +49,7 @@ export function isReservedEnvName(name: string): boolean {
  * Exported for unit testing (env plumbing is the entire multi-account
  * spawn contract). `startRun` is the sole production caller.
  */
-export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined } {
+export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined; secretValues: string[] } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.
   const project = opts.projectId ? readProject(opts.projectId) : undefined;
@@ -94,6 +94,7 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
   // Per-project secrets: inject each linked secret as its named env var. Free-
   // form — `env[name] = value` verbatim (see secrets.ts). Only sourced from the
   // project; a run with no projectId gets none.
+  const secretValues: string[] = [];
   if (opts.projectId) {
     for (const secret of secrets.listRawForProject(opts.projectId)) {
       if (isReservedEnvName(secret.name)) {
@@ -101,8 +102,9 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
         continue;
       }
       env[secret.name] = secret.value;
+      if (secret.value) secretValues.push(secret.value);
     }
   }
 
-  return { env, accountId: resolvedId };
+  return { env, accountId: resolvedId, secretValues };
 }

@@ -10,6 +10,7 @@ import type {
   SseChunkEvent,
   SseDoneEvent,
   SseErrorEvent,
+  RunErrorCode,
   SseRateLimitEvent,
   SseSubAgentEvent,
   SseSubAgentUpdateEvent,
@@ -83,6 +84,8 @@ export interface LiveRun {
   /** Set when the user explicitly aborts the run, so the resulting error is
    *  surfaced as a neutral "interrupted" card rather than a red failure. */
   aborted?: boolean;
+  /** First error event broadcast for this run — replayed on attach and persisted for history. */
+  error?: { code: RunErrorCode; detail?: string; interrupted?: boolean };
   sessionId?: string;
   proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
   subscribers: Set<SseEmit>;
@@ -93,6 +96,8 @@ export interface LiveRun {
   rateLimitResetsAt?: number;
   args: string[];
   stderrBuf: string;
+  /** Linked secret values injected into env — scrubbed from error details and logs. */
+  secretValues: string[];
   lastActivityAt: number;
   /** Ordered log of chunk/tool/usage events for full replay to late subscribers. */
   eventLog: ReplayableEvent[];
@@ -170,4 +175,5 @@ export interface StreamEvent {
   rate_limit_info?: { status?: string; resetsAt?: number; rateLimitType?: string };
   /** The tool's structured Output, on a `user` event carrying one tool_result. */
   tool_use_result?: unknown;
+  parent_tool_use_id?: string | null;
 }

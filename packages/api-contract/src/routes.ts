@@ -125,11 +125,6 @@ export const API_ROUTES = {
   settingsScan: "/api/settings/scan",
   userAnalysis: "/api/user-analysis",
 
-  workflows: "/api/workflows",
-  workflowById: (id: string) => `/api/workflows/${encodeURIComponent(id)}`,
-  workflowUse: (id: string) => `/api/workflows/${encodeURIComponent(id)}/use`,
-  workflowsBulk: "/api/workflows/bulk",
-
   agentDocs: "/api/agent-docs",
   agentDoc: (owner: string, slug: string) =>
     `/api/agent-docs/${encodeURIComponent(owner)}/${encodeURIComponent(slug)}`,
@@ -152,6 +147,18 @@ export const API_ROUTES = {
   projectSecrets: (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/secrets`,
   projectSecretById: (projectId: string, secretId: string) =>
     `/api/projects/${encodeURIComponent(projectId)}/secrets/${encodeURIComponent(secretId)}`,
+
+  // Missions: agents on several devices coordinating through a GitHub draft PR (docs/missions.md).
+  missions: "/api/missions",
+  missionSeat: "/api/missions/seat",
+  missionClaim: "/api/missions/claim",
+  mission: (missionId: string) => `/api/missions/${encodeURIComponent(missionId)}`,
+  missionClaimDecision: (missionId: string, claimId: number) =>
+    `/api/missions/${encodeURIComponent(missionId)}/claims/${claimId}`,
+  missionAsk: (missionId: string, askId: number) => `/api/missions/${encodeURIComponent(missionId)}/asks/${askId}`,
+  missionAct: (missionId: string) => `/api/missions/${encodeURIComponent(missionId)}/act`,
+  missionLeave: (missionId: string) => `/api/missions/${encodeURIComponent(missionId)}/leave`,
+  missionCap: (missionId: string) => `/api/missions/${encodeURIComponent(missionId)}/cap`,
 
   // Pull-request review (the Review Lectern).
   projectReviews: (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/reviews`,

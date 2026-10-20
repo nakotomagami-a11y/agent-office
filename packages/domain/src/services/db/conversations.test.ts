@@ -9,7 +9,7 @@ import assert from "node:assert";
 import Database from "better-sqlite3";
 import { createSchema, backfillConversations } from "./migrations";
 import * as convo from "./conversations";
-import { insertRun } from "./runs";
+import { insertRun, markRunAborted, updateRun } from "./runs";
 
 const mem = new Database(":memory:");
 mem.pragma("foreign_keys = ON");
@@ -173,6 +173,26 @@ check("rows written before the origin column default to the user", () => {
     "INSERT INTO queued_messages (id, conversation_id, text, attachments, position, created_at) VALUES (?, ?, ?, NULL, 0, 0)",
   ).run("legacy1", c.id, "typed by hand");
   assert.equal(convo.listQueue(c.id)[0]?.origin, "user");
+});
+
+check("a failed turn keeps its error code + detail through the conversation read path", () => {
+  const c = convo.createConversation("dev", "err", null, null);
+  insertRun({ id: "errrun", agentId: "dev", agentName: "Dev", instanceId: "err", status: "running", prompt: "p", model: "", effort: "", startedAt: 1, conversationId: c.id });
+  updateRun("errrun", {
+    status: "error", exitCode: 1, output: "", tokensIn: 0, tokensOut: 0, costUsd: 0, durMs: 5, endedAt: 6,
+    errorCode: "unknown", errorDetail: "Claude CLI exited with code 1: boom",
+  });
+  const turn = convo.listConversationTurns(c.id)[0];
+  assert.equal(turn?.errorCode, "unknown");
+  assert.equal(turn?.errorDetail, "Claude CLI exited with code 1: boom");
+  assert.equal(convo.latestConversationTurn(c.id)?.errorDetail, "Claude CLI exited with code 1: boom");
+});
+
+check("a stopped run records why, even when the CLI never reported", () => {
+  const c = convo.createConversation("dev", "stop", null, null);
+  insertRun({ id: "stoprun", agentId: "dev", agentName: "Dev", instanceId: "stop", status: "running", prompt: "p", model: "", effort: "", startedAt: 1, conversationId: c.id });
+  markRunAborted("stoprun", "stopped");
+  assert.equal(convo.latestConversationTurn(c.id)?.errorCode, "stopped");
 });
 
 console.log(`\n${passed} passed`);

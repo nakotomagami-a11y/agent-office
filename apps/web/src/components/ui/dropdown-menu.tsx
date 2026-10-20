@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Portal } from "@/components/ui/portal";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
+
+/** Focus is in an open menu, or on the trigger of one: the menu owns Escape, Enter and Tab there. */
+export const OPEN_MENU_SELECTOR = "[role=menu], [aria-haspopup=menu][aria-expanded=true]";
 
 export type DropdownItem = {
   key: string;
@@ -41,9 +44,11 @@ export type DropdownMenuProps = {
    * much narrower than a usable menu.
    */
   matchTriggerWidth?: boolean;
+  /** The trigger button's accessible name, when its visible text alone doesn't say what it picks. */
+  triggerAriaLabel?: string;
 };
 
-export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className, matchTriggerWidth }: DropdownMenuProps) {
+export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className, matchTriggerWidth, triggerAriaLabel }: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [style, setStyle] = useState<CSSProperties>({});
@@ -97,22 +102,76 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
     };
   }, [open]);
 
+  // Menu-button pattern: opening moves focus to the chosen item (else the first enabled one), and
+  // the arrow keys carry focus along, so keys reach the menu even though it is portalled away from its trigger.
+  const firstIndex = () => {
+    const chosen = items.findIndex((it) => it.selected && !it.disabled);
+    return chosen >= 0 ? chosen : Math.max(0, items.findIndex((it) => !it.disabled));
+  };
+  const openIndex = useRef(0);
+  const openMenu = () => {
+    openIndex.current = firstIndex();
+    setActiveIndex(openIndex.current);
+    setOpen(true);
+  };
+  // Focus without the browser's centre-scroll: in a list taller than the menu that scroll slides a new
+  // row under a still pointer, whose mouseenter moves focus again, and the list runs away. A keyboard
+  // move scrolls just enough to show the row; a pointer move never scrolls.
+  const focusItem = (i: number, fromPointer = false) => {
+    setActiveIndex(i);
+    const el = menuRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]")[i];
+    el?.focus({ preventScroll: true });
+    if (!fromPointer) el?.scrollIntoView({ block: "nearest" });
+  };
+  // A callback ref, not an effect: Portal mounts the menu a render after `open` flips.
+  const attachMenu = useCallback((el: HTMLDivElement | null) => {
+    menuRef.current = el;
+    const item = el?.querySelectorAll<HTMLElement>("[role=menuitem]")[openIndex.current];
+    item?.focus({ preventScroll: true });
+    item?.scrollIntoView({ block: "nearest" });
+  }, []);
+  const step = (from: number, dir: 1 | -1) => {
+    for (let n = 1; n <= items.length; n++) {
+      const i = (from + dir * n + items.length) % items.length;
+      if (!items[i]?.disabled) return i;
+    }
+    return from;
+  };
+
+  const closeToTrigger = (e: React.KeyboardEvent) => {
+    // React's root listener sits on `document` (Next App Router) and is registered first, so
+    // stopImmediatePropagation keeps this key from later document/window bubble listeners (the agent
+    // inspector closes on Escape there). Capture-phase listeners still run before it.
+    e.preventDefault();
+    e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const onTriggerKey = (e: React.KeyboardEvent) => {
+    if (open && e.key === "Escape") closeToTrigger(e);
+    else if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); openMenu(); }
+  };
+
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      setOpen(false);
-      triggerRef.current?.focus();
-    } else if (e.key === "ArrowDown") {
+    if (e.key === "Escape" || e.key === "Tab") {
+      closeToTrigger(e);
+      return;
+    }
+    // Keys the menu handles stop here: the office camera pans on window-level arrow keys.
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => (i + 1) % items.length);
-    } else if (e.key === "ArrowUp") {
+      e.stopPropagation();
+      focusItem(step(activeIndex, e.key === "ArrowDown" ? 1 : -1));
+    } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      setActiveIndex((i) => (i - 1 + items.length) % items.length);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
+      e.stopPropagation();
       const item = items[activeIndex];
       if (item && !item.disabled) {
         item.onSelect();
         setOpen(false);
+        triggerRef.current?.focus();
       }
     }
   };
@@ -125,7 +184,9 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((v) => !v)}
+        aria-label={triggerAriaLabel}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onTriggerKey}
         className={cn(
           "h-[24px] px-[10px] inline-flex items-center gap-[6px] bg-transparent border border-transparent rounded-sm text-txt-2 font-[inherit] text-[12.5px] cursor-pointer hover:bg-bg-2 hover:border-line",
           triggerClassName,
@@ -136,7 +197,7 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
       {open ? (
         <Portal>
           <div
-            ref={menuRef}
+            ref={attachMenu}
             id={id}
             role="menu"
             aria-label={ariaLabel}
@@ -152,14 +213,15 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
                   key={item.key}
                   type="button"
                   role="menuitem"
+                  tabIndex={i === activeIndex ? 0 : -1}
                   disabled={item.disabled}
                   onClick={() => {
                     item.onSelect();
                     setOpen(false);
                   }}
-                  onMouseEnter={() => setActiveIndex(i)}
+                  onPointerMove={() => { if (i !== activeIndex && !item.disabled) focusItem(i, true); }}
                   className={cn(
-                  "flex items-center gap-[10px] h-[34px] px-[10px] rounded-sm text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full",
+                  "flex items-center gap-[10px] h-[34px] px-[10px] rounded-sm text-[13px] text-txt-2 cursor-pointer border-none bg-transparent font-[inherit] text-left no-underline w-full outline-none",
                   item.destructive && "text-status-error",
                   // `--txt` reads correctly on the accent fill in both themes;
                   // `[&_*]` forces nested label spans/icons to inherit it too.

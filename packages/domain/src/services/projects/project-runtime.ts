@@ -2,7 +2,7 @@
 // assembler can reach it (RULE arch.domain-no-app-imports).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import type { DetectedCommand } from "../../types/index";
 
 /** Subfolders the project bootstrapper emits / common monorepo layouts. Only
@@ -262,7 +262,7 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
 
   for (const { dir, label } of flutterCandidates) {
     if (!existsSync(join(dir, "pubspec.yaml"))) continue;
-    const key = dir === cwd ? "flutter" : `flutter-${dir.split("/").pop()}`;
+    const key = dir === cwd ? "flutter" : `flutter-${relative(cwd, dir).replace(/[\\/]/g, "-")}`;
     const isMobileApp = existsSync(join(dir, "android")) || existsSync(join(dir, "ios"));
     commands.push({
       key,
@@ -283,10 +283,10 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
   const subDirs = new Set<string>([...SUBFOLDERS.map((sub) => join(cwd, sub)), ...workspaceDirs]);
   for (const subDir of subDirs) {
     if (subDir === cwd || !existsSync(join(subDir, "package.json"))) continue;
-    const rel = relative(cwd, subDir).split("/").pop()!;
+    const rel = basename(subDir);
     const label = rel.charAt(0).toUpperCase() + rel.slice(1);
     commands.push(...collectPkgCommands(subDir, {
-      keyPrefix: relative(cwd, subDir).replace(/\//g, "-"),
+      keyPrefix: relative(cwd, subDir).replace(/[\\/]/g, "-"),
       namePrefix: label,
       ...(workspaceDirs.has(subDir) ? { pmOverride: rootPm } : {}),
     }));

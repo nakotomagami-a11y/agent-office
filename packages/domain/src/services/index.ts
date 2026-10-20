@@ -21,6 +21,7 @@ export * as loopProductionRunner from "./execution/loop-production-runner";
 // process loads; this barrel is it (every API route imports from it).
 import "./execution/conversation-wiring";
 import "./execution/loop-wiring";
+import "./missions/wiring";
 export * as scheduler from "./execution/scheduler";
 export * as backgroundShellWatcher from "./execution/background-shell-watcher";
 export * as templates from "./projects/templates";
@@ -31,6 +32,7 @@ export * as save from "./projects/save";
 export * as processes from "./execution/processes";
 export * as gitStatus from "./projects/git-status";
 export * as review from "./review";
+export * as missions from "./missions";
 export * as paths from "./infra/paths";
 export * as generatedImages from "./infra/generated-images";
 export * as events from "./infra/events";

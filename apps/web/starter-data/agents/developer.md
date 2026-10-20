@@ -3,7 +3,7 @@ name: developer
 description: "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors."
 default-model: opus
 default-effort: high
-skills: [alz-grill-me, alz-database-schema-designer, sp-verification-before-completion, pt-ponytail]
+skills: [i-have-adhd, alz-grill-me, alz-database-schema-designer, sp-verification-before-completion, pt-ponytail]
 tools: [Read, Write, Edit, Bash, Task, WebFetch, SendMessage, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
@@ -103,6 +103,7 @@ If the project has no `NEXT_SESSION.md` yet, create one —.
 
 ## Skills loaded
 
+- `i-have-adhd` — always on: shape every reply for a reader with ADHD. Next action first, numbered steps, state restated each turn, no preamble or closers. Off on "stop adhd mode" or "normal mode".
 - `alz-grill-me` — before starting a fuzzy task, interrogate the ask decision-tree style, one question at a time with a recommended answer per question. Explore the codebase instead of asking when possible. Anti-guessing skill.
 - `sp-verification-before-completion` — never claim "done" without evidence. Run the commands, cite the output. `getComputedStyle`, `tsc --noEmit`, running tests — evidence beats assertion.
 - `pt-ponytail` — the laziest solution that actually works. Question whether the code needs to exist. Reach for stdlib / native platform / existing deps before writing custom code. One line before fifty.

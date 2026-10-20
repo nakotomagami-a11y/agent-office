@@ -6,7 +6,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { noteToolCall, startTextBlock, textBlockSeparator, type SavedOutput } from "./text-blocks";
+import { isOwnText, noteToolCall, startTextBlock, textBlockSeparator, type SavedOutput } from "./text-blocks";
 
 function run(): SavedOutput {
   return { output: "", toolSinceText: false };
@@ -46,4 +46,11 @@ test("no extra blank lines after text that already ends a paragraph", () => {
   assert.equal(textBlockSeparator(""), "");
   assert.equal(textBlockSeparator("done.\n\n"), "");
   assert.equal(textBlockSeparator("a list\n- item\n"), "\n");
+});
+
+test("only the agent's own text counts as its reply, never a sub-agent's", () => {
+  assert.strictEqual(isOwnText({}), true);
+  assert.strictEqual(isOwnText({ parent_tool_use_id: null }), true);
+  assert.strictEqual(isOwnText({ parent_tool_use_id: "" }), true);
+  assert.strictEqual(isOwnText({ parent_tool_use_id: "toolu_01abc" }), false);
 });

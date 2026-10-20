@@ -70,7 +70,7 @@ function reapOrphanedRuns(db: Database.Database): void {
   const orphans = running.filter((r) => !isPidAlive(r.owner_pid)).map((r) => r.id);
   if (orphans.length > 0) {
     const mark = db.prepare(
-      "UPDATE runs SET status='error', exit_code=-1, ended_at=@now, dur_ms=MAX(0, @now-started_at) WHERE id=@id AND status='running'"
+      "UPDATE runs SET status='error', exit_code=-1, error_code='server_restart', ended_at=@now, dur_ms=MAX(0, @now-started_at) WHERE id=@id AND status='running'"
     );
     db.transaction(() => { for (const id of orphans) mark.run({ now, id }); })();
   }

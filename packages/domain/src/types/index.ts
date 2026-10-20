@@ -25,6 +25,8 @@ export interface InstalledSkill {
   name: string;
   description: string;
   body: string;
+  /** Frontmatter `always-inline: true`: injected in full even past the inline size threshold. */
+  alwaysInline?: boolean;
   provenance?: SkillProvenance;
 }
 
@@ -106,6 +108,9 @@ export interface PersistedRun {
   currentTool?: string;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /** Why a failed run failed — the last error event it broadcast. */
+  errorCode?: RunErrorCode;
+  errorDetail?: string;
   /** Set from the run's own tool_calls when it started a `run_in_background`
    *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
   backgroundTaskCommand?: string;
@@ -399,16 +404,6 @@ export interface HealthInfo {
   error?: string;
 }
 
-/** A saved multi-step prompt in the workflow library (DB table: saved_prompts). */
-export interface Workflow {
-  id: string;
-  title: string;
-  body: string;
-  /** Category slug; "starter" for built-ins. */
-  category: string;
-  createdAt: number;
-  useCount: number;
-}
 
 export interface SummonRequest {
   agentId: string;
@@ -806,3 +801,4 @@ export interface UserAnalysis {
 }
 export * from "./thread";
 export * from "./review";
+export * from "./missions";

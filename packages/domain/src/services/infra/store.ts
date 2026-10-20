@@ -1,4 +1,4 @@
-import type { PersistedRun, Workflow } from "../../types/index";
+import type { PersistedRun, RunErrorCode } from "../../types/index";
 import * as db from "../db";
 
 export function getRuns(opts: { agentId?: string; projectId?: string; instanceId?: string; limit?: number } = {}): PersistedRun[] {
@@ -9,8 +9,8 @@ export function getRun(id: string): PersistedRun | null {
   return db.getRun(id);
 }
 
-export function markRunAborted(id: string): void {
-  db.markRunAborted(id);
+export function markRunAborted(id: string, code: RunErrorCode): void {
+  db.markRunAborted(id, code);
 }
 
 /**
@@ -36,6 +36,8 @@ export function pushRun(run: PersistedRun): void {
     durMs: run.durMs,
     sessionId: run.sessionId,
     endedAt: run.ts + run.durMs,
+    errorCode: run.errorCode,
+    errorDetail: run.errorDetail,
   });
 }
 
@@ -63,30 +65,3 @@ export function getAllRecentPrompts(): Record<string, string[]> {
   return db.getAllRecentPrompts();
 }
 
-// ─── Workflows ─────────────────────────────────────────────────────────────
-
-export function getWorkflows(opts?: { category?: string; q?: string }): Workflow[] {
-  return db.getWorkflows(opts);
-}
-
-export function getWorkflow(id: string): Workflow | null {
-  return db.getWorkflow(id);
-}
-
-export function createWorkflow(data: { title: string; body: string; category?: string }): Workflow {
-  return db.createWorkflow(data);
-}
-
-export function deleteWorkflow(id: string): void {
-  db.deleteWorkflow(id);
-}
-
-export function recordWorkflowUsage(id: string): void {
-  db.recordWorkflowUsage(id);
-}
-
-export function bulkInsertWorkflows(
-  workflows: Array<{ title: string; body: string; category: string }>
-): number {
-  return db.bulkInsertWorkflows(workflows);
-}

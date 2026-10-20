@@ -57,78 +57,83 @@ import * as r53 from "./routes/health/route";
 import * as r54 from "./routes/loops/[id]/route";
 import * as r55 from "./routes/loops/route";
 import * as r56 from "./routes/memory/global/route";
-import * as r57 from "./routes/power/route";
-import * as r58 from "./routes/processes/[pid]/logs/route";
-import * as r59 from "./routes/processes/[pid]/route";
-import * as r60 from "./routes/processes/[pid]/stdin/route";
-import * as r61 from "./routes/processes/route";
-import * as r62 from "./routes/projects/[id]/build/route";
-import * as r63 from "./routes/projects/[id]/clear-cache/route";
-import * as r64 from "./routes/projects/[id]/dev/route";
-import * as r65 from "./routes/projects/[id]/folder/route";
-import * as r66 from "./routes/projects/[id]/git-status/route";
-import * as r67 from "./routes/projects/[id]/install/route";
-import * as r68 from "./routes/projects/[id]/memory/route";
-import * as r69 from "./routes/projects/[id]/open-folder/route";
-import * as r70 from "./routes/projects/[id]/reviews/[number]/link/route";
-import * as r71 from "./routes/projects/[id]/reviews/[number]/merge/route";
-import * as r72 from "./routes/projects/[id]/reviews/[number]/reject/route";
-import * as r73 from "./routes/projects/[id]/reviews/[number]/review/route";
-import * as r74 from "./routes/projects/[id]/reviews/[number]/route";
-import * as r75 from "./routes/projects/[id]/reviews/route";
-import * as r76 from "./routes/projects/[id]/roster/[instanceId]/repair-worktree/route";
-import * as r77 from "./routes/projects/[id]/roster/[instanceId]/route";
-import * as r78 from "./routes/projects/[id]/roster/route";
-import * as r79 from "./routes/projects/[id]/route";
-import * as r80 from "./routes/projects/[id]/secrets/[secretId]/route";
-import * as r81 from "./routes/projects/[id]/secrets/route";
-import * as r82 from "./routes/projects/[id]/spend/route";
-import * as r83 from "./routes/projects/[id]/uploads/[filename]/route";
-import * as r84 from "./routes/projects/[id]/uploads/route";
-import * as r85 from "./routes/projects/bootstrap/route";
-import * as r86 from "./routes/projects/route";
-import * as r87 from "./routes/prompts/route";
-import * as r88 from "./routes/runs/[id]/abort/route";
-import * as r89 from "./routes/runs/[id]/children/route";
-import * as r90 from "./routes/runs/[id]/permission/route";
-import * as r91 from "./routes/runs/[id]/route";
-import * as r92 from "./routes/runs/[id]/stream/route";
-import * as r93 from "./routes/runs/[id]/tree/route";
-import * as r94 from "./routes/runs/abort-all/route";
-import * as r95 from "./routes/runs/route";
-import * as r96 from "./routes/save/export/route";
-import * as r97 from "./routes/save/import/route";
-import * as r98 from "./routes/schedules/[id]/route";
-import * as r99 from "./routes/schedules/[id]/run/route";
-import * as r100 from "./routes/schedules/route";
-import * as r101 from "./routes/secrets/[id]/route";
-import * as r102 from "./routes/secrets/[id]/test/route";
-import * as r103 from "./routes/secrets/route";
-import * as r104 from "./routes/settings/route";
-import * as r105 from "./routes/settings/scan/route";
-import * as r106 from "./routes/skills/[name]/customization/route";
-import * as r107 from "./routes/skills/[name]/route";
-import * as r108 from "./routes/skills/[name]/update/route";
-import * as r109 from "./routes/skills/compatibility/route";
-import * as r110 from "./routes/skills/create/route";
-import * as r111 from "./routes/skills/icons/route";
-import * as r112 from "./routes/skills/import/route";
-import * as r113 from "./routes/skills/install/route";
-import * as r114 from "./routes/skills/installed/route";
-import * as r115 from "./routes/skills/manifest/route";
-import * as r116 from "./routes/skills/registry/route";
-import * as r117 from "./routes/skills/sources/route";
-import * as r118 from "./routes/skills/updates/route";
-import * as r119 from "./routes/starter/agent-diff/route";
-import * as r120 from "./routes/starter/agents/route";
-import * as r121 from "./routes/summon/route";
-import * as r122 from "./routes/templates/route";
-import * as r123 from "./routes/ui-settings/route";
-import * as r124 from "./routes/user-analysis/route";
-import * as r125 from "./routes/workflows/[id]/route";
-import * as r126 from "./routes/workflows/[id]/use/route";
-import * as r127 from "./routes/workflows/bulk/route";
-import * as r128 from "./routes/workflows/route";
+import * as r57 from "./routes/missions/[id]/act/route";
+import * as r58 from "./routes/missions/[id]/asks/[commentId]/route";
+import * as r59 from "./routes/missions/[id]/cap/route";
+import * as r60 from "./routes/missions/[id]/claims/[commentId]/route";
+import * as r61 from "./routes/missions/[id]/leave/route";
+import * as r62 from "./routes/missions/[id]/route";
+import * as r63 from "./routes/missions/claim/route";
+import * as r64 from "./routes/missions/route";
+import * as r65 from "./routes/missions/seat/route";
+import * as r66 from "./routes/power/route";
+import * as r67 from "./routes/processes/[pid]/logs/route";
+import * as r68 from "./routes/processes/[pid]/route";
+import * as r69 from "./routes/processes/[pid]/stdin/route";
+import * as r70 from "./routes/processes/route";
+import * as r71 from "./routes/projects/[id]/build/route";
+import * as r72 from "./routes/projects/[id]/clear-cache/route";
+import * as r73 from "./routes/projects/[id]/dev/route";
+import * as r74 from "./routes/projects/[id]/folder/route";
+import * as r75 from "./routes/projects/[id]/git-status/route";
+import * as r76 from "./routes/projects/[id]/install/route";
+import * as r77 from "./routes/projects/[id]/memory/route";
+import * as r78 from "./routes/projects/[id]/open-folder/route";
+import * as r79 from "./routes/projects/[id]/reviews/[number]/link/route";
+import * as r80 from "./routes/projects/[id]/reviews/[number]/merge/route";
+import * as r81 from "./routes/projects/[id]/reviews/[number]/reject/route";
+import * as r82 from "./routes/projects/[id]/reviews/[number]/review/route";
+import * as r83 from "./routes/projects/[id]/reviews/[number]/route";
+import * as r84 from "./routes/projects/[id]/reviews/route";
+import * as r85 from "./routes/projects/[id]/roster/[instanceId]/repair-worktree/route";
+import * as r86 from "./routes/projects/[id]/roster/[instanceId]/route";
+import * as r87 from "./routes/projects/[id]/roster/route";
+import * as r88 from "./routes/projects/[id]/route";
+import * as r89 from "./routes/projects/[id]/secrets/[secretId]/route";
+import * as r90 from "./routes/projects/[id]/secrets/route";
+import * as r91 from "./routes/projects/[id]/spend/route";
+import * as r92 from "./routes/projects/[id]/uploads/[filename]/route";
+import * as r93 from "./routes/projects/[id]/uploads/route";
+import * as r94 from "./routes/projects/bootstrap/route";
+import * as r95 from "./routes/projects/route";
+import * as r96 from "./routes/prompts/route";
+import * as r97 from "./routes/runs/[id]/abort/route";
+import * as r98 from "./routes/runs/[id]/children/route";
+import * as r99 from "./routes/runs/[id]/permission/route";
+import * as r100 from "./routes/runs/[id]/route";
+import * as r101 from "./routes/runs/[id]/stream/route";
+import * as r102 from "./routes/runs/[id]/tree/route";
+import * as r103 from "./routes/runs/abort-all/route";
+import * as r104 from "./routes/runs/route";
+import * as r105 from "./routes/save/export/route";
+import * as r106 from "./routes/save/import/route";
+import * as r107 from "./routes/schedules/[id]/route";
+import * as r108 from "./routes/schedules/[id]/run/route";
+import * as r109 from "./routes/schedules/route";
+import * as r110 from "./routes/secrets/[id]/route";
+import * as r111 from "./routes/secrets/[id]/test/route";
+import * as r112 from "./routes/secrets/route";
+import * as r113 from "./routes/settings/route";
+import * as r114 from "./routes/settings/scan/route";
+import * as r115 from "./routes/skills/[name]/customization/route";
+import * as r116 from "./routes/skills/[name]/route";
+import * as r117 from "./routes/skills/[name]/update/route";
+import * as r118 from "./routes/skills/compatibility/route";
+import * as r119 from "./routes/skills/create/route";
+import * as r120 from "./routes/skills/icons/route";
+import * as r121 from "./routes/skills/import/route";
+import * as r122 from "./routes/skills/install/route";
+import * as r123 from "./routes/skills/installed/route";
+import * as r124 from "./routes/skills/manifest/route";
+import * as r125 from "./routes/skills/registry/route";
+import * as r126 from "./routes/skills/sources/route";
+import * as r127 from "./routes/skills/updates/route";
+import * as r128 from "./routes/starter/agent-diff/route";
+import * as r129 from "./routes/starter/agents/route";
+import * as r130 from "./routes/summon/route";
+import * as r131 from "./routes/templates/route";
+import * as r132 from "./routes/ui-settings/route";
+import * as r133 from "./routes/user-analysis/route";
 
 export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/account", module: r0 },
@@ -188,76 +193,81 @@ export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/loops/[id]", module: r54 },
   { path: "/api/loops", module: r55 },
   { path: "/api/memory/global", module: r56 },
-  { path: "/api/power", module: r57 },
-  { path: "/api/processes/[pid]/logs", module: r58 },
-  { path: "/api/processes/[pid]", module: r59 },
-  { path: "/api/processes/[pid]/stdin", module: r60 },
-  { path: "/api/processes", module: r61 },
-  { path: "/api/projects/[id]/build", module: r62 },
-  { path: "/api/projects/[id]/clear-cache", module: r63 },
-  { path: "/api/projects/[id]/dev", module: r64 },
-  { path: "/api/projects/[id]/folder", module: r65 },
-  { path: "/api/projects/[id]/git-status", module: r66 },
-  { path: "/api/projects/[id]/install", module: r67 },
-  { path: "/api/projects/[id]/memory", module: r68 },
-  { path: "/api/projects/[id]/open-folder", module: r69 },
-  { path: "/api/projects/[id]/reviews/[number]/link", module: r70 },
-  { path: "/api/projects/[id]/reviews/[number]/merge", module: r71 },
-  { path: "/api/projects/[id]/reviews/[number]/reject", module: r72 },
-  { path: "/api/projects/[id]/reviews/[number]/review", module: r73 },
-  { path: "/api/projects/[id]/reviews/[number]", module: r74 },
-  { path: "/api/projects/[id]/reviews", module: r75 },
-  { path: "/api/projects/[id]/roster/[instanceId]/repair-worktree", module: r76 },
-  { path: "/api/projects/[id]/roster/[instanceId]", module: r77 },
-  { path: "/api/projects/[id]/roster", module: r78 },
-  { path: "/api/projects/[id]", module: r79 },
-  { path: "/api/projects/[id]/secrets/[secretId]", module: r80 },
-  { path: "/api/projects/[id]/secrets", module: r81 },
-  { path: "/api/projects/[id]/spend", module: r82 },
-  { path: "/api/projects/[id]/uploads/[filename]", module: r83 },
-  { path: "/api/projects/[id]/uploads", module: r84 },
-  { path: "/api/projects/bootstrap", module: r85 },
-  { path: "/api/projects", module: r86 },
-  { path: "/api/prompts", module: r87 },
-  { path: "/api/runs/[id]/abort", module: r88 },
-  { path: "/api/runs/[id]/children", module: r89 },
-  { path: "/api/runs/[id]/permission", module: r90 },
-  { path: "/api/runs/[id]", module: r91 },
-  { path: "/api/runs/[id]/stream", module: r92 },
-  { path: "/api/runs/[id]/tree", module: r93 },
-  { path: "/api/runs/abort-all", module: r94 },
-  { path: "/api/runs", module: r95 },
-  { path: "/api/save/export", module: r96 },
-  { path: "/api/save/import", module: r97 },
-  { path: "/api/schedules/[id]", module: r98 },
-  { path: "/api/schedules/[id]/run", module: r99 },
-  { path: "/api/schedules", module: r100 },
-  { path: "/api/secrets/[id]", module: r101 },
-  { path: "/api/secrets/[id]/test", module: r102 },
-  { path: "/api/secrets", module: r103 },
-  { path: "/api/settings", module: r104 },
-  { path: "/api/settings/scan", module: r105 },
-  { path: "/api/skills/[name]/customization", module: r106 },
-  { path: "/api/skills/[name]", module: r107 },
-  { path: "/api/skills/[name]/update", module: r108 },
-  { path: "/api/skills/compatibility", module: r109 },
-  { path: "/api/skills/create", module: r110 },
-  { path: "/api/skills/icons", module: r111 },
-  { path: "/api/skills/import", module: r112 },
-  { path: "/api/skills/install", module: r113 },
-  { path: "/api/skills/installed", module: r114 },
-  { path: "/api/skills/manifest", module: r115 },
-  { path: "/api/skills/registry", module: r116 },
-  { path: "/api/skills/sources", module: r117 },
-  { path: "/api/skills/updates", module: r118 },
-  { path: "/api/starter/agent-diff", module: r119 },
-  { path: "/api/starter/agents", module: r120 },
-  { path: "/api/summon", module: r121 },
-  { path: "/api/templates", module: r122 },
-  { path: "/api/ui-settings", module: r123 },
-  { path: "/api/user-analysis", module: r124 },
-  { path: "/api/workflows/[id]", module: r125 },
-  { path: "/api/workflows/[id]/use", module: r126 },
-  { path: "/api/workflows/bulk", module: r127 },
-  { path: "/api/workflows", module: r128 },
+  { path: "/api/missions/[id]/act", module: r57 },
+  { path: "/api/missions/[id]/asks/[commentId]", module: r58 },
+  { path: "/api/missions/[id]/cap", module: r59 },
+  { path: "/api/missions/[id]/claims/[commentId]", module: r60 },
+  { path: "/api/missions/[id]/leave", module: r61 },
+  { path: "/api/missions/[id]", module: r62 },
+  { path: "/api/missions/claim", module: r63 },
+  { path: "/api/missions", module: r64 },
+  { path: "/api/missions/seat", module: r65 },
+  { path: "/api/power", module: r66 },
+  { path: "/api/processes/[pid]/logs", module: r67 },
+  { path: "/api/processes/[pid]", module: r68 },
+  { path: "/api/processes/[pid]/stdin", module: r69 },
+  { path: "/api/processes", module: r70 },
+  { path: "/api/projects/[id]/build", module: r71 },
+  { path: "/api/projects/[id]/clear-cache", module: r72 },
+  { path: "/api/projects/[id]/dev", module: r73 },
+  { path: "/api/projects/[id]/folder", module: r74 },
+  { path: "/api/projects/[id]/git-status", module: r75 },
+  { path: "/api/projects/[id]/install", module: r76 },
+  { path: "/api/projects/[id]/memory", module: r77 },
+  { path: "/api/projects/[id]/open-folder", module: r78 },
+  { path: "/api/projects/[id]/reviews/[number]/link", module: r79 },
+  { path: "/api/projects/[id]/reviews/[number]/merge", module: r80 },
+  { path: "/api/projects/[id]/reviews/[number]/reject", module: r81 },
+  { path: "/api/projects/[id]/reviews/[number]/review", module: r82 },
+  { path: "/api/projects/[id]/reviews/[number]", module: r83 },
+  { path: "/api/projects/[id]/reviews", module: r84 },
+  { path: "/api/projects/[id]/roster/[instanceId]/repair-worktree", module: r85 },
+  { path: "/api/projects/[id]/roster/[instanceId]", module: r86 },
+  { path: "/api/projects/[id]/roster", module: r87 },
+  { path: "/api/projects/[id]", module: r88 },
+  { path: "/api/projects/[id]/secrets/[secretId]", module: r89 },
+  { path: "/api/projects/[id]/secrets", module: r90 },
+  { path: "/api/projects/[id]/spend", module: r91 },
+  { path: "/api/projects/[id]/uploads/[filename]", module: r92 },
+  { path: "/api/projects/[id]/uploads", module: r93 },
+  { path: "/api/projects/bootstrap", module: r94 },
+  { path: "/api/projects", module: r95 },
+  { path: "/api/prompts", module: r96 },
+  { path: "/api/runs/[id]/abort", module: r97 },
+  { path: "/api/runs/[id]/children", module: r98 },
+  { path: "/api/runs/[id]/permission", module: r99 },
+  { path: "/api/runs/[id]", module: r100 },
+  { path: "/api/runs/[id]/stream", module: r101 },
+  { path: "/api/runs/[id]/tree", module: r102 },
+  { path: "/api/runs/abort-all", module: r103 },
+  { path: "/api/runs", module: r104 },
+  { path: "/api/save/export", module: r105 },
+  { path: "/api/save/import", module: r106 },
+  { path: "/api/schedules/[id]", module: r107 },
+  { path: "/api/schedules/[id]/run", module: r108 },
+  { path: "/api/schedules", module: r109 },
+  { path: "/api/secrets/[id]", module: r110 },
+  { path: "/api/secrets/[id]/test", module: r111 },
+  { path: "/api/secrets", module: r112 },
+  { path: "/api/settings", module: r113 },
+  { path: "/api/settings/scan", module: r114 },
+  { path: "/api/skills/[name]/customization", module: r115 },
+  { path: "/api/skills/[name]", module: r116 },
+  { path: "/api/skills/[name]/update", module: r117 },
+  { path: "/api/skills/compatibility", module: r118 },
+  { path: "/api/skills/create", module: r119 },
+  { path: "/api/skills/icons", module: r120 },
+  { path: "/api/skills/import", module: r121 },
+  { path: "/api/skills/install", module: r122 },
+  { path: "/api/skills/installed", module: r123 },
+  { path: "/api/skills/manifest", module: r124 },
+  { path: "/api/skills/registry", module: r125 },
+  { path: "/api/skills/sources", module: r126 },
+  { path: "/api/skills/updates", module: r127 },
+  { path: "/api/starter/agent-diff", module: r128 },
+  { path: "/api/starter/agents", module: r129 },
+  { path: "/api/summon", module: r130 },
+  { path: "/api/templates", module: r131 },
+  { path: "/api/ui-settings", module: r132 },
+  { path: "/api/user-analysis", module: r133 },
 ];
