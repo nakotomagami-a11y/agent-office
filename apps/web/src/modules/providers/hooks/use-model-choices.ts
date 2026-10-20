@@ -2,10 +2,9 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { MODEL_CATALOG, MODEL_IDS, type ModelId } from "@agent-office/domain/config/models";
+import { MODEL_CATALOG, MODEL_IDS, formatModelPrice, type ModelId } from "@agent-office/domain/config/models";
 import { usesGateway } from "@agent-office/domain/config/providers";
-import { formatPerMTok, inputPriceOf } from "../format/provider-format";
-import { useActiveProvider, useModelPrices } from "./use-providers";
+import { useActiveProvider } from "./use-providers";
 
 export interface ModelChoice {
   id: ModelId;
@@ -27,7 +26,6 @@ export interface ModelChoice {
 export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
   const t = useTranslations("providers");
   const { id: providerId, view, capabilities } = useActiveProvider();
-  const prices = useModelPrices().data?.entries;
   const gateway = usesGateway(providerId);
   const mapped = view?.config.models;
 
@@ -42,11 +40,11 @@ export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
         full,
         badge: info.tier,
         icon: info.icon,
-        price: formatPerMTok(inputPriceOf(prices, full)) ?? "—",
+        price: gateway ? "—" : formatModelPrice(info),
         desc: info.description,
       };
     });
-  }, [gateway, mapped, prices, t]);
+  }, [gateway, mapped, t]);
 
   return { models, effort: capabilities.effort };
 }

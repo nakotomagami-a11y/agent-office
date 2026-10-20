@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_ROUTES } from "@agent-office/api-contract";
 import type {
-  ModelPricesResponse,
   Provider,
   ProviderCapabilities,
   ProvidersResponse,
@@ -53,22 +52,6 @@ export function useActiveProvider(): ActiveProvider {
     return { id: "subscription", view: undefined, capabilities: SUBSCRIPTION_CAPABILITIES, known: false };
   }
   return { id: selected, view, capabilities: view.capabilities, known: true };
-}
-
-export function useModelPrices() {
-  return useQuery({
-    queryKey: queryKeys.providers.prices(),
-    queryFn: () => apiFetch<ModelPricesResponse>(API_ROUTES.modelPrices),
-    staleTime: 60_000,
-  });
-}
-
-export function useRefreshModelPrices() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => apiFetch<ModelPricesResponse>(API_ROUTES.modelPricesRefresh, { method: "POST" }),
-    onSuccess: (data) => qc.setQueryData(queryKeys.providers.prices(), data),
-  });
 }
 
 export function useDeleteProviderKey() {
