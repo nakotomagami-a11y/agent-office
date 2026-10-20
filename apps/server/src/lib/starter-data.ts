@@ -14,7 +14,7 @@ import { parseJson } from "@agent-office/api-contract";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, APP_STATE_DIR } from "@agent-office/domain/services/infra/paths";
 import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
 import { log } from "@agent-office/domain/services/infra/log";
-import { hasAgentFrontmatter } from "@agent-office/domain/services/agents/frontmatter";
+import { hasAgentFrontmatter, splitAgentFile } from "@agent-office/domain/services/agents/frontmatter";
 import { agentInstallRecordSchema, starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
 
 const VERSION_FILE = join(APP_STATE_DIR, "agent-manifest-version");
@@ -79,10 +79,10 @@ export interface StarterFrontmatter {
 /** Pull name/description/unit/room from a hand-rolled YAML frontmatter block. */
 export function parseFrontmatterSubset(raw: string): StarterFrontmatter {
   // Git on Windows checks the bundle out with CRLF: an LF-only match found no frontmatter (S1-4).
-  const m = raw.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!m) return {};
+  const split = splitAgentFile(raw);
+  if (!split) return {};
   const out: StarterFrontmatter = {};
-  for (const line of m[1]!.split(/\n/)) {
+  for (const line of split.yaml.split(/\n/)) {
     const kv = line.match(/^(name|description|unit|room):\s*(.*)$/);
     if (!kv) continue;
     let val = kv[2]!.trim();

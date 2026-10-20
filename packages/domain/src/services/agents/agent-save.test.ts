@@ -191,10 +191,22 @@ test("stripInlineComments honours \\\" and '' escapes", () => {
   assert.equal(stripInlineComments("x: 'it''s #1' # c"), "x: 'it''s #1'");
 });
 
-test("a tool with an escaped quote and a # in a flow list round-trips", () => {
-  writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
-  writeAgent(bodyFor("flow", { tools: ["Read", 'Bash(date +"%h #x")'] }));
-  assert.deepEqual(readAgent("flow")!.info.tools, ["Read", 'Bash(date +"%h #x")']);
+// The quoted item goes first: an escaped quote that ended the quote early split the list at the next comma.
+for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]]) {
+  test(`a flow list with escaped quotes round-trips: ${JSON.stringify(tools)}`, () => {
+    writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
+    writeAgent(bodyFor("flow", { tools }));
+    assert.deepEqual(readAgent("flow")!.info.tools, tools);
+  });
+}
+
+test("Windows paths round-trip: a backslash before n or t is not a newline or a tab", () => {
+  writeFileSync(join(AGENTS_DIR, "winpath.md"), "---\nname: winpath\ndescription: d\n---\n\nb\n");
+  const dirs = ["C:\\Users\\MeiLi\\notes", "D:\\tmp\\new"];
+  writeAgent(bodyFor("winpath", { desc: "Reads C:\\notes\\todo", addDirs: dirs }));
+  const info = readAgent("winpath")!.info;
+  assert.deepEqual(info.addDirs, dirs);
+  assert.equal(info.description, "Reads C:\\notes\\todo");
 });
 
 test("a save that doesn't change the model leaves a differing CLI model: alone", () => {
@@ -207,8 +219,8 @@ test("a save that doesn't change the model leaves a differing CLI model: alone",
   assert.match(saved, /^model: haiku$/m, "a change the user made reaches the key the CLI reads");
 });
 
-test("an empty frontmatter block is a frontmatter block", () => {
-  writeFileSync(join(AGENTS_DIR, "empty-fm.md"), "---\n---\n\nprompt\n");
-  assert.equal(readAgent("empty-fm")!.body, "prompt");
+test("an empty frontmatter block is a frontmatter block, even with a rule further down", () => {
+  writeFileSync(join(AGENTS_DIR, "empty-fm.md"), "---\n---\n\nprompt\n\n---\n\nmore\n");
+  assert.equal(readAgent("empty-fm")!.body, "prompt\n\n---\n\nmore");
   assert.ok(writeAgent(bodyFor("empty-fm")).ok);
 });

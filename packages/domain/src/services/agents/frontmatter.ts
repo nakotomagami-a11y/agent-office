@@ -4,7 +4,7 @@ import { parseYaml, stringifyYaml, isYamlMapping, type YamlMapping, type YamlVal
 
 /** BOM and trailing spaces on a fence are tolerated: rejecting them read the header as body,
  *  and the next save wrote a header without the user's keys. */
-const FRONTMATTER_BLOCK = /^\uFEFF?---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
+const FRONTMATTER_BLOCK = /^\uFEFF?---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)??---[ \t]*(?:\r?\n|$)/;
 
 export function hasAgentFrontmatter(content: string): boolean {
   return FRONTMATTER_BLOCK.test(content);
@@ -73,8 +73,8 @@ const KEY_ALIASES: Record<string, string[]> = {
   "add-dirs": ["addDirs"],
 };
 
-/** Keys the CLI reads itself, so never dropped. A change the user makes is copied onto them
- *  (removed for `default`, which the CLI does not take); a file with only the CLI's key keeps only that. */
+/** Keys the CLI reads itself. A change the user makes is copied onto them; `default`, which the
+ *  CLI does not take, removes the CLI's key and is written as ours. Otherwise they are never dropped. */
 const CLI_KEYS: Record<string, string> = { "default-model": "model", "default-effort": "effort" };
 
 const KEY_LINE = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s#"'-][^:]*?)[ \t]*:(?:[ \t]|$)/;

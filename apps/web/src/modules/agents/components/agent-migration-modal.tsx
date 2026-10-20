@@ -14,8 +14,8 @@ import { DiffSection, type RowSelection } from "./agent-migration-section";
  *
  *   - "New in this version" — bundled agents they don't have yet. Default:
  *     accepted, unless skipped for this version or declined before.
- *   - "Changed since last install" — an agent the bundle ships a newer copy
- *     of. Default: accepted only when the local copy is untouched since it
+ *   - "Changed since last install" — your copy and the bundle's differ.
+ *     Default: accepted only when the local copy is untouched since it
  *     was installed; a local edit is never overwritten unless the user
  *     checks it.
  *   - "Edited locally" — only the local copy changed. Never pre-checked;

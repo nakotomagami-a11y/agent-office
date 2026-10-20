@@ -513,7 +513,7 @@
     "save_export_button": "Export",
     "save_import_button": "Import",
     "import_success": "Imported {count, plural, one {# agent} other {# agents}} into project \"{project}\". Refresh to see changes.",
-    "import_backed_up": "{count, plural, one {# agent you already had ({ids}) was} other {# agents you already had ({ids}) were}} replaced; the previous copies are in ~/.claude/agent-office/backups/agents/.",
+    "import_backed_up": "{count, plural, one {# agent you already had ({ids}) was replaced; the previous copy is} other {# agents you already had ({ids}) were replaced; the previous copies are}} in ~/.claude/agent-office/backups/agents/.",
     "import_snapshot": "The project as it was before is saved in {path}.",
     "import_office_restored": "Your office layout was replaced with the one in the file.",
     "import_restore_office": "Also replace my office layout (shared by every project) with the file's",

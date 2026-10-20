@@ -64,12 +64,8 @@ function unquote(raw: string): string {
   if (t.length >= 2 && (t.startsWith('"') || t.startsWith("'"))) {
     const q = t[0]!;
     if (t.endsWith(q)) {
-      return t
-        .slice(1, -1)
-        .replace(/\\n/g, "\n")
-        .replace(/\\"/g, '"')
-        .replace(/\\'/g, "'")
-        .replace(/\\\\/g, "\\");
+      if (q === "'") return t.slice(1, -1).replace(/''/g, "'");
+      return t.slice(1, -1).replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
     }
   }
   return t;
@@ -103,10 +99,12 @@ function parseFlowList(raw: string, nesting = 0): YamlValue[] {
   let depth = 0;
   let buf = "";
   let inQuote: '"' | "'" | null = null;
-  for (const ch of inner) {
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i]!;
     if (inQuote) {
       buf += ch;
-      if (ch === inQuote) inQuote = null;
+      if (inQuote === '"' && ch === "\\" && i + 1 < inner.length) buf += inner[++i];
+      else if (ch === inQuote) inQuote = null;
       continue;
     }
     if (ch === '"' || ch === "'") {
