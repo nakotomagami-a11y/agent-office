@@ -237,3 +237,76 @@ Every user-facing setting was traced to its reader. Most work; these don't:
 | S7-21 | WRONG | Windows paths aren't shortened in the UI | `projects/format/format.ts:15-19` |
 
 Also noted (#212 files): `secrets.ts:222` runs secret test commands with `sh -c` (needs Git's `sh` on Windows); `expandTilde` ignores `~\`. Checked OK on Windows: every `claude` spawn (cross-spawn), `os-opener`, `terminal.ts`, `process-scan/windows.ts`, process-tree kill, `gh.ts`.
+
+### S2 · Runs, conversations, scheduling, numbers
+
+DB snapshot: schema v27, 665 runs (154 are sub-agent placeholder rows), 2,952 tool_calls (48 h prune works), 0 rows in `transcripts`, `pipelines`, `scheduled_jobs`.
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S2-1 | BROKEN | **Closing the desktop app leaves agents running on Windows** (same root as S7-2); next boot marks them `server_restart` and offers Retry, which can start a second `claude` in the same worktree; Stop on such a turn only marks the DB | `lib.rs:307`, `runs.ts:124-129,404-416` #212, `main.ts:56-57` |
+| S2-2 | WRONG | **Any run ending without a `result` event is recorded as $0**: 36 failed/stopped runs, e.g. a 53-minute run that read 98M cached tokens. Undercounts Analytics, mission seat caps and loop budgets | `runs.ts:669` #212, `posting.ts:64`, `loop-machine.ts:201,214` |
+| S2-3 | WRONG | Live token counts are inflated 3–4× (usage added per content block, repeated per message id); stopped/crashed runs keep the inflated numbers | `runs.ts:576-587` #212 |
+| S2-4 | WRONG | Every token figure in the UI leaves out cache tokens (2.86M in+out vs 1.29B cache-read all time): "5k tok · $14" | `thread-rows.ts:72`, `phase-format.ts:41`, `message-bubble.tsx:576`, `hero-band.tsx:78` #212 |
+| S2-5 | WRONG | **Analytics and Activity count sub-agent placeholder rows as runs**: last 30 days parent runtime 40.4 h vs sub-agent rows 332 h, so runtime is ~9× too high; run count, $/run, error %, agent table, heatmap skewed | `runs.ts:793`, `db/runs.ts:91` #212 |
+| S2-6 | BROKEN | Sub-agent rows stay "running" for days (3 rows, 6,532 min each); the close-out sweep is in memory only; Bash `claude -p` commands are parsed as sub-agents | `runs.ts:936-945`, `subagent-parse.ts:74-83` #212 |
+| S2-7 | BROKEN | **A reconnect doubles the live turn's text**: the server replays the whole log after `attached`, the client keeps its thread | `runs.ts:279-295`, `parse-sse-event.ts:108-113`, `run-stream-registry.ts:224-239` |
+| S2-8 | WRONG | A rate-limited turn becomes "unknown" after reload (no error code saved; reset time never sent) | `runs.ts:958-971` #212, `conversation-to-thread.ts:82` |
+| S2-9 | WRONG | The hard-limit card's "Retry" only hides the card | `rate-limit-card.tsx:45` #212 |
+| S2-10 | WRONG | A scheduled resume still fires after you resolve the turn yourself (an extra paid turn); repeat clicks duplicate jobs; its prompt is sent as `user`, so it renders as YOU (a path the B1 fix missed); raw `fetch` with no `ok` check | `use-conversation-chat-model.ts:266-288`, `conversation-machine.ts:123-127`, `schemas.ts:207-219` #212 |
+| S2-11 | WRONG | Schedules "New order" can't pick a seat: runs as `default` in the main checkout, or with no project in the server's own folder; the busy check can't see real seats | `schedules-panel.tsx:234-238`, `scheduler.ts:34-39` #212 |
+| S2-12 | WRONG | Reassign keeps the old fire time (stale on the next tick) and doesn't reset the retry count; no `schedules:changed` events; docs say the resume "re-fires the exact interrupted run" (it sends "Continue"); Recurring is a placeholder | `scheduler.ts:187` #212, `docs/09-schedules.md:15` |
+| S2-13 | BROKEN | Cleanup "Chat transcripts" and Save "include history" use the retired table (same as S5-5, S1-12) | `cleanup.ts:56-60`, `save.ts:59-66,123-129` |
+| S2-14 | BROKEN | **Deleting runs can wedge a chat "running" forever** (`active_run_id` not cleared); the "Orphaned recovered runs" cleanup deletes chat turns with exit -1 | `db/runs.ts:158-171` #212, `cleanup.ts:74-79,157-159`, `conversation.ts:99` |
+| S2-15 | WASTE | Three endpoints with no caller: `POST /api/runs/abort-all`, `DELETE /api/runs?agent=`, `GET /api/runs/:id/children` | `lib/api/runs-ops.ts:10,23` |
+| S2-16 | WASTE | The "Shell running" pill runs a full process scan every 5 s (about 0.4 s each on Windows) for as long as the thread ever had a background shell | `background-task-indicator.tsx:13-15`, `use-processes.ts:16` |
+| S2-17 | WRONG | Nothing keeps the machine awake on Windows (same as S7-11) | `sleep-inhibit.ts:26` |
+| S2-18 | WASTE | Test and probe runs (`t12-run-1`, agents `t`, `zz-probe`, `hubprobe`) live in the real DB and show in Activity | DB |
+
+### S4 · Projects, git, reviews, docs
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S4-1 | BROKEN | "Delete project folder" always refuses on Windows (same as S5-1, S1-13) | `projects.ts:481-485`, `paths.ts:150` |
+| S4-2 | WRONG | Danger zone "Delete project" says it removes "all conversation history"; it removes settings, roster, memory and uploads, the folder is rescanned so the project reappears empty, and DB history and worktrees stay | `project-danger-zone.tsx:160`, `projects.ts:365-381,457-464` |
+| S4-3 | WRONG | Startup worktree clean-up does nothing on Windows and force-removes plus `branch -D` every non-session worktree on Linux/macOS (same as S1-9) | `worktrees.ts:263,309-352` |
+| S4-4 | WRONG | **"Reset roster" force-deletes every session's worktree and branch** (uncommitted and unpushed work lost); the confirm counts agents, not instances; failures are silent | `worktrees.ts:218,232`, `project-danger-zone.tsx:146`, `use-project-detail-actions.ts:83-90` |
+| S4-5 | WRONG | Worktree isolation is off by default with no UI (same as S1-8) | `projects.ts:543` #212 |
+| S4-6 | BROKEN | Save "include history" exports the retired table (same as S1-12) | `save.ts:113-120,177-183` |
+| S4-7 | WRONG | **Import is global and destructive**: overwrites agent files with no backup, replaces the roster (orphaning worktrees, importing another machine's absolute paths), overwrites the global office layout, targets the bundle's project id; the drop zone has no drop handler; export failures are invisible | `save.ts:136-175`, `project-backup-card.tsx:94-101` |
+| S4-8 | BROKEN | **Flutter can crash the server**: unhandled spawn ENOENT on Windows, or when scrcpy is missing on any OS (same as S7-10) | `flutter.ts:59-65,153-158,195` |
+| S4-9 | WRONG | The dev-server link can point at nothing: the port is passed only via `PORT`, which Vite ignores | `project-runtime.ts:215`, `dev/route.ts:56-68` |
+| S4-10 | WRONG | Build shows a green "Built" whatever the exit code | `terminal.ts:156,201-203`, `office-toolbar.tsx:677-686` |
+| S4-11 | WRONG | Clear cache only checks the project root (removes nothing in monorepos) yet says "Cache cleared" | `clear-cache/route.ts:21-30`, `office-toolbar.tsx:596-605` |
+| S4-12 | WASTE | The Dev button runs two identical 4 s polls and adopts agent background shells as "the dev server" | `office-toolbar.tsx:85-138,200-219` |
+| S4-13 | WRONG | Install runs `shell:true` without `windowsHide` (a console may flash for up to 5 min, not verified); its errors are sentences, not codes | `install/route.ts:24-66` |
+| S4-14 | BROKEN | "New project" writes only markdown, no `package.json`; its README and modal say to `pnpm install`, which fails; Dev, Build and Install never appear | `project-bootstrap.ts:392-481`, `bootstrap-project-modal.tsx:157-159` |
+| S4-15 | BROKEN | Add-GitHub-account tells Windows users to run POSIX `GH_CONFIG_DIR=... gh auth login` | `add-github-account-modal.tsx:61-62` |
+| S4-16 | WRONG | Review routes ignore the GitHub integration toggle (merge and close still work when it's off) | `review-route.ts:13-20` |
+| S4-17 | WRONG | Every send, including the app's own system messages, is saved as a "saved prompt", pushing the user's prompts out of the 10 slots | `summon-run.ts:170`, `user-analysis/route.ts:65` |
+| S4-18 | WASTE | Search downloads 500 runs with full output and filters in the browser, while a full-text index is kept up to date and never queried | `use-search-runs.ts:7-13`, `messages.ts:44-55` |
+| S4-19 | BROKEN | About You's analyst has no data on Windows (`sqlite3`) and runs in the server's folder (same family as S5-12, C25) | `user-analyst.md:137-160,225-236` |
+| S4-20 | WRONG | The `wl-paste` clipboard fallback runs on Windows and macOS; failures only reach the console (same as S7-17) | `use-composer-attachments.ts:112-130` |
+| S4-21 | WRONG | `slugify` drops non-ASCII, so every CJK-named folder gets the id `project`; "My App" and "my-app" collide; the later ones are unreachable | `settings.ts:62-70`, `projects.ts:415` #212 |
+| S4-22 | WASTE | App metadata and uploads live in `~/.claude/projects/<id>/`, the CLI's own transcript folder (same root cause as C1, C2) | `paths.ts:41,121` #212 |
+| S4-23 | WASTE | `GET /api/docs/export` has no client | #212 |
+| S4-24 | WRONG | **The in-app docs contain about 30 false statements**: a `project.md` example with keys that don't exist (a file written from it loses its roster), worktree rules, caps, the Processes panel, office layout scope, slash commands, unbound shortcuts, About You history and export, notifications, memory per instance, `MemoryTool`, `_archive` "never loaded", "32 agents" | `docs/00-features.md`, `02-concepts.md`, `03-agents.md`, `04-projects.md`, `05-memory.md`, `06-usage.md`, `07-interface.md` |
+
+### S6 · API contract and dead code
+
+The route table is in sync and the Minecraft mod's routes are all used. Removing routes, i18n keys or env schema entries touches #212 files (`routes.ts`, `route-table.ts`, `en.json`, `env.ts`, `migrations.ts`, `docs/08-reference.md`), so those removals land after #212.
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S6-1 | WASTE | **15 routes and 7 HTTP methods with no caller**: templates, prompts, docs/export, agents/bulk, body history, prompt-preview, runs/children, conversations/:id GET, broadcast, dev/backfill-planets, the 4 review write routes, analytics/summary, skills/compatibility, runs/abort-all, runs DELETE; methods: agents prompts POST, body PUT, two upload DELETEs, roster GET, bootstrap GET (its choices are copied 3 times), flutter mirror DELETE | route files |
+| S6-2 | BROKEN | `docs/08-reference.md` lists `/api/transcripts` (doesn't exist) and omits 35 routes; `docs-export.ts` documents 57 of 139 routes and still lists `pipelines` | #212 |
+| S6-3 | BROKEN | **Every web API call casts the response instead of parsing it** (`(await res.json()) as T`, 39 + 13 files), against `arch.parse-dont-cast`; 7 server routes cast request bodies (`request.json() as`); the lint rule only catches `JSON.parse` | `fetch.ts:85`; routes `dev/seed`, `flutter/mirror`, `flutter/run`, `processes/[pid]/stdin`, `projects/[id]/dev`, `runs/abort-all`, `ui-settings` |
+| S6-4 | WRONG | Two HTTP clients (`apiFetch` and axios) and 9 bare `fetch` calls despite "never bare fetch()"; the schedules one shows success on failure (S2-10) | `fetch.ts:5` |
+| S6-5 | WRONG | Response drift: `SummonResponse.warning` is never sent; the dev route's early return omits a required field; bootstrap puts a sentence in `warning` | `use-summon.ts:11`, `dev/route.ts:22`, `bootstrap/route.ts:51` |
+| S6-6 | WASTE | Duplicate types across web and domain: `LoginState`, `BootstrapResult` (shapes differ), `StarterAgent`, `SkillIconMap` | |
+| S6-7 | WASTE | **14 dead web files** and about 30 dead web exports and 12 dead domain exports, including `parse-reset-time.ts`, which also breaks `arch.web-through-server` | sweep list |
+| S6-8 | WASTE | 164 of 1,036 i18n keys unused, including whole namespaces (`update_bell`, `limits`, `add_agent_modal`, `live_status`, `tool_chain`) | `en.json` #212 |
+| S6-9 | WASTE | Dead DB tables and columns: `pipelines`, `pipeline_steps` (still updated at boot and touched by cleanup), `transcripts.queued_messages` | `migrations.ts:110,119,169` #212, `connection.ts:80` |
+| S6-10 | BROKEN | The 5 `NEXT_PUBLIC_POLL_*` overrides can never work (a dynamic `process.env[key]` isn't inlined by Next), though `architecture.md` documents them | `polling.ts:2` |
+| S6-11 | BROKEN | **In-app docs likely fail in the packaged app**: the docs route ignores `AO_BUNDLE_ROOT` (not run) | `docs/content/route.ts:17` |
+| S6-12 | WRONG | The rule "read env only through `env`" is broken by every reader; the env schema validates an unused variable and omits six real ones | `env.ts:7` #212, `architecture.md:411` |
