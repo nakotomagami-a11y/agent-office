@@ -14,6 +14,7 @@ import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { cn } from "@/lib/cn";
 import { ProviderStep } from "./first-run-wizard-steps/provider-step";
 import { useProviderSetup } from "@/modules/providers/hooks/use-provider-setup";
+import { withoutNullModels } from "@/modules/providers/format/provider-format";
 import { RootStep } from "./first-run-wizard-steps/root-step";
 import { ExcludedStep } from "./first-run-wizard-steps/excluded-step";
 import { AgentsStep } from "./first-run-wizard-steps/agents-step";
@@ -65,7 +66,7 @@ async function loadDraft(): Promise<WizardDraft | null> {
     const parsed = wizardDraftSchema.parse(parseJson(raw));
     // A draft saved before the provider step existed names a step that is gone.
     const step = STEP_ORDER.find((s) => s === parsed.step) ?? "provider";
-    return { ...parsed, step };
+    return { ...parsed, step, models: withoutNullModels(parsed.models) };
   } catch {
     return null;
   }

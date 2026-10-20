@@ -27,6 +27,7 @@ test("nothing is sent when nothing changed, so a test checks the stored config",
 test("only the fields that differ are sent, and a typed key is always sent", () => {
   const stored = view({ id: "openai", configured: true, keyHint: "ab12", config: { models: { opus: "gpt-5" } } });
   assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, models: { opus: "gpt-5-mini" } }, stored), { models: { opus: "gpt-5-mini" } });
+  assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, models: {} }, stored), { models: { opus: null } }, "clearing a stored tier sends null");
   assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, apiKey: " sk-test ", models: { opus: "gpt-5" } }, stored), { apiKey: "sk-test" });
 });
 

@@ -3,6 +3,7 @@ import {
   isProviderStatusReason,
   normalizeBaseUrl,
   type CostBasis,
+  type ModelTier,
   type ProviderStatusReason,
 } from "@agent-office/domain/config/providers";
 import type { ModelPrice, ProviderModels } from "@agent-office/domain/types";
@@ -67,6 +68,16 @@ export function sameBaseUrl(a: string | undefined, b: string | undefined): boole
 export function allTiersShare(models: ProviderModels): string | null {
   const ids = [models.haiku, models.sonnet, models.opus];
   return ids[0] && ids.every((m) => m === ids[0]) ? ids[0] : null;
+}
+
+/** A draft read back from storage may carry nulls (a cleared tier); the form wants the tier absent. */
+export function withoutNullModels(models: Partial<Record<ModelTier, string | null>>): ProviderModels {
+  const out: ProviderModels = {};
+  for (const tier of ["haiku", "sonnet", "opus"] as const) {
+    const id = models[tier];
+    if (id) out[tier] = id;
+  }
+  return out;
 }
 
 export const withModelForAllTiers = (id: string): ProviderModels => ({ haiku: id, sonnet: id, opus: id });

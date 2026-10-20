@@ -1,3 +1,4 @@
+import type { ModelTier } from "@agent-office/domain/config/providers";
 import type { Provider, ProviderModels, ProviderView, ProvidersResponse } from "@agent-office/domain/types";
 import { sameBaseUrl } from "./provider-format";
 
@@ -20,14 +21,16 @@ const TIERS = ["haiku", "sonnet", "opus"] as const;
 
 /** The part of a draft worth sending: only what differs from what is stored. Null when nothing does. */
 export function requestBody(provider: Provider, draft: ProviderDraft, view: ProviderView | undefined) {
-  const body: { baseUrl?: string | null; apiKey?: string; models?: ProviderModels } = {};
+  const body: { baseUrl?: string | null; apiKey?: string; models?: Partial<Record<ModelTier, string | null>> } = {};
   if (usesBaseUrl(provider) && !sameBaseUrl(draft.baseUrl, view?.config.baseUrl)) {
     body.baseUrl = draft.baseUrl.trim() === "" ? null : draft.baseUrl.trim();
   }
   if (draft.apiKey.trim()) body.apiKey = draft.apiKey.trim();
   if (usesBaseUrl(provider)) {
     const stored = view?.config.models ?? {};
-    if (TIERS.some((tier) => (draft.models[tier] ?? "") !== (stored[tier] ?? ""))) body.models = draft.models;
+    const changed = TIERS.filter((tier) => (draft.models[tier] ?? "") !== (stored[tier] ?? ""));
+    // The server merges per tier: a tier left out is untouched, a null clears it.
+    if (changed.length > 0) body.models = Object.fromEntries(changed.map((tier) => [tier, draft.models[tier] ?? null]));
   }
   return Object.keys(body).length > 0 ? body : null;
 }
