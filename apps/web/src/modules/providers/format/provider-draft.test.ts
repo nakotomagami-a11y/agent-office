@@ -57,7 +57,7 @@ test("the server selection wins over a wizard draft, and the draft fills only an
   assert.equal(start.choice, "subscription");
   assert.equal(start.drafts.openai?.baseUrl, "https://drafted/v1");
   assert.equal(start.drafts.local?.baseUrl, "http://stored/v1");
-  assert.equal(startingDrafts(response(null, data.providers), undefined).choice, null, "a fresh install picks nothing for the user");
+  assert.equal(startingDrafts(response(null, data.providers), undefined).choice, "subscription", "the default is shown, and saved only by Next");
   assert.equal(startingDrafts(response(null, data.providers), saved).choice, "openai");
   assert.equal(startingDrafts(response(null, [local]), { ...saved, provider: "local" }).drafts.local?.baseUrl, "http://stored/v1");
 });

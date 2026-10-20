@@ -50,12 +50,12 @@ export type Drafts = Partial<Record<Provider, ProviderDraft>>;
 export function startingDrafts(
   data: ProvidersResponse,
   saved: { provider: Provider | null; baseUrl: string; models: ProviderModels } | undefined,
-): { choice: Provider | null; drafts: Drafts } {
+): { choice: Provider; drafts: Drafts } {
   const drafts: Drafts = {};
   for (const view of data.providers) drafts[view.id] = draftFromView(view);
   if (saved?.provider && !data.providers.find((v) => v.id === saved.provider)?.configured) {
     drafts[saved.provider] = { baseUrl: saved.baseUrl, apiKey: "", models: saved.models };
   }
-  // No default: a fresh install starts with nothing picked, so finishing this step is a choice.
-  return { choice: data.selected ?? saved?.provider ?? null, drafts };
+  // Subscription is the visible default, but only Next saves it, and Next tests it first (D-24).
+  return { choice: data.selected ?? saved?.provider ?? "subscription", drafts };
 }

@@ -5,7 +5,7 @@ import type { ProviderView } from "@agent-office/domain/types";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format-date";
 import { cn } from "@/lib/cn";
-import { requestBody } from "../format/provider-draft";
+import { keyWillBeCleared, requestBody } from "../format/provider-draft";
 import { useProviderSetup } from "../hooks/use-provider-setup";
 import { PriceSourceLine } from "./price-source";
 import { ProviderSetupPanel } from "./provider-setup-panel";
@@ -57,6 +57,9 @@ export function ProviderSettingsTab() {
           ) : null}
         </div>
         <ProviderSetupPanel setup={setup} signIn="modal" />
+        {choice && choice === data?.selected && keyWillBeCleared(setup.draft, setup.view) ? (
+          <p role="note" className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">{t("key_clears_warning")}</p>
+        ) : null}
         {switching && data?.selected && choice ? (
           <p className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">
             {t("switch_confirm", { from: t(`option_${data.selected}_name`), to: t(`option_${choice}_name`) })}

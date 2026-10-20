@@ -10,7 +10,7 @@ import type { ModelPrice, Provider, ProviderModels } from "@agent-office/domain/
 import { ApiError } from "@/lib/api/fetch";
 
 /** What the user can do about a reason, which decides the button under its copy. */
-export type ReasonAction = "recheck" | "sign_in" | "edit";
+export type ReasonAction = "recheck" | "sign_in" | "edit" | "wait";
 
 export const REASON_ACTION: Record<ProviderStatusReason, ReasonAction> = {
   not_configured: "edit",
@@ -25,7 +25,7 @@ export const REASON_ACTION: Record<ProviderStatusReason, ReasonAction> = {
   empty_response: "recheck",
   no_models: "recheck",
   model_not_found: "edit",
-  rate_limited: "recheck",
+  rate_limited: "wait",
   base_url_invalid: "edit",
   budget_unenforceable: "edit",
 };

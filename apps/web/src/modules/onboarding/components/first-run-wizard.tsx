@@ -524,7 +524,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
             <Button
               variant="primary"
               onClick={goNext}
-              disabled={busy || setup.busy || (step === "provider" && !setup.choice)}
+              disabled={busy || setup.busy}
               className="h-auto gap-[8px] rounded-xl px-[18px] py-[9px] text-[12.5px]"
             >
               {t("common.next")}
