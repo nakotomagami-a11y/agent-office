@@ -143,7 +143,6 @@ export function runningOwnerPidsForInstance(agentId: string, instanceId: string)
 
 // ─── Rate-limit outcome (used by the scheduler to detect a repeat limit) ──────
 
-/** The model the CLI reports it actually runs: the mapped id on a gateway provider. */
 export function setRunModel(id: string, model: string): void {
   getDb().prepare("UPDATE runs SET model = @model WHERE id = @id").run({ id, model });
 }

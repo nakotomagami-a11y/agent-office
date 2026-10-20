@@ -129,6 +129,9 @@ export const API_ROUTES = {
   providerTest: (id: string) => `/api/providers/${encodeURIComponent(id)}/test`,
   modelPrices: "/api/model-prices",
   modelPricesRefresh: "/api/model-prices/refresh",
+  /** Agents reach these through ANTHROPIC_BASE_URL; no UI calls them. */
+  gatewayMessages: "/api/gateway/v1/messages",
+  gatewayCountTokens: "/api/gateway/v1/messages/count_tokens",
 
   settings: "/api/settings",
   settingsScan: "/api/settings/scan",
