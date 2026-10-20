@@ -1,7 +1,7 @@
 // An upstream failure the gateway saw for a run. The CLI would otherwise retry ten times and then
 // show its own text; the run listener ends the run at once with the provider's code instead.
 import type { RunErrorCode } from "../../../config/run-errors";
-import { capDetail, scrubMaskedKeys } from "../../execution/runs/errors";
+import { capDetail, redactSecrets, scrubMaskedKeys } from "../../execution/runs/errors";
 
 export type GatewayFailureListener = (ownerId: string, code: RunErrorCode, detail: string | undefined) => void;
 
@@ -16,9 +16,12 @@ export function onGatewayFailure(listener: GatewayFailureListener): () => void {
   return () => listeners.delete(listener);
 }
 
-/** `detail` may be upstream text: masked keys are scrubbed and it is capped before anyone sees it. */
-export function reportGatewayFailure(ownerId: string, code: RunErrorCode, detail?: string): void {
-  const safe = detail === undefined ? undefined : capDetail(scrubMaskedKeys(detail));
+/**
+ * `detail` may be upstream text that echoes the key: the exact key (`secrets`, any shape, a local
+ * server's too) and masked `sk-` keys are scrubbed, and it is capped, before anyone sees it.
+ */
+export function reportGatewayFailure(ownerId: string, code: RunErrorCode, detail?: string, secrets: readonly string[] = []): void {
+  const safe = detail === undefined ? undefined : capDetail(scrubMaskedKeys(redactSecrets(detail, secrets) ?? ""));
   for (const listener of listeners) listener(ownerId, code, safe);
 }
 

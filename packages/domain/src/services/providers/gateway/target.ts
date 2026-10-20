@@ -3,7 +3,6 @@
 import { MODEL_TIERS, type Provider } from "../../../config/providers";
 import { readProvider, readProviderKey } from "../store";
 import { ANTHROPIC_API_URL, keyTargetUrl } from "../urls";
-import type { CapParam } from "./to-chat";
 
 export interface GatewayTarget {
   ok: true;
@@ -43,23 +42,4 @@ export function chatTarget(provider: Exclude<Provider, "subscription" | "anthrop
     return refuse(401, "authentication_error", "provider_auth_failed", key.reason);
   }
   return { ok: true, url: `${base}/chat/completions`, key: key.ok ? key.key : undefined, model };
-}
-
-declare global {
-  var __agentOfficeCapParams: Map<string, CapParam> | undefined;
-}
-const capParams: Map<string, CapParam> = globalThis.__agentOfficeCapParams ?? (globalThis.__agentOfficeCapParams = new Map());
-
-export function capParamFor(provider: Provider, model: string): CapParam {
-  return capParams.get(`${provider}|${model}`) ?? (provider === "openai" ? "max_completion_tokens" : "max_tokens");
-}
-
-/** A 400 that names the parameter we sent means the other name is the one this model takes. Nothing else is retried. */
-export function swappedCapParam(provider: Provider, model: string, sent: CapParam, errorBody: unknown): CapParam | null {
-  const message = errorBody && typeof errorBody === "object" && "error" in errorBody && errorBody.error && typeof errorBody.error === "object"
-    && "message" in errorBody.error && typeof errorBody.error.message === "string" ? errorBody.error.message : "";
-  if (!message.includes(sent)) return null;
-  const next: CapParam = sent === "max_tokens" ? "max_completion_tokens" : "max_tokens";
-  capParams.set(`${provider}|${model}`, next);
-  return next;
 }

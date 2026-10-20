@@ -29,6 +29,16 @@ export const parseChatChunk = (raw: unknown): ChatChunk | null => {
 
 const STOP_REASON: Record<string, string> = { stop: "end_turn", length: "max_tokens", tool_calls: "tool_use", function_call: "tool_use", content_filter: "refusal" };
 
+export type StreamEnd = { ok: true; frames: string[] } | { ok: false; reason: "empty_response" | "stream_incomplete" | "truncated_tool_call" };
+
+/** An error object inside a 200 body or a stream chunk: the upstream failed after all. */
+export function inBandError(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || !("error" in raw) || !raw.error) return null;
+  const { error } = raw;
+  if (typeof error === "string") return error;
+  return typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "upstream error";
+}
+
 export const sse = (type: string, data: Record<string, unknown>): string =>
   `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
 
@@ -58,12 +68,17 @@ export class AnthropicStreamWriter {
     return out;
   }
 
-  /** Null when the completion had no text and no tool call at all: the caller reports empty_response. */
-  end(): string[] | null {
-    if (!this.sawText && this.toolBlocks === 0) return null;
+  /**
+   * A dropped connection is not a finished turn, and a tool call cut off by the length limit is
+   * not a tool call: both are errors, as is a completion with nothing in it.
+   */
+  end(sawDone: boolean): StreamEnd {
+    if (!this.sawText && this.toolBlocks === 0) return { ok: false, reason: "empty_response" };
+    if (!this.finish && !sawDone) return { ok: false, reason: "stream_incomplete" };
+    if (this.finish === "length" && this.toolBlocks > 0) return { ok: false, reason: "truncated_tool_call" };
     const stop = this.toolBlocks > 0 ? "tool_use" : STOP_REASON[this.finish ?? "stop"] ?? "end_turn";
     const usage = { input_tokens: this.usage.input - this.usage.cached, output_tokens: this.usage.output, cache_read_input_tokens: this.usage.cached };
-    return [...this.start(), ...this.close(), sse("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage }), sse("message_stop", {})];
+    return { ok: true, frames: [...this.start(), ...this.close(), sse("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage }), sse("message_stop", {})] };
   }
 
   private start(): string[] {

@@ -123,3 +123,64 @@ test("openai: a 400 naming the cap parameter is retried once with the other name
 test("count_tokens is an honest 404", async () => {
   assert.equal((await countTokens.POST()).status, 404);
 });
+
+const lastFailure = () => failures.at(-1)!;
+const err400 = (message: string) => Response.json({ error: { message } }, { status: 400 });
+
+test("a cap 'too large' is clamped once; a second 400 reaches the child as a 400, never a retried 500; nothing is cached", async () => {
+  const t = tokens.issueGatewayToken("run-big", "openai");
+  sent = [];
+  reply = () => err400("max_completion_tokens is too large: 32000. This model supports at most 16384 completion tokens.");
+  const res = await messages(t, { ...minimal("b"), max_tokens: 32000 });
+  assert.equal(res.status, 400);
+  assert.equal(sent.length, 2);
+  assert.ok(String(sent[1]!.init.body).includes('"max_completion_tokens":16384'));
+  assert.deepStrictEqual(lastFailure().slice(0, 2), ["run-big", "unknown"]);
+  sent = [];
+  reply = () => (sent.length === 1 ? err400("max_completion_tokens is not supported with this model") : err400("still bad"));
+  await messages(t, minimal("m"));
+  sent = [];
+  reply = () => Response.json({ choices: [{ message: { content: "ok" } }] });
+  await messages(t, minimal("m"));
+  assert.ok(String(sent[0]!.init.body).includes('"max_completion_tokens"'), "a failed swap is not remembered");
+});
+
+test("a local server's key echoed in an error is redacted, whatever its shape", async () => {
+  providers.saveConfig("local", { baseUrl: "http://localhost:11434/v1", apiKey: "my-local-secret", models: { haiku: "q", sonnet: "q", opus: "q" } });
+  const t = tokens.issueGatewayToken("run-local", "local");
+  reply = () => err400("bad request for key my-local-secret");
+  assert.equal((await messages(t, minimal("q"))).status, 400);
+  assert.ok(!lastFailure()[2]?.includes("my-local-secret"), lastFailure()[2]);
+});
+
+test("Stop or a closed client reports no provider failure", async () => {
+  const t = tokens.issueGatewayToken("run-stop", "openai");
+  const before = failures.length;
+  const abort = new AbortController();
+  abort.abort();
+  reply = () => { throw new DOMException("aborted", "AbortError"); };
+  const res = await POST(new Request("http://127.0.0.1/api/gateway/v1/messages", {
+    method: "POST", headers: { authorization: `Bearer ${t}` }, body: JSON.stringify(minimal("m")), signal: abort.signal,
+  }));
+  assert.equal(res.status, 502);
+  assert.equal(failures.length, before);
+});
+
+test("an error inside the stream, or a stream that just stops, ends as an error event and a failure", async () => {
+  const t = tokens.issueGatewayToken("run-midstream", "openai");
+  reply = () => new Response('data: {"choices":[{"delta":{"content":"partial"}}]}\n\ndata: {"error":{"message":"Rate limit reached"}}\n\n');
+  const body = await (await messages(t, minimal("m", true))).text();
+  assert.ok(body.includes("event: error") && !body.includes("message_stop"));
+  assert.deepStrictEqual(lastFailure().slice(0, 2), ["run-midstream", "unknown"]);
+  reply = () => new Response('data: {"choices":[{"delta":{"content":"cut off"}}]}\n\n');
+  const dropped = await (await messages(t, minimal("m", true))).text();
+  assert.ok(dropped.includes("stream_incomplete") && !dropped.includes("end_turn"));
+  assert.deepStrictEqual(lastFailure().slice(1), ["provider_unreachable", "stream_incomplete"]);
+});
+
+test("anthropic_api: a spent credit balance is reported for the Settings card, and still reaches the CLI", async () => {
+  const t = tokens.issueGatewayToken("run-credit", "anthropic_api");
+  reply = () => err400("Your credit balance is too low to access the Anthropic API.");
+  assert.equal((await messages(t, minimal("claude-x"))).status, 400);
+  assert.deepStrictEqual(lastFailure(), ["run-credit", "provider_unavailable", "key_invalid"]);
+});

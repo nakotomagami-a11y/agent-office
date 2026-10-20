@@ -2,6 +2,10 @@
 // injected; only an allowlist of headers crosses in either direction.
 import { gateway } from "@agent-office/domain/services";
 import { gatewayError } from "./gateway-errors";
+import { readCapped } from "./gateway-read";
+
+/** Anthropic answers a spent balance with a 400; the user must see the Settings card, not ten retries. */
+const BILLING_RE = /credit balance|billing|insufficient (?:funds|credit)/i;
 
 const REQUEST_HEADERS = ["content-type", "accept", "anthropic-version", "anthropic-beta", "user-agent"];
 /** fetch already decoded the body, so content-encoding and content-length must not pass back. */
@@ -33,12 +37,16 @@ export async function proxyAnthropic(request: Request, body: string, ownerId: st
       method: "POST", headers, body, redirect: "error", signal: request.signal,
     });
   } catch {
-    gateway.reportGatewayFailure(ownerId, "provider_unreachable", "anthropic_unreachable");
+    if (!request.signal.aborted) gateway.reportGatewayFailure(ownerId, "provider_unreachable", "anthropic_unreachable");
     return gatewayError(502, "api_error", "upstream unreachable");
   }
+  const secrets = target.key ? [target.key] : [];
   if (upstream.status === 401 || upstream.status === 403) {
-    gateway.reportGatewayFailure(ownerId, "provider_auth_failed", await upstream.text().catch(() => ""));
+    gateway.reportGatewayFailure(ownerId, "provider_auth_failed", await readCapped(upstream), secrets);
     return gatewayError(401, "authentication_error", gateway.UPSTREAM_REJECTED_CREDENTIAL);
+  }
+  if (upstream.status === 400 && BILLING_RE.test(await readCapped(upstream.clone()))) {
+    gateway.reportGatewayFailure(ownerId, "provider_unavailable", "key_invalid", secrets);
   }
   return new Response(upstream.body, { status: upstream.status, headers: upstreamHeaders(upstream) });
 }

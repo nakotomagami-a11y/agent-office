@@ -50,12 +50,34 @@ function userMessages(blocks: AnthropicBlock[]): ChatMessage[] {
   return out;
 }
 
-function assistantMessage(blocks: AnthropicBlock[]): ChatMessage {
+/** Null for a turn that was thinking only (a resumed Claude session): Chat Completions rejects an empty one. */
+function assistantMessage(blocks: AnthropicBlock[]): ChatMessage | null {
   const text = textOf(blocks);
   const calls: ChatToolCall[] = blocks.filter(isToolUse).map((b) => ({
     id: b.id, type: "function", function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
   }));
+  if (!text && calls.length === 0) return null;
   return { role: "assistant", content: text || null, ...(calls.length > 0 ? { tool_calls: calls } : {}) };
+}
+
+const asParts = (c: ChatMessage["content"]): Part[] => (typeof c === "string" ? [{ type: "text", text: c }] : c ?? []);
+
+/** Dropping a turn can leave two of one role in a row; merge them (tool replies stay one per call). */
+function mergeAdjacent(messages: ChatMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of messages) {
+    const prev = out.at(-1);
+    if (!prev || prev.role !== m.role || m.role === "tool") {
+      out.push(m);
+    } else if (m.role === "assistant") {
+      const text = [prev.content, m.content].filter((c): c is string => typeof c === "string" && !!c).join("\n\n");
+      const calls = [...(prev.tool_calls ?? []), ...(m.tool_calls ?? [])];
+      out[out.length - 1] = { role: "assistant", content: text || null, ...(calls.length > 0 ? { tool_calls: calls } : {}) };
+    } else {
+      out[out.length - 1] = { role: m.role, content: [...asParts(prev.content), ...asParts(m.content)] };
+    }
+  }
+  return out;
 }
 
 function toMessages(req: AnthropicRequest): ChatMessage[] {
@@ -64,10 +86,12 @@ function toMessages(req: AnthropicRequest): ChatMessage[] {
   for (const m of req.messages) {
     if (typeof m.content === "string") out.push({ role: m.role, content: m.content });
     else if (m.role === "user") out.push(...userMessages(m.content));
-    else if (m.role === "assistant") out.push(assistantMessage(m.content));
-    else out.push({ role: "system", content: textOf(m.content) });
+    else if (m.role === "assistant") {
+      const message = assistantMessage(m.content);
+      if (message) out.push(message);
+    } else out.push({ role: "system", content: textOf(m.content) });
   }
-  return out;
+  return mergeAdjacent(out);
 }
 
 function toolChoice(choice: AnthropicRequest["tool_choice"]): unknown {
@@ -77,19 +101,29 @@ function toolChoice(choice: AnthropicRequest["tool_choice"]): unknown {
   return choice.type === "none" ? "none" : "auto";
 }
 
-/** `model` is the provider's own id, already checked against the tier map. */
-export function toChatRequest(req: AnthropicRequest, model: string, capParam: CapParam): Record<string, unknown> {
+export interface ChatOptions {
+  provider: "openai" | "local";
+  /** The model's own ceiling, once the upstream named it. */
+  maxTokens?: number;
+}
+
+/**
+ * `model` is the provider's own id, already checked against the tier map. OpenAI reasoning models
+ * reject a non-default temperature, and older local servers reject `stream_options`, so neither
+ * is sent where it can break a request.
+ */
+export function toChatRequest(req: AnthropicRequest, model: string, capParam: CapParam, opts: ChatOptions): Record<string, unknown> {
   const tools = (req.tools ?? []).filter((t) => t.input_schema).map((t) => ({
     type: "function", function: { name: t.name, description: t.description ?? "", parameters: t.input_schema },
   }));
   return {
     model,
     messages: toMessages(req),
-    [capParam]: Math.min(req.max_tokens, OUTPUT_TOKEN_CAP),
+    [capParam]: Math.min(req.max_tokens, opts.maxTokens ?? OUTPUT_TOKEN_CAP),
     ...(tools.length > 0 ? { tools, tool_choice: toolChoice(req.tool_choice) } : {}),
-    ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-    ...(req.top_p !== undefined ? { top_p: req.top_p } : {}),
+    ...(opts.provider === "local" && req.temperature !== undefined ? { temperature: req.temperature } : {}),
+    ...(opts.provider === "local" && req.top_p !== undefined ? { top_p: req.top_p } : {}),
     ...(req.stop_sequences?.length ? { stop: req.stop_sequences } : {}),
-    ...(req.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
+    ...(req.stream ? { stream: true, ...(opts.provider === "openai" ? { stream_options: { include_usage: true } } : {}) } : {}),
   };
 }

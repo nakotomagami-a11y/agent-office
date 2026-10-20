@@ -14,7 +14,8 @@ const sandbox = mkdtempSync(join(tmpdir(), "ao-gateway-target-"));
 process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 
-const { capParamFor, chatTarget, passthroughTarget, swappedCapParam } = await import("./target");
+const { chatTarget, passthroughTarget } = await import("./target");
+const { capParamFor, capRetry, rememberCapParam } = await import("./cap");
 const store = await import("../store");
 const { getDb } = await import("../../db/connection");
 const tokens = await import("../gateway-tokens");
@@ -51,13 +52,21 @@ test("anthropic_api passthrough: the fixed official URL, and no key means no req
   assert.deepStrictEqual(passthroughTarget(), { ok: true, url: "https://api.anthropic.com/v1/messages", key: "sk-ant-api03-passthrough-0000", model: "" });
 });
 
-test("the cap parameter swaps once, only when the API's message names the one sent, and is remembered", () => {
+test("the cap: a name swap only on an explicit unsupported-parameter message, a clamp on a stated ceiling", () => {
+  const err = (message: string) => ({ error: { message } });
+  assert.equal(capRetry("max_completion_tokens", 32000, err("Invalid API key")), null);
+  assert.equal(capRetry("max_completion_tokens", 32000, null), null);
+  assert.equal(capRetry("max_completion_tokens", 32000, err("max_completion_tokens: weird")), null, "a bare mention is not enough");
+  assert.deepStrictEqual(capRetry("max_completion_tokens", 32000, err("Unsupported parameter: max_completion_tokens is not supported with this model. Use max_tokens instead.")), { param: "max_tokens" });
+  assert.deepStrictEqual(capRetry("max_tokens", 32000, err("max_tokens is too large: 32000. This model supports at most 16384 completion tokens.")), { param: "max_tokens", maxTokens: 16384 });
+});
+
+test("the swapped name is remembered only when the caller says the retry worked", () => {
   assert.equal(capParamFor("openai", "gpt-x"), "max_completion_tokens");
   assert.equal(capParamFor("local", "qwen"), "max_tokens");
-  assert.equal(swappedCapParam("openai", "gpt-x", "max_completion_tokens", { error: { message: "Invalid API key" } }), null);
-  assert.equal(swappedCapParam("openai", "gpt-x", "max_completion_tokens", null), null);
-  const bad = { error: { message: "Unsupported parameter: 'max_completion_tokens' is not supported with this model." } };
-  assert.equal(swappedCapParam("openai", "gpt-x", "max_completion_tokens", bad), "max_tokens");
+  capRetry("max_completion_tokens", 32000, { error: { message: "max_completion_tokens is not supported" } });
+  assert.equal(capParamFor("openai", "gpt-x"), "max_completion_tokens", "a guess changes nothing");
+  rememberCapParam("openai", "gpt-x", "max_tokens");
   assert.equal(capParamFor("openai", "gpt-x"), "max_tokens");
 });
 
