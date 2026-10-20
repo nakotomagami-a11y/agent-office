@@ -34,7 +34,7 @@ function KeyField({ provider, draft, view, onEdit, onEnter }: FieldsProps) {
   const remove = useDeleteProviderKey();
   const [replacing, setReplacing] = useState(false);
   const required = provider !== "local";
-  const saved = Boolean(view?.keyHint) && !keyWillBeCleared(draft, view);
+  const saved = Boolean(view?.hasKey) && !keyWillBeCleared(draft, view);
   const showInput = !saved || replacing;
   return (
     <div className="flex flex-col gap-[6px]">
@@ -42,7 +42,7 @@ function KeyField({ provider, draft, view, onEdit, onEnter }: FieldsProps) {
       {saved && !replacing ? (
         <div className="flex items-center gap-[10px] rounded-xl border border-edge bg-card-2 px-[12px] py-[8px]">
           <Icon name="lock" size={13} className="shrink-0 text-txt-3" />
-          <span className="flex-1 font-mono text-[12px]">{t("key_saved", { hint: view?.keyHint ?? "" })}</span>
+          <span className="flex-1 font-mono text-[12px]">{view?.keyHint ? t("key_saved", { hint: view.keyHint }) : t("key_saved_plain")}</span>
           <button type="button" onClick={() => setReplacing(true)} className="text-[11.5px] font-semibold text-acc hover:underline">
             {t("key_replace")}
           </button>

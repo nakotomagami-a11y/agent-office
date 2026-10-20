@@ -1396,6 +1396,7 @@
     "key_shape_not_an_anthropic_key": "Anthropic keys usually start with sk-ant-. Check that this key is from Anthropic.",
     "pick_one": "Pick a provider to continue.",
     "price_per_mtok": "{price}/Mt",
-    "prices_refresh_wait": "Refreshed a moment ago. Wait a little before refreshing again."
+    "prices_refresh_wait": "Refreshed a moment ago. Wait a little before refreshing again.",
+    "key_saved_plain": "Key saved"
   }
 }

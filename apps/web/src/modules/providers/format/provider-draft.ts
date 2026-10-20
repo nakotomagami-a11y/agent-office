@@ -37,7 +37,7 @@ export function requestBody(provider: Provider, draft: ProviderDraft, view: Prov
 
 /** Whether saving this draft would drop the stored key: the server binds a key to its address. */
 export function keyWillBeCleared(draft: ProviderDraft, view: ProviderView | undefined): boolean {
-  return Boolean(view?.keyHint) && !draft.apiKey.trim() && !sameBaseUrl(draft.baseUrl, view?.config.baseUrl);
+  return Boolean(view?.hasKey) && !draft.apiKey.trim() && !sameBaseUrl(draft.baseUrl, view?.config.baseUrl);
 }
 
 export type Drafts = Partial<Record<Provider, ProviderDraft>>;

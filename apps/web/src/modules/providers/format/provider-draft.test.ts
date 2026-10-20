@@ -26,7 +26,7 @@ test("nothing is sent when nothing changed, so a test checks the stored config",
 });
 
 test("only the fields that differ are sent, and a typed key is always sent", () => {
-  const stored = view({ id: "openai", configured: true, keyHint: "ab12", config: { models: { opus: "gpt-5" } } });
+  const stored = view({ id: "openai", configured: true, hasKey: true, keyHint: "ab12", config: { models: { opus: "gpt-5" } } });
   assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, models: { opus: "gpt-5-mini" } }, stored), { models: { opus: "gpt-5-mini" } });
   assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, models: {} }, stored), { models: { opus: null } }, "clearing a stored tier sends null");
   assert.deepEqual(requestBody("openai", { ...EMPTY_DRAFT, apiKey: " sk-test ", models: { opus: "gpt-5" } }, stored), { apiKey: "sk-test" });
@@ -43,11 +43,17 @@ test("the Anthropic key provider never sends an address or models", () => {
 });
 
 test("a saved key is dropped by the server when the address changes without a new key", () => {
-  const stored = view({ id: "local", configured: true, keyHint: "wxyz", config: { baseUrl: "http://a/v1" } });
+  const stored = view({ id: "local", configured: true, hasKey: true, keyHint: "wxyz", config: { baseUrl: "http://a/v1" } });
   assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://b/v1" }, stored), true);
   assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://b/v1", apiKey: "new" }, stored), false);
   assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://a/v1/" }, stored), false);
   assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://b/v1" }, view({ id: "local" })), false);
+});
+
+test("a short saved key, which has no hint, still counts as saved and still warns on an address change", () => {
+  const stored = view({ id: "local", configured: true, hasKey: true, config: { baseUrl: "http://a/v1" } });
+  assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://b/v1" }, stored), true);
+  assert.equal(keyWillBeCleared({ ...EMPTY_DRAFT, baseUrl: "http://a/v1" }, stored), false);
 });
 
 test("the server selection wins over a wizard draft, and the draft fills only an unconfigured provider", () => {
