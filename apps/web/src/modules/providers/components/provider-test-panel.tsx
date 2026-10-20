@@ -39,7 +39,7 @@ function CliRow({ setup }: { setup: ProviderSetup }) {
           {state === "ok" ? t("cli_ok", { version: cli?.version ?? "" }) : state === "missing" ? t("cli_missing") : t("cli_checking")}
         </div>
       </div>
-      <Button size="sm" onClick={() => void setup.runTest()} disabled={setup.busy || !setup.choice}>
+      <Button size="sm" className="max-[600px]:min-h-[40px]" onClick={() => void setup.runTest()} disabled={setup.busy || !setup.choice}>
         {t("recheck")}
       </Button>
     </div>
@@ -83,7 +83,7 @@ function Verdict({ setup, onAction }: { setup: ProviderSetup; onAction: (reason:
       <p className="m-0 text-[12px] leading-[1.55] text-txt-2 text-pretty">{te(`${reason}.body`)}</p>
       {detail ? <code className="break-words font-mono text-[10.5px] text-txt-4">{detail}</code> : null}
       {action !== "edit" ? (
-        <Button size="sm" className="self-start" onClick={() => onAction(reason)} disabled={setup.busy}>
+        <Button size="sm" className="self-start max-[600px]:min-h-[40px]" onClick={() => onAction(reason)} disabled={setup.busy}>
           {t(action === "sign_in" ? "action_sign_in" : "action_recheck")}
         </Button>
       ) : null}
@@ -105,7 +105,7 @@ export function ProviderTestPanel({ setup, signIn }: { setup: ProviderSetup; sig
     <div className="flex flex-col gap-[10px]">
       <CliRow setup={setup} />
       <div className="flex flex-wrap items-center gap-[10px]">
-        <Button onClick={() => void setup.runTest()} disabled={setup.busy || !setup.choice}>
+        <Button className="max-[600px]:min-h-[40px]" onClick={() => void setup.runTest()} disabled={setup.busy || !setup.choice}>
           {t(setup.phase === "testing" ? "testing" : "test")}
         </Button>
       </div>

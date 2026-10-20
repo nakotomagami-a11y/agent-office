@@ -53,7 +53,7 @@ export function PriceSourceLine({ withRefresh = false }: { withRefresh?: boolean
         </span>
       ) : null}
       {withRefresh ? (
-        <Button size="sm" onClick={() => refresh.mutate()} disabled={refresh.isPending || fetchOff || !data}>
+        <Button size="sm" className="max-[600px]:min-h-[40px]" onClick={() => refresh.mutate()} disabled={refresh.isPending || fetchOff || !data}>
           {refresh.isPending ? t("prices_refreshing") : t("prices_refresh")}
         </Button>
       ) : null}

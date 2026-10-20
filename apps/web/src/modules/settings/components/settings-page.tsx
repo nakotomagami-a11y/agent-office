@@ -28,7 +28,8 @@ import type { PlanetConfig } from "@agent-office/domain/types";
 function SettingsSection({ children }: { children: ReactNode }) {
   return (
     <div className="flex-1 min-w-0 overflow-auto">
-      <div className="pb-[20px] flex flex-col gap-[14px]">{children}</div>
+      {/* The phone's fixed bottom nav (65px + safe area) would cover the last row. */}
+      <div className="pb-[20px] max-[600px]:pb-[calc(75px+env(safe-area-inset-bottom))] flex flex-col gap-[14px]">{children}</div>
     </div>
   );
 }

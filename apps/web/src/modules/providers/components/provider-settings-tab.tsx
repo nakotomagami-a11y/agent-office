@@ -76,11 +76,11 @@ export function ProviderSettingsTab() {
         <ProviderSetupPanel setup={setup} signIn="modal" />
         <SaveNotes setup={setup} />
         <div className="flex flex-wrap items-center gap-[10px]">
-          <Button variant="primary" disabled={!dirty || setup.busy} onClick={() => void setup.commit(false)}>
+          <Button variant="primary" className="max-[600px]:min-h-[40px]" disabled={!dirty || setup.busy} onClick={() => void setup.commit(false)}>
             {setup.phase === "saving" ? t("saving") : switching ? t("use_provider") : t("save")}
           </Button>
           {setup.canContinueAnyway ? (
-            <Button disabled={setup.busy} onClick={() => void setup.commit(true)}>
+            <Button className="max-[600px]:min-h-[40px]" disabled={setup.busy} onClick={() => void setup.commit(true)}>
               {t("continue_anyway")}
             </Button>
           ) : null}
