@@ -207,3 +207,33 @@ Every user-facing setting was traced to its reader. Most work; these don't:
 | S1-15 | WASTE | `resolveStarterDataDir` ×3, agent-file filter ×2, stale header comment | `starter-data.ts:4,42,227`, `boot.ts:38`, `project-bootstrap.ts:80`, `agents.ts:113` |
 | S1-16 | WRONG | Docs on sessions are wrong: caps (8/24 vs code 5/10), worktree rules, leftovers "archived" (code force-deletes), a file that doesn't exist; identity files "travel alongside" (they don't) | `docs/06-usage.md:113-140`, `docs/07-interface.md:257` |
 | S1-17 | WRONG | Deleting an agent leaves its sessions in `project.md` (hidden), worktrees uncleaned; session numbers shift after a removal; non-409 spawn errors swallowed | `use-roster-display.ts:48-56`, `use-spawn-instance.ts:38` |
+
+### S7 · Desktop shell and Windows
+
+"(not run)" = from code, not reproduced on this machine.
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S7-1 | BROKEN | **In-app updates on Windows leave the old server running** (the updater exits without `RunEvent::Exit`); its node and `better_sqlite3.node` stay locked, so the install likely fails, and the old server keeps its scheduler/mission leases (not run) | `lib.rs:303-312` |
+| S7-2 | BROKEN | **Closing the app hard-kills node only**: exit hooks never run (discovery entry, leases, `killAllRuns`), so every `claude` child keeps running headless | `lib.rs:307`, `runs.ts:124-129` #212 |
+| S7-3 | BROKEN | node.exe is started without `CREATE_NO_WINDOW` from a GUI app → its own console window (likely, not run); release logs are lost | `main.rs:2`, `lib.rs:216-223` |
+| S7-4 | BROKEN | A startup failure (`expect`/`panic!` in a console-less app) shows nothing; 30 s readiness timeout tight with Defender scanning node_modules | `lib.rs:223-231` |
+| S7-5 | WRONG | No single-instance guard: a second launch starts a second server on the same DB and marks the first one's runs `server_restart` | `runs.ts:363-366` #212 |
+| S7-6 | BROKEN | **Onboarding's project scan always fails on Windows** (`startsWith(HOME + "/")`) → 400 `root_outside_home` for the default `~/Documents` | `routes/settings/scan/route.ts:18-20` |
+| S7-7 | BROKEN | **Removing a GitHub account never deletes its gh config folder (token included) on Windows** (same `+ "/"` guard; same in `accounts.ts:114` #212) | `github-accounts.ts:103` |
+| S7-8 | BROKEN | Orphan worktrees never cleaned on Windows (confirmed: git `C:/…` vs `join()` `C:\…`) — same as S1-9 | `worktrees.ts:263,321` |
+| S7-9 | WRONG | Worktree removal logs success after failing (common on Windows: open files, a process cwd inside) | `worktrees.ts:217-244` |
+| S7-10 | BROKEN | Flutter on Windows: uses `which`, `flutter.bat` can't be spawned plainly, `/snap/bin:` prepended to PATH, spawns without `error` listener (kills standalone server), `SIGTERM` doesn't kill the tree | `flutter.ts:59-64,125,153-203` |
+| S7-11 | WRONG | Sleep prevention is Linux-only; a Windows laptop can sleep mid-run | `sleep-inhibit.ts:26` |
+| S7-12 | WRONG | A failed update check says "up to date" (all errors become null); relaunch errors swallowed | `updater.ts:164-175`, `update-bell.tsx:128` |
+| S7-13 | WRONG | `shell-env.sh` source hint has an unquoted Windows path (bash strips backslashes, confirmed in the live file); no PowerShell equivalent | `shell-env.ts:102` |
+| S7-14 | WASTE | Stale server entries never pruned on Windows (pid reuse; only "is pid alive" is checked) | `discovery.ts:80-95` |
+| S7-15 | WRONG | Atomic writes don't retry the rename on EPERM/EBUSY (antivirus, indexer, the Minecraft mod's Java reader) → agent/settings saves and heartbeats can fail | `fs-atomic.ts:17`, `skills.ts:451-452` |
+| S7-16 | WRONG | More LF-only frontmatter parsers: a CRLF `project.md` no longer blocks deleting a GitHub account it uses | `github-accounts.ts:203`, `docs.ts:40`, `user-analysis.ts:25`, `accounts.ts:422` #212 |
+| S7-17 | WRONG | The Wayland clipboard fallback runs on Windows → 503 and a hint to run `pacman -S wl-clipboard` | `use-composer-attachments.ts:113-115` |
+| S7-18 | WRONG | Webview capabilities (updater, restart, shell open) granted to any localhost port, CSP off | `capabilities/default.json` |
+| S7-19 | WASTE | Dead Linux launcher files since the first commit; an `msi` target built but never shipped | `agent-office-launcher.sh`, `agent-office.desktop`, `tauri.windows.conf.json` |
+| S7-20 | WRONG | **CI never runs on Windows** (ubuntu only), so none of the Windows bugs above can be caught | `ci.yml:14` |
+| S7-21 | WRONG | Windows paths aren't shortened in the UI | `projects/format/format.ts:15-19` |
+
+Also noted (#212 files): `secrets.ts:222` runs secret test commands with `sh -c` (needs Git's `sh` on Windows); `expandTilde` ignores `~\`. Checked OK on Windows: every `claude` spawn (cross-spawn), `os-opener`, `terminal.ts`, `process-scan/windows.ts`, process-tree kill, `gh.ts`.
