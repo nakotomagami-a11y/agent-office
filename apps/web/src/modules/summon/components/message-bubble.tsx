@@ -31,6 +31,7 @@ import { RateLimitCard } from "./rate-limit-card";
 import { ScheduleResumeMenu } from "./schedule-resume-menu";
 import { FlagCard, type FlagAction } from "./flag-card";
 import { MsgActions } from "./msg-actions";
+import { ProviderErrorCard, isProviderRunCode } from "@/modules/providers/components/provider-error-card";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
 import { useComposerAttachments } from "../hooks/use-composer-attachments";
 import { buildComposedText } from "../format/build-composed-text";
@@ -336,6 +337,7 @@ function ErrorCard({
   // Resume isn't offered on auth/subscription cards, only Retry and Skip.
   if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
   if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
+  if (isProviderRunCode(code)) return <ProviderErrorCard code={code} detail={detail} onRetry={onRetry} onSkip={onSkip} />;
 
   return (
     <FlagCard

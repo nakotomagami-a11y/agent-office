@@ -6,13 +6,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/fetch";
 import { queryKeys } from "@/lib/api/query-keys";
 import { API_ROUTES, parseJson, wizardDraftSchema } from "@agent-office/api-contract";
-import type { AppSettings, ScannedEntry, Project, HealthInfo } from "@agent-office/domain/types";
+import type { AppSettings, ScannedEntry, Project, Provider, ProviderModels } from "@agent-office/domain/types";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
 import { cn } from "@/lib/cn";
-import { RequirementsStep } from "./first-run-wizard-steps/requirements-step";
+import { ProviderStep } from "./first-run-wizard-steps/provider-step";
+import { useProviderSetup } from "@/modules/providers/hooks/use-provider-setup";
 import { RootStep } from "./first-run-wizard-steps/root-step";
 import { ExcludedStep } from "./first-run-wizard-steps/excluded-step";
 import { AgentsStep } from "./first-run-wizard-steps/agents-step";
@@ -41,8 +42,8 @@ interface StarterAgent {
   room?: string;
 }
 
-type Step = "requirements" | "root" | "excluded" | "integrations" | "agents" | "project";
-const STEP_ORDER: Step[] = ["requirements", "root", "excluded", "integrations", "agents", "project"];
+type Step = "provider" | "root" | "excluded" | "integrations" | "agents" | "project";
+const STEP_ORDER: Step[] = ["provider", "root", "excluded", "integrations", "agents", "project"];
 
 interface WizardDraft {
   step: Step;
@@ -51,13 +52,20 @@ interface WizardDraft {
   selectedAgents: string[];
   chosenFolderIds: string[];
   projectName: string;
+  // Never a key: the draft is plain JSON in ui_settings.
+  provider: Provider | null;
+  baseUrl: string;
+  models: ProviderModels;
 }
 
 async function loadDraft(): Promise<WizardDraft | null> {
   try {
     const raw = (await getUiSettings())[DRAFT_KEY];
     if (!raw) return null;
-    return wizardDraftSchema.parse(parseJson(raw)) as WizardDraft;
+    const parsed = wizardDraftSchema.parse(parseJson(raw));
+    // A draft saved before the provider step existed names a step that is gone.
+    const step = STEP_ORDER.find((s) => s === parsed.step) ?? "provider";
+    return { ...parsed, step };
   } catch {
     return null;
   }
@@ -85,7 +93,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
   const [draft, setDraft] = useState<WizardDraft | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  const [step, setStep] = useState<Step>("requirements");
+  const [step, setStep] = useState<Step>("provider");
   const [root, setRoot] = useState(HOME_FALLBACK);
   const [excluded, setExcluded] = useState<string[]>(DEFAULT_EXCLUDED);
   const [excludedInput, setExcludedInput] = useState("");
@@ -98,6 +106,10 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const setup = useProviderSetup(
+    draft ? { provider: draft.provider, baseUrl: draft.baseUrl, models: draft.models } : undefined,
+    hydrated,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -130,14 +142,9 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
       selectedAgents: [...selectedAgents],
       chosenFolderIds: [...chosenFolderIds],
       projectName,
+      ...setup.persisted,
     });
-  }, [hydrated, step, root, excluded, selectedAgents, chosenFolderIds, projectName]);
-
-  const healthQ = useQuery({
-    queryKey: ["wizard-health"],
-    queryFn: () => apiFetch<HealthInfo>(API_ROUTES.health),
-    refetchInterval: (q) => (q.state.data?.available ? false : 5000),
-  });
+  }, [hydrated, step, root, excluded, selectedAgents, chosenFolderIds, projectName, setup.persisted]);
 
   const starterQ = useQuery({
     queryKey: ["starter-agents"],
@@ -231,7 +238,9 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
       onDone();
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : String(err));
+      const missingProvider = err instanceof Error && err.message === "provider_required";
+      if (missingProvider) setStep("provider");
+      setError(missingProvider ? t("first_run.error_provider_required") : err instanceof Error ? err.message : String(err));
       setBusy(false);
     },
   });
@@ -278,9 +287,15 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
   const isFirst = stepIdx === 0;
   const isLast = stepIdx === STEP_ORDER.length - 1;
 
+  const advanceFromProvider = async (acceptUnavailable: boolean) => {
+    setError(null);
+    if (await setup.commit(acceptUnavailable)) setStep(STEP_ORDER[1] ?? "root");
+    else setError(t("first_run.provider_block"));
+  };
+
   const goNext = () => {
-    if (step === "requirements" && !healthQ.data?.available) {
-      setError(t("first_run.req_block"));
+    if (step === "provider") {
+      void advanceFromProvider(false);
       return;
     }
     if (step === "root" && !root.trim()) {
@@ -420,9 +435,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-[26px] py-5">
-          {step === "requirements" ? (
-            <RequirementsStep health={healthQ.data} loading={healthQ.isLoading} />
-          ) : null}
+          {step === "provider" ? <ProviderStep setup={setup} /> : null}
 
           {step === "root" ? (
             <RootStep
@@ -501,11 +514,16 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
             {t("common.back")}
           </button>
           <div className="flex-1" />
+          {step === "provider" && setup.canContinueAnyway ? (
+            <Button onClick={() => void advanceFromProvider(true)} disabled={busy || setup.busy} className="h-auto rounded-xl px-[14px] py-[9px] text-[12.5px]">
+              {t("providers.continue_anyway")}
+            </Button>
+          ) : null}
           {!isLast ? (
             <Button
               variant="primary"
               onClick={goNext}
-              disabled={busy}
+              disabled={busy || setup.busy}
               className="h-auto gap-[8px] rounded-xl px-[18px] py-[9px] text-[12.5px]"
             >
               {t("common.next")}

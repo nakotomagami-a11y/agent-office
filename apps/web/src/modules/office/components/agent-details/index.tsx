@@ -21,6 +21,8 @@ import { useProject, useAddInstance, useRemoveInstance, useUpdateInstance } from
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
 import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain";
+import { MODEL_TIERS, usesGateway } from "@agent-office/domain/config/providers";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
 import { UnitSprite } from "@/components/ui/unit-sprite";
@@ -54,6 +56,10 @@ function runtimeItemLabel(value: string, selected: boolean) {
 
 export function AgentDetailsModal() {
   const t = useTranslations("agent_details");
+  // Under a gateway provider an agent's model is one of three tiers the provider maps to a real model.
+  const { id: providerId, view: providerView, capabilities } = useActiveProvider();
+  const gateway = usesGateway(providerId);
+  const modelOptions: readonly string[] = gateway ? MODEL_TIERS : MODEL_OPTS;
   const selectedId = useOfficeStore((s) => s.selectedId);
   const selectedInstanceId = useOfficeStore((s) => s.selectedInstanceId);
   const inspectorOpen = useOfficeStore((s) => s.inspectorOpen);
@@ -379,13 +385,14 @@ export function AgentDetailsModal() {
                       <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
                     </span>
                   }
-                  items={MODEL_OPTS.map((m) => ({
+                  items={modelOptions.map((m) => ({
                     key: m,
-                    label: runtimeItemLabel(m, (agent.defaultModel ?? "") === m),
+                    label: runtimeItemLabel(gateway && providerView?.config.models?.[m as "haiku"] ? `${m} → ${providerView.config.models[m as "haiku"]}` : m, (agent.defaultModel ?? "") === m),
                     selected: (agent.defaultModel ?? "") === m,
                     onSelect: () => void applyRuntime({ model: m }),
                   }))}
                 />
+                {capabilities.effort ? (
                 <DropdownMenu
                   align="start"
                   ariaLabel="Effort"
@@ -404,6 +411,7 @@ export function AgentDetailsModal() {
                     onSelect: () => void applyRuntime({ effort: e }),
                   }))}
                 />
+                ) : null}
                 {activeProjectId && selectedInstanceId && agentDeclaresPlaywright && (
                   <Tooltip
                     content={

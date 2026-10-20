@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { SecretWithStatus } from "../hooks/use-secrets";
 
 const DAY = 86_400_000;
 
 /** Expiry + live-validity badges shared by the settings tab and project panel. */
 export function SecretBadges({ secret }: { secret: SecretWithStatus }) {
+  const t = useTranslations("providers");
   const badges: Array<{ text: string; tone: "bad" | "warn" | "good" | "muted" }> = [];
 
   if (secret.expiresAt) {
@@ -19,6 +21,7 @@ export function SecretBadges({ secret }: { secret: SecretWithStatus }) {
   else if (secret.testCmd) badges.push({ text: "untested", tone: "muted" });
 
   if (secret.verifyBeforeRun) badges.push({ text: "verify-on-run", tone: "muted" });
+  if (secret.reserved) badges.push({ text: t("reserved_badge"), tone: "warn" });
 
   if (badges.length === 0) return null;
 

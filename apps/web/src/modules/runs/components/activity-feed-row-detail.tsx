@@ -2,11 +2,12 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import type { PersistedRun } from "@agent-office/domain/types";
 import { buildRunMetaFields } from "../derive/run-meta-fields";
+import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import { useRunActions } from "../hooks/use-run-actions";
 
 export function ActivityFeedRowDetail({ run }: { run: PersistedRun }) {
   const { handleBranch, handleCopyPrompt } = useRunActions(run);
-  const fields = buildRunMetaFields(run);
+  const fields = buildRunMetaFields(run, useCostWords());
 
   return (
     <div className="act-detail flex flex-col bg-card-3 m-0 mb-[5px] border-t-0 rounded-b-[18px] px-[16px] py-[14px] gap-[12px]">

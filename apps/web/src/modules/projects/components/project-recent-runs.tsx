@@ -7,7 +7,9 @@ import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { StatusDot } from "@/components/ui/status-dot";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
-import { formatCost, formatDuration, formatRelative, runStatusToDotStatus } from "@/modules/runs/format/format-run-meta";
+import { formatDuration, formatRelative, runStatusToDotStatus } from "@/modules/runs/format/format-run-meta";
+import { formatRunCost } from "@/modules/providers/format/run-cost";
+import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import type { PersistedRun } from "@agent-office/domain/types";
 
 export type ProjectRecentRunsProps = { projectId: string };
@@ -86,6 +88,7 @@ function ColumnHeader() {
 }
 
 function RunRow({ run, onOpen }: { run: PersistedRun; onOpen: () => void }) {
+  const costWords = useCostWords();
   const status = runStatusToDotStatus(run.status);
   const unit = unitForAgent(run.agentId);
   const costTone = run.status === "error" ? "bg-red-soft text-red" : "bg-card-3 text-txt-2";
@@ -113,7 +116,7 @@ function RunRow({ run, onOpen }: { run: PersistedRun; onOpen: () => void }) {
       </span>
       <span className="w-[84px] shrink-0 font-mono text-[11.5px] text-txt-2 text-right">{formatDuration(run.durMs)}</span>
       <span className="w-[78px] shrink-0 text-right">
-        <span className={`text-[11px] font-bold px-[8px] py-[3px] rounded-full ${costTone}`}>{formatCost(run.cost)}</span>
+        <span className={`text-[11px] font-bold px-[8px] py-[3px] rounded-full ${costTone}`}>{formatRunCost(run.cost, run.costBasis, costWords)}</span>
       </span>
       <span className="w-[58px] shrink-0 text-[11.5px] text-txt-4 text-right">{formatRelative(run.ts)}</span>
     </button>

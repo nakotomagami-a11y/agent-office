@@ -18,6 +18,7 @@ export type SettingsTabValue =
   | "projects"
   | "bundled-agents"
   | "integrations"
+  | "provider"
   | "secrets"
   | "about-you"
   | "performance"
@@ -40,6 +41,7 @@ const GROUPS: NavGroup[] = [
   {
     key: "credentials",
     items: [
+      { value: "provider", icon: "bot-ao" },
       { value: "secrets", icon: "lock" },
     ],
   },

@@ -1,6 +1,8 @@
 "use client";
 
 import { useContextCost, useMeasureContextCost } from "@/modules/agents/hooks/use-agents";
+import { useTranslations } from "next-intl";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { Icon } from "@/components/ui/icon";
 import { fmtTok } from "@/modules/summon/format/message-format";
 import { toast } from "@/lib/toast-store";
@@ -97,6 +99,8 @@ export function ContextCostTab({
   const q = useContextCost(agentId, instanceId, projectId);
   const measure = useMeasureContextCost();
   const data = q.data;
+  const tp = useTranslations("providers");
+  const { id: providerId, capabilities } = useActiveProvider();
 
   if (q.isLoading) {
     return <div className="flex-1 flex items-center justify-center text-ao-fg-3 text-[13px]">Loading…</div>;
@@ -141,6 +145,11 @@ export function ContextCostTab({
             Everything this session pays for before you type a word — estimated locally (~4 chars/token), amortized over this
             agent&apos;s own average turns per session.
           </div>
+          {capabilities.costKnown ? null : (
+            <div role="note" className="mt-1 max-w-[640px] text-[12px] leading-[1.5] text-amber">
+              {tp("context_cost_note", { provider: tp(`option_${providerId}_name`) })}
+            </div>
+          )}
         </div>
         <button
           type="button"

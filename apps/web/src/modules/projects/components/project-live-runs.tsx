@@ -6,6 +6,8 @@ import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useSummon } from "@/modules/summon/hooks/use-summon";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { formatCost, formatDuration } from "@/modules/runs/format/format-run-meta";
+import { formatRunCost } from "@/modules/providers/format/run-cost";
+import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import { runningRuns, runsAwaitingReply } from "../format/run-stats";
 import { UnitSprite } from "@/components/ui/unit-sprite";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
@@ -167,6 +169,7 @@ function LiveActivity({ tool }: { tool: string | undefined }) {
 }
 
 function LiveRunRow({ run }: { run: PersistedRun }) {
+  const costWords = useCostWords();
   const unit = unitForAgent(run.agentId);
   const select = useOfficeStore((s) => s.select);
   return (
@@ -190,7 +193,7 @@ function LiveRunRow({ run }: { run: PersistedRun }) {
         </div>
         <div className="text-right shrink-0">
           <div className="font-mono text-[11.5px] text-txt-2 whitespace-nowrap">{formatDuration(Date.now() - run.ts)}</div>
-          <div className="font-mono text-[10px] text-txt-4 mt-[2px] whitespace-nowrap">{formatCost(run.cost)}</div>
+          <div className="font-mono text-[10px] text-txt-4 mt-[2px] whitespace-nowrap">{formatRunCost(run.cost, run.costBasis, costWords)}</div>
         </div>
       </div>
     </button>
