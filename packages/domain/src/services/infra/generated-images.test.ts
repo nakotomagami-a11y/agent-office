@@ -8,11 +8,12 @@
  *   pnpm --filter @agent-office/domain test src/services/infra/generated-images.test.ts
  */
 import assert from "node:assert";
-import { mkdirSync, mkdtempSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { findGeneratedImages } from "./generated-images";
+import { linkTo } from "./fs-links.test.support";
 
 const root = mkdtempSync(join(tmpdir(), "gen-lookup-"));
 const NOW = Date.now();
@@ -95,7 +96,7 @@ test("a slug that is not imggen-shaped is refused, not turned into a regex", () 
 test("symlinked or plain-file 'date' entries are skipped without throwing", () => {
   const other = mkdtempSync(join(tmpdir(), "gen-other-"));
   writeFileSync(join(other, "10-00-00_cats_77.png"), "x");
-  symlinkSync(other, join(root, day(1)));
+  linkTo(other, join(root, day(1)));
   writeFileSync(join(root, day(2)), "not a dir");
   assert.deepEqual(findGeneratedImages({ slug: "cats", sinceMs: NOW - 60 * MIN, seeds: [77] }, root), []);
   assert.equal(findGeneratedImages({ slug: "cats", sinceMs: NOW - 60 * MIN, seeds: [10] }, root).length, 1);

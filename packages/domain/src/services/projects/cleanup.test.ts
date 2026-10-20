@@ -21,9 +21,10 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { linkTo } from "../infra/fs-links.test.support";
 
 // everything() sweeps the default ~/.claude dirs — on a real profile it deleted
 // installed skills. Own sandbox, set before any module resolves paths.
@@ -191,7 +192,7 @@ test("an unreadable entry is skipped, not fatal to the whole sweep", () => {
   const dir = mkdtempSync(join(tmpdir(), "ao-cleanup-"));
   try {
     const dangling = join(dir, "gone.memory.md");
-    symlinkSync(join(dir, "does-not-exist"), dangling);
+    linkTo(join(dir, "does-not-exist"), dangling);
     assert.equal(isKind(dangling, "file"), false, "a broken symlink must not throw");
     assert.equal(isKind(dangling, "dir"), false);
 
@@ -298,7 +299,7 @@ test("the memory sweep deletes only agent memory, and survives a broken symlink"
     writeFileSync(join(dir, "keep.md"), "x");
     writeFileSync(join(dir, "_global.memory.md"), "x");
     mkdirSync(join(dir, "sub.memory.md"));
-    symlinkSync(join(dir, "nope"), join(dir, "dangling.memory.md"));
+    linkTo(join(dir, "nope"), join(dir, "dangling.memory.md"));
 
     assert.equal(resetAgentMemoryFiles(dir).cleared, 1);
     const left = readdirSync(dir).sort();
@@ -313,7 +314,7 @@ test("the skill-cache sweep deletes only directories", () => {
   try {
     mkdirSync(join(dir, "skill-a"));
     writeFileSync(join(dir, "index.json"), "{}");
-    symlinkSync(join(dir, "nope"), join(dir, "dangling"));
+    linkTo(join(dir, "nope"), join(dir, "dangling"));
 
     assert.equal(clearSkillInstallCache(dir).cleared, 1);
     assert.deepEqual(readdirSync(dir).sort(), ["_seeded.json", "dangling", "index.json"]);
