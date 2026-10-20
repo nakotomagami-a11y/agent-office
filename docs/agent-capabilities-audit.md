@@ -94,7 +94,7 @@ What reaches `developer` today, from a recorded session: agent body 1.4k tokens 
 | C30 | WRONG | "Active project" gives the main checkout as cwd for worktree agents | `agents.ts:418` |
 | C31 | WASTE | **Project map duplicates `CLAUDE.md`** (layout, commands, "read before"), freezes a changing git count, tells mission seats to read a `CLAUDE.md` they deliberately don't load; `project-map-file.ts` (a `CLAUDE.md` writer) is dead code | `project-map.ts:94-123`, `docs/missions.md:196-201` |
 | C32 | WRONG | **Sub-agents get none of the app's layers** (skills, style, project facts, memory): only their `.md` body | CLI behaviour for `Agent`/`Task` |
-| C33 | WASTE | **Four memory systems, three empty**: app global/agent/project memory (all empty), identity files (none exist), CLI auto-memory (empty). The real memory is `NEXT_SESSION.md`, gitignored, diverging copies per worktree, never injected | `~/.claude/agent-office/*.memory.md`, worktree copies 14.8 KB vs 7.3 KB |
+| C33 | WASTE | **Four memory systems, three empty**: app global/agent/project memory (all empty), identity files (none exist), CLI auto-memory (empty). The real memory is `NEXT_SESSION.md`, gitignored, diverging copies per worktree, never injected | `~/.claude/agents/*.memory.md` (see S5-17), worktree copies 14.8 KB vs 7.3 KB |
 | C34 | WRONG | **Context & Cost doesn't match what's sent**: omits the agent body and listing, assumes a 9k "CC base prompt" that `--agent` replaces, calls the composer without the instance (wrong branch, no worktree), lists `CLAUDE.md` for seats that skip it; the "measured" native figure includes tool output (developer first turns avg 50k, peak 1.7M) | `context-cost.ts:49,54-57,160-171,209,232` |
 | C35 | BROKEN | The broadcast route builds the prompt for the worktree but spawns in `req.cwd`, or the server's folder when unset (no caller today) | `routes/broadcast/route.ts:22-50` |
 | C36 | WRONG | Docs disagree with the code: global memory called "the machine-wide CLAUDE.md", segment list missing the project map, wrong paths | `README.md:66`, `architecture.md:279-289`, `starter-data/agents/README.md:54`, `agents.ts:9-12` |
@@ -161,3 +161,27 @@ Earlier live-mission findings F1–F4 (in `chat-redesign-audit.md` context) all 
 | S3-14 | WRONG | `docs/missions.md` out of date in 7 places (status, owned paths, join flow, promised cards/badges, seat chat id, template) | #212 |
 | S3-15 | WRONG | Nearly every human answer reaches other devices labelled "unverifiable", ranking it below the seat's brief | `protocol.ts:160`, `routing.ts:39` |
 | S3-16 | WRONG | A rejected/evicted seat's pill vanishes with no notice; the empty chat and worktree stay | `poller.ts:126-129` |
+
+### S5 · Settings, memory, skills UI
+
+Every user-facing setting was traced to its reader. Most work; these don't:
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S5-1 | BROKEN | **"Delete folder" always fails on Windows** when the projects root starts with `~/` (mixed slashes fail the inside-root check); `~\foo` roots aren't expanded, so the scan is silently empty | `paths.ts:151`, `projects.ts:482-484` #212 |
+| S5-2 | BROKEN | **Delete/Shelve can hit a different real folder**: the pane lists folders under the unsaved root but the server resolves the slug under the saved root; two folders with the same slug collide | `settings-page.tsx:77`, `projects.ts:476-478` #212 |
+| S5-3 | BROKEN | "Match my power source" (on by default) does nothing on Windows/macOS: `/api/power` reads only Linux `/sys` | `routes/power/route.ts:10,22-25`, `power-sync.tsx:61-66` |
+| S5-4 | WRONG | Performance tab's mode table is wrong (planet icons, framer-motion), its "override any row" has no control, dev console mentions a removed cards view | `performance-tab.tsx:44`, `performance.css:42-46`, `dev-menu.tsx:444` |
+| S5-5 | BROKEN | Cleanup → "Chat transcripts" empties the retired `transcripts` table (0 rows; chat uses `conversations`); project export "include history" reads the same table, so it's always empty | `cleanup.ts:56-60`, `save.ts:59-66` |
+| S5-6 | WRONG | **Cleanup → "Skill install cache" deletes the user's own skills** ("they reinstall on next use" — only bundled ones, only at next server start) | `cleanup.ts:122-131`, `boot.ts:64-67` |
+| S5-7 | WRONG | Cleanup → "App UI settings" wipes every UI key incl. the office map (44 KB), decorations, wizard draft | `cleanup.ts:137-143` |
+| S5-8 | BROKEN | The limits modal is never mounted; its store stays at defaults, so the office budget line never shows and the resume menu always guesses "next Monday" | `claude-limits-modal.tsx:272-273`, `schedule-resume-menu.tsx:29-33`, `rate-limit-card.tsx:75-88` #212 |
+| S5-9 | WRONG | `features.multiInstance` has no UI; off by default, a second copy of an agent shares the checkout with no worktree (only logged); docs describe it wrongly | `projects.ts:535-543`, `docs/07-interface.md:257` |
+| S5-10 | WRONG | Turning GitHub integration off still injects the GitHub identity and the "git push authenticates as X" line; the picker spins forever | `spawn-env.ts:78-97`, `agents.ts:298-304` #212 |
+| S5-11 | BROKEN | Memory page "Docs" tab has no reader and no writer (no agent sees it); CRLF breaks its header parser | `memory/page.tsx:36`, `docs.ts:39,120,153` |
+| S5-12 | BROKEN | About You: the analyst agent's main source is `sqlite3` (not installed); a failed run never shows as failed; cost hint hard-coded; no agent reads the report | `user-analyst.md:136-142`, `about-you-tab.tsx:30,56-75` |
+| S5-13 | WRONG | **Secrets tab says "encrypted at rest" but every tab switch writes the active project's secret values in plain text to `shell-env.sh`** (a zsh hook; `0o600` is meaningless on Windows; the `source` line doesn't work in Git Bash) | `secrets-tab.tsx:64`, `shell-env.ts:8,113-118` |
+| S5-14 | WRONG | Exclusions are exact top-level folder names, but the UI calls them patterns and the wizard says "any depth"; defaults list dot-folders already skipped | `settings.ts:94-101`, `use-settings.ts:28` #212 |
+| S5-15 | WRONG | "Saved" stays visible after later edits in the Projects pane | `settings-page.tsx:68,145` #212 |
+| S5-16 | WRONG | Office nav entry stays when the iso view is unavailable and silently redirects | `page.tsx:39-42` |
+| S5-17 | WASTE | Memory files live in `~/.claude/agents/` (the CLI's agent folder), not `~/.claude/agent-office/` as C33 says | `agents.ts:244`, `paths.ts:40` |
