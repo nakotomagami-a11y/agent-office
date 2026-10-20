@@ -81,8 +81,16 @@ function mergeAdjacent(messages: ChatMessage[]): ChatMessage[] {
   return out;
 }
 
+/** The CLI's per-conversation billing hash: no fingerprint for another backend, a stable prompt prefix. */
+const BILLING_LINE = /^x-anthropic-billing-header:[^\n]*(?:\n+|$)/;
+
+function systemText(system: AnthropicRequest["system"]): string {
+  const parts = typeof system === "string" ? [system] : (system ?? []).map((s) => s.text ?? "");
+  return parts.map((p) => p.replace(BILLING_LINE, "")).filter((p) => p.trim()).join("\n\n");
+}
+
 function toMessages(req: AnthropicRequest, alias: (name: string) => string): ChatMessage[] {
-  const system = typeof req.system === "string" ? req.system : (req.system ?? []).map((s) => s.text ?? "").join("\n\n");
+  const system = systemText(req.system);
   const out: ChatMessage[] = system ? [{ role: "system", content: system }] : [];
   for (const m of req.messages) {
     if (typeof m.content === "string") out.push({ role: m.role, content: m.content });

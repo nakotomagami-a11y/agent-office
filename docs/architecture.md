@@ -338,7 +338,9 @@ with a per-run bearer token, so no provider key ever enters a child process.
   most it could have cost. One response from an unpriced model makes the run `unknown` at $0, and
   every cost reader leaves it out of sums (`db/cost-sql.ts`) and counts it as `unknownCostRuns`.
   A `local` run is `free`. A local server that reports usage only on request shows 0 tokens: the
-  gateway asks for streamed usage (`stream_options`) only from OpenAI.
+  gateway asks for streamed usage (`stream_options`) only from OpenAI. The CLI's first system line
+  (`x-anthropic-billing-header: cc_version=…`, a per-conversation hash) is dropped before translating,
+  so openai/local never receive it; the `anthropic_api` passthrough forwards the body unchanged.
 - **Caps:** on openai the CLI's own `--max-budget-usd` would price the wrong model, so the flag is
   removed and the cap rides on the run token. Each call holds its worst case until it settles
   (finished, cut by Stop or a dropped socket, or failed: an error status is not billed), so
@@ -346,7 +348,8 @@ with a per-run bearer token, so no provider key ever enters a child process.
   retryable 429 (`budget_held`) and the CLI waits. Once real spend reaches the cap (or a price turns
   unknown) the next request gets an Anthropic-shaped 400 and the run ends as `budget_exceeded`; as
   with the CLI's cap, the call that crosses it still runs. When the run ends, a call still in flight
-  (cut by Stop) counts at its held worst case. A cap whose mapped
+  (cut by Stop) counts at its held worst case: an upper bound (the full output cap), so repeated
+  Stops on a capped seat use up its cap faster than they billed. A cap whose mapped
   models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops the
   flag. On openai and local a Claude model id in `--model` becomes its tier alias (fable runs as
   opus), since the CLI maps only the aliases to their models; `anthropic_api` keeps the exact id

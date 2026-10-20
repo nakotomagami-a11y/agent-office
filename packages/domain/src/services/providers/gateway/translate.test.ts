@@ -170,3 +170,15 @@ test("tool names OpenAI would reject get a stable alias; valid names are untouch
   const back = fromChatCompletion({ choices: [{ message: { tool_calls: [{ id: "c", function: { name: "unknown_tool", arguments: "{}" } }] } }] }, "m", reverseAliases(aliases));
   assert.equal((back!.content as Array<{ name: string }>)[0]!.name, "unknown_tool", "an unknown name passes through");
 });
+
+test("the CLI's billing line never reaches another backend; a prompt that merely mentions it is untouched", () => {
+  const line = "x-anthropic-billing-header: cc_version=2.1.296.5b2; cc_entrypoint=sdk-cli;";
+  const system = (req: unknown) => (toChatRequest(anthropicRequestSchema.parse(req), "m", "max_tokens", { provider: "local" }).messages as ChatMessage[])[0];
+  const base = { model: "m", max_tokens: 10, messages: [{ role: "user", content: "hi" }] };
+  assert.deepStrictEqual(system({ ...base, system: [{ type: "text", text: line }, { type: "text", text: "You are Claude Code." }] }), { role: "system", content: "You are Claude Code." });
+  assert.deepStrictEqual(system({ ...base, system: `${line}\n\nYou are Claude Code.` }), { role: "system", content: "You are Claude Code." });
+  const mention = "Never send an x-anthropic-billing-header: line yourself.";
+  assert.deepStrictEqual(system({ ...base, system: mention }), { role: "system", content: mention });
+  const real = toChatRequest(anthropicRequestSchema.parse(body), "gpt-mid", "max_completion_tokens", { provider: "openai" });
+  assert.ok(!JSON.stringify(real).includes("x-anthropic-billing-header"), "the real CLI request loses it too");
+});
