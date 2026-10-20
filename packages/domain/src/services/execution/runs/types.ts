@@ -18,6 +18,7 @@ import type {
   SseToolDoneEvent,
   SseUsageEvent,
   SubAgentStatus,
+  CostBasis,
   MessageOrigin,
   Provider,
 } from "../../../types/index";
@@ -128,6 +129,8 @@ export interface LiveRun {
   /** Bash tool_use ids running `gh pr create`; see runs/pr-create.ts. */
   pendingPrCreate: Set<string>;
   provider: Provider;
+  /** Set when the run ends; until then the basis is read from the gateway's spend. */
+  costBasis?: CostBasis;
   /** The run's `--settings` pin, deleted when it finishes. */
   pinFile?: string;
 }

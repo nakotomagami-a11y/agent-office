@@ -42,6 +42,7 @@ const { attachEmit, registerRunFinishedListener, startRun } = await import("./ru
 const store = await import("../providers/store");
 const { lookupGatewayToken } = await import("../providers/gateway-tokens");
 const { getRun } = await import("../infra/store");
+const { getLiveRunAsPersistedRun } = await import("./runs/queries");
 
 const KEY = "sk-proj-SENTINEL-provider-key-1234";
 const MODELS = { haiku: "small", sonnet: "mid", opus: "big" };
@@ -98,6 +99,8 @@ test("openai: the child gets the gateway and a run token, never the key; the tok
   assert.ok(!JSON.stringify(record).includes("SENTINEL"), "no provider key in argv, env or pin");
   assert.equal(lookupGatewayToken(token), null, "revoked at finalize");
   assert.deepStrictEqual([getRun(runId)?.provider, getRun(runId)?.costBasis, getRun(runId)?.cost], ["openai", "estimated", 0], "no upstream call: nothing spent");
+  const live = getLiveRunAsPersistedRun(runId);
+  assert.deepStrictEqual([live?.provider, live?.costBasis], ["openai", "estimated"], "the live copy the run API serves says the same");
 });
 
 test("a budget cap openai cannot enforce refuses the run; local drops the flag", async () => {

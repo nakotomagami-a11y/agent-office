@@ -5,7 +5,17 @@
 
 import type { PersistedRun, WorkflowNode } from "../../../types/index";
 import * as db from "../../db";
+import { runCost } from "./provider-spawn";
 import { getLiveRun, liveRuns } from "./registry";
+import type { LiveRun } from "./types";
+
+/** What the run row will say: the provider, what its cost means so far, and why it failed. */
+const providerFields = (r: LiveRun): Pick<PersistedRun, "provider" | "costBasis" | "errorCode" | "errorDetail"> => ({
+  provider: r.provider,
+  costBasis: r.costBasis ?? runCost(r.id, r.provider, r.cost).costBasis,
+  errorCode: r.error?.code,
+  errorDetail: r.error?.detail,
+});
 
 export function getLiveRunAsPersistedRun(runId: string): PersistedRun | undefined {
   const r = liveRuns.get(runId);
@@ -34,6 +44,7 @@ export function getLiveRunAsPersistedRun(runId: string): PersistedRun | undefine
     parentRunId: r.parentRunId,
     conversationId: r.conversationId,
     currentTool: r.currentTool,
+    ...providerFields(r),
   };
 }
 
@@ -105,6 +116,7 @@ export function getRunningRuns(): PersistedRun[] {
       instanceId: r.instanceId,
       instanceLabel: r.instanceLabel,
       currentTool: r.currentTool,
+      ...providerFields(r),
     }));
 }
 

@@ -1012,6 +1012,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   if (run.status !== "running") return;
   const settled = settleRunCost(run.id, run.provider, run.cost);
   run.cost = settled.cost;
+  run.costBasis = settled.costBasis;
   releaseProviderSpawn(run.id, run.pinFile);
 
   // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
