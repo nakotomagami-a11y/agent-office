@@ -31,8 +31,8 @@ test("every status reason has a title and a body", () => {
 });
 
 test("every provider run error code has a title, a body and the Settings action", () => {
-  const codes = RUN_ERROR_CODES.filter((c) => c.startsWith("provider_") || c === "budget_exceeded");
-  assert.ok(codes.length >= 6, "the provider run codes are missing");
+  const codes = RUN_ERROR_CODES.filter((c) => c.startsWith("provider_"));
+  assert.ok(codes.length >= 5, "the provider run codes are missing");
   for (const code of codes) {
     const copy = messages.errors.run[code];
     assert.ok(copy?.["title"] && copy["body"] && copy["action"], `errors.run.${code} needs title, body and action`);
@@ -49,7 +49,8 @@ test("every provider and model tier the pickers show has its words", () => {
 test("every price and cost-unknown line the screens can show has its words", () => {
   const keys = ["prices_loading", "prices_unavailable", "prices_fetch_off", "prices_source", "prices_stale", "prices_refresh", "prices_refreshing", "prices_refresh_failed", "prices_refresh_wait", "prices_refresh_offline", "prices_fetch_toggle", "prices_fetch_toggle_failed", "context_cost_no_price", "unknown_cost_runs"];
   for (const key of keys) assert.ok(messages.providers[key], `providers.${key}`);
-  assert.ok(messages.errors.run["budget_exceeded"]?.["title"], "the budget cap run code has copy");
+  const cap = messages.errors.run["budget_exceeded"];
+  assert.ok(cap?.["title"] && cap["body"], "the budget cap run code has copy (the generic card, with Retry and Skip)");
 });
 
 test("the wizard step and the settings tab are named", () => {

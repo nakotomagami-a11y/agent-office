@@ -945,8 +945,7 @@
       },
       "budget_exceeded": {
         "title": "Budget cap reached",
-        "body": "The run spent its cap at the price catalog's rates, so it was stopped. Raise the cap to continue.",
-        "action": "Open AI provider settings"
+        "body": "This run reached its budget cap. Raise the run's budget or the mission seat cap, then retry."
       },
       "unknown": {
         "title": "Run error",
