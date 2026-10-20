@@ -48,6 +48,8 @@ async function send(call: Call): Promise<Response | FetchFailure> {
     const kind = retry?.maxTokens !== undefined ? "clamp" : "swap";
     if (!retry || used[kind]) return res;
     used[kind] = true;
+    // The clone was read; release the original's socket before the retry.
+    await res.body?.cancel().catch(() => {});
     param = retry.param;
     tokens = retry.maxTokens ?? tokens;
     res = await post(call, param, tokens);
