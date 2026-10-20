@@ -1,6 +1,7 @@
 import { getDb } from "./connection";
 import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
 import { isRunErrorCode } from "../../config/run-errors";
+import { emitAppEvent } from "../infra/events";
 
 /** Parse, don't cast: the column is TEXT and old rows predate it. */
 export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
@@ -162,18 +163,38 @@ export function getChildRuns(parentRunId: string): PersistedRun[] {
   return rows.map(rowToRun);
 }
 
-export function deleteRunsWhere(where: string, ...params: unknown[]): number {
+const LIVE_RUNS_STAY = "status != 'running'";
+
+export function deleteRunsWhere(filter: string, ...params: unknown[]): number {
   const db = getDb();
+  const where = `(${filter}) AND ${LIVE_RUNS_STAY}`;
   const ids = `SELECT id FROM runs WHERE ${where}`;
+  const now = Date.now();
   let changes = 0;
+  let parked = 0;
   db.transaction(() => {
     for (const t of ["messages", "tool_calls", "background_shells"]) {
       db.prepare(`DELETE FROM ${t} WHERE run_id IN (${ids})`).run(...params);
     }
     db.prepare(`UPDATE runs SET parent_run_id = NULL WHERE parent_run_id IN (${ids})`).run(...params);
     db.prepare(`UPDATE scheduled_jobs SET fired_run_id = NULL WHERE fired_run_id IN (${ids})`).run(...params);
+    parked += db.prepare(
+      `UPDATE conversations SET active_run_id = NULL, updated_at = ?,
+         status = CASE WHEN status = 'running' THEN 'needs_attention' ELSE status END
+       WHERE active_run_id IN (${ids})`,
+    ).run(now, ...params).changes;
+    parked += db.prepare(
+      `UPDATE loops SET active_run_id = NULL, updated_at = ?,
+         phase = CASE WHEN binding IS NULL THEN 'escalated' ELSE phase END,
+         binding = COALESCE(binding, 'dispatch_failed')
+       WHERE active_run_id IN (${ids})`,
+    ).run(now, ...params).changes;
     changes = db.prepare(`DELETE FROM runs WHERE ${where}`).run(...params).changes;
   })();
+  if (parked > 0 && !db.inTransaction) {
+    emitAppEvent("conversations:changed");
+    emitAppEvent("loops:changed");
+  }
   return changes;
 }
 

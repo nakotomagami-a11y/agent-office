@@ -72,8 +72,11 @@ export function useUpdateProject() {
 export function useRemoveProjectFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ removed: string }>(API_ROUTES.projectFolder(id), { method: "DELETE" }),
+    mutationFn: ({ id, fullPath }: { id: string; fullPath: string }) =>
+      apiFetch<{ removed: string }>(
+        `${API_ROUTES.projectFolder(id)}?${new URLSearchParams({ path: fullPath }).toString()}`,
+        { method: "DELETE" },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.projects.all });
       qc.invalidateQueries({ queryKey: queryKeys.settings.all });

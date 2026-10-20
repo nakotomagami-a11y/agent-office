@@ -34,7 +34,7 @@ process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HO
 const { createSchema } = await import("../db/migrations");
 const { deleteRunsByAgent, deleteRunsForInstance } = await import("../db/runs");
 const {
-  everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache,
+  everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache, resetUiSettings,
   RUN_FK_REFS, PIPELINE_CHILD_TABLES,
 } = await import("./cleanup");
 
@@ -308,30 +308,57 @@ test("the memory sweep deletes only agent memory, and survives a broken symlink"
   }
 });
 
-test("the skill-cache sweep deletes only directories", () => {
+/** A skill folder: `SKILL.md`, plus `.source.json` when the registry installed it. */
+function skill(dir: string, name: string, body = "# skill", fromRegistry = false): void {
+  mkdirSync(join(dir, name), { recursive: true });
+  writeFileSync(join(dir, name, "SKILL.md"), body);
+  if (fromRegistry) writeFileSync(join(dir, name, ".source.json"), "{}");
+}
+
+test("the skill sweep deletes registry installs and keeps the user's own skills", () => {
+  // It used to delete every folder ("they reinstall on next use"): a forged or
+  // imported skill exists nowhere else, so it was simply gone.
   const dir = mkdtempSync(join(tmpdir(), "ao-skills-"));
   try {
-    mkdirSync(join(dir, "skill-a"));
+    skill(dir, "from-registry", "# r", true);
+    skill(dir, "forged-by-me");
     writeFileSync(join(dir, "index.json"), "{}");
-    symlinkSync(join(dir, "nope"), join(dir, "dangling"));
+    mkdirSync(join(dir, "_seeding-x-1"));
 
     assert.equal(clearSkillInstallCache(dir).cleared, 1);
-    assert.deepEqual(readdirSync(dir).sort(), ["_seeded.json", "dangling", "index.json"]);
+    assert.deepEqual(readdirSync(dir).sort(), ["_seeding-x-1", "forged-by-me", "index.json"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("the skill-cache sweep resets the seeding marker, so bundled skills seed again", () => {
+test("a bundled skill goes only while it is byte-identical to the bundle", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ao-skills-"));
+  const bundle = mkdtempSync(join(tmpdir(), "ao-bundle-"));
+  try {
+    for (const name of ["pristine", "edited", "uninstalled"]) skill(bundle, name, `# ${name}`);
+    skill(dir, "pristine", "# pristine");
+    skill(dir, "edited", "# edited, with my changes");
+    writeFileSync(join(dir, "_seeded.json"), '["edited","pristine","uninstalled"]');
+
+    assert.equal(clearSkillInstallCache(dir, bundle).cleared, 1);
+    assert.deepEqual(readdirSync(dir).sort(), ["_seeded.json", "edited"]);
+    // Boot re-offers what the marker lacks: the deleted one, not the one the user uninstalled.
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, "_seeded.json"), "utf8")), ["edited", "uninstalled"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(bundle, { recursive: true, force: true });
+  }
+});
+
+test("without the bundle to compare against, no bundled skill is touched", () => {
   const dir = mkdtempSync(join(tmpdir(), "ao-skills-"));
   try {
-    mkdirSync(join(dir, "skill-a"));
-    writeFileSync(join(dir, "_seeded.json"), '["skill-a"]');
-    writeFileSync(join(dir, "_registry.json"), "{}");
+    skill(dir, "pristine");
+    writeFileSync(join(dir, "_seeded.json"), '["pristine"]');
 
-    assert.equal(clearSkillInstallCache(dir).cleared, 1);
-    assert.deepEqual(readdirSync(dir).sort(), ["_registry.json", "_seeded.json"]);
-    assert.equal(readFileSync(join(dir, "_seeded.json"), "utf8"), "[]");
+    assert.equal(clearSkillInstallCache(dir, null).cleared, 0);
+    assert.equal(readFileSync(join(dir, "_seeded.json"), "utf8"), '["pristine"]');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -399,4 +426,91 @@ test("a scheduled job never outlives the run it fired", () => {
   ).run();
   everything();
   assert.equal(count(db, "scheduled_jobs"), 0, "the total nuke must not leave a job pointing at nothing");
+});
+
+// --- S2-14: deleting runs must not wedge or eat chats ----------------------
+
+function seedConversation(db: Database.Database, id: string, status: string, activeRunId: string | null): void {
+  db.prepare(
+    "INSERT INTO conversations (id, agent_id, instance_id, status, active_run_id, created_at, updated_at) VALUES (?,'dev','default',?,?,1,1)",
+  ).run(id, status, activeRunId);
+}
+
+function seedLoop(db: Database.Database, id: string, activeRunId: string): void {
+  db.prepare(
+    `INSERT INTO loops (id, conversation_id, agent_id, instance_id, reviewer_agent_id, goal, phase, round,
+       spent_usd, started_at, config_json, created_at, updated_at, active_run_id)
+     VALUES (?, NULL, 'dev', 'default', 'qa', 'g', 'reviewing', 1, 0, 1, '{}', 1, 1, ?)`,
+  ).run(id, activeRunId);
+}
+
+test("a scoped run delete parks the chat it ran and ends the loop waiting on it", () => {
+  // Both reconcilers read a missing run as "just spawned" and wait forever, so
+  // DELETE /api/runs left the chat "running" with every new message queued behind it.
+  const db = freshDb();
+  seedRun(db, "ended", "error", 1);
+  seedConversation(db, "c1", "running", "ended");
+  db.prepare("INSERT INTO queued_messages (id, conversation_id, text, position, created_at) VALUES ('q1','c1','hi',0,1)").run();
+  seedLoop(db, "l1", "ended");
+
+  deleteRunsByAgent("dev");
+
+  const conv = db.prepare("SELECT status, active_run_id FROM conversations WHERE id='c1'").get();
+  assert.deepEqual(conv, { status: "needs_attention", active_run_id: null });
+  assert.equal(count(db, "queued_messages"), 1, "the queued message is the user's: kept for Retry");
+  const loop = db.prepare("SELECT phase, binding, active_run_id FROM loops WHERE id='l1'").get();
+  assert.deepEqual(loop, { phase: "escalated", binding: "dispatch_failed", active_run_id: null });
+});
+
+test("a live run is never deleted, so its chat and loop still hear it finish", () => {
+  // Parking a chat under a live run dropped the run's finish (the machine ignores
+  // a runId that is not its active one) and let Resume start a second
+  // `claude --resume` on the same session while the first was still writing.
+  const db = freshDb();
+  seedRun(db, "live", "running", null);
+  seedConversation(db, "c1", "running", "live");
+  seedLoop(db, "l1", "live");
+
+  assert.equal(deleteRunsByAgent("dev"), 0);
+  assert.deepEqual(db.prepare("SELECT status, active_run_id FROM conversations").get(), { status: "running", active_run_id: "live" });
+  assert.equal((db.prepare("SELECT active_run_id FROM loops").get() as { active_run_id: string }).active_run_id, "live");
+});
+
+test("an idle chat whose old run is deleted only loses the pointer", () => {
+  const db = freshDb();
+  seedRun(db, "old", "done", 0);
+  seedConversation(db, "c1", "idle", "old");
+
+  deleteRunsByAgent("dev");
+
+  assert.deepEqual(db.prepare("SELECT status, active_run_id FROM conversations").get(), { status: "idle", active_run_id: null });
+});
+
+test("the orphan sweep never deletes a chat turn or a sub-agent inside one", () => {
+  // A crashed chat turn is stored as error/-1 too, and it IS the transcript.
+  const db = freshDb();
+  seedRun(db, "turn", "error", -1);
+  seedChildren(db, "turn");
+  seedRun(db, "sub", "error", -1, "turn");
+  seedRun(db, "lone", "error", -1);
+  seedConversation(db, "c1", "needs_attention", null);
+  db.prepare("UPDATE runs SET conversation_id = 'c1' WHERE id = 'turn'").run();
+
+  assert.equal(wipeOrphanedRuns().detail?.runs, 1);
+  const left = (db.prepare("SELECT id FROM runs ORDER BY id").all() as Array<{ id: string }>).map((r) => r.id);
+  assert.deepEqual(left, ["sub", "turn"]);
+  for (const t of RUN_CHILD_TABLES) assert.equal(count(db, t), 1, `${t} lost a chat turn's row`);
+});
+
+// --- S5-7: the UI reset keeps the office --------------------------------------
+
+test("resetting UI settings keeps office maps, decorations and the spend cap", () => {
+  const db = freshDb();
+  const put = db.prepare("INSERT INTO ui_settings (key, value, updated_at) VALUES (?, 'v', 1)");
+  for (const k of ["theme", "tabs-state", "office-grid:p1", "office-decorations:p1", "office-agents", "claude-limits", "_migrated"]) put.run(k);
+
+  assert.equal(resetUiSettings().cleared, 2);
+  const keys = (db.prepare("SELECT key FROM ui_settings ORDER BY key").all() as Array<{ key: string }>).map((r) => r.key);
+  assert.deepEqual(keys, ["_migrated", "claude-limits", "office-agents", "office-decorations:p1", "office-grid:p1"],
+    "a reset that dropped claude-limits silently turned a hard spend cap back into a warning");
 });

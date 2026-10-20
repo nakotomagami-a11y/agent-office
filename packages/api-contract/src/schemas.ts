@@ -44,6 +44,11 @@ export const settingsScanQuerySchema = z.object({
   includeExcluded: z.string().optional(),
 });
 
+/** DELETE /api/projects/<id>/folder: `path` is the folder the user confirmed, checked server-side. */
+export const projectFolderDeleteQuerySchema = z.object({
+  path: z.string().min(1),
+});
+
 const rgbTriple = z.tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)]);
 
 const planetConfigSchema = z.object({

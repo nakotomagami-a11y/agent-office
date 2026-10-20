@@ -42,7 +42,8 @@ export function SecretsTab() {
             <div className="text-[19px] font-extrabold tracking-[-0.025em]">Secrets</div>
             <div className="text-[12px] leading-[1.6] text-txt-3 mt-[6px] max-w-[520px] text-pretty">
               Access tokens stored as named environment variables. Attach one to a project and
-              every agent run there gets it injected. Values never leave this device.
+              every agent run there gets it injected. The agent can read the value, so it can
+              also print or send it.
             </div>
           </div>
           <button
@@ -61,7 +62,7 @@ export function SecretsTab() {
             {count} secret{count === 1 ? "" : "s"}
           </span>
           <span className="flex-1" />
-          <span className="font-mono text-[10px] text-txt-4 whitespace-nowrap">AES-256 · encrypted at rest</span>
+          <span className="font-mono text-[10px] text-txt-4 whitespace-nowrap">AES-256-GCM · key kept on this device</span>
         </div>
 
         <QueryState
@@ -89,7 +90,7 @@ export function SecretsTab() {
 
         <div className="flex items-center gap-[10px] px-[20px] py-[13px] bg-card-2">
           <span className="font-mono text-[10.5px] text-txt-4 whitespace-nowrap">
-            values are injected as env vars at run start and never written to logs
+            values are injected as env vars at run start and never written to disk unencrypted
           </span>
         </div>
       </div>

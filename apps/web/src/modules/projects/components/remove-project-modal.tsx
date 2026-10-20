@@ -5,6 +5,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
+import { ApiError } from "@/lib/api/fetch";
 import { useRemoveProjectFolder } from "../hooks/use-projects";
 
 export interface RemovableProject {
@@ -42,10 +43,14 @@ export function RemoveProjectModal({
     if (!project || !matches) return;
     setError(null);
     try {
-      await remove.mutateAsync(project.id);
+      await remove.mutateAsync({ id: project.id, fullPath: project.fullPath });
       onClose();
-    } catch {
-      setError("Couldn't delete the folder. Check permissions and try again.");
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.message === "folder_mismatch"
+          ? "This folder is no longer the one the saved projects root lists. Nothing was deleted. Rescan and try again."
+          : "Couldn't delete the folder. Check permissions and try again.",
+      );
     }
   };
 
