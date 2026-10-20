@@ -98,10 +98,14 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
           includeHistory={backup.includeHistory}
           onIncludeHistoryChange={backup.setIncludeHistory}
           onExport={() => void backup.onExport()}
+          exportError={backup.exportError}
+          restoreOffice={backup.restoreOffice}
+          onRestoreOfficeChange={backup.setRestoreOffice}
           importing={backup.importing}
           importStatus={backup.importStatus}
           fileInputRef={backup.fileRef}
           onImportFile={(e) => void backup.onImportFile(e)}
+          onDropFile={(file) => void backup.onDropFile(file)}
         />
 
         <ProjectDangerZone

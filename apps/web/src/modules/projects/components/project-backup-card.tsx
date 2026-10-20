@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent, RefObject } from "react";
+import { useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
@@ -10,11 +10,32 @@ export type ProjectBackupCardProps = {
   includeHistory: boolean;
   onIncludeHistoryChange: (value: boolean) => void;
   onExport: () => void;
+  exportError: string | null;
+  restoreOffice: boolean;
+  onRestoreOfficeChange: (value: boolean) => void;
   importing: boolean;
   importStatus: { ok: boolean; msg: string } | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onImportFile: (e: ChangeEvent<HTMLInputElement>) => void;
+  onDropFile: (file: File) => void;
 };
+
+function OptionCheckbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="flex items-center gap-[9px] px-[12px] py-[9px] rounded-[11px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-pointer">
+      <input type="checkbox" className="hidden" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span
+        className={cn(
+          "flex items-center justify-center shrink-0 w-[16px] h-[16px] rounded-[4px] border",
+          checked ? "bg-acc text-white border-acc" : "border-edge-2 text-transparent",
+        )}
+      >
+        <Icon name="check" size={10} />
+      </span>
+      <span className="text-[12px] text-txt-2">{label}</span>
+    </label>
+  );
+}
 
 /**
  * Export/import card — a two-column real capability, not a mock: export
@@ -26,12 +47,28 @@ export function ProjectBackupCard({
   includeHistory,
   onIncludeHistoryChange,
   onExport,
+  exportError,
+  restoreOffice,
+  onRestoreOfficeChange,
   importing,
   importStatus,
   fileInputRef,
   onImportFile,
+  onDropFile,
 }: ProjectBackupCardProps) {
   const t = useTranslations();
+  const [dragging, setDragging] = useState(false);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(true);
+  };
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file && !importing) onDropFile(file);
+  };
 
   return (
     <div className="rounded-[24px] surface-sheen shadow-[var(--lift)] p-[22px]">
@@ -51,23 +88,7 @@ export function ProjectBackupCard({
               </div>
             </div>
           </div>
-          <label className="flex items-center gap-[9px] px-[12px] py-[9px] rounded-[11px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-pointer">
-            <input
-              type="checkbox"
-              className="hidden"
-              checked={includeHistory}
-              onChange={(e) => onIncludeHistoryChange(e.target.checked)}
-            />
-            <span
-              className={cn(
-                "flex items-center justify-center shrink-0 w-[16px] h-[16px] rounded-[4px] border",
-                includeHistory ? "bg-acc text-white border-acc" : "border-edge-2 text-transparent",
-              )}
-            >
-              <Icon name="check" size={10} />
-            </span>
-            <span className="text-[12px] text-txt-2 whitespace-nowrap">{t("project_detail.save_include_history")}</span>
-          </label>
+          <OptionCheckbox checked={includeHistory} onChange={onIncludeHistoryChange} label={t("project_detail.save_include_history")} />
           <button
             type="button"
             onClick={onExport}
@@ -75,6 +96,7 @@ export function ProjectBackupCard({
           >
             <Icon name="download" size={13} /> {t("project_detail.save_export_button")}
           </button>
+          {exportError && <span role="alert" className="text-[12px] text-red">{exportError}</span>}
         </div>
 
         <span className="w-px self-stretch bg-edge" />
@@ -93,13 +115,20 @@ export function ProjectBackupCard({
           </div>
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex flex-col items-center justify-center gap-[8px] p-[18px] rounded-[13px] bg-card-2 border border-dashed border-edge-2 text-txt-4 cursor-pointer transition-colors duration-150 hover:border-acc-line hover:text-acc hover:bg-acc-soft"
+            onDragOver={handleDragOver}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={cn(
+              "flex-1 flex flex-col items-center justify-center gap-[8px] p-[18px] rounded-[13px] bg-card-2 border border-dashed border-edge-2 text-txt-4 cursor-pointer transition-colors duration-150 hover:border-acc-line hover:text-acc hover:bg-acc-soft",
+              dragging && "border-acc-line text-acc bg-acc-soft",
+            )}
           >
             <span className="w-[32px] h-[32px] rounded-[10px] flex items-center justify-center bg-card-3">
               <Icon name="upload" size={16} />
             </span>
             <span className="font-mono text-[11px] whitespace-nowrap">drop a save file, or click to browse</span>
           </div>
+          <OptionCheckbox checked={restoreOffice} onChange={onRestoreOfficeChange} label={t("project_detail.import_restore_office")} />
           {importStatus && (
             <span className={`text-[12px] ${importStatus.ok ? "text-green" : "text-red"}`}>{importStatus.msg}</span>
           )}

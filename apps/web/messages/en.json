@@ -355,6 +355,7 @@
     "list_sub": "every markdown file in ~/.claude/agents/"
   },
   "agent_editor": {
+    "error_agent_exists": "An agent with the id \"{id}\" already exists. Pick another name or id, or edit that agent instead.",
     "permission_default_label": "Ask",
     "permission_default_subtitle": "prompt on destructive ops — not yet live, denies unattended",
     "permission_accept_edits_label": "Accept edits",
@@ -477,7 +478,12 @@
     "save_include_history": "Include conversation history",
     "save_export_button": "Export",
     "save_import_button": "Import",
-    "import_success": "Imported {count, plural, one {# agent} other {# agents}} successfully. Refresh to see changes."
+    "import_success": "Imported {count, plural, one {# agent} other {# agents}} into project \"{project}\". Refresh to see changes.",
+    "import_backed_up": "{count, plural, one {# agent you already had was} other {# agents you already had were}} backed up to ~/.claude/agent-office/backups/agents/ first.",
+    "import_snapshot": "The project as it was before is saved in {path}.",
+    "import_office_restored": "Your office layout was replaced with the one in the file.",
+    "import_restore_office": "Also replace my office layout (shared by every project) with the file's",
+    "export_failed": "Export failed: {error}"
   },
   "project_activity": {
     "card_title": "Activity",

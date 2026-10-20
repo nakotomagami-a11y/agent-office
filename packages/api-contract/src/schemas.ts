@@ -20,6 +20,8 @@ export const agentBodySchema = z.object({
   // Zod strips unknown keys, so a council saved through the editor would lose
   // its seats here even though the form carries them.
   panel: z.array(z.object({ agent: z.string(), seat: z.string().default("") })).optional(),
+  // Omitted = keep the file's `add-dirs`; the editor has no field for it.
+  addDirs: z.array(z.string().min(1)).optional(),
 });
 
 export const agentBodyListSchema = z.array(agentBodySchema);

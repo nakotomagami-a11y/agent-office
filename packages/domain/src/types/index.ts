@@ -74,6 +74,7 @@ export interface AgentBody {
   room?: string;
   unit?: string;
   panel?: PanelSeat[];
+  addDirs?: string[];
 }
 
 /** Who wrote a prompt. Stored, never inferred: a user may type the same words. */

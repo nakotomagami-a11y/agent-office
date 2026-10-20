@@ -1,5 +1,5 @@
-// GET/PUT/DELETE /api/agents/<id> — read, overwrite, or delete one agent.
-// PUT snapshots the current body to a timestamped history file (max 10) first.
+// GET/PUT/DELETE /api/agents/<id> — read, update, or delete one agent. PUT keeps frontmatter
+// keys the body doesn't carry, and snapshots the current body to a history file (max 10) first.
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
 import { agentBodySchema } from "@agent-office/api-contract";

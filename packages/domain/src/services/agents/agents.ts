@@ -16,7 +16,7 @@ import { join } from "node:path";
 import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, PanelSeat, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { parseFrontmatter, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, parseYaml, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
 import { buildSkillsBundle } from "../skills/skills";
 import { RESPONSE_STYLE } from "../../config/response-style";
 import { unknownTools, retiredToolHints } from "../../config/tools";
@@ -127,12 +127,64 @@ export function listAgents(): ApiAgent[] {
     .filter((a): a is ApiAgent => a !== undefined);
 }
 
+/** Other spellings readAgent accepts for a key. Writing the key drops them, or a stale alias
+ *  would surface the moment the key itself is removed. */
+const KEY_ALIASES: Record<string, string[]> = {
+  "display-name": ["displayName"],
+  "default-model": ["model"],
+  "default-effort": ["effort"],
+  tools: ["allowed-tools"],
+  "add-dirs": ["addDirs"],
+};
+
+interface FrontmatterEntry { key: string | null; text: string }
+
+/** Top-level frontmatter entries as raw text. Untouched keys are written back byte for byte:
+ *  our YAML helper cannot round-trip every shape (flow maps, comments, folded scalars). */
+function frontmatterEntries(yaml: string): FrontmatterEntry[] {
+  const out: FrontmatterEntry[] = [];
+  for (const line of yaml.split("\n")) {
+    const key = /^([^\s#-][^:]*):(\s|$)/.exec(line)?.[1]?.trim() ?? null;
+    if (key !== null || line.startsWith("#") || out.length === 0) out.push({ key, text: line });
+    else out[out.length - 1]!.text += `\n${line}`;
+  }
+  return out;
+}
+
+/** `owned` maps a key to its new value; `undefined` removes it. Keys not in `owned` are kept. */
+export function mergeFrontmatter(existing: string, owned: Record<string, YamlValue | undefined>): string {
+  const entries = existing ? frontmatterEntries(existing) : [];
+  const drop = new Set(Object.keys(owned).flatMap((k) => KEY_ALIASES[k] ?? []));
+  const written = new Set<string>();
+  const out: string[] = [];
+  for (const e of entries) {
+    if (e.key === null || (!(e.key in owned) && !drop.has(e.key))) {
+      out.push(e.text);
+      continue;
+    }
+    const value = owned[e.key];
+    if (drop.has(e.key) || value === undefined || written.has(e.key)) continue;
+    written.add(e.key);
+    const current = parseYaml(e.text);
+    const same = isYamlMapping(current) && JSON.stringify(current[e.key]) === JSON.stringify(value);
+    out.push(same ? e.text : stringifyYaml({ [e.key]: value }));
+  }
+  for (const [key, value] of Object.entries(owned)) {
+    if (value !== undefined && !written.has(key)) out.push(stringifyYaml({ [key]: value }));
+  }
+  return out.join("\n").trim();
+}
+
 export function writeAgent(b: AgentBody): string {
   ensureDir(AGENTS_DIR);
   if (!isValidIdSegment(b.id)) throw new Error("invalid id");
   const id = b.id;
   const file = join(AGENTS_DIR, `${id}.md`);
-  const fm: Record<string, YamlValue> = {
+  // Human display name. Only persisted when it adds information over the slug,
+  // so trivial "name == id" agents keep a clean frontmatter and fall back to
+  // slug-prettifying in the UI.
+  const label = b.name?.trim();
+  const owned: Record<string, YamlValue | undefined> = {
     name: id,
     description: b.desc.replace(/\n/g, " "),
     "default-model": b.model,
@@ -140,18 +192,29 @@ export function writeAgent(b: AgentBody): string {
     skills: b.skills,
     tools: b.tools,
     "permission-mode": b.pm,
+    "display-name": label && label !== id ? label : undefined,
+    room: b.room || undefined,
+    unit: b.unit?.trim() || undefined,
   };
-  // Human display name. Only persisted when it adds information over the slug,
-  // so trivial "name == id" agents keep a clean frontmatter and fall back to
-  // slug-prettifying in the UI.
-  const label = b.name?.trim();
-  if (label && label !== id) fm["display-name"] = label;
-  if (b.room) fm.room = b.room;
-  if (b.unit && b.unit.trim()) fm.unit = b.unit.trim();
-  if (b.panel?.length) fm.panel = b.panel as unknown as YamlValue;
-  const content = `---\n${stringifyYaml(fm).trim()}\n---\n\n${b.body}\n`;
-  writeFileAtomic(file, content);
+  // Absent = the client doesn't edit it (the editor has no field for either), so the file's value stays.
+  if (b.panel) owned.panel = b.panel.length ? (b.panel as unknown as YamlValue) : undefined;
+  if (b.addDirs) owned["add-dirs"] = b.addDirs.length ? b.addDirs : undefined;
+  const previous = existsSync(file) ? parseFrontmatterBlock(readFileSync(file, "utf8")) : "";
+  writeFileAtomic(file, `---\n${mergeFrontmatter(previous, owned)}\n---\n\n${b.body}\n`);
   return id;
+}
+
+function parseFrontmatterBlock(content: string): string {
+  return /^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/.exec(content)?.[1]?.replace(/\r\n/g, "\n") ?? "";
+}
+
+export type CreateAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
+
+/** Create only: an id that is taken is a 409, never an overwrite of someone's agent. */
+export function createAgent(b: AgentBody): CreateAgentResult {
+  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
+  if (existsSync(join(AGENTS_DIR, `${b.id}.md`))) return { ok: false, error: "agent_exists", status: 409 };
+  return { ok: true, value: writeAgent(b) };
 }
 
 export function deleteAgent(id: string): boolean {

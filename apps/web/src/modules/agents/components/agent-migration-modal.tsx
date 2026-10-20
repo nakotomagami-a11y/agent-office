@@ -7,6 +7,7 @@ import { formatAgentDisplayName } from "@/lib/agent-display-name";
 import {
   useAgentDiff,
   useApplyAgentDiff,
+  type AgentChange,
   type AgentDiffEntry,
   type AgentDiffResponse,
 } from "../hooks/use-agent-migration";
@@ -17,10 +18,13 @@ import {
  * Opens once per bundle-version bump. The founder reviews:
  *
  *   - "New in this version" — bundled agents they don't have yet. Default:
- *     all accepted (fresh installs).
- *   - "Changed since last install" — an agent they have that the bundle
- *     ships a newer version of. Default: skipped (a customized local file
- *     should win unless the user opts in).
+ *     accepted, unless skipped for this version or declined before.
+ *   - "Changed since last install" — an agent the bundle ships a newer copy
+ *     of. Default: accepted only when the local copy is untouched since it
+ *     was installed; a local edit is never overwritten unless the user
+ *     checks it.
+ *   - "Edited locally" — only the local copy changed. Never pre-checked;
+ *     checking one resets it to the bundle copy.
  *   - "Only in your local install" — agents the bundle doesn't ship. Not
  *     actionable — surfaced so the user isn't surprised these stay put.
  *
@@ -35,24 +39,32 @@ interface RowSelection {
   accept: boolean;
 }
 
-interface RowState {
-  new: Record<string, RowSelection>;
-  changed: Record<string, RowSelection>;
-}
+type Section = "new" | "changed" | "edited";
+type RowState = Record<Section, Record<string, RowSelection>>;
 
-/** Seed the checkbox state from the diff. New agents default accepted;
-    changed agents default skipped; entries already in the persisted skip
-    list stay skipped so a re-open honors the previous decision. */
 function initialRowState(diff: AgentDiffResponse): RowState {
   const skippedSet = new Set(diff.skipped);
   return {
     new: Object.fromEntries(
-      diff.newAgents.map((a) => [a.id, { accept: !skippedSet.has(a.id) }]),
+      diff.newAgents.map((a) => [a.id, { accept: !skippedSet.has(a.id) && !a.declined }]),
     ),
     changed: Object.fromEntries(
-      diff.changed.map((a) => [a.id, { accept: false }]),
+      diff.changed.map((a) => [a.id, { accept: a.change === "bundle_changed" && !skippedSet.has(a.id) }]),
     ),
+    edited: Object.fromEntries(diff.editedLocally.map((a) => [a.id, { accept: false }])),
   };
+}
+
+const CHANGE_LABEL: Record<AgentChange, string> = {
+  bundle_changed: "bundle changed",
+  edited_locally: "edited locally",
+  both: "edited locally · bundle changed",
+  unknown: "differs · no install record",
+};
+
+function rowTag(entry: AgentDiffEntry): string | null {
+  if (entry.change) return CHANGE_LABEL[entry.change];
+  return entry.declined ? "declined before" : null;
 }
 
 interface SectionProps {
@@ -159,6 +171,11 @@ function DiffSection({
                   <span className="flex items-center gap-[8px] flex-wrap">
                     <span className="text-[13px] font-semibold text-ao-fg-0">{displayName}</span>
                     <span className="font-mono text-[10.5px] text-ao-fg-3">{entry.id}</span>
+                    {rowTag(entry) && (
+                      <span className={`rounded-[4px] px-[6px] py-[1px] text-[10.5px] font-mono ${entry.change === "both" || entry.change === "edited_locally" ? "text-amber-300 bg-amber-500/15" : "text-ao-fg-2 bg-ao-line-1/25"}`}>
+                        {rowTag(entry)}
+                      </span>
+                    )}
                   </span>
                   {entry.description && (
                     <span className="text-[11.5px] text-ao-fg-2 leading-[1.5]">
@@ -184,7 +201,8 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
   const diffQ = useAgentDiff(open);
   const applyM = useApplyAgentDiff();
 
-  const [rows, setRows] = useState<RowState>({ new: {}, changed: {} });
+  const [rows, setRows] = useState<RowState>({ new: {}, changed: {}, edited: {} });
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   // Sync local checkbox state whenever the diff response lands. Also reset
   // when the modal opens so a re-open after a "later" close honors any
@@ -193,15 +211,16 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
     if (!open) return;
     if (!diffQ.data) return;
     setRows(initialRowState(diffQ.data));
+    setApplyError(null);
   }, [open, diffQ.data]);
 
-  const toggle = (section: "new" | "changed", id: string) => {
+  const toggle = (section: Section, id: string) => {
     setRows((prev) => ({
       ...prev,
       [section]: { ...prev[section], [id]: { accept: !prev[section][id]?.accept } },
     }));
   };
-  const selectAll = (section: "new" | "changed", accept: boolean) => {
+  const selectAll = (section: Section, accept: boolean) => {
     setRows((prev) => ({
       ...prev,
       [section]: Object.fromEntries(
@@ -214,6 +233,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
     const out: string[] = [];
     for (const [id, s] of Object.entries(rows.new))     if (s.accept) out.push(id);
     for (const [id, s] of Object.entries(rows.changed)) if (s.accept) out.push(id);
+    for (const [id, s] of Object.entries(rows.edited))  if (s.accept) out.push(id);
     return out;
   }, [rows]);
 
@@ -224,28 +244,38 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
     return out;
   }, [rows]);
 
+  const bundleOlder = !!diffQ.data?.bundleOlder;
+
   const handleApply = async () => {
-    await applyM.mutateAsync({
-      accept: acceptSlugs,
-      skip: skipSlugs,
-      markComplete: true,
-    });
-    onClose();
+    setApplyError(null);
+    try {
+      const result = await applyM.mutateAsync({
+        accept: acceptSlugs,
+        skip: skipSlugs,
+        markComplete: true,
+      });
+      if (result.errors.length > 0) {
+        setApplyError(result.errors.map((e) => `${e.id}: ${e.reason}`).join(" · "));
+        return;
+      }
+      onClose();
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : String(err));
+    }
   };
 
-  // If the user closes without applying we treat it as "remind me next launch"
-  // — do NOT stamp the version as processed. The mutation still runs so any
-  // in-progress skip choices get persisted but markComplete=false leaves the
-  // trigger active for next reload.
+  // Closing without applying = "remind me next launch": the version is NOT
+  // stamped, but the unchecked rows are recorded as skipped for this version,
+  // so next launch only re-opens for agents the user still wanted.
   const handleLater = async () => {
-    if (skipSlugs.length > 0) {
-      await applyM.mutateAsync({ accept: [], skip: skipSlugs, markComplete: false });
+    if (!bundleOlder && diffQ.data) {
+      await applyM.mutateAsync({ accept: [], skip: skipSlugs, markComplete: false }).catch(() => undefined);
     }
     onClose();
   };
 
   const totalActionable = diffQ.data
-    ? diffQ.data.newAgents.length + diffQ.data.changed.length
+    ? diffQ.data.newAgents.length + diffQ.data.changed.length + diffQ.data.editedLocally.length
     : 0;
 
   const versionLabel = diffQ.data
@@ -278,7 +308,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
             <button
               type="button"
               onClick={handleApply}
-              disabled={applyM.isPending}
+              disabled={applyM.isPending || bundleOlder}
               className="h-[30px] px-[14px] rounded-[8px] bg-ao-accent text-white text-[13px] font-semibold cursor-pointer hover:brightness-110 transition-[filter] duration-[120ms] disabled:opacity-50 disabled:cursor-default"
             >
               {applyM.isPending ? "Applying…" : totalActionable === 0 ? "Got it" : "Apply choices"}
@@ -293,7 +323,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
           <div className="flex-1 min-w-0">
             <p className="m-0">
               This build ships an updated agent roster. Review below, then apply.
-              Your existing agents are backed up to <code className="font-mono text-[11.5px] px-[4px] py-[1px] rounded-[3px] bg-ao-bg-3 text-ao-fg-0">~/.claude/agents/_archive/</code> before any override.
+              Your existing agents are backed up to <code className="font-mono text-[11.5px] px-[4px] py-[1px] rounded-[3px] bg-ao-bg-3 text-ao-fg-0">~/.claude/agent-office/backups/agents/</code> before any override.
             </p>
             <p className="m-0 mt-[4px] text-ao-fg-3 font-mono text-[11px]">
               bundle version · {versionLabel}
@@ -311,6 +341,19 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
           <div className="text-[12.5px] text-red-300 font-mono py-3">
             Failed to load the roster diff. Close and reopen the app to retry.
           </div>
+        )}
+
+        {applyError && (
+          <div role="alert" className="text-[12.5px] text-red-300 font-mono py-1">
+            Some agents were not applied: {applyError}
+          </div>
+        )}
+
+        {bundleOlder && diffQ.data && (
+          <p className="text-[12.5px] text-ao-fg-2 m-0">
+            This build ships roster {diffQ.data.bundleVersion}, older than the installed {diffQ.data.installedVersion}.
+            Nothing is offered, so a newer agent is never replaced by an older one.
+          </p>
         )}
 
         {diffQ.data && (
@@ -334,13 +377,22 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               onSelectAll={(accept) => selectAll("changed", accept)}
             />
             <DiffSection
+              title="Edited locally"
+              subtitle="the bundle didn't change these; check one to reset it to the bundle copy"
+              tone="warn"
+              entries={diffQ.data.editedLocally}
+              selection={rows.edited}
+              onToggle={(id) => toggle("edited", id)}
+              onSelectAll={(accept) => selectAll("edited", accept)}
+            />
+            <DiffSection
               title="Only in your local install"
               subtitle="untouched — your customs stay"
               tone="info"
               entries={diffQ.data.onlyLocal}
             />
 
-            {totalActionable === 0 && (
+            {totalActionable === 0 && !bundleOlder && (
               <p className="text-[12.5px] text-ao-fg-2 font-mono m-0 py-2">
                 Nothing to migrate. Roster already matches the bundle.
               </p>

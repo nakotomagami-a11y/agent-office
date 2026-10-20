@@ -19,12 +19,17 @@ import { API_ROUTES } from "@agent-office/api-contract";
  *  AgentMigrationTrigger owns the modal and listens for this. */
 export const OPEN_AGENT_MIGRATION_EVENT = "agent-office:open-agent-migration";
 
+/** Judged against the hash the agent was installed from; `unknown` = installed before that record. */
+export type AgentChange = "bundle_changed" | "edited_locally" | "both" | "unknown";
+
 export interface AgentDiffEntry {
   id: string;
   name: string;
   description: string;
   bundleHash?: string;
   installedHash?: string;
+  change?: AgentChange;
+  declined?: boolean;
 }
 
 export interface AgentDiffResponse {
@@ -33,10 +38,13 @@ export interface AgentDiffResponse {
   /** The version this workspace last ran a migration against, or null on
       first launch. Modal triggers when installed !== bundle. */
   installedVersion: string | null;
+  /** The installed roster came from a newer bundle than this build ships; nothing is offered. */
+  bundleOlder: boolean;
   /** Bundled but not installed — clean adds. */
   newAgents: AgentDiffEntry[];
-  /** Installed AND bundled — hashes differ. Candidates for override. */
   changed: AgentDiffEntry[];
+  /** Installed AND bundled, but only the local copy changed. Overriding reverts the user's edit. */
+  editedLocally: AgentDiffEntry[];
   /** Installed but not bundled. Never touched by accept; surfaced so the
       user knows their custom / older agents will stay put. */
   onlyLocal: AgentDiffEntry[];
@@ -56,7 +64,7 @@ export interface AgentDiffApplyRequest {
 export interface AgentDiffApplyResponse {
   /** Slugs where the bundled file was copied into ~/.claude/agents/. */
   applied: string[];
-  /** Slugs whose previous local file was moved into `_archive/` before override. */
+  /** Slugs whose previous local file was copied to ~/.claude/agent-office/backups/agents/ first. */
   backedUp: string[];
   /** Echo of the `skip` slugs, now persisted for the current version. */
   skipped: string[];

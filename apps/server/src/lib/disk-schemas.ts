@@ -18,10 +18,16 @@ export const docsIndexSchema = z.object({
 
 export const starterManifestSchema = z.object({
   version: z.string(),
-  agents: z.array(z.unknown()),
+  agents: z.array(z.object({ file: z.string(), name: z.string(), description: z.string().default(""), hash: z.string() })),
 }).passthrough();
 
 export const starterSkipStateSchema = z.object({
   version: z.string(),
   slugs: z.array(z.string()),
 }).passthrough();
+
+/** The bundle hash each starter agent was installed from, and the ones the user turned down. */
+export const agentInstallRecordSchema = z.object({
+  agents: z.record(z.string(), z.string()).default({}),
+  declined: z.array(z.string()).default([]),
+});
