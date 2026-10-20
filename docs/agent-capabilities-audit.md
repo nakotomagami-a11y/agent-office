@@ -1,8 +1,8 @@
 # Agent capabilities audit: what really reaches an agent
 
-Status: **findings only, nothing fixed yet.** Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows.
+Status: **findings only, nothing fixed yet. 49 findings; app-wide sweep running.** Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows.
 
-Why this exists: agents declare tools, MCP servers and skills that silently never reach them. The UI shows them as working. This document lists every such case found so far, with evidence, so the fix can be planned once instead of patched case by case. The skills audit is still running and will be appended.
+Why this exists: agents declare tools, MCP servers and skills that silently never reach them. The UI shows them as working. This document lists every such case found so far, with evidence, so the fix can be planned once instead of patched case by case. The app-wide sweep (7 areas) is running and will be appended.
 
 How it was checked:
 - **Live probes.** All 34 agent definitions were started exactly the way Agent Office starts them (`claude -p --agent <id> --output-format stream-json --verbose`), the CLI's `system/init` event was read (it lists tools, MCP servers, skills, agents, memory paths) and the process was killed before any model call.
@@ -102,7 +102,26 @@ What reaches `developer` today, from a recorded session: agent body 1.4k tokens 
 
 ### Skills
 
-Pending: the skills audit is still running. Already known: C2, C11, C28, C29; of `developer`'s 5 declared skills only `i-have-adhd` is installed.
+What happens today: frontmatter `skills: [...]` is read by both Agent Office and the CLI with different meanings. Agent Office looks only in `~/.claude/agents/_skills/<name>/SKILL.md`; a body ≤1500 chars is pasted into the appended prompt, larger ones become a one-line "read when needed" pointer, missing ones add nothing. The CLI's native store (`~/.claude/skills`) holds only claude.ai-synced skills. **In 634 runs the DB shows 0 `Skill` tool calls and 0 reads of any `_skills/*/SKILL.md`.**
+
+Declared vs installed, live `~/.claude/agents`: **100 declared, 1 resolves (`developer` → `i-have-adhd`), 99 missing (46 distinct names).** Most-declared missing: `sp-verification-before-completion` ×21, `alz-grill-me` ×6, `pt-ponytail` ×6, `alz-strategic-alignment` ×6, `alz-decision-logger` ×5.
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| C38 | BROKEN | **99 of 100 declared skills reach no agent, and the bundled starter agents ship that way.** Starter agents declare `alz-*`, `sp-*`, `pt-*`, `ecc-*`, `jul-*`, `imp-*`, `an-*` names from an external pack that isn't in the repo; `starter-data/skills` has only 4 unprefixed skills no starter agent declares | `apps/web/starter-data/agents/*.md`, `starter-data/skills`, `skills.ts:882` |
+| C39 | BROKEN | **The prefixed names can't be installed from the app**: registry installs keep upstream names (`webapp-testing`, not `an-webapp-testing`); project templates use unprefixed names, so templates and starter agents disagree | `templates.ts:23,75` |
+| C40 | BROKEN | **20 registry skills can't be installed**: name clashes get an `@source` suffix, which the install schema's `^[A-Za-z0-9._-]+$` rejects | `skills.ts:268-283`, `api-contract/src/schemas.ts:167` |
+| C41 | BROKEN | **The one installed skill is never applied**: `i-have-adhd` (7,010 chars) becomes a "read when needed" pointer; its `always-inline: true` and native `disable-model-invocation` are ignored; no run ever read it; it duplicates the built-in response style | `skills.ts:769-774,817`; commit `739633b` |
+| C42 | BROKEN | **Account folders get their own empty `skills/` and `plugins/`**: `SHARED_ASSETS` lists them, but the never-clobber rule skips linking once the CLI created real dirs; 386 of 645 runs ran under an account folder | `accounts.ts:35-43,156-157` |
+| C43 | WRONG | **The UI shows missing skills as equipped**: editor cards, detail tags, quick view, Memory tree. `unresolvedSkills` exists but has no caller. "7 of 6 slots" (`SKILL_SLOTS = 6` is cosmetic) | `agent-editor-form.tsx:127,253-335`, `agent-detail.tsx:64-66`, `skills.ts:867-873` |
+| C44 | WRONG | **Skill cost badge doesn't match what a run pays** (`size/4`, e.g. claude-api "~8k" vs a ~60-token pointer); customizing a large skill flips it to fully inlined | `skill-weight.ts`, `skills.ts:817` |
+| C45 | WRONG | Skill section toggles look per-agent (Memory page) but apply to every agent | `scope.ts:31`, `memory-nav.tsx:120-140`, `skills.ts:639-650` |
+| C46 | WASTE | Manifest and compatibility features are dead (files don't exist, `useSkillCompatibility` has no callers, routes always return null); quick-view token cost never renders | `skills.ts:880-907`, `agent-quick-view.tsx:175-179` |
+| C47 | WASTE | Guard tests test nothing: they run against an empty temp home, so the skills checks return early; no test checks starter agents' skills resolve — how C38 shipped | `agent-surface.test.ts:59-70,100-108` |
+| C48 | WASTE | `boot.ts` defines its own `SKILLS_DIR` from `homedir()`, bypassing the `paths.ts` real-home test guard; `PRE_MARKER_BUNDLE` is a hard-coded legacy list | `boot.ts:37,71` |
+| C49 | WRONG (latent) | Double loading once a name exists in both stores: subagents would get the CLI's native preload plus the app's copy | CLI subagent preload |
+
+Open: whether CLI 2.1.296 preloads frontmatter `skills:` for a main `--agent` run (it does for subagents). One probe settles it.
 
 ## Overlap with PR #212 (AI providers mission)
 
@@ -112,6 +131,6 @@ Rule for the fixes: anything in those files waits for #212 to merge, or is coord
 
 ## Next
 
-1. Finish the skills audit and append it.
+1. ~~Finish the skills audit~~ (done: C38–C49).
 2. A wider sweep of the rest of the app with the same lens (does it reach the agent or user, does it make sense, does it work on Windows), excluding #212's files.
 3. One fix plan, ordered so the root causes go first: move app files out of `~/.claude/agents` (C1, C2), one config folder story (C5–C7), a generated tool catalog checked against live init events (C9–C15), session-fixed context with one source per concern (C24–C34).
