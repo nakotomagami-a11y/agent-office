@@ -13,7 +13,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <select
       ref={ref}
       className={cn(
-        "h-8 py-0 pr-7 pl-[10px] bg-bg-1 border border-line-2 rounded-md text-txt [font:inherit] text-[13px] outline-none cursor-pointer shadow-1 appearance-none bg-no-repeat",
+        "h-8 py-0 pr-7 pl-[10px] bg-bg-1 border border-line-2 rounded-md text-txt [font:inherit] text-[13px] outline-none cursor-pointer shadow-1 appearance-none bg-no-repeat focus:border-acc",
         className,
       )}
       style={{

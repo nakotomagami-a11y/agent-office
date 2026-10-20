@@ -65,6 +65,7 @@ export function Tooltip({ content, children, side = "top", delayMs = 450, classN
   const id = useId();
 
   const show = useCallback(() => {
+    clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const rect = ref.current?.getBoundingClientRect();
       if (rect) {
@@ -78,6 +79,8 @@ export function Tooltip({ content, children, side = "top", delayMs = 450, classN
     clearTimeout(timer.current);
     setOpen(false);
   }, []);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   useEffect(() => {
     if (!open) return;

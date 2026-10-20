@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { OPEN_MENU_SELECTOR } from "@/components/ui/dropdown-menu";
 import { TILE, type AgentPositions } from "../components/office-map";
 import { GRID_COLS, GRID_ROWS } from "./use-office-camera";
 import type { BuildTool } from "../components/office-build-toolbar";
@@ -279,6 +280,7 @@ export function useCanvasEditing({
     if (tool !== "select" || !selectedDeco) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
       const step = e.shiftKey ? 8 : 1;
       const claim = () => { e.preventDefault(); e.stopImmediatePropagation(); };
       const arrow = (dxTile: number, dyTile: number) =>
@@ -304,6 +306,7 @@ export function useCanvasEditing({
     if (tool !== "select" || !selectedAgent) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
       const step = e.shiftKey ? 8 : 1;
       const claim = () => { e.preventDefault(); e.stopImmediatePropagation(); };
       const arrow = (dxTile: number, dyTile: number) =>

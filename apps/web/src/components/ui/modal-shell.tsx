@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Portal } from "./portal";
 import { Icon } from "./icon";
+import { OPEN_MENU_SELECTOR } from "./dropdown-menu";
 import { cn } from "@/lib/cn";
 import { useRegisterModal } from "@/lib/modal-manager";
 import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
@@ -67,6 +68,7 @@ export function ModalShell({
       // row) — otherwise the same keypress also bubbles into that row's own
       // key handler underneath (see the sidebar remove-instance confirm
       // dialog, which used to open the row's conversation view on Enter).
+      if ((e.key === "Escape" || e.key === "Enter" || e.key === "Tab") && e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();

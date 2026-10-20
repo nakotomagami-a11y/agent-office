@@ -10,6 +10,7 @@ import {
 import { GRASS_COLOR_LIST, type GrassColor } from "../components/grass-colors";
 import { LAND_SHAPES, type LandShape } from "../derive/land-generator";
 import { useFilter } from "@/hooks/use-filter";
+import { OPEN_MENU_SELECTOR } from "@/components/ui/dropdown-menu";
 import type { BuildTool, LandGenParams } from "../components/office-build-toolbar";
 
 /**
@@ -60,6 +61,8 @@ export function useBuildToolbar(params: {
   useEffect(() => {
     if (!terrainOpen) return;
     const onKey = (e: KeyboardEvent) => {
+      // The popover's "Land shape" menu closes itself first; this capture listener would close both.
+      if (e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();

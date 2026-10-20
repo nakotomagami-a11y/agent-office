@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useTranslations } from "next-intl";
 import { MAX_RECIPIENTS, MISSION_LIMITS, SEAT_OS, type SeatOs } from "@agent-office/domain/config/missions";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { agentInstalled, seatName, seatNameOk } from "../format/start-form";
@@ -46,16 +47,20 @@ function DevicePicker({ seat: s, onPick }: { seat: SeatDraft; onPick: (os: SeatO
 function AgentSelect({ seat, agent, installed, onPick }: { seat: string; agent: string | null; installed: readonly string[] | undefined; onPick: (a: string) => void }) {
   const t = useTranslations("missions.start");
   const ok = agentInstalled(agent, installed);
+  const missing = installed !== undefined && !ok;
   const options = installed ? (agent && !ok ? [agent, ...installed] : installed) : [];
   const empty = !installed ? t("agents_loading") : installed.length === 0 ? t("agents_none") : null;
+  const name = (a: string) => (installed?.includes(a) ? a : t("agent_missing", { agent: a }));
+  const shown = agent ? name(agent) : (empty ?? "");
+  const label = t("agent_for", { seat: seat || "-" });
+  const items = empty
+    ? [{ key: "", label: empty, disabled: true, onSelect: () => {} }]
+    : options.map((a) => ({ key: a, label: name(a), selected: a === agent, indicatorStyle: "check" as const, onSelect: () => onPick(a) }));
   return (
-    <select aria-label={t("agent_for", { seat: seat || "-" })} value={agent ?? ""} onChange={(e) => onPick(e.target.value)}
-      aria-invalid={(installed !== undefined && !ok) || undefined} title={installed && agent && !ok ? t("agent_missing", { agent }) : undefined}
-      className={cn("h-7 max-w-[140px] cursor-pointer rounded-[8px] border bg-card-3 px-2 text-[11.5px] font-semibold text-txt-2 outline-none focus:border-acc-line",
-        installed !== undefined && !ok ? "border-red" : "border-edge")}>
-      {empty && <option value="" disabled>{empty}</option>}
-      {options.map((a) => <option key={a} value={a}>{installed?.includes(a) ? a : t("agent_missing", { agent: a })}</option>)}
-    </select>
+    <DropdownMenu ariaLabel={label} triggerAriaLabel={`${label}: ${shown}`} align="start" items={items}
+      triggerClassName={cn("h-7 max-w-[160px] rounded-[8px] border bg-card-3 px-2 text-[11.5px] font-semibold text-txt-2 hover:bg-card-3", FOCUS_RING,
+        missing ? "border-red hover:border-red" : "border-edge hover:border-edge-2")}
+      trigger={<><span className="truncate">{shown}</span><Icon name="chevron-down" size={12} className="shrink-0 text-txt-4" /></>} />
   );
 }
 

@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { ACCENT_BTN, Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useMissionShortcut } from "@/modules/missions/hooks/use-mission-shortcut";
 import type { ContextProfile } from "@agent-office/domain/types";
 
@@ -29,18 +30,24 @@ export function ComposerToolbar(props: ComposerToolbarProps): React.ReactElement
   const t = useTranslations();
   return (
     <div className="flex items-center gap-[4px] px-[8px] pb-[8px] pt-[6px]">
-      <Button variant="ghost" size="sm" title={t("composer.attach_title")} onClick={props.onAttachClick} aria-label={t("composer.attach_title")}>
-        <Icon name="attach" />
-      </Button>
-      <Button variant="ghost" size="sm" title={t("composer.slash_insert_title")} onClick={props.onSlashClick} aria-label={t("composer.slash_insert_aria")}>
-        <Icon name="slash" />
-      </Button>
-      <Button variant="ghost" size="sm" title={t("missions.open_title", { mac: String(shortcut.mac) })} aria-label={t("missions.open")} aria-keyshortcuts={shortcut.aria} onClick={props.onMissionsOpen}>
-        <Icon name="sparkle" />
-      </Button>
+      <Tooltip content={t("composer.attach_title")}>
+        <Button variant="ghost" size="sm" onClick={props.onAttachClick} aria-label={t("composer.attach_title")}>
+          <Icon name="attach" />
+        </Button>
+      </Tooltip>
+      <Tooltip content={t("composer.slash_insert_title")}>
+        <Button variant="ghost" size="sm" onClick={props.onSlashClick} aria-label={t("composer.slash_insert_aria")}>
+          <Icon name="slash" />
+        </Button>
+      </Tooltip>
+      <Tooltip content={t("missions.open_title", { mac: String(shortcut.mac) })}>
+        <Button variant="ghost" size="sm" aria-label={t("missions.open")} aria-keyshortcuts={shortcut.aria} onClick={props.onMissionsOpen}>
+          <Icon name="sparkle" />
+        </Button>
+      </Tooltip>
       <div className="ml-auto flex items-center gap-[6px]">
         {props.abortable ? (
-          <Button size="sm" onClick={props.onAbort}>
+          <Button size="sm" className="h-[32px] rounded-[10px]" onClick={props.onAbort}>
             <Icon name="stop" /> {t("common.abort")}
           </Button>
         ) : (

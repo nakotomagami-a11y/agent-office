@@ -43,7 +43,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Summon** any agent against any project with live SSE-streamed output and full transcript history
 - **Workflow spawn tree** - live sub-agent tree with per-node status badges and cost; shown in chat via the WorkflowPill dropdown while an orchestration is running
 - **Multi-instance agents** - run the same agent 3x in parallel on different scopes (each gets its own transcript, draft, and run history)
-- **Workflows library** - a curated set of reusable, multi-step prompts; opened from the composer (Ctrl+P) or saved from any message
+- **Missions** - agents on several devices coordinating through a GitHub draft PR; start or join from the composer (Ctrl+P)
 - **Abort all** - kill every running agent with one click
 - **ADHD-friendly replies** - every agent leads with the next action, numbers its steps and skips filler (built-in response style; say "normal mode" to drop it for a conversation)
 - **Rate-limit warning** - dedicated card in the chat thread when a run hits API rate limits
@@ -114,7 +114,7 @@ origins (see [the security model](docs/architecture.md#csrf--security-model)).
 - **Pixi.js v8** for the isometric office canvas (GPU-accelerated; PixiJS Graphics for procedural path tiles)
 - **`@agent-office/pixel-planets`** and **`@agent-office/pixel-icons`** — own-authored procedural renderers, kept as separate repos: WebGL2 planet icons (one shared GL context for all of them) and canvas-2D weapon/shield icons
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules)
-- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, workflows, UI state
+- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, mission seats, UI state
 - **framer-motion** for page + modal transitions
 - **zod** for validation at every trust boundary
 - **Tauri v2** for desktop bundling
@@ -151,8 +151,8 @@ Inside `apps/web/src`:
 - `components/layout/` - window chrome, titlebar, sidebar, project switcher, mobile nav
 - `components/ui/` - design-system atoms (Icon, StatusDot, Button, Modal, Tabs, ...)
 - `modules/office/` - isometric scene, Pixi canvas, build toolbar, map overlay
-- `modules/summon/` - chat panel, transcript thread, composer, workflow picker, live status
-- `modules/workflows/` - workflow (reusable multi-step prompt) picker dialog
+- `modules/summon/` - chat panel, transcript thread, composer, live status
+- `modules/missions/` - mission start/join dialog and the chat-header mission pill
 - `modules/analytics/` - spend/usage dashboards
 - `modules/accounts/`, `modules/github-accounts/` - multi-account management
 - `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/search/`, `modules/settings/`, `modules/docs/`, `modules/flutter/`, `modules/onboarding/`
@@ -215,7 +215,7 @@ over its own host kills its own run mid-task.
 
 - **Agent definitions** are markdown files in `~/.claude/agents/`. The app scans that directory to build the roster and lets you edit definitions inline.
 - **Summon** shells out to `claude -p "<prompt>"` per run; stdout streams back over SSE to the chat panel and persists to SQLite as it arrives.
-- **Workflows** (a curated library of reusable multi-step prompts, formerly "saved prompts") live in the `saved_prompts` SQLite table; the picker dialog is one keystroke away in the composer (Ctrl+P) and organised by category.
+- **Missions** live on GitHub: a draft PR is the hub, and each device keeps only the seats it holds (`mission_seats`). Start or join one from the composer (Ctrl+P); see `docs/missions.md`.
 - **Skills** are installable bundles from configured registries; updates are checked against source manifests and surfaced in the Skills page.
 - **Sleep inhibitor** acquires a `systemd-inhibit` lock for the duration of any active run so the laptop doesn't sleep mid-task.
 - **Crash recovery**: on DB open, a run still marked `running` whose process is gone is flipped to `error` with `exit_code=-1`.

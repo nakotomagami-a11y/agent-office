@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { OPEN_MENU_SELECTOR } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { Portal } from "@/components/ui/portal";
 import { CHROME_LEFT_CLASS, CHROME_TOP } from "@/lib/chrome";
@@ -80,6 +81,8 @@ function useDialogKeys(open: boolean, dialogRef: React.RefObject<HTMLDivElement 
     const onKey = (e: KeyboardEvent) => {
       // An IME uses Escape to cancel a composition: that keystroke is not for this dialog.
       if (e.isComposing || e.keyCode === 229) return;
+      // An open menu is portalled outside the dialog and handles Escape and Tab itself; this capture listener runs first.
+      if ((e.key === "Escape" || e.key === "Tab") && e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         // The inspector listens for Escape too: this dialog closes, the inspector stays.
