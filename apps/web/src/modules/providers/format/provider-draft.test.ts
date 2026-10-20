@@ -6,6 +6,7 @@ import { EMPTY_DRAFT, keyWillBeCleared, requestBody, startingDrafts } from "./pr
 const caps = { accounts: true, plan: false, effort: false, costKnown: false, rateLimitWindow: false, resume: true, tools: true };
 const view = (over: Partial<ProviderView> & Pick<ProviderView, "id">): ProviderView => ({
   configured: false,
+  hasKey: false,
   config: {},
   status: { available: false },
   capabilities: caps,

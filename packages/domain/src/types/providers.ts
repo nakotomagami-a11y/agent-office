@@ -31,7 +31,9 @@ export interface ProviderCapabilities {
 export interface ProviderView {
   id: Provider;
   configured: boolean;
-  /** Last 4 characters of the stored key; never more. */
+  /** A key is stored, of any length. */
+  hasKey: boolean;
+  /** Last 4 characters of a stored key of 16+ characters; never more. */
   keyHint?: string;
   config: ProviderConfig;
   status: ProviderStatus;

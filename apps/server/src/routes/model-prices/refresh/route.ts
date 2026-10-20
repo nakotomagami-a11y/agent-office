@@ -1,7 +1,6 @@
 // POST /api/model-prices/refresh — re-fetch the price catalog. No catalog yet: answers the empty one.
-import type { ModelPricesResponse } from "@agent-office/domain/types";
+import { EMPTY_CATALOG } from "../../../lib/model-prices";
 
 export async function POST() {
-  const empty: ModelPricesResponse = { source: null, fetchedAt: null, stale: false, entries: {} };
-  return Response.json(empty);
+  return Response.json(EMPTY_CATALOG);
 }

@@ -29,6 +29,7 @@ function viewOf(provider: Provider): ProviderView {
   return {
     id: provider,
     configured: provider === "subscription" || !!stored,
+    hasKey: stored?.hasKey ?? false,
     keyHint: keyHint(provider),
     config: stored?.config ?? {},
     status: statusOf(provider),
@@ -67,6 +68,7 @@ export async function testProvider(
   draft: ProviderConfigInput | undefined,
   deps: ProbeDeps = defaultProbeDeps(),
 ): Promise<ProviderTestResult> {
+  if (draft && Object.values(draft).every((v) => v === undefined)) draft = undefined;
   const stored = readProvider(provider)?.config ?? {};
   const baseUrl = draft?.baseUrl === null ? undefined : draft?.baseUrl ? normalizeBaseUrl(draft.baseUrl) ?? draft.baseUrl : stored.baseUrl;
   const config: ProviderConfig = { ...stored, baseUrl, models: { ...stored.models, ...definedModels(draft) } };

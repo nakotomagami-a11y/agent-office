@@ -311,6 +311,10 @@ with a per-run bearer token, so no provider key ever enters a child process.
 - **Keys:** `provider_configs.secret`, encrypted, bound to the normalized URL it was saved for.
   Changing the URL clears the key unless the same save carries a new one. No response ever returns a
   key, only its last four characters.
+- **Status:** `GET /api/providers` and `/api/health` never touch the network: presence checks plus the
+  last probe, kept 60 s. Probes run on `POST /api/providers/:id/test` and on a selection change. The
+  subscription's sign-in and plan come from `claude auth status --json` in the **default** account's
+  config dir, not a project's pinned account.
 - **Refusal:** a provider that cannot run (no key, invalid config, unmapped model tiers, a budget cap
   it cannot enforce) refuses the spawn, recorded as the run error `provider_unavailable` with the
   status reason as its detail.
@@ -373,7 +377,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
-| `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude` |
+| `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
 | `provider_configs` | provider, config, secret, secret_base_url, updated_at | One row per AI provider: non-secret `config` JSON (`baseUrl`, tier `models`) and its key, encrypted like `secrets` and bound to the normalized URL in `secret_base_url`; it is never sent anywhere else. Not the `secrets` table, so a provider key is never project-linked or injected |

@@ -121,17 +121,21 @@ test("a spawn that throws synchronously leaves no live token and no pin file beh
   assert.equal(pins(), pinsBefore);
 });
 
-test("a missing claude CLI refuses the run with cli_missing, before any spawn", async () => {
+test("a fresh missing-CLI probe refuses the run with cli_missing before any spawn; a stale one does not", async () => {
   store.setSelection("subscription", "chosen");
   const health = globalThis.__agentOfficeHealthState!;
-  const saved = health.cached;
+  const saved = { cached: health.cached, cachedAt: health.cachedAt };
   health.cached = { available: false, version: null, error: "ENOENT" };
   try {
+    health.cachedAt = Date.now();
     const { runId, record } = await run();
     assert.equal(record, null);
     assert.equal(getRun(runId)?.errorDetail, "cli_missing");
+    health.cachedAt = Date.now() - 61_000;
+    const stale = await run();
+    assert.ok(stale.record, "a stale failure never refuses: the spawn goes ahead");
   } finally {
-    health.cached = saved;
+    Object.assign(health, saved);
   }
 });
 

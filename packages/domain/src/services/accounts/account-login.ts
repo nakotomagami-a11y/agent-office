@@ -15,6 +15,7 @@ import { spawnClaude } from "../infra/claude-bin";
 import { scrubBackendEnv } from "../providers/env";
 import { accountConfigDir, buildAugmentedPath, DEFAULT_ACCOUNT_ID, CLAUDE_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureAccountDir, ensureDefaultAccountRow } from "./accounts";
+import { forgetAccountPlan } from "../providers/plan";
 import { log } from "../infra/log";
 
 export type LoginPhase = "starting" | "awaiting-code" | "success" | "error";
@@ -110,6 +111,7 @@ export function startLogin(accountId: string): LoginState {
     if (session.phase === "success" || code === 0) {
       session.phase = "success";
       if (accountId === DEFAULT_ACCOUNT_ID) ensureDefaultAccountRow();
+      forgetAccountPlan();
     } else if (session.phase !== "error") {
       session.phase = "error";
       session.message =

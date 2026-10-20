@@ -58,3 +58,38 @@ test("a provider without its key cannot be selected, even when the user accepts"
   assert.equal(res.status, 409);
   assert.deepStrictEqual(await res.json(), { error: "provider_not_ready", reason: "key_missing" });
 });
+
+const patch = (body: unknown) => new Request("http://localhost/", { method: "PATCH", body: JSON.stringify(body) });
+
+test("the dev-menu re-arm is never gated by the provider", async () => {
+  const res = await settingsRoute.PATCH(patch({ firstRunComplete: false }));
+  assert.notDeepStrictEqual(await res.json(), { error: "provider_required" });
+});
+
+test("a short local key shows as stored without a hint; DELETE and an address change both clear it", async () => {
+  const models = { haiku: "q", sonnet: "q", opus: "q" };
+  let view = await (await one.PUT(put({ baseUrl: "http://localhost:11434/v1", apiKey: "ollama", models }), params("local"))).json();
+  let local = view.providers.find((p: { id: string }) => p.id === "local");
+  assert.deepStrictEqual([local.hasKey, local.keyHint], [true, undefined]);
+  view = await (await key.DELETE(new Request("http://localhost/", { method: "DELETE" }), params("local"))).json();
+  assert.equal(view.providers.find((p: { id: string }) => p.id === "local").hasKey, false);
+  await one.PUT(put({ apiKey: "ollama" }), params("local"));
+  view = await (await one.PUT(put({ baseUrl: "http://localhost:1234/v1" }), params("local"))).json();
+  local = view.providers.find((p: { id: string }) => p.id === "local");
+  assert.deepStrictEqual([local.hasKey, local.config.baseUrl], [false, "http://localhost:1234/v1"]);
+});
+
+test("selecting a provider that passes its probe returns the new selection; then first run can complete", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ data: [{ id: "q" }] })) as typeof fetch;
+  try {
+    const res = await selected.PUT(put({ provider: "local" }));
+    assert.equal(res.status, 200);
+    const view = await res.json();
+    assert.deepStrictEqual([view.selected, view.needsSetup], ["local", false]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal((await settingsRoute.PUT(put({ projectsRoot: join(home, "root"), excluded: [] }))).status, 200);
+  assert.equal((await settingsRoute.PATCH(patch({ firstRunComplete: true }))).status, 200);
+});

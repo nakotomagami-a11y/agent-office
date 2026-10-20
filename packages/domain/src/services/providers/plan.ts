@@ -10,6 +10,11 @@ export type AccountPlan = ClaudePlan | "unknown";
 const PLAN_TTL_MS = 5 * 60_000;
 let cached: { plan: AccountPlan; provider: Provider | null; at: number } | null = null;
 
+/** After a sign-in the badge must not wait out the cache. */
+export function forgetAccountPlan(): void {
+  cached = null;
+}
+
 export function planFromSubscriptionType(raw: unknown): AccountPlan {
   if (typeof raw !== "string") return "unknown";
   const sub = raw.toLowerCase();
@@ -31,6 +36,7 @@ export async function accountPlan(now = Date.now()): Promise<{ plan: AccountPlan
       plan = planFromSubscriptionType("subscriptionType" in status ? status.subscriptionType : undefined);
     }
   }
-  cached = { plan, provider, at: now };
-  return cached;
+  // An unreadable plan is retried on the next read, never remembered.
+  if (plan !== "unknown") cached = { plan, provider, at: now };
+  return { plan, provider };
 }

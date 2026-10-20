@@ -119,3 +119,10 @@ test("plans map from the CLI's subscription type; anything else is unknown, neve
     ["max", "pro", "free", "custom", "custom", "unknown", "unknown", "unknown"],
   );
 });
+
+test("an empty draft is no draft: a re-check records the stored config's status", async () => {
+  store.saveProviderConfig("anthropic_api", { apiKey: "sk-ant-api03-official-key-0000" });
+  await testProvider("anthropic_api", {}, deps(() => new Response("", { status: 401 })).d);
+  const status = (await providersView()).providers.find((p) => p.id === "anthropic_api")!.status;
+  assert.deepStrictEqual([status.available, status.reason, typeof status.checkedAt], [false, "key_invalid", "number"]);
+});

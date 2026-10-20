@@ -2,6 +2,6 @@ export { providersView, saveConfig, selectProvider, testProvider, type SelectRes
 export { deleteProviderKey } from "./store";
 export { forgetStatus } from "./status-cache";
 export { currentProvider } from "./current";
-export { ensureProviderMigrated } from "./migrate";
+export { ensureProviderMigrated, migrateAtBoot } from "./migrate";
 export { sweepPinFiles } from "./pin-file";
-export { accountPlan, type AccountPlan } from "./plan";
+export { accountPlan, forgetAccountPlan, type AccountPlan } from "./plan";
