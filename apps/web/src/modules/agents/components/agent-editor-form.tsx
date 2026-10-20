@@ -426,6 +426,10 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
         setServerError(message);
         return;
       }
+      if (err instanceof ApiError && err.data?.error === "frontmatter_unparseable") {
+        setServerError(t("agent_editor.error_frontmatter_unparseable", { id: body.id }));
+        return;
+      }
       setServerError(err instanceof Error ? err.message : String(err));
     };
     if (mode === "new") createMut.mutate(body, { onSuccess, onError });

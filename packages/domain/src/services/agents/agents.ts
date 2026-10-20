@@ -16,7 +16,7 @@ import { join } from "node:path";
 import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, PanelSeat, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { parseFrontmatter, parseYaml, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
+import { parseYaml, stringifyYaml, isYamlMapping, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { buildSkillsBundle } from "../skills/skills";
 import { RESPONSE_STYLE } from "../../config/response-style";
 import { unknownTools, retiredToolHints } from "../../config/tools";
@@ -35,9 +35,6 @@ function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
 }
 
-function hasFrontmatter(content: string): boolean {
-  return /^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/.test(content);
-}
 
 /** Frontmatter is hand-edited and bypasses the API's zod schemas, so an
  *  unknown value would reach `--permission-mode` verbatim. Drop it instead:
@@ -88,11 +85,59 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 }
 
+/** BOM and trailing spaces on a fence are tolerated: rejecting them read the header as body,
+ *  and the next save wrote a header without the user's keys. */
+const FRONTMATTER_BLOCK = /^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+
+function splitAgentFile(content: string): { yaml: string; body: string } | null {
+  const m = FRONTMATTER_BLOCK.exec(content);
+  return m ? { yaml: m[1]!.replace(/\r\n/g, "\n"), body: content.slice(m[0].length) } : null;
+}
+
+/** YAML's ` # comment` tail, which the shared parser keeps as part of the value
+ *  (`model: opus # cheap` reached `--model` verbatim). Block scalar content is left alone. */
+export function stripInlineComments(yaml: string): string {
+  let blockIndent = -1;
+  return yaml.split("\n").map((line) => {
+    const indent = line.length - line.trimStart().length;
+    if (blockIndent >= 0 && (indent > blockIndent || !line.trim())) return line;
+    blockIndent = -1;
+    let quote: string | null = null;
+    let out = line;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i]!;
+      if (quote) {
+        if (c === quote) quote = null;
+      } else if ((c === '"' || c === "'") && (i === 0 || /[\s[,:{]/.test(line[i - 1]!))) {
+        quote = c;
+      } else if (c === "#" && (i === 0 || /\s/.test(line[i - 1]!))) {
+        out = line.slice(0, i).trimEnd();
+        break;
+      }
+    }
+    if (/:[ \t]*[|>][+-]?$/.test(out)) blockIndent = indent;
+    return out;
+  }).join("\n");
+}
+
+function parseAgentFrontmatter(yaml: string): YamlMapping {
+  let parsed: YamlValue;
+  try {
+    parsed = parseYaml(stripInlineComments(yaml));
+  } catch {
+    return {};
+  }
+  if (!isYamlMapping(parsed)) return {};
+  return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k.replace(/^(["'])(.*)\1$/, "$2"), v]));
+}
+
 export function readAgent(name: string): { info: ApiAgent; body: string } | null {
   const path = join(AGENTS_DIR, `${name}.md`);
   if (!existsSync(path)) return null;
   const content = readFileSync(path, "utf8");
-  const { fm, body } = parseFrontmatter(content);
+  const split = splitAgentFile(content);
+  const fm = split ? parseAgentFrontmatter(split.yaml) : {};
+  const body = split ? split.body : content;
   const info: ApiAgent = {
     name: asString(fm.name) ?? name,
     displayName: asString(fm["display-name"] ?? fm["displayName"]),
@@ -121,53 +166,90 @@ export function listAgents(): ApiAgent[] {
         !f.endsWith(".identity.md") &&
         !f.startsWith("_") &&
         !f.includes(".body.") &&
-        hasFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8")),
+        FRONTMATTER_BLOCK.test(readFileSync(join(AGENTS_DIR, f), "utf8")),
     )
     .map((f) => readAgent(f.replace(/\.md$/, ""))?.info)
     .filter((a): a is ApiAgent => a !== undefined);
 }
 
-/** Other spellings readAgent accepts for a key. Writing the key drops them, or a stale alias
- *  would surface the moment the key itself is removed. */
+/** Other spellings readAgent accepts for a key, ours alone. Writing the key drops them, or a
+ *  stale alias would surface the moment the key itself is removed. */
 const KEY_ALIASES: Record<string, string[]> = {
   "display-name": ["displayName"],
-  "default-model": ["model"],
-  "default-effort": ["effort"],
   tools: ["allowed-tools"],
   "add-dirs": ["addDirs"],
 };
 
-interface FrontmatterEntry { key: string | null; text: string }
+/** Keys the CLI reads itself, so never dropped: they follow our value (removed for `default`,
+ *  which the CLI does not take), and a file that only has the CLI's key keeps only that. */
+const CLI_KEYS: Record<string, string> = { "default-model": "model", "default-effort": "effort" };
 
-/** Top-level frontmatter entries as raw text. Untouched keys are written back byte for byte:
+const KEY_LINE = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s#"'-][^:]*?)[ \t]*:(?:[ \t]|$)/;
+
+function keyOf(line: string): string | null {
+  const k = KEY_LINE.exec(line)?.[1];
+  if (k === undefined) return null;
+  if (k.startsWith('"')) return k.slice(1, -1).replace(/\\(.)/g, "$1");
+  if (k.startsWith("'")) return k.slice(1, -1).replace(/''/g, "'");
+  return k.trim();
+}
+
+interface FrontmatterEntry { key: string | null; lines: string[] }
+
+const isIndented = (line: string) => /^[ \t]/.test(line) || /^-(\s|$)/.test(line);
+
+/** Top-level frontmatter entries as raw lines. Untouched keys are written back byte for byte:
  *  our YAML helper cannot round-trip every shape (flow maps, comments, folded scalars). */
 function frontmatterEntries(yaml: string): FrontmatterEntry[] {
+  const lines = yaml.split("\n");
   const out: FrontmatterEntry[] = [];
-  for (const line of yaml.split("\n")) {
-    const key = /^([^\s#-][^:]*):(\s|$)/.exec(line)?.[1]?.trim() ?? null;
-    if (key !== null || line.startsWith("#") || out.length === 0) out.push({ key, text: line });
-    else out[out.length - 1]!.text += `\n${line}`;
-  }
+  lines.forEach((line, i) => {
+    const key = keyOf(line);
+    // A column-0 comment followed by indented lines sits INSIDE the entry above: split off,
+    // the lines after it would be left behind when that entry is rewritten.
+    const commentInside = line.startsWith("#") && isIndented(lines.slice(i + 1).find((l) => l.trim() && !l.startsWith("#")) ?? "");
+    const glued = key === null && out.length > 0 && (isIndented(line) || !line.trim() || commentInside);
+    if (glued) out[out.length - 1]!.lines.push(line);
+    else out.push({ key, lines: [line] });
+  });
   return out;
 }
 
-/** `owned` maps a key to its new value; `undefined` removes it. Keys not in `owned` are kept. */
-export function mergeFrontmatter(existing: string, owned: Record<string, YamlValue | undefined>): string {
+function sameValue(e: FrontmatterEntry, value: YamlValue): boolean {
+  const m = KEY_LINE.exec(e.lines[0]!);
+  const text = [`k: ${e.lines[0]!.slice(m![0].length)}`, ...e.lines.slice(1)].join("\n");
+  const parsed = parseAgentFrontmatter(text);
+  return JSON.stringify(parsed.k) === JSON.stringify(value);
+}
+
+/** `owned` maps a key to its new value; `undefined` removes it. Keys not in `owned` are kept,
+ *  and so are the comment lines of an entry that is rewritten or removed. */
+export function mergeFrontmatter(existing: string, ownedIn: Record<string, YamlValue | undefined>): string {
   const entries = existing ? frontmatterEntries(existing) : [];
+  const present = new Set(entries.map((e) => e.key));
+  const owned = { ...ownedIn };
+  for (const [ours, cli] of Object.entries(CLI_KEYS)) {
+    if (!(ours in owned) || !present.has(cli)) continue;
+    owned[cli] = owned[ours] === "default" ? undefined : owned[ours];
+    if (!present.has(ours) && owned[ours] !== "default") delete owned[ours];
+  }
   const drop = new Set(Object.keys(owned).flatMap((k) => KEY_ALIASES[k] ?? []));
   const written = new Set<string>();
   const out: string[] = [];
   for (const e of entries) {
     if (e.key === null || (!(e.key in owned) && !drop.has(e.key))) {
-      out.push(e.text);
+      out.push(...e.lines);
       continue;
     }
     const value = owned[e.key];
-    if (drop.has(e.key) || value === undefined || written.has(e.key)) continue;
-    written.add(e.key);
-    const current = parseYaml(e.text);
-    const same = isYamlMapping(current) && JSON.stringify(current[e.key]) === JSON.stringify(value);
-    out.push(same ? e.text : stringifyYaml({ [e.key]: value }));
+    const keep = !drop.has(e.key) && value !== undefined && !written.has(e.key);
+    if (keep && sameValue(e, value)) {
+      out.push(...e.lines);
+    } else {
+      out.push(...e.lines.slice(1).filter((l) => l.trim().startsWith("#")).map((l) => l.trimStart()));
+      if (keep) out.push(stringifyYaml({ [e.key]: value }));
+    }
+    if (keep) written.add(e.key);
   }
   for (const [key, value] of Object.entries(owned)) {
     if (value !== undefined && !written.has(key)) out.push(stringifyYaml({ [key]: value }));
@@ -175,11 +257,17 @@ export function mergeFrontmatter(existing: string, owned: Record<string, YamlVal
   return out.join("\n").trim();
 }
 
-export function writeAgent(b: AgentBody): string {
+export type WriteAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
+
+export function writeAgent(b: AgentBody): WriteAgentResult {
+  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
   ensureDir(AGENTS_DIR);
-  if (!isValidIdSegment(b.id)) throw new Error("invalid id");
   const id = b.id;
   const file = join(AGENTS_DIR, `${id}.md`);
+  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const split = splitAgentFile(current);
+  // An opening fence with no block we can find: writing would replace keys we never read.
+  if (!split && /^﻿?---/.test(current)) return { ok: false, error: "frontmatter_unparseable", status: 422 };
   // Human display name. Only persisted when it adds information over the slug,
   // so trivial "name == id" agents keep a clean frontmatter and fall back to
   // slug-prettifying in the UI.
@@ -199,22 +287,15 @@ export function writeAgent(b: AgentBody): string {
   // Absent = the client doesn't edit it (the editor has no field for either), so the file's value stays.
   if (b.panel) owned.panel = b.panel.length ? (b.panel as unknown as YamlValue) : undefined;
   if (b.addDirs) owned["add-dirs"] = b.addDirs.length ? b.addDirs : undefined;
-  const previous = existsSync(file) ? parseFrontmatterBlock(readFileSync(file, "utf8")) : "";
-  writeFileAtomic(file, `---\n${mergeFrontmatter(previous, owned)}\n---\n\n${b.body}\n`);
-  return id;
+  writeFileAtomic(file, `---\n${mergeFrontmatter(split?.yaml ?? "", owned)}\n---\n\n${b.body}\n`);
+  return { ok: true, value: id };
 }
-
-function parseFrontmatterBlock(content: string): string {
-  return /^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/.exec(content)?.[1]?.replace(/\r\n/g, "\n") ?? "";
-}
-
-export type CreateAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
 
 /** Create only: an id that is taken is a 409, never an overwrite of someone's agent. */
-export function createAgent(b: AgentBody): CreateAgentResult {
+export function createAgent(b: AgentBody): WriteAgentResult {
   if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
   if (existsSync(join(AGENTS_DIR, `${b.id}.md`))) return { ok: false, error: "agent_exists", status: 409 };
-  return { ok: true, value: writeAgent(b) };
+  return writeAgent(b);
 }
 
 export function deleteAgent(id: string): boolean {

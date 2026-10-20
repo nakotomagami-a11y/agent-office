@@ -1,4 +1,4 @@
-// POST /api/agents/bulk — write many agent definitions in one call. Per-item
+// POST /api/agents/bulk — create many agents in one call; a taken id is an `agent_exists` item error. Per-item
 // failures are collected: 200 all-ok, 207 partial, 500 if every item failed.
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
@@ -11,11 +11,9 @@ export async function POST(request: Request) {
   const written: string[] = [];
   const errors: Array<{ id: string; error: string }> = [];
   for (const item of items) {
-    try {
-      written.push(agents.writeAgent(item));
-    } catch (e) {
-      errors.push({ id: item.id, error: String(e) });
-    }
+    const result = agents.createAgent(item);
+    if (result.ok) written.push(result.value);
+    else errors.push({ id: item.id, error: result.error });
   }
   const status = written.length === 0 && errors.length > 0 ? 500
                : errors.length > 0 ? 207

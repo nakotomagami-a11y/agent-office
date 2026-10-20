@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { paths } from "@agent-office/domain/services";
 import { POST } from "./route";
+import { POST as bulkPost } from "./bulk/route";
 
 const post = (body: unknown) =>
   POST(new Request("http://localhost/api/agents", { method: "POST", body: JSON.stringify(body) }));
@@ -29,4 +30,14 @@ test("a free id is created", async () => {
   const res = await post({ id: "route-free", name: "Route Free", desc: "d", body: "b" });
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { id: "route-free" });
+});
+
+test("bulk create never overwrites either: a taken id is an item error", async () => {
+  const res = await bulkPost(new Request("http://localhost/api/agents/bulk", {
+    method: "POST",
+    body: JSON.stringify([{ id: "route-taken", name: "x", desc: "theirs", body: "theirs" }, { id: "route-bulk-new", name: "y", desc: "d", body: "b" }]),
+  }));
+  assert.equal(res.status, 207);
+  assert.deepEqual(await res.json(), { written: ["route-bulk-new"], errors: [{ id: "route-taken", error: "agent_exists" }] });
+  assert.match(readFileSync(join(paths.AGENTS_DIR, "route-taken.md"), "utf8"), /mine/);
 });

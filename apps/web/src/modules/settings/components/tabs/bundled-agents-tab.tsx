@@ -46,7 +46,7 @@ export function BundledAgentsTab() {
 
   const { bundleVersion, installedVersion, newAgents, changed, onlyLocal } = diffQ.data;
   const actionable = newAgents.length + changed.length;
-  const upToDate = actionable === 0 && (installedVersion === bundleVersion || diffQ.data.bundleOlder);
+  const upToDate = actionable === 0;
 
   return (
     <>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
 import { formatAgentDisplayName } from "@/lib/agent-display-name";
@@ -55,16 +56,9 @@ function initialRowState(diff: AgentDiffResponse): RowState {
   };
 }
 
-const CHANGE_LABEL: Record<AgentChange, string> = {
-  bundle_changed: "bundle changed",
-  edited_locally: "edited locally",
-  both: "edited locally · bundle changed",
-  unknown: "differs · no install record",
-};
-
-function rowTag(entry: AgentDiffEntry): string | null {
-  if (entry.change) return CHANGE_LABEL[entry.change];
-  return entry.declined ? "declined before" : null;
+function rowTagKey(entry: AgentDiffEntry): `change_${AgentChange}` | "declined_before" | null {
+  if (entry.change) return `change_${entry.change}`;
+  return entry.declined ? "declined_before" : null;
 }
 
 interface SectionProps {
@@ -78,13 +72,10 @@ interface SectionProps {
   onSelectAll?: (accept: boolean) => void;
 }
 
-const toneStyles: Record<
-  SectionProps["tone"],
-  { label: string; text: string; bg: string }
-> = {
-  add:  { label: "New",     text: "text-emerald-300", bg: "bg-emerald-500/15" },
-  warn: { label: "Changed", text: "text-amber-300",   bg: "bg-amber-500/15" },
-  info: { label: "Local",   text: "text-ao-fg-2",     bg: "bg-ao-line-1/25" },
+const toneStyles: Record<SectionProps["tone"], { text: string; bg: string }> = {
+  add:  { text: "text-emerald-300", bg: "bg-emerald-500/15" },
+  warn: { text: "text-amber-300",   bg: "bg-amber-500/15" },
+  info: { text: "text-ao-fg-2",     bg: "bg-ao-line-1/25" },
 };
 
 function DiffSection({
@@ -96,8 +87,9 @@ function DiffSection({
   onToggle,
   onSelectAll,
 }: SectionProps) {
+  const t = useTranslations("agent_migration");
   if (entries.length === 0) return null;
-  const t = toneStyles[tone];
+  const style = toneStyles[tone];
 
   const acceptedCount = selection
     ? entries.filter((e) => selection[e.id]?.accept).length
@@ -110,7 +102,7 @@ function DiffSection({
       <header className="flex items-center gap-[10px] px-1">
         <span className="w-[3px] h-[14px] bg-ao-accent rounded-full shrink-0" />
         <h3 className="text-[13px] font-semibold text-ao-fg-0 m-0">{title}</h3>
-        <span className={`inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10.5px] font-mono tabular-nums leading-none ${t.text} ${t.bg}`}>
+        <span className={`inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10.5px] font-mono tabular-nums leading-none ${style.text} ${style.bg}`}>
           {entries.length}
         </span>
         <span className="text-[11.5px] text-ao-fg-3 font-mono">{subtitle}</span>
@@ -122,7 +114,7 @@ function DiffSection({
               disabled={allAccepted}
               className="text-ao-fg-2 hover:text-ao-fg-0 disabled:opacity-40 disabled:cursor-default cursor-pointer bg-transparent border-0 p-[3px_6px] rounded-[4px] hover:bg-ao-bg-3 transition-[background-color,color] duration-[120ms]"
             >
-              accept all
+              {t("accept_all")}
             </button>
             <span className="text-ao-fg-3" aria-hidden>·</span>
             <button
@@ -131,7 +123,7 @@ function DiffSection({
               disabled={noneAccepted}
               className="text-ao-fg-2 hover:text-ao-fg-0 disabled:opacity-40 disabled:cursor-default cursor-pointer bg-transparent border-0 p-[3px_6px] rounded-[4px] hover:bg-ao-bg-3 transition-[background-color,color] duration-[120ms]"
             >
-              skip all
+              {t("skip_all")}
             </button>
           </span>
         )}
@@ -143,6 +135,7 @@ function DiffSection({
           const interactive = !!selection && !!onToggle;
           const accepted = sel?.accept ?? false;
           const displayName = formatAgentDisplayName(entry.name);
+          const tagKey = rowTagKey(entry);
           return (
             <li key={entry.id}>
               <label
@@ -171,9 +164,9 @@ function DiffSection({
                   <span className="flex items-center gap-[8px] flex-wrap">
                     <span className="text-[13px] font-semibold text-ao-fg-0">{displayName}</span>
                     <span className="font-mono text-[10.5px] text-ao-fg-3">{entry.id}</span>
-                    {rowTag(entry) && (
+                    {tagKey && (
                       <span className={`rounded-[4px] px-[6px] py-[1px] text-[10.5px] font-mono ${entry.change === "both" || entry.change === "edited_locally" ? "text-amber-300 bg-amber-500/15" : "text-ao-fg-2 bg-ao-line-1/25"}`}>
-                        {rowTag(entry)}
+                        {t(tagKey)}
                       </span>
                     )}
                   </span>
@@ -198,6 +191,7 @@ export interface AgentMigrationModalProps {
 }
 
 export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps) {
+  const t = useTranslations("agent_migration");
   const diffQ = useAgentDiff(open);
   const applyM = useApplyAgentDiff();
 
@@ -255,12 +249,12 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
         markComplete: true,
       });
       if (result.errors.length > 0) {
-        setApplyError(result.errors.map((e) => `${e.id}: ${e.reason}`).join(" · "));
+        setApplyError(t("apply_failed", { errors: result.errors.map((e) => `${e.id}: ${e.reason}`).join(" · ") }));
         return;
       }
       onClose();
     } catch (err) {
-      setApplyError(err instanceof Error ? err.message : String(err));
+      setApplyError(t("apply_failed", { errors: err instanceof Error ? err.message : String(err) }));
     }
   };
 
@@ -269,7 +263,14 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
   // so next launch only re-opens for agents the user still wanted.
   const handleLater = async () => {
     if (!bundleOlder && diffQ.data) {
-      await applyM.mutateAsync({ accept: [], skip: skipSlugs, markComplete: false }).catch(() => undefined);
+      setApplyError(null);
+      try {
+        await applyM.mutateAsync({ accept: [], skip: skipSlugs, markComplete: false });
+      } catch (err) {
+        // Closing anyway would let the user believe the skips were saved, and the modal would return.
+        setApplyError(t("later_failed", { error: err instanceof Error ? err.message : String(err) }));
+        return;
+      }
     }
     onClose();
   };
@@ -281,20 +282,20 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
   const versionLabel = diffQ.data
     ? diffQ.data.installedVersion
       ? `${diffQ.data.installedVersion} → ${diffQ.data.bundleVersion}`
-      : `first install · ${diffQ.data.bundleVersion}`
+      : t("first_install", { version: diffQ.data.bundleVersion ?? "" })
     : "…";
 
   return (
     <ModalShell
       open={open}
       onClose={handleLater}
-      title="Agent roster update"
+      title={t("title")}
       size="lg"
       maxWidth={720}
       footer={
         <div className="flex items-center gap-[10px] justify-between w-full">
           <span className="text-[11.5px] font-mono text-ao-fg-3">
-            {acceptSlugs.length} accepted · {skipSlugs.length} skipped
+            {t("footer_counts", { accepted: acceptSlugs.length, skipped: skipSlugs.length })}
           </span>
           <div className="flex items-center gap-[8px]">
             <button
@@ -303,7 +304,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               disabled={applyM.isPending}
               className="h-[30px] px-[12px] rounded-[8px] bg-transparent border border-ao-line-1 text-ao-fg-1 text-[13px] cursor-pointer hover:bg-ao-bg-3 hover:text-ao-fg-0 hover:border-ao-line-2 transition-[background-color,color,border-color] duration-[120ms] disabled:opacity-50 disabled:cursor-default"
             >
-              Remind me later
+              {t("remind_later")}
             </button>
             <button
               type="button"
@@ -311,7 +312,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               disabled={applyM.isPending || bundleOlder}
               className="h-[30px] px-[14px] rounded-[8px] bg-ao-accent text-white text-[13px] font-semibold cursor-pointer hover:brightness-110 transition-[filter] duration-[120ms] disabled:opacity-50 disabled:cursor-default"
             >
-              {applyM.isPending ? "Applying…" : totalActionable === 0 ? "Got it" : "Apply choices"}
+              {applyM.isPending ? t("applying") : bundleOlder ? t("nothing_to_apply") : totalActionable === 0 ? t("got_it") : t("apply")}
             </button>
           </div>
         </div>
@@ -322,11 +323,12 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
           <Icon name="sparkle" size={14} className="mt-[3px] text-ao-accent shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="m-0">
-              This build ships an updated agent roster. Review below, then apply.
-              Your existing agents are backed up to <code className="font-mono text-[11.5px] px-[4px] py-[1px] rounded-[3px] bg-ao-bg-3 text-ao-fg-0">~/.claude/agent-office/backups/agents/</code> before any override.
+              {t.rich("intro", {
+                code: (chunks) => <code className="font-mono text-[11.5px] px-[4px] py-[1px] rounded-[3px] bg-ao-bg-3 text-ao-fg-0">{chunks}</code>,
+              })}
             </p>
             <p className="m-0 mt-[4px] text-ao-fg-3 font-mono text-[11px]">
-              bundle version · {versionLabel}
+              {t("version_label", { label: versionLabel })}
             </p>
           </div>
         </div>
@@ -334,33 +336,32 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
         {diffQ.isLoading && (
           <div className="text-[12.5px] text-ao-fg-3 font-mono flex items-center gap-2 py-4">
             <Icon name="refresh" size={12} className="[animation:spin_1s_linear_infinite]" />
-            Loading roster diff…
+            {t("loading")}
           </div>
         )}
         {diffQ.isError && (
           <div className="text-[12.5px] text-red-300 font-mono py-3">
-            Failed to load the roster diff. Close and reopen the app to retry.
+            {t("load_failed")}
           </div>
         )}
 
         {applyError && (
           <div role="alert" className="text-[12.5px] text-red-300 font-mono py-1">
-            Some agents were not applied: {applyError}
+            {applyError}
           </div>
         )}
 
         {bundleOlder && diffQ.data && (
           <p className="text-[12.5px] text-ao-fg-2 m-0">
-            This build ships roster {diffQ.data.bundleVersion}, older than the installed {diffQ.data.installedVersion}.
-            Nothing is offered, so a newer agent is never replaced by an older one.
+            {t("bundle_older", { bundle: diffQ.data.bundleVersion ?? "", installed: diffQ.data.installedVersion ?? "" })}
           </p>
         )}
 
         {diffQ.data && (
           <>
             <DiffSection
-              title="New in this version"
-              subtitle="not yet installed"
+              title={t("section_new_title")}
+              subtitle={t("section_new_sub")}
               tone="add"
               entries={diffQ.data.newAgents}
               selection={rows.new}
@@ -368,8 +369,8 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               onSelectAll={(accept) => selectAll("new", accept)}
             />
             <DiffSection
-              title="Changed since last install"
-              subtitle="your local copy differs from the bundle"
+              title={t("section_changed_title")}
+              subtitle={t("section_changed_sub")}
               tone="warn"
               entries={diffQ.data.changed}
               selection={rows.changed}
@@ -377,8 +378,8 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               onSelectAll={(accept) => selectAll("changed", accept)}
             />
             <DiffSection
-              title="Edited locally"
-              subtitle="the bundle didn't change these; check one to reset it to the bundle copy"
+              title={t("section_edited_title")}
+              subtitle={t("section_edited_sub")}
               tone="warn"
               entries={diffQ.data.editedLocally}
               selection={rows.edited}
@@ -386,15 +387,15 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
               onSelectAll={(accept) => selectAll("edited", accept)}
             />
             <DiffSection
-              title="Only in your local install"
-              subtitle="untouched — your customs stay"
+              title={t("section_local_title")}
+              subtitle={t("section_local_sub")}
               tone="info"
               entries={diffQ.data.onlyLocal}
             />
 
             {totalActionable === 0 && !bundleOlder && (
               <p className="text-[12.5px] text-ao-fg-2 font-mono m-0 py-2">
-                Nothing to migrate. Roster already matches the bundle.
+                {t("nothing_to_migrate")}
               </p>
             )}
           </>

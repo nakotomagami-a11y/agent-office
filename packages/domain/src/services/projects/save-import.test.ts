@@ -74,3 +74,25 @@ test("the office layout is replaced only when asked", () => {
   assert.equal(out.officeRestored, true);
   assert.equal(db.getAllUiSettings()[OFFICE_SETTING_KEYS.grid], "imported-grid");
 });
+
+test("history goes only into seats the import added; a local transcript and session are never overwritten", () => {
+  db.saveTranscript("imp-dev", "imp-dev-local", "[\"my chat\"]", null, "my-session");
+  const out = save.importBundle({
+    ...bundle([{ instanceId: "imp-dev-local", agentId: "imp-dev" }, { instanceId: "imp-dev-new", agentId: "imp-dev" }]),
+    history: [
+      { agentId: "imp-dev", instanceId: "imp-dev-local", transcript: "[\"their chat\"]" },
+      { agentId: "imp-dev", instanceId: "imp-dev-new", transcript: "[\"new seat chat\"]" },
+    ],
+  });
+  const local = db.getTranscript("imp-dev", "imp-dev-local")!;
+  assert.equal(local.items, "[\"my chat\"]");
+  assert.equal(local.sessionId, "my-session");
+  assert.equal(db.getTranscript("imp-dev", "imp-dev-new")?.items, "[\"new seat chat\"]");
+  assert.match(readFileSync(out.snapshot!, "utf8"), /my chat/, "the pre-import snapshot carries the history");
+});
+
+test("an empty project memory in the file leaves the local one alone", () => {
+  projects.updateProject("imp", { memory: "local project memory" });
+  save.importBundle({ ...bundle([]), project: { id: "imp", meta: { name: "Imported" }, memory: "" } });
+  assert.equal(projects.readProject("imp")!.memory.trim(), "local project memory");
+});

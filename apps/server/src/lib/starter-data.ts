@@ -6,13 +6,14 @@ import {
   readFileSync,
   readdirSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import type { z } from "zod";
 import { parseJson } from "@agent-office/api-contract";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, APP_STATE_DIR } from "@agent-office/domain/services/infra/paths";
+import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
+import { log } from "@agent-office/domain/services/infra/log";
 import { agentInstallRecordSchema, starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
 
 const VERSION_FILE = join(APP_STATE_DIR, "agent-manifest-version");
@@ -129,9 +130,11 @@ export type ImportResult =
  *  otherwise the migration modal opens right after it, offering the declined agents again (S1-3). */
 export function importStarterAgents(ids: string[]): ImportResult {
   const starterDir = resolveStarterDataDir();
-  if (!starterDir) return { ok: false, error: "starter_data_missing" };
-  const starterAgents = join(starterDir, "agents");
-  if (!existsSync(starterAgents)) return { ok: false, error: "starter_data_missing" };
+  const starterAgents = starterDir ? join(starterDir, "agents") : null;
+  // The wizard posts even with nothing picked; a build without starter data must still let it finish.
+  if (!starterDir || !starterAgents || !existsSync(starterAgents)) {
+    return ids.length === 0 ? { ok: true, imported: 0, skipped: [] } : { ok: false, error: "starter_data_missing" };
+  }
 
   mkdirSync(AGENTS_DIR, { recursive: true });
   const imported: string[] = [];
@@ -161,7 +164,10 @@ export function importStarterAgents(ids: string[]): ImportResult {
     }
     record.declined = [...new Set(record.declined)].filter((id) => !imported.includes(id));
     writeInstallRecord(record);
-    if (!bundleIsOlder(manifest.version, readInstalledVersion())) writeInstalledVersion(manifest.version);
+    // An agent already here that differs from the bundle is the migration modal's to offer.
+    const installed = new Map(listInstalledAgents().map((a) => [a.id, a.hash]));
+    const allMatch = manifest.agents.every((a) => !installed.has(a.name) || installed.get(a.name) === a.hash);
+    if (allMatch && !bundleIsOlder(manifest.version, readInstalledVersion())) writeInstalledVersion(manifest.version);
   }
   return { ok: true, imported: imported.length, skipped };
 }
@@ -220,7 +226,7 @@ function readInstalledVersion(): string | null {
 
 function writeInstalledVersion(v: string) {
   mkdirSync(APP_STATE_DIR, { recursive: true });
-  writeFileSync(VERSION_FILE, `${v}\n`, "utf8");
+  writeFileAtomic(VERSION_FILE, `${v}\n`);
 }
 
 interface SkipState {
@@ -240,7 +246,7 @@ function readSkipState(): SkipState | null {
 
 function writeSkipState(state: SkipState) {
   mkdirSync(APP_STATE_DIR, { recursive: true });
-  writeFileSync(SKIP_FILE, JSON.stringify(state, null, 2) + "\n", "utf8");
+  writeFileAtomic(SKIP_FILE, JSON.stringify(state, null, 2) + "\n");
 }
 
 function readInstallRecord(): InstallRecord {
@@ -248,15 +254,16 @@ function readInstallRecord(): InstallRecord {
     if (existsSync(INSTALL_RECORD_FILE)) {
       return agentInstallRecordSchema.parse(parseJson(readFileSync(INSTALL_RECORD_FILE, "utf8")));
     }
-  } catch {
-    /* unreadable = no record: every difference is "unknown", never assumed safe */
+  } catch (err) {
+    // Unreadable = no record: every difference is "unknown", never assumed safe.
+    log.warn("starter.install_record_unreadable", { error: String(err) });
   }
   return { agents: {}, declined: [] };
 }
 
 function writeInstallRecord(record: InstallRecord) {
   mkdirSync(APP_STATE_DIR, { recursive: true });
-  writeFileSync(INSTALL_RECORD_FILE, JSON.stringify(record, null, 2) + "\n", "utf8");
+  writeFileAtomic(INSTALL_RECORD_FILE, JSON.stringify(record, null, 2) + "\n");
 }
 
 interface InstalledAgent {
@@ -278,7 +285,7 @@ function listInstalledAgents(): InstalledAgent[] {
     if (f.endsWith(".memory.md")) continue;
     if (f.endsWith(".identity.md")) continue;
     if (f.includes(".body.")) continue;
-    const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/\r\n/g, "\n");
+    const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
     // LF as the manifest hashes it (a Windows copy is the same agent); real agents have frontmatter, docs don't.
     if (!/^---\n[\s\S]*?\n---\n?/.test(raw)) continue;
     out.push({ id: f.replace(/\.md$/, ""), hash: shortHash(raw), fm: parseFrontmatterSubset(raw) });

@@ -134,7 +134,7 @@ function seatId(seat: unknown): unknown {
   return typeof seat === "object" && seat !== null && "instanceId" in seat ? seat.instanceId : undefined;
 }
 
-function restoreProject(p: ImportBundle["project"]): void {
+function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<unknown> {
   const meta = p.meta;
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
@@ -155,14 +155,15 @@ function restoreProject(p: ImportBundle["project"]): void {
       description: patch.description ?? "",
     });
   }
-  projects.updateProject(p.id, { meta: patch, memory: p.memory }, "importBundle");
+  projects.updateProject(p.id, { meta: patch, memory: p.memory || undefined }, "importBundle");
   // Unconditional would let a roster-less bundle delete every instance.
-  if (!Array.isArray(meta.roster)) return;
+  if (!Array.isArray(meta.roster)) return new Set();
   // Added to, never replaced: replacing orphaned the existing seats' worktrees and chats.
   const current: unknown[] = existing?.meta.roster ?? [];
   const taken = new Set(current.map(seatId));
   const added = meta.roster.map(portableSeat).filter((s) => !taken.has(seatId(s)));
   projects.replaceRoster(p.id, [...current, ...added], "importBundle");
+  return new Set(added.map(seatId));
 }
 
 function restoreOffice(office: OfficeSnapshot): void {
@@ -172,16 +173,18 @@ function restoreOffice(office: OfficeSnapshot): void {
   }
 }
 
-function restoreHistory(history: SaveHistoryEntry[] | undefined): void {
+/** Only into seats this import added: an existing seat's transcript and session are the user's. */
+function restoreHistory(history: SaveHistoryEntry[] | undefined, added: Set<unknown>): void {
   if (!history) return;
   for (const entry of history) {
     if (!isValidIdSegment(entry.agentId) || !isValidIdSegment(entry.instanceId)) continue;
+    if (!added.has(entry.instanceId) || db.getTranscript(entry.agentId, entry.instanceId)) continue;
     db.saveTranscript(entry.agentId, entry.instanceId, entry.transcript, null, null);
   }
 }
 
 function snapshotBefore(projectId: string, office: boolean, at: string): string | null {
-  const before = exportBundle(projectId, false) ?? (office ? { office: collectOfficeSnapshot() } : null);
+  const before = exportBundle(projectId, true) ?? (office ? { office: collectOfficeSnapshot() } : null);
   if (!before) return null;
   ensureDir(IMPORT_BACKUPS_DIR);
   const file = join(IMPORT_BACKUPS_DIR, `${projectId}.${at}.agent-office.json`);
@@ -194,8 +197,8 @@ export function importBundle(bundle: ImportBundle, opts: ImportOptions = { resto
   const at = new Date().toISOString().replace(/[:.]/g, "-");
   const snapshot = snapshotBefore(bundle.project.id, opts.restoreOffice, at);
   const backedUp = restoreAgents(bundle.agents, at);
-  restoreProject(bundle.project);
+  const added = restoreProjectReturningAddedSeats(bundle.project);
   if (opts.restoreOffice) restoreOffice(bundle.office);
-  restoreHistory(bundle.history);
+  restoreHistory(bundle.history, added);
   return { projectId: bundle.project.id, agentCount: bundle.agents.length, backedUp, officeRestored: opts.restoreOffice, snapshot };
 }

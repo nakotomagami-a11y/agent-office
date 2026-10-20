@@ -146,3 +146,23 @@ test("skips hold for the version they were made for", () => {
   bundle("2026-10-20-1", { "sd-alpha": "a", "sd-beta": "b" });
   assert.deepEqual(diff().skipped, []);
 });
+
+test("the wizard can finish with nothing picked on a build without starter data", () => {
+  process.env["AGENT_OFFICE_STARTER_DATA"] = join(tmpdir(), "ao-no-starter-data-here");
+  const prevCwd = process.cwd();
+  process.chdir(tmpdir());
+  try {
+    assert.deepEqual(importStarterAgents([]), { ok: true, imported: 0, skipped: [] });
+    assert.deepEqual(importStarterAgents(["sd-alpha"]), { ok: false, error: "starter_data_missing" });
+  } finally {
+    process.chdir(prevCwd);
+  }
+});
+
+test("the first-run import leaves the version unstamped while an agent already here differs from the bundle", () => {
+  bundle("2026-10-11-1", { "sd-alpha": "a", "sd-beta": "b" });
+  install("sd-beta", "my own beta");
+  assert.ok(importStarterAgents(["sd-alpha"]).ok);
+  assert.ok(!existsSync(VERSION_FILE), "the migration modal must still offer the bundle's sd-beta");
+  assert.equal(diff().changed.find((e) => e.id === "sd-beta")?.change, "unknown");
+});

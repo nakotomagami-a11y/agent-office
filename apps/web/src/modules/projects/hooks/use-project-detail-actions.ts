@@ -69,7 +69,7 @@ export function useProjectDetailActions(
       const data = await importState(json, restoreOffice);
       const msg = [
         t("project_detail.import_success", { count: data.agentCount ?? 0, project: data.projectId ?? "" }),
-        data.backedUp?.length ? t("project_detail.import_backed_up", { count: data.backedUp.length }) : null,
+        data.backedUp?.length ? t("project_detail.import_backed_up", { count: data.backedUp.length, ids: data.backedUp.join(", ") }) : null,
         data.snapshot ? t("project_detail.import_snapshot", { path: data.snapshot }) : null,
         data.officeRestored ? t("project_detail.import_office_restored") : null,
       ].filter(Boolean).join(" ");

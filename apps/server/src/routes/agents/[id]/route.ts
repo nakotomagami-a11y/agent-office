@@ -3,7 +3,7 @@
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
 import { agentBodySchema } from "@agent-office/api-contract";
-import { notFound, tryService, validateIdParam } from "../../../lib/api-helpers";
+import { notFound, validateIdParam } from "../../../lib/api-helpers";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -28,7 +28,9 @@ export async function PUT(request: Request, { params }: Params) {
     agents.backupAgentBody(id, current.body);
   }
 
-  return tryService(() => ({ id: agents.writeAgent({ ...body, id }) }));
+  const result = agents.writeAgent({ ...body, id });
+  if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+  return Response.json({ id: result.value });
 }
 
 export async function DELETE(_request: Request, { params }: Params) {

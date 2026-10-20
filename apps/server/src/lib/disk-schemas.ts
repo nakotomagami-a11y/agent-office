@@ -30,4 +30,4 @@ export const starterSkipStateSchema = z.object({
 export const agentInstallRecordSchema = z.object({
   agents: z.record(z.string(), z.string()).default({}),
   declined: z.array(z.string()).default([]),
-});
+}).passthrough();
