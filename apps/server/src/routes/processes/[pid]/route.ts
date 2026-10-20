@@ -18,7 +18,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   const pid = processes.parsePid((await params).pid);
   if (pid === null) return badRequest();
 
-  const result = processes.killProcess(pid, { tree: isLaunchedShell(pid) && !hasShellCommandExited(pid) });
+  const result = await processes.killOwnedProcess(pid, { tree: isLaunchedShell(pid) && !hasShellCommandExited(pid) });
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 
   forgetLaunchedShell(pid);

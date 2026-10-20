@@ -1,147 +1,45 @@
-// Dev/build server process discovery: parse `ss -tlnp` for listening sockets,
-// resolve each owning PID via /proc, and match it to a project by cwd. Linux-only
-// (returns [] elsewhere). Backs GET /api/processes.
+// Dev/build server process discovery: list listening sockets, resolve each
+// owning PID, and match it to a project by cwd. The per-OS probing (Linux,
+// macOS, Windows) lives in ./process-scan. Backs GET /api/processes.
 import { execFileSync } from "node:child_process";
-import { readFileSync, readlinkSync } from "node:fs";
-import * as os from "node:os";
-import { normalize } from "node:path";
+import { normalize, sep } from "node:path";
 import type { ProcessInfo } from "../../types/index";
+import type { BackgroundShellRow } from "../db/background-shells";
 import * as projects from "../projects/projects";
 import * as db from "../db";
-
-const CLOCK_TICKS = 100;
-
-// ─── /proc readers ───────────────────────────────────────────────────────────
-
-function readProcMem(pid: number): number {
-  try {
-    const status = readFileSync(`/proc/${pid}/status`, "utf8");
-    const match = /^VmRSS:\s+(\d+)\s+kB/m.exec(status);
-    if (!match) return 0;
-    return Math.round(parseInt(match[1]!, 10) / 1024);
-  } catch {
-    return 0;
-  }
-}
-
-function readProcCmdline(pid: number): string {
-  try {
-    const raw = readFileSync(`/proc/${pid}/cmdline`, "utf8");
-    return raw.replace(/\0+$/, "").replace(/\0/g, " ").slice(0, 120);
-  } catch {
-    return "";
-  }
-}
-
-function readProcUid(pid: number): number | null {
-  try {
-    const status = readFileSync(`/proc/${pid}/status`, "utf8");
-    const match = /^Uid:\s+(\d+)/m.exec(status);
-    if (!match) return null;
-    return parseInt(match[1]!, 10);
-  } catch {
-    return null;
-  }
-}
-
-function readProcCwd(pid: number): string {
-  try {
-    return readlinkSync(`/proc/${pid}/cwd`);
-  } catch {
-    return "";
-  }
-}
-
-function readProcStartedAt(pid: number): number {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-    const fields = stat.split(" ");
-    // field 22 (1-indexed) = starttime; array index 21
-    const starttime = parseInt(fields[21] ?? "0", 10);
-    if (!Number.isFinite(starttime) || starttime === 0) return 0;
-    const uptimeMs = os.uptime() * 1000;
-    const startMs = Date.now() - uptimeMs + (starttime / CLOCK_TICKS) * 1000;
-    return Math.floor(startMs);
-  } catch {
-    return 0;
-  }
-}
-
-// ─── Project matching ────────────────────────────────────────────────────────
+import { log } from "../infra/log";
+import { readProcUid, scanner, type ProcDetails } from "./process-scan";
 
 type SortedProject = { id: string; name: string; cwd: string };
+type ProjectMatch = { projectId: string; projectName: string } | undefined;
+
+const caseInsensitivePaths = process.platform === "win32" || process.platform === "darwin";
+const CMD_MAX = 120;
+
+function pathKey(p: string): string {
+  const n = normalize(p);
+  return caseInsensitivePaths ? n.toLowerCase() : n;
+}
 
 function buildSortedProjectList(): SortedProject[] {
   return projects
     .listProjectSummaries()
     .filter((p) => !!p.cwd)
-    .map((p) => ({ id: p.id, name: p.name, cwd: normalize(p.cwd!) }))
+    .map((p) => ({ id: p.id, name: p.name, cwd: pathKey(p.cwd!) }))
     .sort((a, b) => b.cwd.length - a.cwd.length);
 }
 
-function matchProjectByCwd(
-  projectList: SortedProject[],
-  cwd: string,
-): { projectId: string; projectName: string } | undefined {
+function matchProjectByCwd(projectList: SortedProject[], cwd: string): ProjectMatch {
   if (!cwd) return undefined;
-  const norm = normalize(cwd);
-  const match = projectList.find((p) => norm === p.cwd || norm.startsWith(p.cwd + "/"));
+  const key = pathKey(cwd);
+  const match = projectList.find((p) => key === p.cwd || key.startsWith(p.cwd + sep));
   return match ? { projectId: match.id, projectName: match.name } : undefined;
 }
 
-// ─── `ss` parsing ────────────────────────────────────────────────────────────
-
-function parseSsAddressAndPort(line: string): { address: string; port: number } | null {
-  const addrMatch = /\s(\S+):(\d+)\s+\S+:\*/.exec(line);
-  if (!addrMatch) return null;
-  const address = addrMatch[1]!;
-  const port = parseInt(addrMatch[2]!, 10);
-  if (!Number.isFinite(port) || port <= 0) return null;
-  return { address, port };
+function matchProjectById(projectList: SortedProject[], projectId: string): ProjectMatch {
+  const match = projectList.find((p) => p.id === projectId);
+  return match ? { projectId: match.id, projectName: match.name } : undefined;
 }
-
-function isSkippableForUid(pid: number, currentUid: number | null): boolean {
-  if (currentUid === null) return false;
-  const uid = readProcUid(pid);
-  return uid !== null && uid !== currentUid;
-}
-
-function makeProcessInfo(pid: number, name: string, port: number, address: string, projectList: SortedProject[]): ProcessInfo {
-  const cwd = readProcCwd(pid);
-  return {
-    pid,
-    port,
-    address,
-    name,
-    cmd: readProcCmdline(pid),
-    cwd,
-    startedAt: readProcStartedAt(pid),
-    memMb: readProcMem(pid),
-    ...matchProjectByCwd(projectList, cwd),
-  };
-}
-
-function collectPidsFromLine(
-  line: string,
-  address: string,
-  port: number,
-  currentUid: number | null,
-  projectList: SortedProject[],
-  byPid: Map<number, ProcessInfo>,
-): void {
-  const pidRe = /\("([^"]+)",pid=(\d+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = pidRe.exec(line)) !== null) {
-    const name = m[1]!;
-    const pid = parseInt(m[2]!, 10);
-    if (!Number.isFinite(pid) || pid <= 0) continue;
-    if (isSkippableForUid(pid, currentUid)) continue;
-    if (byPid.has(pid)) continue;
-    byPid.set(pid, makeProcessInfo(pid, name, port, address, projectList));
-  }
-}
-
-// ─── Single-process inspection + control ─────────────────────────────────────
 
 /** Parse a strictly-positive integer pid (no leading zeros / trailing junk). */
 export function parsePid(raw: string): number | null {
@@ -155,12 +53,13 @@ export function isProcessAlive(pid: number): boolean {
 
 export type KillResult = { ok: true } | { ok: false; error: string; status: number };
 
-/** SIGKILL (dev servers were seen ignoring SIGTERM) a pid another uid doesn't own. `tree`
- *  takes its children too: only for a pid the caller launched, a reused one isn't ours. */
-export function killProcess(pid: number, { tree = false }: { tree?: boolean } = {}): KillResult {
+/** SIGKILL (dev servers were seen ignoring SIGTERM) a pid. `tree` takes its children too:
+ *  only for a pid the caller launched, a reused one isn't ours. Ownership is checked on
+ *  Linux only: an elevated server on Windows/macOS kills anything, so routes go
+ *  through `killOwnedProcess`. */
+export function killProcessUnchecked(pid: number, { tree = false }: { tree?: boolean } = {}): KillResult {
   // kill(-1) signals every process the user owns.
   if (pid <= 1 || pid === process.pid) return { ok: false, error: "forbidden", status: 403 };
-  // The owner is read from /proc; elsewhere the OS refuses another user's pid itself (EPERM).
   const currentUid = process.platform === "linux" && typeof process.getuid === "function" ? process.getuid() : null;
   if (currentUid !== null) {
     const uid = readProcUid(pid);
@@ -185,6 +84,19 @@ export function killProcess(pid: number, { tree = false }: { tree?: boolean } = 
   }
 }
 
+/** Off Linux the pid must first pass the list's ownership rule. `tree` marks a shell this
+ *  server launched and is still running, which is ours without asking. */
+export async function killOwnedProcess(pid: number, opts: { tree?: boolean } = {}): Promise<KillResult> {
+  if (process.platform !== "linux" && scanner && !opts.tree && pid > 1 && pid !== process.pid) {
+    const info = await scanner.details([pid]).catch(() => null);
+    if (!info) return { ok: false, error: "ownership_unverified", status: 503 };
+    if (!info.has(pid)) return isProcessAlive(pid) ? { ok: false, error: "forbidden", status: 403 } : { ok: false, error: "not_found", status: 404 };
+  }
+  const result = killProcessUnchecked(pid, opts);
+  if (result.ok) lastScan = null;
+  return result;
+}
+
 function killTree(pid: number): void {
   if (process.platform === "win32") {
     try {
@@ -203,25 +115,41 @@ function killTree(pid: number): void {
   }
 }
 
-/** Merge in agent-started `run_in_background` shells (`background_shells`
- *  table) that `ss` can't see because they never listen on a port. A row
- *  whose PID has since died is pruned here. One already covered by the port
- *  scan is left alone, just enriched with the agent attribution. */
-function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: SortedProject[]): void {
-  for (const row of db.listBackgroundShells()) {
-    if (!db.isPidAlive(row.pid)) {
+/** Agent-started `run_in_background` shells still alive; dead rows are pruned. */
+function liveBackgroundShells(): BackgroundShellRow[] {
+  try {
+    return db.listBackgroundShells().filter((row) => {
+      if (db.isPidAlive(row.pid)) return true;
       db.deleteBackgroundShell(row.id);
-      continue;
-    }
+      return false;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Merge in background shells the port scan can't see because they never
+ *  listen on a port. One already covered by the scan is just enriched with
+ *  the agent attribution. */
+function mergeBackgroundShells(
+  byPid: Map<number, ProcessInfo>,
+  shells: BackgroundShellRow[],
+  info: Map<number, ProcDetails>,
+  projectList: SortedProject[],
+): void {
+  for (const row of shells) {
+    const attribution = {
+      runId: row.runId,
+      agentId: row.agentId,
+      agentName: row.agentName,
+      instanceLabel: row.instanceLabel ?? undefined,
+    };
     const existing = byPid.get(row.pid);
     if (existing) {
-      existing.runId = row.runId;
-      existing.agentId = row.agentId;
-      existing.agentName = row.agentName;
-      existing.instanceLabel = row.instanceLabel ?? undefined;
+      Object.assign(existing, attribution);
       continue;
     }
-    const cwd = readProcCwd(row.pid);
+    const cwd = info.get(row.pid)?.cwd ?? "";
     byPid.set(row.pid, {
       pid: row.pid,
       port: 0,
@@ -230,49 +158,66 @@ function collectBackgroundShells(byPid: Map<number, ProcessInfo>, projectList: S
       cmd: row.command,
       cwd,
       startedAt: row.startedAt,
-      memMb: readProcMem(row.pid),
+      memMb: info.get(row.pid)?.memMb ?? 0,
       source: "background-task",
-      runId: row.runId,
-      agentId: row.agentId,
-      agentName: row.agentName,
-      instanceLabel: row.instanceLabel ?? undefined,
+      ...attribution,
       ...(row.projectId ? matchProjectById(projectList, row.projectId) : matchProjectByCwd(projectList, cwd)),
     });
   }
 }
 
-function matchProjectById(projectList: SortedProject[], projectId: string): { projectId: string; projectName: string } | undefined {
-  const match = projectList.find((p) => p.id === projectId);
-  return match ? { projectId: match.id, projectName: match.name } : undefined;
+// Clients poll every 5s and a Windows scan spawns PowerShell: share one, TTL from settling (null = in flight).
+const SCAN_TTL_MS = 3000;
+const WARN_EVERY_MS = 60_000;
+let lastScan: { settledAt: number | null; result: Promise<ProcessInfo[]> } | null = null;
+let lastWarnAt = 0;
+
+/** List the current user's listening processes matched to projects, plus any
+ *  agent-started background shell that's still alive. [] on an OS with no scanner. */
+export function listProcesses(): Promise<ProcessInfo[]> {
+  if (lastScan && (lastScan.settledAt === null || Date.now() - lastScan.settledAt < SCAN_TTL_MS)) return lastScan.result;
+  const entry: NonNullable<typeof lastScan> = { settledAt: null, result: scanProcesses() };
+  const settle = () => { entry.settledAt = Date.now(); };
+  entry.result.then(settle, settle);
+  lastScan = entry;
+  return entry.result;
 }
 
-/** List listening dev/build processes matched to projects, plus any
- *  agent-started background shell that's still alive (see
- *  `collectBackgroundShells`). Linux-only ([] elsewhere). */
-export function listProcesses(): ProcessInfo[] {
-  if (process.platform !== "linux") return [];
+async function scanDetails(pids: number[]): Promise<Map<number, ProcDetails>> {
+  const info = await scanner!.details(pids).catch(() => null);
+  if (info) return info;
+  // Without this, a blocked or timed-out probe just looks like "no servers running".
+  if (Date.now() - lastWarnAt > WARN_EVERY_MS) {
+    lastWarnAt = Date.now();
+    log.warn("processes.details_failed", { platform: process.platform, pids: pids.length });
+  }
+  return new Map();
+}
 
-  const currentUid = typeof process.getuid === "function" ? process.getuid() : null;
+async function scanProcesses(): Promise<ProcessInfo[]> {
+  if (!scanner) return [];
   const projectList = buildSortedProjectList();
+  const listening = await scanner.listeners().catch(() => []);
+  const shells = liveBackgroundShells();
+  const pids = [...new Set([...listening.map((l) => l.pid), ...shells.map((r) => r.pid)])];
+  const info = await scanDetails(pids);
+
   const byPid = new Map<number, ProcessInfo>();
-
-  try {
-    const ssOutput = execFileSync("ss", ["-tlnp"], { encoding: "utf8", timeout: 5000 });
-    for (const line of ssOutput.split("\n")) {
-      if (!line.includes("users:((")) continue;
-      const parsed = parseSsAddressAndPort(line);
-      if (!parsed) continue;
-      collectPidsFromLine(line, parsed.address, parsed.port, currentUid, projectList, byPid);
-    }
-  } catch {
-    // `ss` itself failing shouldn't hide background shells below.
+  for (const l of listening) {
+    const d = info.get(l.pid);
+    if (!d || byPid.has(l.pid)) continue;
+    byPid.set(l.pid, {
+      pid: l.pid,
+      port: l.port,
+      address: l.address,
+      name: l.name || d.name,
+      cmd: d.cmd.slice(0, CMD_MAX),
+      cwd: d.cwd,
+      startedAt: d.startedAt,
+      memMb: d.memMb,
+      ...matchProjectByCwd(projectList, d.cwd),
+    });
   }
-
-  try {
-    collectBackgroundShells(byPid, projectList);
-  } catch {
-    // best-effort — a DB hiccup here must not break the whole list
-  }
-
+  mergeBackgroundShells(byPid, shells, info, projectList);
   return Array.from(byPid.values());
 }

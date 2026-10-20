@@ -68,7 +68,7 @@ test("a dev command runs in the project dir with PORT set, stays tracked, and st
 
     // Never kill by window title on Windows: Windows Terminal hosts every console,
     // Agent Office's own included, in one process the title matches.
-    assert.deepStrictEqual(processes.killProcess(pid, { tree: true }), { ok: true });
+    assert.deepStrictEqual(processes.killProcessUnchecked(pid, { tree: true }), { ok: true });
     const gone = await waitFor(() => !processes.isProcessAlive(pid!) && !processes.isProcessAlive(report.pid));
     assert.ok(gone, "stop kills the shell and the dev process under it");
     pid = null;
@@ -78,7 +78,7 @@ test("a dev command runs in the project dir with PORT set, stays tracked, and st
     else process.env.AO_TERMINAL = env.AO_TERMINAL;
     if (env.AO_BASE_URL === undefined) delete process.env.AO_BASE_URL;
     else process.env.AO_BASE_URL = env.AO_BASE_URL;
-    if (pid) processes.killProcess(pid, { tree: true });
+    if (pid) processes.killProcessUnchecked(pid, { tree: true });
     for (const dir of [bin, project]) {
       try {
         rmSync(dir, { recursive: true, force: true, maxRetries: 20 });
@@ -118,7 +118,7 @@ test("a command that ends is reported as exited while its window stays open", as
   } finally {
     if (aoTerminal === undefined) delete process.env.AO_TERMINAL;
     else process.env.AO_TERMINAL = aoTerminal;
-    if (pid) processes.killProcess(pid, { tree: true });
+    if (pid) processes.killProcessUnchecked(pid, { tree: true });
     try {
       rmSync(project, { recursive: true, force: true, maxRetries: 20 });
     } catch (err) {
@@ -129,6 +129,6 @@ test("a command that ends is reported as exited while its window stays open", as
 
 test("pid 1 and the server's own pid are never killed", () => {
   for (const pid of [1, process.pid]) {
-    assert.deepStrictEqual(processes.killProcess(pid, { tree: true }), { ok: false, error: "forbidden", status: 403 });
+    assert.deepStrictEqual(processes.killProcessUnchecked(pid, { tree: true }), { ok: false, error: "forbidden", status: 403 });
   }
 });

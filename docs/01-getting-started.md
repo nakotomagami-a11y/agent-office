@@ -16,7 +16,7 @@ Agent Office is a desktop app for running Claude Code agents on your projects. I
 
 2. **Get Agent Office.** Windows and Linux have installers on the releases page. On macOS, build from source (see the README).
 
-The Processes panel is Linux-only. On Linux, pasting images needs `wl-clipboard`.
+On Linux, pasting images needs `wl-clipboard`.
 
 > [!WARNING]
 > Every starter agent uses `permission-mode: bypassPermissions`: it runs any shell command and edits any file your user account can, without asking. Use them only on projects you are happy for them to change, or set `permission-mode: default` in an agent's file (`~/.claude/agents/`) and the app asks you first.

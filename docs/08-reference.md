@@ -182,7 +182,7 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/processes` | List user's listening ports (Linux only) |
+| `GET` | `/api/processes` | List user's listening ports (Linux, macOS, Windows) and agent background shells |
 | `GET` | `/api/processes/:pid` | Check process liveness |
 | `DELETE` | `/api/processes/:pid` | SIGKILL process |
 | `GET` | `/api/processes/:pid/logs` | Captured stdout/stderr |
