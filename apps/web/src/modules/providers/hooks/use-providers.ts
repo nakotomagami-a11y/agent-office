@@ -71,6 +71,19 @@ export function useRefreshModelPrices() {
   });
 }
 
+/** Fetching off leaves every price unknown, so whatever shows prices refetches. */
+export function useSetPriceFetch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fetchEnabled: boolean) =>
+      apiFetch<ModelPricesResponse>(API_ROUTES.modelPricesSettings, { method: "PUT", body: { fetchEnabled } }),
+    onSuccess: (data) => {
+      qc.setQueryData(queryKeys.providers.prices(), data);
+      void qc.invalidateQueries({ queryKey: queryKeys.agents.all });
+    },
+  });
+}
+
 export function useDeleteProviderKey() {
   const qc = useQueryClient();
   return useMutation({

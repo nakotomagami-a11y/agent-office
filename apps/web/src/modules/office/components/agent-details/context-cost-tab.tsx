@@ -120,6 +120,8 @@ export function ContextCostTab({
   const lockedTokens = alwaysRows.filter((r) => r.locked).reduce((a, r) => a + r.tokensEst, 0);
   const cacheWriteCost = data.totalTokensEst * data.writeRatePerTokUsd;
   const cacheReadCostPerTurn = data.totalTokensEst * data.readRatePerTokUsd;
+  // No price (offline first start, fetching off, or an unpriced model) is not a price of zero.
+  const money = (n: number, decimals: number): string => (data.priceKnown ? usd(n, decimals) : "—");
   const hasExactMeasurement = data.rows.some((r) => r.key === "native-cc");
 
   const handleMeasure = () => {
@@ -145,6 +147,11 @@ export function ContextCostTab({
             Everything this session pays for before you type a word — estimated locally (~4 chars/token), amortized over this
             agent&apos;s own average turns per session.
           </div>
+          {data.priceKnown ? null : (
+            <div role="note" className="mt-1 max-w-[640px] text-[12px] leading-[1.5] text-amber">
+              {tp("context_cost_no_price")}
+            </div>
+          )}
           {capabilities.costKnown ? null : (
             <div role="note" className="mt-1 max-w-[640px] text-[12px] leading-[1.5] text-amber">
               {tp("context_cost_note", { provider: tp(`option_${providerId}_name`) })}
@@ -169,13 +176,13 @@ export function ContextCostTab({
           <div>
             <div className="text-[9px] font-bold tracking-[0.09em] uppercase text-ao-fg-3 mb-[5px]">System prompt, per run</div>
             <div className="flex items-baseline gap-[9px]">
-              <span className="font-mono text-[26px] font-medium text-ao-fg-0">{usd(data.costPerRunEst, 3)}</span>
+              <span className="font-mono text-[26px] font-medium text-ao-fg-0">{money(data.costPerRunEst, 3)}</span>
               <span className="font-mono text-[12px] text-ao-fg-3">~{fmtTok(data.totalTokensEst)} tok</span>
             </div>
           </div>
           <div className="flex-1" />
           <div className="flex">
-            <Fact label="Per week" value={usd(data.costPerWeekEst, 2)} />
+            <Fact label="Per week" value={money(data.costPerWeekEst, 2)} />
             <Fact label="Yours to trim" value={`${Math.round(100 - (lockedTokens / Math.max(1, data.totalTokensEst)) * 100)}%`} />
             <Fact label="Biggest part" value={biggest ? biggest.name.toLowerCase() : "—"} />
           </div>
@@ -189,7 +196,7 @@ export function ContextCostTab({
           </span>
           <span className="flex-1" />
           <span className="font-mono text-[9.5px] text-ao-fg-3">
-            cache write {usd(cacheWriteCost, 3)} · cache read {usd(cacheReadCostPerTurn, 4)} × {Math.max(1, Math.round(data.avgTurnsPerSession))} turns
+            cache write {money(cacheWriteCost, 3)} · cache read {money(cacheReadCostPerTurn, 4)} × {Math.max(1, Math.round(data.avgTurnsPerSession))} turns
           </span>
         </div>
         {data.firstTurnTokensEst > 0 && (

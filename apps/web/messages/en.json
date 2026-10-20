@@ -1401,6 +1401,12 @@
     "pick_one": "Pick a provider to continue.",
     "price_per_mtok": "{price}/Mt",
     "prices_refresh_wait": "Refreshed a moment ago. Wait a little before refreshing again.",
-    "key_saved_plain": "Key saved"
+    "key_saved_plain": "Key saved",
+    "prices_fetch_off": "Prices unavailable (fetching is off)",
+    "prices_fetch_toggle": "Fetch prices automatically",
+    "prices_fetch_toggle_failed": "Couldn't change the setting.",
+    "prices_refresh_offline": "Couldn't reach the price sources. Check your connection.",
+    "context_cost_no_price": "No price is known for this model yet, so dollar figures show a dash. Token counts are unaffected.",
+    "unknown_cost_runs": "+ {count, plural, one {# run} other {# runs}} with unknown cost"
   }
 }

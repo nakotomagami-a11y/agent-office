@@ -2,10 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Icon } from "@/components/ui/icon";
 import { formatDateTime } from "@/lib/format-date";
 import { ApiError } from "@/lib/api/fetch";
-import { useModelPrices, useRefreshModelPrices } from "../hooks/use-providers";
+import { useModelPrices, useRefreshModelPrices, useSetPriceFetch } from "../hooks/use-providers";
 
 const SOURCE_NAME = { litellm: "LiteLLM", openrouter: "OpenRouter" } as const;
 
@@ -14,14 +15,27 @@ const SOURCE_NAME = { litellm: "LiteLLM", openrouter: "OpenRouter" } as const;
  * never hardcoded, so the source and date are part of the number's meaning; a stale
  * catalog is still used, and says so.
  */
+/** 409 is "fetching is off", 429 "too soon", 502 "both sources failed"; anything else is a plain failure. */
+function refreshErrorKey(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429) return "prices_refresh_wait";
+    if (err.status === 409) return "prices_fetch_off";
+    if (err.status === 502) return "prices_refresh_offline";
+  }
+  return "prices_refresh_failed";
+}
+
 export function PriceSourceLine({ withRefresh = false }: { withRefresh?: boolean }) {
   const t = useTranslations("providers");
   const q = useModelPrices();
   const refresh = useRefreshModelPrices();
+  const setFetch = useSetPriceFetch();
   const data = q.data;
+  const fetchOff = data?.fetchEnabled === false;
 
   let text = t("prices_loading");
   if (q.isError) text = t("prices_unavailable");
+  else if (fetchOff) text = t("prices_fetch_off");
   else if (data) {
     text =
       data.source && data.fetchedAt
@@ -39,15 +53,25 @@ export function PriceSourceLine({ withRefresh = false }: { withRefresh?: boolean
         </span>
       ) : null}
       {withRefresh ? (
-        <Button size="sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+        <Button size="sm" onClick={() => refresh.mutate()} disabled={refresh.isPending || fetchOff || !data}>
           {refresh.isPending ? t("prices_refreshing") : t("prices_refresh")}
         </Button>
       ) : null}
-      {refresh.isError ? (
-        <span role="alert" className="text-red">
-          {refresh.error instanceof ApiError && refresh.error.status === 429 ? t("prices_refresh_wait") : t("prices_refresh_failed")}
+      {withRefresh && data ? (
+        <span className="flex items-center gap-[8px]">
+          <Switch
+            checked={data.fetchEnabled}
+            onChange={(next) => setFetch.mutate(next, { onSuccess: () => next && refresh.mutate() })}
+            disabled={setFetch.isPending}
+            label={t("prices_fetch_toggle")}
+          />
+          <span>{t("prices_fetch_toggle")}</span>
         </span>
       ) : null}
+      {refresh.isError ? (
+        <span role="alert" className="text-red">{t(refreshErrorKey(refresh.error))}</span>
+      ) : null}
+      {setFetch.isError ? <span role="alert" className="text-red">{t("prices_fetch_toggle_failed")}</span> : null}
     </div>
   );
 }

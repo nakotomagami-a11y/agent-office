@@ -46,6 +46,12 @@ test("every provider and model tier the pickers show has its words", () => {
   for (const tier of MODEL_TIERS) assert.ok(messages.providers[`tier_${tier}`], `providers.tier_${tier}`);
 });
 
+test("every price and cost-unknown line the screens can show has its words", () => {
+  const keys = ["prices_loading", "prices_unavailable", "prices_fetch_off", "prices_source", "prices_stale", "prices_refresh", "prices_refreshing", "prices_refresh_failed", "prices_refresh_wait", "prices_refresh_offline", "prices_fetch_toggle", "prices_fetch_toggle_failed", "context_cost_no_price", "unknown_cost_runs"];
+  for (const key of keys) assert.ok(messages.providers[key], `providers.${key}`);
+  assert.ok(messages.errors.run["budget_exceeded"]?.["title"], "the budget cap run code has copy");
+});
+
 test("the wizard step and the settings tab are named", () => {
   assert.ok(messages.first_run["step_provider"]);
   assert.ok(messages.settings_nav["nav_provider_label"]);
