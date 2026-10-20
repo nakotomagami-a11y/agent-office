@@ -7,7 +7,11 @@ import { API_ROUTES } from "@agent-office/api-contract";
 import { apiClient } from "@/lib/api-client";
 
 export interface ImportResult {
+  projectId?: string;
   agentCount?: number;
+  backedUp?: string[];
+  officeRestored?: boolean;
+  snapshot?: string | null;
   detail?: string;
   error?: string;
 }
@@ -20,7 +24,9 @@ export async function exportProject(projectId: string, includeHistory: boolean):
   return res.data;
 }
 
-export async function importState(snapshot: unknown): Promise<ImportResult> {
-  const res = await apiClient.post<ImportResult>(API_ROUTES.saveImport, snapshot);
+export async function importState(snapshot: unknown, restoreOffice: boolean): Promise<ImportResult> {
+  const res = await apiClient.post<ImportResult>(API_ROUTES.saveImport, snapshot, {
+    params: restoreOffice ? { office: 1 } : {},
+  });
   return res.data;
 }

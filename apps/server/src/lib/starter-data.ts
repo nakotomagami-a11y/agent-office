@@ -1,10 +1,4 @@
-// Server-only helpers + data logic for the starter-data routes
-// (GET/POST /api/starter/agents and /api/starter/agent-diff).
-//
-// Deliberately lives in apps/web, NOT @agent-office/domain: importing the domain
-// package here would make Next's transpilePackages pull the whole shared package
-// into these route bundles. The frontmatter we read is a tiny string-scalar
-// subset, so a hand-rolled parser keeps the routes self-contained and lean.
+// Data logic for /api/starter/agents and /api/starter/agent-diff.
 import {
   cpSync,
   existsSync,
@@ -12,19 +6,20 @@ import {
   readFileSync,
   readdirSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import type { z } from "zod";
 import { parseJson } from "@agent-office/api-contract";
-import { starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
+import { AGENTS_DIR, AGENT_BACKUPS_DIR, APP_STATE_DIR } from "@agent-office/domain/services/infra/paths";
+import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
+import { log } from "@agent-office/domain/services/infra/log";
+import { hasAgentFrontmatter, splitAgentFile } from "@agent-office/domain/services/agents/frontmatter";
+import { agentInstallRecordSchema, starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
 
-export const AGENTS_DIR = join(homedir(), ".claude", "agents");
-const ARCHIVE_DIR = join(AGENTS_DIR, "_archive");
-const STATE_DIR = join(homedir(), ".claude", "agent-office");
-const VERSION_FILE = join(STATE_DIR, "agent-manifest-version");
-const SKIP_FILE = join(STATE_DIR, "agent-manifest-skipped.json");
+const VERSION_FILE = join(APP_STATE_DIR, "agent-manifest-version");
+const SKIP_FILE = join(APP_STATE_DIR, "agent-manifest-skipped.json");
+const INSTALL_RECORD_FILE = join(APP_STATE_DIR, "agent-install-record.json");
 
 const SLUG_RE = /^[A-Za-z0-9._-]+$/;
 
@@ -36,6 +31,25 @@ export function isValidSlug(s: unknown): s is string {
 /** First 16 chars of sha256 — matches the manifest generator's short hash. */
 function shortHash(bytes: string | Buffer): string {
   return createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+}
+
+/** Bundle versions are `YYYY-MM-DD-N`, compared field by field as numbers (as strings,
+ *  `-10` sorts before `-9`). Null when either is unparseable: no order is known. */
+export function compareBundleVersions(a: string, b: string): number | null {
+  const parse = (v: string) => /^(\d{4})-(\d{2})-(\d{2})-(\d+)$/.exec(v.trim())?.slice(1).map(Number) ?? null;
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return null;
+  for (let i = 0; i < pa.length; i++) if (pa[i] !== pb[i]) return pa[i]! - pb[i]!;
+  return 0;
+}
+
+/** An older build (the installed app next to a dev checkout) shares ~/.claude with a newer one
+ *  and must never offer its older agents over the newer ones (S1-1). */
+function bundleIsOlder(bundle: string, installed: string | null): boolean {
+  if (!installed) return false;
+  const c = compareBundleVersions(bundle, installed);
+  return c !== null && c < 0;
 }
 
 /** Locate the bundled starter-data dir across dev/build/env layouts. */
@@ -64,10 +78,11 @@ export interface StarterFrontmatter {
 
 /** Pull name/description/unit/room from a hand-rolled YAML frontmatter block. */
 export function parseFrontmatterSubset(raw: string): StarterFrontmatter {
-  const m = raw.match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!m) return {};
+  // Git on Windows checks the bundle out with CRLF: an LF-only match found no frontmatter (S1-4).
+  const split = splitAgentFile(raw);
+  if (!split) return {};
   const out: StarterFrontmatter = {};
-  for (const line of m[1]!.split(/\n/)) {
+  for (const line of split.yaml.split(/\n/)) {
     const kv = line.match(/^(name|description|unit|room):\s*(.*)$/);
     if (!kv) continue;
     let val = kv[2]!.trim();
@@ -111,15 +126,19 @@ export type ImportResult =
   | { ok: false; error: string };
 
 /** Copy the selected starter .md files into ~/.claude/agents/, never overwriting
- *  a user edit (already-present or invalid/missing ids are skipped). */
+ *  a user edit (already-present or invalid/missing ids are skipped). This is the
+ *  first-run import, so it also records what was installed and what was turned down:
+ *  otherwise the migration modal opens right after it, offering the declined agents again (S1-3). */
 export function importStarterAgents(ids: string[]): ImportResult {
   const starterDir = resolveStarterDataDir();
-  if (!starterDir) return { ok: false, error: "starter_data_missing" };
-  const starterAgents = join(starterDir, "agents");
-  if (!existsSync(starterAgents)) return { ok: false, error: "starter_data_missing" };
+  const starterAgents = starterDir ? join(starterDir, "agents") : null;
+  // The wizard posts even with nothing picked; a build without starter data must still let it finish.
+  if (!starterDir || !starterAgents || !existsSync(starterAgents)) {
+    return ids.length === 0 ? { ok: true, imported: 0, skipped: [] } : { ok: false, error: "starter_data_missing" };
+  }
 
   mkdirSync(AGENTS_DIR, { recursive: true });
-  let imported = 0;
+  const imported: string[] = [];
   const skipped: string[] = [];
   for (const id of ids) {
     if (!isValidSlug(id)) {
@@ -133,25 +152,34 @@ export function importStarterAgents(ids: string[]): ImportResult {
       continue;
     }
     cpSync(from, to);
-    imported++;
+    imported.push(id);
   }
-  return { ok: true, imported, skipped };
+
+  const manifest = loadManifest(starterDir);
+  if (manifest) {
+    const record = readInstallRecord();
+    const chosen = new Set(ids);
+    for (const a of manifest.agents) {
+      if (imported.includes(a.name)) record.agents[a.name] = a.hash;
+      else if (!chosen.has(a.name) && !existsSync(join(AGENTS_DIR, `${a.name}.md`))) record.declined.push(a.name);
+    }
+    record.declined = [...new Set(record.declined)].filter((id) => !imported.includes(id));
+    writeInstallRecord(record);
+    // An agent already here that differs from the bundle is the migration modal's to offer.
+    const installed = new Map(listInstalledAgents().map((a) => [a.id, a.hash]));
+    const allMatch = manifest.agents.every((a) => !installed.has(a.name) || installed.get(a.name) === a.hash);
+    if (allMatch && !bundleIsOlder(manifest.version, readInstalledVersion())) writeInstalledVersion(manifest.version);
+  }
+  return { ok: true, imported: imported.length, skipped };
 }
 
 // ─── Manifest diff + apply (GET/POST /api/starter/agent-diff) ────────────────
 
-interface ManifestEntry {
-  file: string;
-  name: string;
-  description: string;
-  hash: string;
-}
+type Manifest = z.infer<typeof starterManifestSchema>;
+type InstallRecord = z.infer<typeof agentInstallRecordSchema>;
 
-export interface Manifest {
-  version: string;
-  generated?: string;
-  agents: ManifestEntry[];
-}
+/** Why an installed agent differs from the bundle, judged against the hash it was installed from. */
+export type AgentChange = "bundle_changed" | "edited_locally" | "both" | "unknown";
 
 export interface DiffEntry {
   id: string;
@@ -159,15 +187,19 @@ export interface DiffEntry {
   description: string;
   bundleHash?: string;
   installedHash?: string;
+  change?: AgentChange;
+  declined?: boolean;
 }
 
 export interface DiffResult {
   bundleVersion: string | null;
   installedVersion: string | null;
+  bundleOlder: boolean;
   /** Bundled but not installed. */
   newAgents: DiffEntry[];
-  /** Installed AND bundled — hashes differ. */
   changed: DiffEntry[];
+  /** Only the local copy changed: an update would revert the user's edit. */
+  editedLocally: DiffEntry[];
   /** Installed but not bundled. Untouched by accept. Surfaced for UX. */
   onlyLocal: DiffEntry[];
   /** Slugs the user chose to skip in a previous run of this same version. */
@@ -178,7 +210,7 @@ function loadManifest(starterDir: string): Manifest | null {
   const path = join(starterDir, "agents", "MANIFEST.json");
   if (!existsSync(path)) return null;
   try {
-    return starterManifestSchema.parse(parseJson(readFileSync(path, "utf8"))) as Manifest;
+    return starterManifestSchema.parse(parseJson(readFileSync(path, "utf8")));
   } catch {
     return null;
   }
@@ -194,8 +226,8 @@ function readInstalledVersion(): string | null {
 }
 
 function writeInstalledVersion(v: string) {
-  mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(VERSION_FILE, `${v}\n`, "utf8");
+  mkdirSync(APP_STATE_DIR, { recursive: true });
+  writeFileAtomic(VERSION_FILE, `${v}\n`);
 }
 
 interface SkipState {
@@ -207,15 +239,32 @@ interface SkipState {
 function readSkipState(): SkipState | null {
   try {
     if (!existsSync(SKIP_FILE)) return null;
-    return starterSkipStateSchema.parse(parseJson(readFileSync(SKIP_FILE, "utf8"))) as SkipState;
+    return starterSkipStateSchema.parse(parseJson(readFileSync(SKIP_FILE, "utf8")));
   } catch {
     return null;
   }
 }
 
 function writeSkipState(state: SkipState) {
-  mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(SKIP_FILE, JSON.stringify(state, null, 2) + "\n", "utf8");
+  mkdirSync(APP_STATE_DIR, { recursive: true });
+  writeFileAtomic(SKIP_FILE, JSON.stringify(state, null, 2) + "\n");
+}
+
+function readInstallRecord(): InstallRecord {
+  try {
+    if (existsSync(INSTALL_RECORD_FILE)) {
+      return agentInstallRecordSchema.parse(parseJson(readFileSync(INSTALL_RECORD_FILE, "utf8")));
+    }
+  } catch (err) {
+    // Unreadable = no record: every difference is "unknown", never assumed safe.
+    log.warn("starter.install_record_unreadable", { error: String(err) });
+  }
+  return { agents: {}, declined: [] };
+}
+
+function writeInstallRecord(record: InstallRecord) {
+  mkdirSync(APP_STATE_DIR, { recursive: true });
+  writeFileAtomic(INSTALL_RECORD_FILE, JSON.stringify(record, null, 2) + "\n");
 }
 
 interface InstalledAgent {
@@ -237,33 +286,40 @@ function listInstalledAgents(): InstalledAgent[] {
     if (f.endsWith(".memory.md")) continue;
     if (f.endsWith(".identity.md")) continue;
     if (f.includes(".body.")) continue;
-    const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/\r\n/g, "\n");
+    const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
     // LF as the manifest hashes it (a Windows copy is the same agent); real agents have frontmatter, docs don't.
-    if (!/^---\n[\s\S]*?\n---\n?/.test(raw)) continue;
+    if (!hasAgentFrontmatter(raw)) continue;
     out.push({ id: f.replace(/\.md$/, ""), hash: shortHash(raw), fm: parseFrontmatterSubset(raw) });
   }
   return out;
 }
 
-function computeDiff(manifest: Manifest, installed: InstalledAgent[]): {
-  newAgents: DiffEntry[];
-  changed: DiffEntry[];
-  onlyLocal: DiffEntry[];
-} {
+function classifyChange(installedHash: string, bundleHash: string, recordedHash: string | undefined): AgentChange {
+  if (!recordedHash) return "unknown";
+  const local = installedHash !== recordedHash;
+  const bundle = bundleHash !== recordedHash;
+  if (local && bundle) return "both";
+  return local ? "edited_locally" : "bundle_changed";
+}
+
+function computeDiff(manifest: Manifest, installed: InstalledAgent[], record: InstallRecord) {
   const bundledById = new Map(manifest.agents.map((a) => [a.name, a]));
   const installedById = new Map(installed.map((a) => [a.id, a]));
+  const declined = new Set(record.declined);
 
   const newAgents: DiffEntry[] = [];
   const changed: DiffEntry[] = [];
+  const editedLocally: DiffEntry[] = [];
   for (const b of manifest.agents) {
     const inst = installedById.get(b.name);
     if (!inst) {
-      newAgents.push({ id: b.name, name: b.name, description: b.description, bundleHash: b.hash });
+      newAgents.push({ id: b.name, name: b.name, description: b.description, bundleHash: b.hash, ...(declined.has(b.name) ? { declined: true } : {}) });
       continue;
     }
-    if (inst.hash !== b.hash) {
-      changed.push({ id: b.name, name: b.name, description: b.description, bundleHash: b.hash, installedHash: inst.hash });
-    }
+    if (inst.hash === b.hash) continue;
+    const change = classifyChange(inst.hash, b.hash, record.agents[b.name]);
+    const entry = { id: b.name, name: b.name, description: b.description, bundleHash: b.hash, installedHash: inst.hash, change };
+    (change === "edited_locally" ? editedLocally : changed).push(entry);
   }
 
   const onlyLocal: DiffEntry[] = installed
@@ -271,10 +327,8 @@ function computeDiff(manifest: Manifest, installed: InstalledAgent[]): {
     .map((i) => ({ id: i.id, name: i.fm.name ?? i.id, description: i.fm.description ?? "", installedHash: i.hash }));
 
   // Deterministic order for stable UI rendering across requests.
-  newAgents.sort((a, b) => a.id.localeCompare(b.id));
-  changed.sort((a, b) => a.id.localeCompare(b.id));
-  onlyLocal.sort((a, b) => a.id.localeCompare(b.id));
-  return { newAgents, changed, onlyLocal };
+  for (const list of [newAgents, changed, editedLocally, onlyLocal]) list.sort((a, b) => a.id.localeCompare(b.id));
+  return { newAgents, changed, editedLocally, onlyLocal };
 }
 
 export type DiffOutcome = { ok: true; diff: DiffResult } | { ok: false; error: string };
@@ -286,16 +340,18 @@ export function computeAgentDiff(): DiffOutcome {
   const manifest = loadManifest(starterDir);
   if (!manifest) return { ok: false, error: "manifest_missing_or_invalid" };
 
-  const { newAgents, changed, onlyLocal } = computeDiff(manifest, listInstalledAgents());
+  const installedVersion = readInstalledVersion();
+  const bundleOlder = bundleIsOlder(manifest.version, installedVersion);
+  const diff = computeDiff(manifest, listInstalledAgents(), readInstallRecord());
   const skipState = readSkipState();
   return {
     ok: true,
     diff: {
       bundleVersion: manifest.version,
-      installedVersion: readInstalledVersion(),
-      newAgents,
-      changed,
-      onlyLocal,
+      installedVersion,
+      bundleOlder,
+      ...diff,
+      ...(bundleOlder ? { newAgents: [], changed: [], editedLocally: [] } : {}),
       skipped: skipState && skipState.version === manifest.version ? skipState.slugs : [],
     },
   };
@@ -309,7 +365,7 @@ export interface ApplyResult {
   bundleVersion: string;
 }
 
-export type ApplyOutcome = { ok: true; result: ApplyResult } | { ok: false; error: string };
+export type ApplyOutcome = { ok: true; result: ApplyResult } | { ok: false; error: string; status: number };
 
 /** Back up then overwrite each accepted agent, record skips per-version, and
  *  bump the manifest version. `accept`/`skip` are raw request values — filtered
@@ -319,21 +375,23 @@ export function applyAgentMigration(accept: unknown, skip: unknown, markComplete
   const skips = Array.isArray(skip) ? skip.filter(isValidSlug) : [];
 
   const starterDir = resolveStarterDataDir();
-  if (!starterDir) return { ok: false, error: "starter_data_missing" };
+  if (!starterDir) return { ok: false, error: "starter_data_missing", status: 500 };
   const manifest = loadManifest(starterDir);
-  if (!manifest) return { ok: false, error: "manifest_missing_or_invalid" };
+  if (!manifest) return { ok: false, error: "manifest_missing_or_invalid", status: 500 };
+  if (bundleIsOlder(manifest.version, readInstalledVersion())) return { ok: false, error: "bundle_older", status: 409 };
 
   const bundleAgentsDir = join(starterDir, "agents");
-  const bundleSlugs = new Set(manifest.agents.map((a) => a.name));
+  const bundleHash = new Map(manifest.agents.map((a) => [a.name, a.hash]));
+  const record = readInstallRecord();
 
   mkdirSync(AGENTS_DIR, { recursive: true });
-  mkdirSync(ARCHIVE_DIR, { recursive: true });
 
   const applied: string[] = [];
   const backedUp: string[] = [];
   const errors: { id: string; reason: string }[] = [];
   for (const id of accepts) {
-    if (!bundleSlugs.has(id)) {
+    const hash = bundleHash.get(id);
+    if (hash === undefined) {
       errors.push({ id, reason: "not_in_bundle" });
       continue;
     }
@@ -344,22 +402,29 @@ export function applyAgentMigration(accept: unknown, skip: unknown, markComplete
       continue;
     }
     try {
-      // Back up an existing file with a version-tagged suffix so repeated
-      // upgrades don't clobber history, then overwrite.
       if (existsSync(to)) {
-        cpSync(to, join(ARCHIVE_DIR, `${id}.pre-${manifest.version}-backup.md`));
+        mkdirSync(AGENT_BACKUPS_DIR, { recursive: true });
+        cpSync(to, join(AGENT_BACKUPS_DIR, `${id}.pre-${manifest.version}.${Date.now()}.md`));
         backedUp.push(id);
       }
       cpSync(from, to);
+      record.agents[id] = hash;
       applied.push(id);
     } catch (err) {
       errors.push({ id, reason: (err as Error).message });
     }
   }
 
-  // Persist skip choices so we don't re-nag until the bundle version changes.
-  if (skips.length > 0) writeSkipState({ version: manifest.version, slugs: skips });
-  // Mark this version processed once the user finishes the flow so it stops firing.
+  // A copy identical to the bundle is unedited: recording it lets installs that predate the record classify the next bundle.
+  const installed = listInstalledAgents();
+  for (const a of installed) if (bundleHash.get(a.id) === a.hash) record.agents[a.id] = a.hash;
+  const installedIds = new Set(installed.map((a) => a.id));
+  record.declined = [...new Set([...record.declined, ...skips.filter((id) => !installedIds.has(id))])]
+    .filter((id) => !installedIds.has(id));
+  writeInstallRecord(record);
+
+  // Replaced, not merged: a slug un-skipped this time must not stay skipped.
+  writeSkipState({ version: manifest.version, slugs: skips });
   if (markComplete !== false) writeInstalledVersion(manifest.version);
 
   return { ok: true, result: { applied, backedUp, skipped: skips, errors, bundleVersion: manifest.version } };

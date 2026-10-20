@@ -7,6 +7,7 @@ import { UnitSprite } from "@/components/ui/unit-sprite";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { PAGE_ROUTES } from "@/lib/page-routes";
+import { ApiError } from "@/lib/api/fetch";
 import {
   EMPTY_FORM,
   type AgentFormValues,
@@ -420,10 +421,22 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
       if (onSaved) onSaved(id);
       else router.push(PAGE_ROUTES.agent(id));
     };
-    const onError = (err: unknown) => setServerError(err instanceof Error ? err.message : String(err));
+    const onError = (err: unknown) => {
+      if (err instanceof ApiError && err.data?.error === "agent_exists") {
+        const message = t("agent_editor.error_agent_exists", { id: body.id });
+        setErrors([{ field: "id", message }]);
+        setServerError(message);
+        return;
+      }
+      if (err instanceof ApiError && err.data?.error === "frontmatter_unparseable") {
+        setServerError(t("agent_editor.error_frontmatter_unparseable", { id: body.id }));
+        return;
+      }
+      setServerError(err instanceof Error ? err.message : String(err));
+    };
     if (mode === "new") createMut.mutate(body, { onSuccess, onError });
     else writeMut.mutate(body, { onSuccess, onError });
-  }, [values, mode, createMut, writeMut, onSaved, router]);
+  }, [values, mode, createMut, writeMut, onSaved, router, t]);
 
   const handleDiscard = () => setValues(baseline);
 

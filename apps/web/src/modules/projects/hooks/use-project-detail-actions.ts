@@ -32,6 +32,8 @@ export function useProjectDetailActions(
   const router = useRouter();
 
   const [includeHistory, setIncludeHistory] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [restoreOffice, setRestoreOffice] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -49,8 +51,14 @@ export function useProjectDetailActions(
 
   const handleExport = async () => {
     if (!project) return;
-    const blob = await exportProject(projectId, includeHistory).catch(() => null);
-    if (!blob) return;
+    setExportError(null);
+    let blob: Blob;
+    try {
+      blob = await exportProject(projectId, includeHistory);
+    } catch (err) {
+      setExportError(t("project_detail.export_failed", { error: err instanceof Error ? err.message : String(err) }));
+      return;
+    }
     const slug = project.meta.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -62,16 +70,20 @@ export function useProjectDetailActions(
     URL.revokeObjectURL(blobUrl);
   };
 
-  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const importFile = async (file: File) => {
     setImporting(true);
     setImportStatus(null);
     try {
       const text = await file.text();
       const json = JSON.parse(text) as unknown;
-      const data = await importState(json);
-      setImportStatus({ ok: true, msg: t("project_detail.import_success", { count: data.agentCount ?? 0 }) });
+      const data = await importState(json, restoreOffice);
+      const msg = [
+        t("project_detail.import_success", { count: data.agentCount ?? 0, project: data.projectId ?? "" }),
+        data.backedUp?.length ? t("project_detail.import_backed_up", { count: data.backedUp.length, ids: data.backedUp.join(", ") }) : null,
+        data.snapshot ? t("project_detail.import_snapshot", { path: data.snapshot }) : null,
+        data.officeRestored ? t("project_detail.import_office_restored") : null,
+      ].filter(Boolean).join(" ");
+      setImportStatus({ ok: true, msg });
     } catch (err) {
       const msg = err instanceof ApiError ? ((err.data?.detail as string | undefined) ?? err.message) : String(err);
       setImportStatus({ ok: false, msg });
@@ -79,6 +91,11 @@ export function useProjectDetailActions(
       setImporting(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  };
+
+  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await importFile(file);
   };
 
   /** `work` answers a session_has_work refusal; the server checks every session before removing any. */
@@ -107,7 +124,10 @@ export function useProjectDetailActions(
   };
 
   return {
-    backup: { includeHistory, setIncludeHistory, importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport },
+    backup: {
+      includeHistory, setIncludeHistory, exportError, restoreOffice, setRestoreOffice,
+      importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport, onDropFile: importFile,
+    },
     danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },
   };
 }

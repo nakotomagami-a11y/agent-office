@@ -135,7 +135,8 @@ test("importing a bundle with no roster leaves the existing roster alone", async
   assert.deepEqual(p.meta.roster.map((i) => i.instanceId), ["developer-aaa", "developer-bbb"]);
 });
 
-test("importing a bundle WITH a roster still restores it", async () => {
+test("importing a bundle WITH a roster adds its seats and keeps the existing ones", async () => {
+  // Replacing the roster orphaned the existing seats' worktrees and chats (S4-7).
   const save = await import("./save");
   reseed();
   save.importBundle({
@@ -143,7 +144,7 @@ test("importing a bundle WITH a roster still restores it", async () => {
     agents: [],
     office: EMPTY_OFFICE,
   });
-  assert.deepEqual(projects.readProject(id)!.meta.roster.map((i) => i.instanceId), ["developer-zzz"]);
+  assert.deepEqual(projects.readProject(id)!.meta.roster.map((i) => i.instanceId), ["developer-aaa", "developer-bbb", "developer-zzz"]);
 });
 
 test("unmodelled per-instance roster keys survive an unrelated write", () => {

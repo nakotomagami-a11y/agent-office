@@ -191,12 +191,10 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
         body: { integrations: selectedIntegrations },
       });
 
-      if (selectedAgents.size > 0) {
-        await apiFetch<{ imported: number }>(API_ROUTES.starterAgents, {
-          method: "POST",
-          body: { agentIds: [...selectedAgents] },
-        });
-      }
+      await apiFetch<{ imported: number }>(API_ROUTES.starterAgents, {
+        method: "POST",
+        body: { agentIds: [...selectedAgents] },
+      });
 
       // Create all selected projects. Custom name only applies when exactly one is chosen.
       const chosen = projectCandidates.filter((c) => chosenFolderIds.has(c.id));

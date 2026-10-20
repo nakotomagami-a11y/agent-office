@@ -7,7 +7,7 @@
  * throwing away the one thing the user actually wants to see: *which* agents
  * changed. This version leads with a preview list of the actionable agents
  * (name + description + New/Updated tag), a compact version trail, and a real
- * up-to-date state. The heavy lifting (accept/skip, backup to _archive/) still
+ * up-to-date state. The heavy lifting (accept/skip, backup) still
  * lives in `AgentMigrationModal`; this tab reviews and launches it.
  */
 
@@ -46,7 +46,7 @@ export function BundledAgentsTab() {
 
   const { bundleVersion, installedVersion, newAgents, changed, onlyLocal } = diffQ.data;
   const actionable = newAgents.length + changed.length;
-  const upToDate = actionable === 0 && installedVersion === bundleVersion;
+  const upToDate = actionable === 0;
 
   return (
     <>
@@ -230,7 +230,7 @@ function FootnoteDisclosure() {
         identity — foundational knowledge that&rsquo;s part of who it is — can travel alongside as{" "}
         <InlineCode>&lt;name&gt;.identity.md</InlineCode>. Per-installation session memory (
         <InlineCode>.memory.md</InlineCode>) is never shipped, and your customizations are backed up
-        to <InlineCode>_archive/</InlineCode> before any override.
+        to <InlineCode>~/.claude/agent-office/backups/agents/</InlineCode> before any override.
       </p>
     </details>
   );

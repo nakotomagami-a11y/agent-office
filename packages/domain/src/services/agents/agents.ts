@@ -16,7 +16,8 @@ import { join } from "node:path";
 import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, PanelSeat, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
 import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { parseFrontmatter, stringifyYaml, isYamlMapping, type YamlValue } from "../infra/yaml";
+import { isYamlMapping, type YamlValue } from "../infra/yaml";
+import { hasAgentFrontmatter, mergeFrontmatter, opensFrontmatter, parseAgentFrontmatter, splitAgentFile } from "./frontmatter";
 import { buildSkillsBundle } from "../skills/skills";
 import { RESPONSE_STYLE } from "../../config/response-style";
 import { unknownTools, retiredToolHints } from "../../config/tools";
@@ -35,9 +36,6 @@ function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
 }
 
-function hasFrontmatter(content: string): boolean {
-  return /^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/.test(content);
-}
 
 /** Frontmatter is hand-edited and bypasses the API's zod schemas, so an
  *  unknown value would reach `--permission-mode` verbatim. Drop it instead:
@@ -92,7 +90,9 @@ export function readAgent(name: string): { info: ApiAgent; body: string } | null
   const path = join(AGENTS_DIR, `${name}.md`);
   if (!existsSync(path)) return null;
   const content = readFileSync(path, "utf8");
-  const { fm, body } = parseFrontmatter(content);
+  const split = splitAgentFile(content);
+  const fm = split ? parseAgentFrontmatter(split.yaml) : {};
+  const body = split ? split.body : content;
   const info: ApiAgent = {
     name: asString(fm.name) ?? name,
     displayName: asString(fm["display-name"] ?? fm["displayName"]),
@@ -121,18 +121,28 @@ export function listAgents(): ApiAgent[] {
         !f.endsWith(".identity.md") &&
         !f.startsWith("_") &&
         !f.includes(".body.") &&
-        hasFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8")),
+        hasAgentFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8")),
     )
     .map((f) => readAgent(f.replace(/\.md$/, ""))?.info)
     .filter((a): a is ApiAgent => a !== undefined);
 }
 
-export function writeAgent(b: AgentBody): string {
+export type WriteAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
+
+export function writeAgent(b: AgentBody): WriteAgentResult {
+  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
   ensureDir(AGENTS_DIR);
-  if (!isValidIdSegment(b.id)) throw new Error("invalid id");
   const id = b.id;
   const file = join(AGENTS_DIR, `${id}.md`);
-  const fm: Record<string, YamlValue> = {
+  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const split = splitAgentFile(current);
+  // An opening fence with no block we can find: writing would replace keys we never read.
+  if (!split && opensFrontmatter(current)) return { ok: false, error: "frontmatter_unparseable", status: 422 };
+  // Human display name. Only persisted when it adds information over the slug,
+  // so trivial "name == id" agents keep a clean frontmatter and fall back to
+  // slug-prettifying in the UI.
+  const label = b.name?.trim();
+  const owned: Record<string, YamlValue | undefined> = {
     name: id,
     description: b.desc.replace(/\n/g, " "),
     "default-model": b.model,
@@ -140,18 +150,22 @@ export function writeAgent(b: AgentBody): string {
     skills: b.skills,
     tools: b.tools,
     "permission-mode": b.pm,
+    "display-name": label && label !== id ? label : undefined,
+    room: b.room || undefined,
+    unit: b.unit?.trim() || undefined,
   };
-  // Human display name. Only persisted when it adds information over the slug,
-  // so trivial "name == id" agents keep a clean frontmatter and fall back to
-  // slug-prettifying in the UI.
-  const label = b.name?.trim();
-  if (label && label !== id) fm["display-name"] = label;
-  if (b.room) fm.room = b.room;
-  if (b.unit && b.unit.trim()) fm.unit = b.unit.trim();
-  if (b.panel?.length) fm.panel = b.panel as unknown as YamlValue;
-  const content = `---\n${stringifyYaml(fm).trim()}\n---\n\n${b.body}\n`;
-  writeFileAtomic(file, content);
-  return id;
+  // Absent = the client doesn't edit it (the editor has no field for either), so the file's value stays.
+  if (b.panel) owned.panel = b.panel.length ? (b.panel as unknown as YamlValue) : undefined;
+  if (b.addDirs) owned["add-dirs"] = b.addDirs.length ? b.addDirs : undefined;
+  writeFileAtomic(file, `---\n${mergeFrontmatter(split?.yaml ?? "", owned)}\n---\n\n${b.body}\n`);
+  return { ok: true, value: id };
+}
+
+/** Create only: an id that is taken is a 409, never an overwrite of someone's agent. */
+export function createAgent(b: AgentBody): WriteAgentResult {
+  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
+  if (existsSync(join(AGENTS_DIR, `${b.id}.md`))) return { ok: false, error: "agent_exists", status: 409 };
+  return writeAgent(b);
 }
 
 export function deleteAgent(id: string): boolean {

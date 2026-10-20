@@ -1,10 +1,10 @@
 // Agent migration diff + apply.
-//   GET  /api/starter/agent-diff → diff between the bundled agents MANIFEST.json and
-//      installed ~/.claude/agents/*.md: newAgents (bundled, not installed), changed
-//      (both but hash differs), onlyLocal (installed, not bundled — never touched),
-//      plus bundleVersion + installedVersion + previously-skipped slugs.
+//   GET  /api/starter/agent-diff → bundled MANIFEST.json vs installed ~/.claude/agents/*.md:
+//      newAgents, changed (bundle copy changed), editedLocally (only the local copy changed),
+//      onlyLocal (never touched), versions, previously-skipped slugs.
 //   POST /api/starter/agent-diff → body { accept, skip, markComplete } → backs up
 //      then overwrites each accepted agent, records skips per-version, bumps version.
+//      A bundle older than the installed roster is a 409 `bundle_older`: nothing is written.
 import { computeAgentDiff, applyAgentMigration } from "../../../lib/starter-data";
 
 export async function GET() {
@@ -26,6 +26,6 @@ export async function POST(request: Request) {
   const { accept, skip, markComplete } = body as { accept?: unknown; skip?: unknown; markComplete?: boolean };
 
   const outcome = applyAgentMigration(accept, skip, markComplete);
-  if (!outcome.ok) return Response.json({ error: outcome.error }, { status: 500 });
+  if (!outcome.ok) return Response.json({ error: outcome.error }, { status: outcome.status });
   return Response.json(outcome.result);
 }
