@@ -1,9 +1,9 @@
-// POST /api/projects/<id>/roster — add an agent instance to the project roster.
-// Returns a typed 409 when the per-project instance cap is hit.
+// POST/DELETE /api/projects/<id>/roster — add an agent instance (typed 409 at the instance cap),
+// or remove every instance (reset; ?work=keep|discard, 409s as for one instance).
 import { projects, settings } from "@agent-office/domain/services";
 import { InstanceCapError } from "@agent-office/domain/services/projects/projects";
-import { validateBody } from "../../../../lib/validation";
-import { rosterAddSchema } from "@agent-office/api-contract";
+import { validateBody, validateQuery } from "../../../../lib/validation";
+import { rosterAddSchema, sessionRemovalQuerySchema } from "@agent-office/api-contract";
 import { tryService, validateIdParam } from "../../../../lib/api-helpers";
 
 type Params = { params: Promise<{ id: string }> };
@@ -32,4 +32,12 @@ export async function POST(request: Request, { params }: Params) {
     return tryService(() => { throw e; });
   }
   return Response.json(result);
+}
+
+export async function DELETE(request: Request, { params }: Params) {
+  const { value: id, error: paramError } = validateIdParam((await params).id);
+  if (paramError) return paramError;
+  const { data, error } = validateQuery(sessionRemovalQuerySchema, new URL(request.url).searchParams);
+  if (error) return error;
+  return tryService(() => projects.resetRoster(id, data.work));
 }

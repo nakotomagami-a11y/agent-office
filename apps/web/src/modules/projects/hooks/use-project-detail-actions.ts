@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api/fetch";
 import { API_ROUTES } from "@agent-office/api-contract";
 import { exportProject, importState } from "@/lib/api/save";
+import { resetRoster, sessionConflictOf, type SessionConflict } from "@/lib/api/roster";
+import type { WorkChoice } from "@agent-office/domain/config/sessions";
 import type { Project } from "@agent-office/domain/types";
 import type { PendingDangerAction } from "../components/project-danger-zone";
 
@@ -34,8 +36,16 @@ export function useProjectDetailActions(
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [pendingDanger, setPendingDanger] = useState<PendingDangerAction>(null);
+  const [pendingDanger, setPendingDangerRaw] = useState<PendingDangerAction>(null);
   const [dangerWorking, setDangerWorking] = useState(false);
+  const [dangerConflict, setDangerConflict] = useState<SessionConflict | null>(null);
+  const [dangerError, setDangerError] = useState<string | null>(null);
+
+  const setPendingDanger = (action: PendingDangerAction) => {
+    setDangerConflict(null);
+    setDangerError(null);
+    setPendingDangerRaw(action);
+  };
 
   const handleExport = async () => {
     if (!project) return;
@@ -71,20 +81,26 @@ export function useProjectDetailActions(
     }
   };
 
-  const handleDangerConfirm = async () => {
+  /** `work` answers a session_has_work refusal; the server checks every session before removing any. */
+  const handleDangerConfirm = async (work?: WorkChoice) => {
     if (!pendingDanger || !project) return;
     setDangerWorking(true);
+    setDangerError(null);
     try {
       if (pendingDanger === "delete") {
         await apiFetch(API_ROUTES.project(projectId), { method: "DELETE" });
         router.push("/");
         return;
       }
-      for (const inst of project.meta.roster) {
-        await apiFetch(API_ROUTES.projectRosterItem(projectId, inst.instanceId), { method: "DELETE" });
-      }
+      await resetRoster(projectId, work);
       await onProjectRefetch();
       setPendingDanger(null);
+    } catch (err) {
+      const conflict = sessionConflictOf(err);
+      setDangerConflict(conflict);
+      if (!conflict) setDangerError(err instanceof Error ? err.message : String(err));
+      // Sessions whose worktree did go are already out of the roster.
+      if (conflict?.code === "worktree_remove_failed") await onProjectRefetch();
     } finally {
       setDangerWorking(false);
     }
@@ -92,6 +108,6 @@ export function useProjectDetailActions(
 
   return {
     backup: { includeHistory, setIncludeHistory, importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport },
-    danger: { pendingDanger, dangerWorking, setPendingDanger, onConfirm: handleDangerConfirm },
+    danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },
   };
 }

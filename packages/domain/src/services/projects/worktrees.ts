@@ -2,11 +2,17 @@
 // All git commands use execFileSync with an args array — never shell interpolation.
 
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { MISSION_GIT_TIMEOUT_MS } from "../../config/missions";
 import { log } from "../infra/log";
+
+// Sync git on the request thread: a hung one must not freeze the server. Generous for `worktree remove`.
+const GIT_TIMEOUT_MS = 120_000;
+
+const gitOut = (cwd: string, args: string[]): string =>
+  execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"], windowsHide: true, timeout: GIT_TIMEOUT_MS }).toString();
 
 /** Returns true if the given directory is the root of a git repository (has a .git entry). */
 export function isGitRepo(cwd: string): boolean {
@@ -44,34 +50,29 @@ export function worktreeDirExists(projectCwd: string, instanceId: string): boole
   }
 }
 
-/** Returns true if a local branch with the given name exists in the repo. */
+/** Throws when git cannot answer: reading that as "no branch" would start sessions on fresh branches. */
 function branchExists(projectCwd: string, branch: string): boolean {
   if (!branch) return false;
   try {
-    execFileSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], {
-      cwd: projectCwd,
-      stdio: ["ignore", "ignore", "ignore"],
-    });
+    gitOut(projectCwd, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    if ((err as { status?: number }).status === 1) return false;
+    throw err;
   }
 }
 
 /**
- * Ensure a worktree directory exists for an instance, recreating it if missing.
- * Idempotent — safe to call before every run.
- * - If the directory already exists, returns its descriptor unchanged.
- * - Otherwise prunes stale git registrations, then recreates the worktree,
- *   reusing the original branch when it still exists and falling back to a
- *   fresh branch when it doesn't.
- * - Returns the worktree descriptor, or null if recreation failed (the caller
- *   should then fall back to the shared project cwd).
+ * Recreate an instance's missing worktree on its own branch. A fresh branch off
+ * HEAD only when that branch is gone and `freshBranch` allows; one that exists
+ * but will not check out is never replaced, since the work is on it. null =
+ * cannot be restored, and the caller must not fall back to the shared cwd.
  */
 export function ensureWorktree(
   projectCwd: string,
   instanceId: string,
-  existingBranch?: string,
+  existingBranch: string | undefined,
+  opts: { freshBranch: boolean },
 ): { branch: string; basePath: string; createdAt: number } | null {
   const basePath = worktreePath(projectCwd, instanceId);
 
@@ -81,39 +82,36 @@ export function ensureWorktree(
 
   // A deleted directory can leave a dangling git registration that blocks re-add.
   try {
-    execFileSync("git", ["worktree", "prune"], {
-      cwd: projectCwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    gitOut(projectCwd, ["worktree", "prune"]);
   } catch {
     /* best-effort */
   }
 
-  // Prefer reusing the instance's original branch so prior work is recovered.
-  if (existingBranch && branchExists(projectCwd, existingBranch)) {
+  let branchThere: boolean;
+  try {
+    branchThere = !!existingBranch && branchExists(projectCwd, existingBranch);
+  } catch {
+    return null;
+  }
+  if (branchThere && existingBranch) {
     try {
-      execFileSync("git", ["worktree", "add", basePath, existingBranch], {
-        cwd: projectCwd,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      gitOut(projectCwd, ["worktree", "add", basePath, existingBranch]);
       log.info("worktree.recreated", { projectCwd, instanceId, branch: existingBranch, basePath });
       return { branch: existingBranch, basePath, createdAt: Date.now() };
     } catch (err) {
-      log.warn("worktree.recreate_existing_branch_failed", {
-        instanceId,
-        branch: existingBranch,
-        err: err instanceof Error ? err.message : String(err),
-      });
+      log.warn("worktree.recreate_existing_branch_failed", { instanceId, branch: existingBranch, err: String(err) });
+      return null;
     }
   }
 
-  // Fall back to a brand-new branch off HEAD.
+  if (!opts.freshBranch) {
+    log.warn("worktree.recreate_refused", { projectCwd, instanceId, branch: existingBranch ?? null });
+    return null;
+  }
+
   const branch = worktreeBranch(instanceId);
   try {
-    execFileSync("git", ["worktree", "add", basePath, "-b", branch], {
-      cwd: projectCwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    gitOut(projectCwd, ["worktree", "add", basePath, "-b", branch]);
     log.info("worktree.recreated_new_branch", { projectCwd, instanceId, branch, basePath });
     return { branch, basePath, createdAt: Date.now() };
   } catch (err) {
@@ -196,43 +194,129 @@ export async function createMissionWorktree(
   return { branch, basePath, createdAt: Date.now() };
 }
 
+/** Raised when git keeps a worktree it was asked to remove (on Windows: an open file or a process inside it). */
+export class WorktreeRemoveError extends Error {
+  readonly code = "worktree_remove_failed";
+  constructor(readonly basePath: string, readonly detail: string) {
+    super(`git worktree remove failed for '${basePath}': ${detail}`);
+    this.name = "WorktreeRemoveError";
+  }
+}
+
 /**
- * Remove a git worktree and delete its branch.
- * If the path doesn't exist, logs a warning and returns without error.
- * If git fails, logs a warning and returns without rethrowing.
+ * One spelling per directory. git prints `C:/x/y` where `join` builds `C:\x\y`,
+ * Windows paths ignore case, and macOS tmp dirs sit behind `/var` → `/private/var`;
+ * comparing raw strings matched nothing on Windows.
+ */
+export function pathKey(p: string): string {
+  let abs = resolve(p);
+  try {
+    abs = realpathSync.native(abs);
+  } catch {
+    /* missing: the resolved form is the best key */
+  }
+  return process.platform === "win32" ? abs.toLowerCase() : abs;
+}
+
+/** Branch names Agent Office gives a session: `agent/<id>-<ts>`, or a mission seat's `mission/<m>--<id>`. */
+export function isSessionBranch(branch: string, instanceId: string): boolean {
+  return (
+    branch.startsWith(`agent/${instanceId}-`) ||
+    (branch.startsWith("mission/") && branch.endsWith(`--${instanceId}`))
+  );
+}
+
+/** What removing a worktree would destroy. */
+export interface WorktreeWork {
+  /** Modified, staged or untracked files in the worktree; ignored files are not counted. */
+  uncommitted: number;
+  /** Commits no surviving branch, remote-tracking branch or tag holds. */
+  unmerged: number;
+  /** git could not answer, so nothing is known to be safe. */
+  unknown?: true;
+}
+
+export function hasWork(w: WorktreeWork): boolean {
+  return w.uncommitted > 0 || w.unmerged > 0 || w.unknown === true;
+}
+
+const globEscape = (s: string) => s.replace(/[*?[\\]/g, "\\$&");
+
+/** `going` branches cannot vouch for each other; `--all` would count the worktree's own HEAD and answer 0. */
+function unmergedCount(cwd: string, refs: string[], going: string[]): number {
+  const exclude = going.filter(Boolean).map((b) => `--exclude=${globEscape(b)}`);
+  const out = gitOut(cwd, ["rev-list", "--count", ...refs, "--not", ...exclude, "--branches", "--remotes", "--tags"]);
+  return Number.parseInt(out.trim(), 10) || 0;
+}
+
+/** HEAD and the session branch both: a detached worktree still has the branch's commits to lose.
+ *  `alsoGoing`: the other branches deleted in the same batch. */
+export function inspectWorktree(
+  projectCwd: string,
+  wt: { branch: string; basePath: string },
+  alsoGoing: string[] = [],
+): WorktreeWork {
+  try {
+    const own = wt.branch && branchExists(projectCwd, wt.branch) ? [`refs/heads/${wt.branch}`] : [];
+    const going = [wt.branch, ...alsoGoing];
+    if (!existsSync(wt.basePath)) {
+      return { uncommitted: 0, unmerged: own.length ? unmergedCount(projectCwd, own, going) : 0 };
+    }
+    // A directory that lost its `.git` file would answer for the main checkout instead.
+    if (pathKey(gitOut(wt.basePath, ["rev-parse", "--show-toplevel"]).trim()) !== pathKey(wt.basePath)) {
+      return { uncommitted: 0, unmerged: 0, unknown: true };
+    }
+    // Explicit flags: `status.showUntrackedFiles=no` in the user's config would hide new files.
+    const status = gitOut(wt.basePath, ["status", "--porcelain", "--untracked-files=all", "--ignore-submodules=none"]);
+    const uncommitted = status.split(/\r?\n/).filter((l) => l.trim()).length;
+    return { uncommitted, unmerged: unmergedCount(wt.basePath, ["HEAD", ...own], going) };
+  } catch (err) {
+    log.warn("worktree.inspect_failed", { basePath: wt.basePath, err: err instanceof Error ? err.message : String(err) });
+    return { uncommitted: 0, unmerged: 0, unknown: true };
+  }
+}
+
+/**
+ * Remove a worktree, then its branch if `deleteBranch`. Throws WorktreeRemoveError when git keeps
+ * it or cannot list worktrees. A folder git does not list may be anyone's, so it stays; a branch
+ * that will not delete is only logged.
  */
 export function removeWorktree(
   projectCwd: string,
   worktree: { branch: string; basePath: string },
+  opts: { force: boolean; deleteBranch: boolean },
 ): void {
-  if (!existsSync(worktree.basePath)) {
-    log.warn("worktree.remove_path_missing", {
-      basePath: worktree.basePath,
-      branch: worktree.branch,
-    });
-    return;
-  }
-
-  let worktreeRemoved = false;
-  try {
-    execFileSync("git", ["worktree", "remove", "--force", worktree.basePath], {
-      cwd: projectCwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    worktreeRemoved = true;
-  } catch (err) {
-    log.warn("worktree.remove_failed", {
-      basePath: worktree.basePath,
-      err: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  if (worktreeRemoved) {
+  const fail = (detail: string): never => {
+    log.warn("worktree.remove_failed", { basePath: worktree.basePath, err: detail });
+    throw new WorktreeRemoveError(worktree.basePath, detail.slice(0, 300));
+  };
+  const folderExists = existsSync(worktree.basePath);
+  const registered = getRegisteredWorktrees(projectCwd);
+  if (folderExists && !registered && isGitRepo(projectCwd)) fail("git worktree list failed");
+  let folderRemoved = false;
+  if (folderExists && registered?.has(pathKey(worktree.basePath))) {
     try {
-      execFileSync("git", ["branch", "-D", worktree.branch], {
-        cwd: projectCwd,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      gitOut(projectCwd, ["worktree", "remove", ...(opts.force ? ["--force"] : []), worktree.basePath]);
+      folderRemoved = true;
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+  } else {
+    if (folderExists) log.warn("worktree.remove_not_registered", { basePath: worktree.basePath });
+    try {
+      gitOut(projectCwd, ["worktree", "prune"]);
+    } catch {
+      /* best-effort: a stale registration only blocks the branch delete below */
+    }
+  }
+
+  let branchDeleted = false;
+  if (opts.deleteBranch && worktree.branch) {
+    try {
+      if (branchExists(projectCwd, worktree.branch)) {
+        gitOut(projectCwd, ["branch", "-D", worktree.branch]);
+        branchDeleted = true;
+      }
     } catch (err) {
       log.warn("worktree.branch_delete_failed", {
         branch: worktree.branch,
@@ -241,32 +325,23 @@ export function removeWorktree(
     }
   }
 
-  log.info("worktree.removed", { projectCwd, branch: worktree.branch, basePath: worktree.basePath });
+  log.info("worktree.released", { projectCwd, branch: worktree.branch, basePath: worktree.basePath, folderRemoved, branchDeleted });
 }
 
-/**
- * Returns a map of absolute worktree path → branch name for all worktrees
- * registered with git. Parses `git worktree list --porcelain` output.
- * The main worktree is included; callers filter it out as needed.
- * Branch value is an empty string for detached HEAD worktrees.
- */
-function getRegisteredWorktrees(projectCwd: string): Map<string, string> {
+/** pathKey → branch ("" if detached) for every worktree git knows, main included. null when git
+ *  cannot answer: an empty map would read as "nothing here is a worktree". */
+function getRegisteredWorktrees(projectCwd: string): Map<string, string> | null {
   const result = new Map<string, string>();
   try {
-    const output = execFileSync("git", ["worktree", "list", "--porcelain"], {
-      cwd: projectCwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    }).toString();
-    let currentPath = "";
-    for (const line of output.split("\n")) {
+    const output = gitOut(projectCwd, ["worktree", "list", "--porcelain"]);
+    let currentKey = "";
+    for (const line of output.split(/\r?\n/)) {
       if (line.startsWith("worktree ")) {
-        currentPath = line.slice("worktree ".length).trim();
-        result.set(currentPath, "");
-      } else if (line.startsWith("branch ") && currentPath) {
-        // branch refs/heads/<name>
+        currentKey = pathKey(line.slice("worktree ".length).trim());
+        result.set(currentKey, "");
+      } else if (line.startsWith("branch ") && currentKey) {
         const ref = line.slice("branch ".length).trim();
-        const branch = ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
-        result.set(currentPath, branch);
+        result.set(currentKey, ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref);
       }
     }
   } catch (err) {
@@ -274,18 +349,18 @@ function getRegisteredWorktrees(projectCwd: string): Map<string, string> {
       projectCwd,
       err: err instanceof Error ? err.message : String(err),
     });
+    return null;
   }
   return result;
 }
 
 /**
- * Reconcile worktrees for a single project.
- * Removes any directories in <projectCwd>/.worktrees/ whose name does not
- * match an active instanceId in the roster.
+ * Boot clean-up of `<projectCwd>/.worktrees/` entries with no roster instance.
  *
- * Directory name format: <instanceId>  (the directory base-name equals the instanceId)
- *
- * rosterInstanceIds: Set of instanceIds currently in the project's roster.
+ * Only an Agent Office session worktree is ever touched: registered with git,
+ * named by an instance id, on that id's session branch. Anything else under
+ * `.worktrees/` is someone's own and is left alone. A session worktree holding
+ * uncommitted changes or unmerged commits is kept too (logged), never forced.
  */
 export function reconcileWorktrees(
   projectCwd: string,
@@ -294,7 +369,6 @@ export function reconcileWorktrees(
   const worktreesDir = join(projectCwd, ".worktrees");
   if (!existsSync(worktreesDir)) return;
 
-  let removed = 0;
   let dirs: string[];
   try {
     dirs = readdirSync(worktreesDir);
@@ -302,8 +376,9 @@ export function reconcileWorktrees(
     return;
   }
 
-  // Fetch registered git worktrees once for the whole reconcile pass.
   const registeredWorktrees = getRegisteredWorktrees(projectCwd);
+  if (!registeredWorktrees) return;
+  let removed = 0;
 
   for (const dirName of dirs) {
     const dirPath = join(worktreesDir, dirName);
@@ -312,54 +387,25 @@ export function reconcileWorktrees(
     } catch {
       continue;
     }
-
-    // Directory name is the instanceId directly.
     if (rosterInstanceIds.has(dirName)) continue;
 
-    log.warn("worktree.orphan_found", { dirPath, projectCwd });
-
-    if (!registeredWorktrees.has(dirPath)) {
-      // Not a registered git worktree — skip git command to avoid errors on
-      // user-created directories.
-      log.warn("worktree.orphan_not_registered", {
-        dirPath,
-        note: "directory not in git worktree list — skipping removal",
-      });
+    const branch = registeredWorktrees.get(pathKey(dirPath));
+    if (branch === undefined || !isSessionBranch(branch, dirName)) {
+      log.info("worktree.reconcile_skipped_foreign", { dirPath, branch: branch ?? null });
       continue;
     }
 
-    const orphanBranch = registeredWorktrees.get(dirPath) ?? "";
-
-    // Attempt git worktree remove for cleanliness, then fall back to warn.
-    let worktreeRemoved = false;
-    try {
-      execFileSync("git", ["worktree", "remove", "--force", dirPath], {
-        cwd: projectCwd,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      worktreeRemoved = true;
-      removed++;
-      log.info("worktree.orphan_removed", { dirPath });
-    } catch (err) {
-      log.warn("worktree.orphan_remove_failed", {
-        dirPath,
-        err: err instanceof Error ? err.message : String(err),
-      });
+    const work = inspectWorktree(projectCwd, { branch, basePath: dirPath });
+    if (hasWork(work)) {
+      log.warn("worktree.orphan_kept", { dirPath, branch, ...work });
+      continue;
     }
 
-    if (worktreeRemoved && orphanBranch) {
-      try {
-        execFileSync("git", ["branch", "-D", orphanBranch], {
-          cwd: projectCwd,
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-        log.info("worktree.orphan_branch_deleted", { orphanBranch });
-      } catch (err) {
-        log.warn("worktree.orphan_branch_delete_failed", {
-          orphanBranch,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
+    try {
+      removeWorktree(projectCwd, { branch, basePath: dirPath }, { force: false, deleteBranch: true });
+      removed++;
+    } catch {
+      /* logged by removeWorktree; the next boot tries again */
     }
   }
 

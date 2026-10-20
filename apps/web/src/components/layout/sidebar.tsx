@@ -4,15 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon } from "@/components/ui/icon";
-import { Button } from "@/components/ui/button";
-import { ModalShell } from "@/components/ui/modal-shell";
 import { cn } from "@/lib/cn";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import {
   useProject,
-  useRemoveInstance,
   useUpdateInstance,
 } from "@/modules/projects/hooks/use-projects";
 import { useProjectSpend } from "@/modules/projects/hooks/use-project-spend";
@@ -29,6 +26,7 @@ import { splitRoster } from "@/modules/office/derive/split-roster";
 import { useRosterDisplay, type RosterRow } from "@/modules/office/hooks/use-roster-display";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
 import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
+import { RemoveSessionModal } from "@/modules/projects/components/remove-session-modal";
 
 /**
  * The roster sidebar is purely the roster — no primary page nav (that lives
@@ -53,7 +51,6 @@ export function Sidebar() {
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
   const project = projectQ.data;
-  const removeMut = useRemoveInstance();
   const updateMut = useUpdateInstance();
 
   const settingsQ = useSettings();
@@ -130,12 +127,6 @@ export function Sidebar() {
     if (!row) return;
     setPendingRemove({ instanceId, displayName: row.displayName });
   }, [activeProjectId, project, rosterRows]);
-
-  const confirmRemove = useCallback(() => {
-    if (!activeProjectId || !pendingRemove) return;
-    removeMut.mutate({ projectId: activeProjectId, instanceId: pendingRemove.instanceId });
-    setPendingRemove(null);
-  }, [activeProjectId, pendingRemove, removeMut]);
 
   const { spawnInstance: onSpawn } = useSpawnInstance({ activeProjectId });
 
@@ -304,32 +295,12 @@ export function Sidebar() {
 
       <AddAgentModal open={addAgentOpen} projectId={activeProjectId} onClose={() => setAddAgentOpen(false)} />
 
-      <ModalShell
-        open={pendingRemove !== null}
+      <RemoveSessionModal
+        projectId={activeProjectId}
+        projectName={project?.meta.name ?? ""}
+        target={pendingRemove && { instanceId: pendingRemove.instanceId, name: pendingRemove.displayName }}
         onClose={() => setPendingRemove(null)}
-        onEnter={confirmRemove}
-        title={t("sidebar.remove_from_project_title")}
-        size="sm"
-        footer={
-          <>
-            <Button size="sm" variant="ghost" onClick={() => setPendingRemove(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="sm" variant="primary" onClick={confirmRemove}>
-              {t("common.remove")}
-            </Button>
-          </>
-        }
-      >
-        {pendingRemove && (
-          <p className="m-0 text-[13px] text-txt-2 leading-[1.55]">
-            {t("sidebar.remove_confirm", {
-              name: pendingRemove.displayName,
-              project: project?.meta.name ?? "",
-            })}
-          </p>
-        )}
-      </ModalShell>
+      />
     </aside>
   );
 }

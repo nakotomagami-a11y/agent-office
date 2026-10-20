@@ -1,8 +1,8 @@
-// GET/PUT/DELETE /api/agents/<id> — read, overwrite, or delete one agent.
+// GET/PUT/DELETE /api/agents/<id> — read, overwrite, or delete one agent and its sessions (?work=).
 // PUT snapshots the current body to a timestamped history file (max 10) first.
-import { agents } from "@agent-office/domain/services";
-import { validateBody } from "../../../lib/validation";
-import { agentBodySchema } from "@agent-office/api-contract";
+import { agents, projects } from "@agent-office/domain/services";
+import { validateBody, validateQuery } from "../../../lib/validation";
+import { agentBodySchema, sessionRemovalQuerySchema } from "@agent-office/api-contract";
 import { notFound, tryService, validateIdParam } from "../../../lib/api-helpers";
 
 type Params = { params: Promise<{ id: string }> };
@@ -31,9 +31,15 @@ export async function PUT(request: Request, { params }: Params) {
   return tryService(() => ({ id: agents.writeAgent({ ...body, id }) }));
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: Params) {
   const { value: id, error } = validateIdParam((await params).id);
   if (error) return error;
-  const ok = agents.deleteAgent(id);
-  return ok ? Response.json({ deleted: id }) : notFound();
+  const query = validateQuery(sessionRemovalQuerySchema, new URL(request.url).searchParams);
+  if (query.error) return query.error;
+  if (!agents.readAgent(id)) return notFound();
+  return tryService(() => {
+    projects.removeAgentSessions(id, query.data.work);
+    agents.deleteAgent(id);
+    return { deleted: id };
+  });
 }
