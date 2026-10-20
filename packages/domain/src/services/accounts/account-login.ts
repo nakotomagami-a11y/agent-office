@@ -14,7 +14,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { spawnClaude } from "../infra/claude-bin";
 import { scrubBackendEnv } from "../providers/env";
 import { accountConfigDir, buildAugmentedPath, DEFAULT_ACCOUNT_ID, CLAUDE_DIR, isValidIdSegment } from "../infra/paths";
-import { ensureAccountDir } from "./accounts";
+import { ensureAccountDir, ensureDefaultAccountRow } from "./accounts";
 import { log } from "../infra/log";
 
 export type LoginPhase = "starting" | "awaiting-code" | "success" | "error";
@@ -109,6 +109,7 @@ export function startLogin(accountId: string): LoginState {
     clearTimeout(session.timer);
     if (session.phase === "success" || code === 0) {
       session.phase = "success";
+      if (accountId === DEFAULT_ACCOUNT_ID) ensureDefaultAccountRow();
     } else if (session.phase !== "error") {
       session.phase = "error";
       session.message =

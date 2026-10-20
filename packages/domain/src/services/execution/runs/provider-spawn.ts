@@ -3,6 +3,7 @@
 
 import { usesGateway, type CostBasis, type Provider, type ProviderStatusReason } from "../../../config/providers";
 import { appBaseUrl } from "../../infra/discovery";
+import { peekHealth } from "../../infra/health";
 import { CLAUDE_DIR } from "../../infra/paths";
 import { currentProvider } from "../../providers/current";
 import { buildSettingsPin, type ProviderEnvInput } from "../../providers/env";
@@ -55,6 +56,7 @@ function budgetArgs(provider: Provider, args: string[]): string[] | null {
 /** `ownerId` names the gateway token, revoked by `releaseProviderSpawn`. */
 export function prepareProviderSpawn(ownerId: string, opts: StartRunOpts): ProviderSpawn | ProviderRefusal {
   const resolved = currentProvider();
+  if (peekHealth()?.available === false) return { ok: false, provider: resolved.provider, reason: "cli_missing" };
   if (!resolved.available || !resolved.provider) {
     return { ok: false, provider: resolved.provider, reason: resolved.reason ?? "not_configured", detail: resolved.detail };
   }
@@ -79,6 +81,14 @@ export function prepareProviderSpawn(ownerId: string, opts: StartRunOpts): Provi
   } catch (err) {
     revokeGatewayTokens(ownerId);
     throw err;
+  }
+}
+
+/** A caller outside `startRun` (the context-cost probe) that the provider refused. */
+export class ProviderUnavailableError extends Error {
+  readonly code = "provider_unavailable";
+  constructor(readonly reason: ProviderStatusReason) {
+    super(`provider_unavailable: ${reason}`);
   }
 }
 

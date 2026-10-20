@@ -48,6 +48,9 @@ function probe(): Promise<HealthInfo> {
   });
 }
 
+/** The last probe, without starting one: for synchronous callers such as the spawn preflight. */
+export const peekHealth = (): HealthInfo | null => state.cached;
+
 export async function getHealth(force = false): Promise<HealthInfo> {
   if (!force && state.cached) return state.cached;
   if (!state.inflight) {

@@ -262,6 +262,8 @@ POST /api/summon
 | opt | `--resume <sessionId>` | request.resumeSessionId |
 | last | `<prompt>` | priorContext (last 8 messages) + request.prompt (or just prompt on --resume) |
 
+`buildClaudeArgs` builds the table above; `startRun` then puts `--settings <pin>` in front (see "Per-run spawn environment"), so the spawned argv starts with it.
+
 **Resume retry:** If the run exits code 1 with stderr `"No conversation found with session ID"`, the app automatically retries the spawn without `--resume`.
 
 ### Per-run spawn environment (multi-account) — `resolveSpawnEnv` (`runs/spawn-env.ts`)

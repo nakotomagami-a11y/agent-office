@@ -117,3 +117,17 @@ test("a spawn that throws synchronously leaves no live token and no pin file beh
   assert.equal(globalThis.__agentOfficeGatewayTokens?.size ?? 0, tokensBefore);
   assert.equal(pins(), pinsBefore);
 });
+
+test("a missing claude CLI refuses the run with cli_missing, before any spawn", async () => {
+  store.setSelection("subscription", "chosen");
+  const health = globalThis.__agentOfficeHealthState!;
+  const saved = health.cached;
+  health.cached = { available: false, version: null, error: "ENOENT" };
+  try {
+    const { runId, record } = await run();
+    assert.equal(record, null);
+    assert.equal(getRun(runId)?.errorDetail, "cli_missing");
+  } finally {
+    health.cached = saved;
+  }
+});

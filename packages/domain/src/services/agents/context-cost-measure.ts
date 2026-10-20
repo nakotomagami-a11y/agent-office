@@ -24,7 +24,7 @@ import { log } from "../infra/log";
 import * as db from "../db";
 import { findInstance } from "../projects/projects";
 import { estimateTokens } from "../infra/token-estimate";
-import { prepareProviderSpawn, releaseProviderSpawn } from "../execution/runs/provider-spawn";
+import { prepareProviderSpawn, ProviderUnavailableError, releaseProviderSpawn } from "../execution/runs/provider-spawn";
 import { spawnClaude } from "../infra/claude-bin";
 import { buildAppendedPrompt, readAgent } from "./agents";
 import { nonNativeKnownTokens, resolveReadonlyCwd } from "./context-cost";
@@ -185,7 +185,7 @@ export async function measureAgentContextCost(
     args: ["-p", "--output-format", "stream-json", "--verbose",
       "--agent", agentId, "--model", model, "--permission-mode", "bypassPermissions", ...addDirArgs],
   });
-  if (!spawnPlan.ok) throw new Error(`provider_unavailable: ${spawnPlan.reason}`);
+  if (!spawnPlan.ok) throw new ProviderUnavailableError(spawnPlan.reason);
 
   const appendedPrompt = buildAppendedPrompt(agentId, project, undefined, false);
   const tmpDir = mkdtempSync(join(tmpdir(), "ao-context-cost-probe-"));

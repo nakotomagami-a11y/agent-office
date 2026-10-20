@@ -105,6 +105,9 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<Response>
       const e = err as Partial<projects.StaleProjectWriteError>;
       return conflict("stale_write", { detail: msg, expectedRev: e.expectedRev, actualRev: e.actualRev });
     }
+    if (code === "provider_unavailable") {
+      return conflict("provider_unavailable", { reason: (err as { reason?: string }).reason });
+    }
     if (err instanceof projects.UnreadableProjectMetadataError || code === "metadata_unreadable") {
       return conflict("metadata_unreadable", { detail: msg });
     }

@@ -97,43 +97,48 @@ import * as r93 from "./routes/projects/[id]/uploads/route";
 import * as r94 from "./routes/projects/bootstrap/route";
 import * as r95 from "./routes/projects/route";
 import * as r96 from "./routes/prompts/route";
-import * as r97 from "./routes/runs/[id]/abort/route";
-import * as r98 from "./routes/runs/[id]/children/route";
-import * as r99 from "./routes/runs/[id]/permission/route";
-import * as r100 from "./routes/runs/[id]/route";
-import * as r101 from "./routes/runs/[id]/stream/route";
-import * as r102 from "./routes/runs/[id]/tree/route";
-import * as r103 from "./routes/runs/abort-all/route";
-import * as r104 from "./routes/runs/route";
-import * as r105 from "./routes/save/export/route";
-import * as r106 from "./routes/save/import/route";
-import * as r107 from "./routes/schedules/[id]/route";
-import * as r108 from "./routes/schedules/[id]/run/route";
-import * as r109 from "./routes/schedules/route";
-import * as r110 from "./routes/secrets/[id]/route";
-import * as r111 from "./routes/secrets/[id]/test/route";
-import * as r112 from "./routes/secrets/route";
-import * as r113 from "./routes/settings/route";
-import * as r114 from "./routes/settings/scan/route";
-import * as r115 from "./routes/skills/[name]/customization/route";
-import * as r116 from "./routes/skills/[name]/route";
-import * as r117 from "./routes/skills/[name]/update/route";
-import * as r118 from "./routes/skills/compatibility/route";
-import * as r119 from "./routes/skills/create/route";
-import * as r120 from "./routes/skills/icons/route";
-import * as r121 from "./routes/skills/import/route";
-import * as r122 from "./routes/skills/install/route";
-import * as r123 from "./routes/skills/installed/route";
-import * as r124 from "./routes/skills/manifest/route";
-import * as r125 from "./routes/skills/registry/route";
-import * as r126 from "./routes/skills/sources/route";
-import * as r127 from "./routes/skills/updates/route";
-import * as r128 from "./routes/starter/agent-diff/route";
-import * as r129 from "./routes/starter/agents/route";
-import * as r130 from "./routes/summon/route";
-import * as r131 from "./routes/templates/route";
-import * as r132 from "./routes/ui-settings/route";
-import * as r133 from "./routes/user-analysis/route";
+import * as r97 from "./routes/providers/[id]/key/route";
+import * as r98 from "./routes/providers/[id]/route";
+import * as r99 from "./routes/providers/[id]/test/route";
+import * as r100 from "./routes/providers/route";
+import * as r101 from "./routes/providers/selected/route";
+import * as r102 from "./routes/runs/[id]/abort/route";
+import * as r103 from "./routes/runs/[id]/children/route";
+import * as r104 from "./routes/runs/[id]/permission/route";
+import * as r105 from "./routes/runs/[id]/route";
+import * as r106 from "./routes/runs/[id]/stream/route";
+import * as r107 from "./routes/runs/[id]/tree/route";
+import * as r108 from "./routes/runs/abort-all/route";
+import * as r109 from "./routes/runs/route";
+import * as r110 from "./routes/save/export/route";
+import * as r111 from "./routes/save/import/route";
+import * as r112 from "./routes/schedules/[id]/route";
+import * as r113 from "./routes/schedules/[id]/run/route";
+import * as r114 from "./routes/schedules/route";
+import * as r115 from "./routes/secrets/[id]/route";
+import * as r116 from "./routes/secrets/[id]/test/route";
+import * as r117 from "./routes/secrets/route";
+import * as r118 from "./routes/settings/route";
+import * as r119 from "./routes/settings/scan/route";
+import * as r120 from "./routes/skills/[name]/customization/route";
+import * as r121 from "./routes/skills/[name]/route";
+import * as r122 from "./routes/skills/[name]/update/route";
+import * as r123 from "./routes/skills/compatibility/route";
+import * as r124 from "./routes/skills/create/route";
+import * as r125 from "./routes/skills/icons/route";
+import * as r126 from "./routes/skills/import/route";
+import * as r127 from "./routes/skills/install/route";
+import * as r128 from "./routes/skills/installed/route";
+import * as r129 from "./routes/skills/manifest/route";
+import * as r130 from "./routes/skills/registry/route";
+import * as r131 from "./routes/skills/sources/route";
+import * as r132 from "./routes/skills/updates/route";
+import * as r133 from "./routes/starter/agent-diff/route";
+import * as r134 from "./routes/starter/agents/route";
+import * as r135 from "./routes/summon/route";
+import * as r136 from "./routes/templates/route";
+import * as r137 from "./routes/ui-settings/route";
+import * as r138 from "./routes/user-analysis/route";
 
 export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/account", module: r0 },
@@ -233,41 +238,46 @@ export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/projects/bootstrap", module: r94 },
   { path: "/api/projects", module: r95 },
   { path: "/api/prompts", module: r96 },
-  { path: "/api/runs/[id]/abort", module: r97 },
-  { path: "/api/runs/[id]/children", module: r98 },
-  { path: "/api/runs/[id]/permission", module: r99 },
-  { path: "/api/runs/[id]", module: r100 },
-  { path: "/api/runs/[id]/stream", module: r101 },
-  { path: "/api/runs/[id]/tree", module: r102 },
-  { path: "/api/runs/abort-all", module: r103 },
-  { path: "/api/runs", module: r104 },
-  { path: "/api/save/export", module: r105 },
-  { path: "/api/save/import", module: r106 },
-  { path: "/api/schedules/[id]", module: r107 },
-  { path: "/api/schedules/[id]/run", module: r108 },
-  { path: "/api/schedules", module: r109 },
-  { path: "/api/secrets/[id]", module: r110 },
-  { path: "/api/secrets/[id]/test", module: r111 },
-  { path: "/api/secrets", module: r112 },
-  { path: "/api/settings", module: r113 },
-  { path: "/api/settings/scan", module: r114 },
-  { path: "/api/skills/[name]/customization", module: r115 },
-  { path: "/api/skills/[name]", module: r116 },
-  { path: "/api/skills/[name]/update", module: r117 },
-  { path: "/api/skills/compatibility", module: r118 },
-  { path: "/api/skills/create", module: r119 },
-  { path: "/api/skills/icons", module: r120 },
-  { path: "/api/skills/import", module: r121 },
-  { path: "/api/skills/install", module: r122 },
-  { path: "/api/skills/installed", module: r123 },
-  { path: "/api/skills/manifest", module: r124 },
-  { path: "/api/skills/registry", module: r125 },
-  { path: "/api/skills/sources", module: r126 },
-  { path: "/api/skills/updates", module: r127 },
-  { path: "/api/starter/agent-diff", module: r128 },
-  { path: "/api/starter/agents", module: r129 },
-  { path: "/api/summon", module: r130 },
-  { path: "/api/templates", module: r131 },
-  { path: "/api/ui-settings", module: r132 },
-  { path: "/api/user-analysis", module: r133 },
+  { path: "/api/providers/[id]/key", module: r97 },
+  { path: "/api/providers/[id]", module: r98 },
+  { path: "/api/providers/[id]/test", module: r99 },
+  { path: "/api/providers", module: r100 },
+  { path: "/api/providers/selected", module: r101 },
+  { path: "/api/runs/[id]/abort", module: r102 },
+  { path: "/api/runs/[id]/children", module: r103 },
+  { path: "/api/runs/[id]/permission", module: r104 },
+  { path: "/api/runs/[id]", module: r105 },
+  { path: "/api/runs/[id]/stream", module: r106 },
+  { path: "/api/runs/[id]/tree", module: r107 },
+  { path: "/api/runs/abort-all", module: r108 },
+  { path: "/api/runs", module: r109 },
+  { path: "/api/save/export", module: r110 },
+  { path: "/api/save/import", module: r111 },
+  { path: "/api/schedules/[id]", module: r112 },
+  { path: "/api/schedules/[id]/run", module: r113 },
+  { path: "/api/schedules", module: r114 },
+  { path: "/api/secrets/[id]", module: r115 },
+  { path: "/api/secrets/[id]/test", module: r116 },
+  { path: "/api/secrets", module: r117 },
+  { path: "/api/settings", module: r118 },
+  { path: "/api/settings/scan", module: r119 },
+  { path: "/api/skills/[name]/customization", module: r120 },
+  { path: "/api/skills/[name]", module: r121 },
+  { path: "/api/skills/[name]/update", module: r122 },
+  { path: "/api/skills/compatibility", module: r123 },
+  { path: "/api/skills/create", module: r124 },
+  { path: "/api/skills/icons", module: r125 },
+  { path: "/api/skills/import", module: r126 },
+  { path: "/api/skills/install", module: r127 },
+  { path: "/api/skills/installed", module: r128 },
+  { path: "/api/skills/manifest", module: r129 },
+  { path: "/api/skills/registry", module: r130 },
+  { path: "/api/skills/sources", module: r131 },
+  { path: "/api/skills/updates", module: r132 },
+  { path: "/api/starter/agent-diff", module: r133 },
+  { path: "/api/starter/agents", module: r134 },
+  { path: "/api/summon", module: r135 },
+  { path: "/api/templates", module: r136 },
+  { path: "/api/ui-settings", module: r137 },
+  { path: "/api/user-analysis", module: r138 },
 ];

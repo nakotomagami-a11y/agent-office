@@ -157,7 +157,17 @@ export async function boot({ serve }: BootOptions): Promise<void> {
     console.warn("[domain-services] failed to load:", err);
     return;
   }
-  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions } = domainServices;
+  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions, providers } = domainServices;
+
+  // Before any run reads the selection: an install from before providers keeps its subscription.
+  // Pins older than the 6 h prompt-file prune belong to dead runs; the run cap is 4 h, and another
+  // server sharing tmp-prompts may still hold younger ones.
+  try {
+    providers.ensureProviderMigrated();
+    providers.sweepPinFiles(6 * 60 * 60_000);
+  } catch (err) {
+    console.warn("[providers] boot step failed:", err);
+  }
 
   // Out-of-process clients (the Minecraft mod) find this server's random port here.
   try {

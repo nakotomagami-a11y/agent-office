@@ -121,6 +121,13 @@ export const API_ROUTES = {
   scheduleRun: (id: string) => `/api/schedules/${encodeURIComponent(id)}/run`,
   broadcast: "/api/broadcast",
 
+  // AI providers (docs/architecture.md, "AI providers"). The gateway is called only by agents.
+  providers: "/api/providers",
+  providersSelected: "/api/providers/selected",
+  provider: (id: string) => `/api/providers/${encodeURIComponent(id)}`,
+  providerKey: (id: string) => `/api/providers/${encodeURIComponent(id)}/key`,
+  providerTest: (id: string) => `/api/providers/${encodeURIComponent(id)}/test`,
+
   settings: "/api/settings",
   settingsScan: "/api/settings/scan",
   userAnalysis: "/api/user-analysis",
