@@ -127,6 +127,8 @@ export const API_ROUTES = {
   provider: (id: string) => `/api/providers/${encodeURIComponent(id)}`,
   providerKey: (id: string) => `/api/providers/${encodeURIComponent(id)}/key`,
   providerTest: (id: string) => `/api/providers/${encodeURIComponent(id)}/test`,
+  modelPrices: "/api/model-prices",
+  modelPricesRefresh: "/api/model-prices/refresh",
 
   settings: "/api/settings",
   settingsScan: "/api/settings/scan",
