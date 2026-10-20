@@ -41,3 +41,11 @@ test("bulk create never overwrites either: a taken id is an item error", async (
   assert.deepEqual(await res.json(), { written: ["route-bulk-new"], errors: [{ id: "route-taken", error: "agent_exists" }] });
   assert.match(readFileSync(join(paths.AGENTS_DIR, "route-taken.md"), "utf8"), /mine/);
 });
+
+test("bulk create where every id is taken is a 409, not a server error", async () => {
+  const res = await bulkPost(new Request("http://localhost/api/agents/bulk", {
+    method: "POST",
+    body: JSON.stringify([{ id: "route-taken", name: "x", desc: "theirs", body: "theirs" }]),
+  }));
+  assert.equal(res.status, 409);
+});

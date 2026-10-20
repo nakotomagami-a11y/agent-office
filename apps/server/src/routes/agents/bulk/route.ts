@@ -1,5 +1,5 @@
 // POST /api/agents/bulk — create many agents in one call; a taken id is an `agent_exists` item error. Per-item
-// failures are collected: 200 all-ok, 207 partial, 500 if every item failed.
+// failures are collected: 200 all-ok, 207 partial; all failed is 409 (all ids taken) or 400.
 import { agents } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
 import { agentBodyListSchema } from "@agent-office/api-contract";
@@ -15,7 +15,8 @@ export async function POST(request: Request) {
     if (result.ok) written.push(result.value);
     else errors.push({ id: item.id, error: result.error });
   }
-  const status = written.length === 0 && errors.length > 0 ? 500
+  const allTaken = errors.every((e) => e.error === "agent_exists");
+  const status = written.length === 0 && errors.length > 0 ? (allTaken ? 409 : 400)
                : errors.length > 0 ? 207
                : 200;
   return Response.json({ written, errors }, { status });

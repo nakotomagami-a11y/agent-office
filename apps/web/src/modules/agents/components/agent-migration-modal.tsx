@@ -4,14 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon } from "@/components/ui/icon";
-import { formatAgentDisplayName } from "@/lib/agent-display-name";
-import {
-  useAgentDiff,
-  useApplyAgentDiff,
-  type AgentChange,
-  type AgentDiffEntry,
-  type AgentDiffResponse,
-} from "../hooks/use-agent-migration";
+import { useAgentDiff, useApplyAgentDiff, type AgentDiffResponse } from "../hooks/use-agent-migration";
+import { DiffSection, type RowSelection } from "./agent-migration-section";
 
 /**
  * Agent-roster migration modal.
@@ -35,11 +29,6 @@ import {
  * the modal until the bundle changes again.
  */
 
-interface RowSelection {
-  /** True → will be copied over (backup taken if a local file exists). */
-  accept: boolean;
-}
-
 type Section = "new" | "changed" | "edited";
 type RowState = Record<Section, Record<string, RowSelection>>;
 
@@ -56,135 +45,6 @@ function initialRowState(diff: AgentDiffResponse): RowState {
   };
 }
 
-function rowTagKey(entry: AgentDiffEntry): `change_${AgentChange}` | "declined_before" | null {
-  if (entry.change) return `change_${entry.change}`;
-  return entry.declined ? "declined_before" : null;
-}
-
-interface SectionProps {
-  title: string;
-  subtitle: string;
-  tone: "add" | "warn" | "info";
-  entries: AgentDiffEntry[];
-  /** Row-level accept toggle. `undefined` for read-only sections (onlyLocal). */
-  selection?: Record<string, RowSelection>;
-  onToggle?: (id: string) => void;
-  onSelectAll?: (accept: boolean) => void;
-}
-
-const toneStyles: Record<SectionProps["tone"], { text: string; bg: string }> = {
-  add:  { text: "text-emerald-300", bg: "bg-emerald-500/15" },
-  warn: { text: "text-amber-300",   bg: "bg-amber-500/15" },
-  info: { text: "text-ao-fg-2",     bg: "bg-ao-line-1/25" },
-};
-
-function DiffSection({
-  title,
-  subtitle,
-  tone,
-  entries,
-  selection,
-  onToggle,
-  onSelectAll,
-}: SectionProps) {
-  const t = useTranslations("agent_migration");
-  if (entries.length === 0) return null;
-  const style = toneStyles[tone];
-
-  const acceptedCount = selection
-    ? entries.filter((e) => selection[e.id]?.accept).length
-    : 0;
-  const allAccepted = selection && acceptedCount === entries.length;
-  const noneAccepted = selection && acceptedCount === 0;
-
-  return (
-    <section className="flex flex-col gap-[8px]">
-      <header className="flex items-center gap-[10px] px-1">
-        <span className="w-[3px] h-[14px] bg-ao-accent rounded-full shrink-0" />
-        <h3 className="text-[13px] font-semibold text-ao-fg-0 m-0">{title}</h3>
-        <span className={`inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10.5px] font-mono tabular-nums leading-none ${style.text} ${style.bg}`}>
-          {entries.length}
-        </span>
-        <span className="text-[11.5px] text-ao-fg-3 font-mono">{subtitle}</span>
-        {selection && onSelectAll && entries.length > 1 && (
-          <span className="ml-auto flex items-center gap-[4px] text-[11px] font-mono">
-            <button
-              type="button"
-              onClick={() => onSelectAll(true)}
-              disabled={allAccepted}
-              className="text-ao-fg-2 hover:text-ao-fg-0 disabled:opacity-40 disabled:cursor-default cursor-pointer bg-transparent border-0 p-[3px_6px] rounded-[4px] hover:bg-ao-bg-3 transition-[background-color,color] duration-[120ms]"
-            >
-              {t("accept_all")}
-            </button>
-            <span className="text-ao-fg-3" aria-hidden>·</span>
-            <button
-              type="button"
-              onClick={() => onSelectAll(false)}
-              disabled={noneAccepted}
-              className="text-ao-fg-2 hover:text-ao-fg-0 disabled:opacity-40 disabled:cursor-default cursor-pointer bg-transparent border-0 p-[3px_6px] rounded-[4px] hover:bg-ao-bg-3 transition-[background-color,color] duration-[120ms]"
-            >
-              {t("skip_all")}
-            </button>
-          </span>
-        )}
-      </header>
-
-      <ul className="flex flex-col gap-[4px] list-none m-0 p-0">
-        {entries.map((entry) => {
-          const sel = selection?.[entry.id];
-          const interactive = !!selection && !!onToggle;
-          const accepted = sel?.accept ?? false;
-          const displayName = formatAgentDisplayName(entry.name);
-          const tagKey = rowTagKey(entry);
-          return (
-            <li key={entry.id}>
-              <label
-                className={[
-                  "flex items-start gap-[10px] w-full text-left px-[12px] py-[9px] rounded-[8px]",
-                  "border transition-[background-color,border-color] duration-[120ms]",
-                  interactive
-                    ? "cursor-pointer border-ao-line-1 hover:bg-ao-bg-3"
-                    : "border-ao-line-1/60 bg-ao-bg-2/40",
-                  accepted && "bg-ao-accent-soft border-ao-accent-line",
-                ].filter(Boolean).join(" ")}
-              >
-                {interactive ? (
-                  <input
-                    type="checkbox"
-                    className="mt-[3px] shrink-0 accent-ao-accent cursor-pointer"
-                    checked={accepted}
-                    onChange={() => onToggle!(entry.id)}
-                  />
-                ) : (
-                  <span className="mt-[3px] shrink-0 w-[13px] h-[13px] rounded-[3px] border border-ao-line-2 bg-ao-bg-3 flex items-center justify-center text-ao-fg-3">
-                    <Icon name="check" size={9} />
-                  </span>
-                )}
-                <span className="flex-1 min-w-0 flex flex-col gap-[2px]">
-                  <span className="flex items-center gap-[8px] flex-wrap">
-                    <span className="text-[13px] font-semibold text-ao-fg-0">{displayName}</span>
-                    <span className="font-mono text-[10.5px] text-ao-fg-3">{entry.id}</span>
-                    {tagKey && (
-                      <span className={`rounded-[4px] px-[6px] py-[1px] text-[10.5px] font-mono ${entry.change === "both" || entry.change === "edited_locally" ? "text-amber-300 bg-amber-500/15" : "text-ao-fg-2 bg-ao-line-1/25"}`}>
-                        {t(tagKey)}
-                      </span>
-                    )}
-                  </span>
-                  {entry.description && (
-                    <span className="text-[11.5px] text-ao-fg-2 leading-[1.5]">
-                      {entry.description}
-                    </span>
-                  )}
-                </span>
-              </label>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 export interface AgentMigrationModalProps {
   open: boolean;
   onClose: () => void;
@@ -197,6 +57,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
 
   const [rows, setRows] = useState<RowState>({ new: {}, changed: {}, edited: {} });
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [laterFailed, setLaterFailed] = useState(false);
 
   // Sync local checkbox state whenever the diff response lands. Also reset
   // when the modal opens so a re-open after a "later" close honors any
@@ -206,6 +67,7 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
     if (!diffQ.data) return;
     setRows(initialRowState(diffQ.data));
     setApplyError(null);
+    setLaterFailed(false);
   }, [open, diffQ.data]);
 
   const toggle = (section: Section, id: string) => {
@@ -262,12 +124,13 @@ export function AgentMigrationModal({ open, onClose }: AgentMigrationModalProps)
   // stamped, but the unchecked rows are recorded as skipped for this version,
   // so next launch only re-opens for agents the user still wanted.
   const handleLater = async () => {
-    if (!bundleOlder && diffQ.data) {
+    if (!bundleOlder && diffQ.data && !laterFailed) {
       setApplyError(null);
       try {
         await applyM.mutateAsync({ accept: [], skip: skipSlugs, markComplete: false });
       } catch (err) {
-        // Closing anyway would let the user believe the skips were saved, and the modal would return.
+        // Held open once so the failure is seen; the next close always closes, or a dead server traps the user.
+        setLaterFailed(true);
         setApplyError(t("later_failed", { error: err instanceof Error ? err.message : String(err) }));
         return;
       }

@@ -14,6 +14,7 @@ import { parseJson } from "@agent-office/api-contract";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, APP_STATE_DIR } from "@agent-office/domain/services/infra/paths";
 import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
 import { log } from "@agent-office/domain/services/infra/log";
+import { hasAgentFrontmatter } from "@agent-office/domain/services/agents/frontmatter";
 import { agentInstallRecordSchema, starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
 
 const VERSION_FILE = join(APP_STATE_DIR, "agent-manifest-version");
@@ -287,7 +288,7 @@ function listInstalledAgents(): InstalledAgent[] {
     if (f.includes(".body.")) continue;
     const raw = readFileSync(join(AGENTS_DIR, f), "utf8").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
     // LF as the manifest hashes it (a Windows copy is the same agent); real agents have frontmatter, docs don't.
-    if (!/^---\n[\s\S]*?\n---\n?/.test(raw)) continue;
+    if (!hasAgentFrontmatter(raw)) continue;
     out.push({ id: f.replace(/\.md$/, ""), hash: shortHash(raw), fm: parseFrontmatterSubset(raw) });
   }
   return out;

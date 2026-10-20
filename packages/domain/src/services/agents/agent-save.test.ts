@@ -12,7 +12,8 @@ import { test } from "node:test";
 import type { AgentBody } from "../../types";
 import { AGENTS_DIR } from "../infra/paths";
 import { parseYaml } from "../infra/yaml";
-import { createAgent, mergeFrontmatter, readAgent, writeAgent } from "./agents";
+import { createAgent, readAgent, writeAgent } from "./agents";
+import { mergeFrontmatter, stripInlineComments } from "./frontmatter";
 
 const FILE = [
   "---",
@@ -176,4 +177,38 @@ test("a frontmatter block that never closes is refused, not overwritten", () => 
   const result = writeAgent({ id: "open", name: "open", desc: "d", body: "b", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high" });
   assert.deepEqual(result, { ok: false, error: "frontmatter_unparseable", status: 422 });
   assert.match(readFileSync(path, "utf8"), /custom: keep/);
+});
+
+// Second review: escapes inside quotes ended the quote early, so a value Agent Office wrote itself was cut at its `#`.
+test('a description with quotes and a # survives a save and a read: Say "hi" #2 fan', () => {
+  writeFileSync(join(AGENTS_DIR, "quoted.md"), "---\nname: quoted\ndescription: d\n---\n\nb\n");
+  writeAgent(bodyFor("quoted", { desc: 'Say "hi" #2 fan' }));
+  assert.equal(readAgent("quoted")!.info.description, 'Say "hi" #2 fan');
+});
+
+test("stripInlineComments honours \\\" and '' escapes", () => {
+  assert.equal(stripInlineComments('x: "a \\"b\\" #c"'), 'x: "a \\"b\\" #c"');
+  assert.equal(stripInlineComments("x: 'it''s #1' # c"), "x: 'it''s #1'");
+});
+
+test("a tool with an escaped quote and a # in a flow list round-trips", () => {
+  writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
+  writeAgent(bodyFor("flow", { tools: ["Read", 'Bash(date +"%h #x")'] }));
+  assert.deepEqual(readAgent("flow")!.info.tools, ["Read", 'Bash(date +"%h #x")']);
+});
+
+test("a save that doesn't change the model leaves a differing CLI model: alone", () => {
+  writeFileSync(join(AGENTS_DIR, "both.md"), "---\nname: both\ndescription: d\ndefault-model: sonnet\nmodel: opus\n---\n\nb\n");
+  writeAgent(bodyFor("both", { desc: "changed" }));
+  assert.match(readFileSync(join(AGENTS_DIR, "both.md"), "utf8"), /^model: opus$/m);
+  writeAgent(bodyFor("both", { model: "haiku" }));
+  const saved = readFileSync(join(AGENTS_DIR, "both.md"), "utf8");
+  assert.match(saved, /^default-model: haiku$/m);
+  assert.match(saved, /^model: haiku$/m, "a change the user made reaches the key the CLI reads");
+});
+
+test("an empty frontmatter block is a frontmatter block", () => {
+  writeFileSync(join(AGENTS_DIR, "empty-fm.md"), "---\n---\n\nprompt\n");
+  assert.equal(readAgent("empty-fm")!.body, "prompt");
+  assert.ok(writeAgent(bodyFor("empty-fm")).ok);
 });
