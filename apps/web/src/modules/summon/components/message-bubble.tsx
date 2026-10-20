@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { assertNever } from "@/lib/assert-never";
 import { isRunErrorCode } from "@agent-office/domain/config/run-errors";
 import { EXTERNAL_LINKS } from "@agent-office/domain/config/routes";
-import { classifyResultError } from "@agent-office/domain/services/execution/runs/errors";
+import { misclassifiedAuthCode } from "../format/misclassified-auth";
 import type { RunErrorCode } from "@agent-office/domain/types";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
@@ -415,25 +415,6 @@ function InterruptedCard({
       }
     />
   );
-}
-
-const MISCLASSIFIED_AUTH_MAX_LEN = 240;
-
-/**
- * Some auth/subscription failures never reach the structured run-error path
- * at all — the CLI streams the raw failure sentence ("Failed to authenticate:
- * OAuth session expired…") as if it were the model's own reply, so it lands
- * here as a plain `agent-text` bubble with no Sign-in action and nothing to
- * click. Re-run the same classifier the structured error cards use on short,
- * finished agent-text so this still surfaces the interactive card instead of
- * a dead wall of text the user has to go fix in Settings on their own.
- */
-function misclassifiedAuthCode(text: string, streaming: boolean, provider: string): "auth_expired" | "subscription_disabled" | null {
-  if (streaming) return null;
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.length > MISCLASSIFIED_AUTH_MAX_LEN) return null;
-  const { code } = classifyResultError(trimmed, trimmed, provider);
-  return code === "auth_expired" || code === "subscription_disabled" ? code : null;
 }
 
 /**
