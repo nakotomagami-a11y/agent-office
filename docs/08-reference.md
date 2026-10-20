@@ -156,7 +156,7 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `POST` | `/api/projects/:id/build` | Run build script in terminal |
 | `POST` | `/api/projects/:id/install` | Run package manager install |
 | `POST` | `/api/projects/:id/clear-cache` | Wipe `.next/`, `dist/`, `.turbo/` |
-| `POST` | `/api/projects/:id/open-folder` | `xdg-open` project directory |
+| `POST` | `/api/projects/:id/open-folder` | Open project directory in the OS file manager, or VS Code with `?app=code` |
 | `GET` | `/api/projects/:id/uploads` | List project uploads |
 | `POST` | `/api/projects/:id/uploads` | Upload file for project |
 

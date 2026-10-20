@@ -8,7 +8,7 @@ import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { SystemNotice } from "./system-notice";
 import type { MessageOrigin } from "@agent-office/domain/types";
-import { ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
+import { ChatProse, ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
 import { ShownImagesContext } from "./inline-image";
 import { createShownImages } from "../format/shown-images";
 import { MsgActions } from "./msg-actions";
@@ -97,12 +97,19 @@ function fmtLedgerCost(cost: number): string {
   return cost > 0 ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : "$0";
 }
 
-/** Left rail for one turn row: just the user's king portrait, standing alone
- *  as the turn's visual anchor (no connecting line, dot, or number). Turns
- *  without an ask (tool-only continuation, live tail) render an empty
- *  spacer so the row layout stays aligned. */
-function TurnRail({ n }: { n: number | null }) {
+/** Left rail for one turn row: the user's portrait, or an Agent Office tile when the app wrote the
+ *  ask. Turns without an ask (tool-only continuation, live tail) keep an empty spacer for alignment. */
+function TurnRail({ n, system }: { n: number | null; system?: boolean }) {
   if (n === null) return <div className="w-[80px] shrink-0" aria-hidden />;
+  if (system) {
+    return (
+      <div className="w-[80px] shrink-0 flex justify-center pt-[2px]">
+        <div className="w-[52px] h-[52px] rounded-[14px] bg-[var(--bg-2)] border border-[var(--line-2)] flex items-center justify-center text-[var(--txt-3)]">
+          <Icon name="terminal-ao" size={22} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="w-[80px] shrink-0 flex justify-center pt-[2px]">
       <UserAvatar size={70} className="rounded-[14px]" />
@@ -397,31 +404,39 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
           <div className="px-2 flex flex-col">
             {visibleTurns.map((turn, turnIdx) => {
               const isLastTurn = turnIdx === visibleTurns.length - 1;
-              const clockTime = turn.ask ? fmtClockTime(turn.ask.id) : undefined;
+              const clockTime = fmtClockTime(turn.ask?.ts);
+              const systemAsk = turn.ask?.origin === "system";
               const askImages = turn.ask ? extractImages(turn.ask.text) : [];
               const askText = turn.ask ? stripAttachmentFooter(turn.ask.text) : "";
               return (
                 <div key={turn.id} className="flex gap-[14px] pb-[22px]">
-                  <TurnRail n={turn.ask ? turnIdx + 1 : null} />
+                  <TurnRail n={turn.ask ? turnIdx + 1 : null} system={systemAsk} />
                   <div className="min-w-0 flex-1 pt-[2px]">
                     {turn.ask && (
                       <div className="relative group/msg mb-[14px]">
                         <div className="flex items-center gap-[9px] mb-[5px]">
-                          <span className="font-[var(--font-mono)] text-[9.5px] font-extrabold tracking-[0.1em] text-[var(--acc)]">YOU</span>
+                          {systemAsk ? (
+                            <span className="font-[var(--font-mono)] text-[9.5px] font-extrabold tracking-[0.1em] uppercase text-[var(--txt-3)]">{t("agent_office")}</span>
+                          ) : (
+                            <span className="font-[var(--font-mono)] text-[9.5px] font-extrabold tracking-[0.1em] text-[var(--acc)]">YOU</span>
+                          )}
                           {clockTime && (
                             <span className="font-[var(--font-mono)] text-[10px] text-[var(--txt-4)]">{clockTime}</span>
                           )}
                         </div>
-                        {askText ? (
+                        {askText && systemAsk ? (
+                          <ChatProse text={askText} />
+                        ) : askText ? (
                           <div className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[var(--txt)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                             {askText}
                           </div>
                         ) : null}
                         <ImageStrip urls={askImages} />
+                        {/* A rerun would re-send the app's message as the user's: stored as "user" and able to start a QA loop. */}
                         <MsgActions
                           text={turn.ask.text}
-                          onRerun={onSubmit}
-                          onDelete={onDeleteMessage ? () => onDeleteMessage(turn.ask!.id) : undefined}
+                          onRerun={systemAsk ? undefined : onSubmit}
+                          onDelete={!systemAsk && onDeleteMessage ? () => onDeleteMessage(turn.ask!.id) : undefined}
                         />
                       </div>
                     )}
@@ -536,8 +551,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
             <div className="px-2 mt-1 flex flex-col gap-3">
               {queuedMessages.map((q, i) => (
                 q.origin === "system" ? (
-                  // Agent Office's own queued message. Same card as the one it
-                  // becomes once it runs, so the user sees one thing, not two.
+                  // Agent Office's own queued message; once it runs it becomes a turn with the Agent Office rail.
                   <SystemNotice
                     key={q.id + "qm_" + i}
                     text={q.text}
@@ -581,7 +595,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
       <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none z-[2]" aria-live="polite">
         <button
           type="button"
-          className="pointer-events-auto inline-flex items-center gap-[5px] py-[7px] pl-[12px] pr-[14px] rounded-full border border-[var(--line)] bg-[var(--bg-1)] text-[var(--txt)] text-[12px] font-medium tracking-[0.01em] shadow-[var(--shadow-1)] cursor-pointer animate-[jump-pill-in_140ms_ease_both] transition-[color,background,border-color,box-shadow] duration-[100ms] hover:shadow-[var(--shadow-2)] focus-visible:outline-2 focus-visible:outline-[var(--acc)] focus-visible:outline-offset-2"
+          className="chat-jump-latest pointer-events-auto inline-flex items-center gap-[5px] py-[7px] pl-[12px] pr-[14px] rounded-full border border-[var(--line)] bg-[var(--bg-1)] text-[var(--txt)] text-[12px] font-medium tracking-[0.01em] shadow-[var(--shadow-1)] cursor-pointer animate-[jump-pill-in_140ms_ease_both] transition-[color,background,border-color,box-shadow] duration-[100ms] hover:shadow-[var(--shadow-2)] focus-visible:outline-2 focus-visible:outline-[var(--acc)] focus-visible:outline-offset-2"
           data-new={hasNewBelow}
           onClick={jumpToBottom}
           aria-label={t("jump_to_latest_aria")}

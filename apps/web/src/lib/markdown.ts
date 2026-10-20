@@ -1,123 +1,46 @@
-// Shared lightweight markdown primitives. No React — pure string/AST helpers.
+// Markdown string helpers shared by the renderers. No React.
 
-export type TableAlign = "left" | "center" | "right" | null;
-
-export type ProseItem =
-  | string
-  | { type: "code"; lang: string; body: string }
-  | { type: "table"; header: string[]; align: TableAlign[]; rows: string[][] };
-
-/** Text content only: `highlightTS` matches quotes in this output. Attributes add `escapeAttr`. */
+/** Text content only: `highlightTS` matches quotes in this output. */
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** A raw `"` would end the attribute and start an event handler. */
-function escapeAttr(s: string): string {
-  return s.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+/** Drops a half-typed last line of streaming text so no frame shows stray backticks in prose, a
+ *  growing fence language, a code body that shrinks, or a paragraph flashing as a setext heading
+ *  while the `-` of a list or rule is still alone on its line. */
+export function trimPartialFence(text: string): string {
+  return text.replace(/(^|\n)[^\S\n]{0,3}(`+[\w+#.-]*|~+[\w+#.-]*|[-=]+[^\S\n]*)$/, "$1");
 }
 
-/** Only these schemes become links; `javascript:` and friends stay plain text. */
-export function safeHref(url: string): boolean {
-  return /^(https?:|mailto:|#|\/)/i.test(url);
-}
+// A backtick fence's info string can't hold a backtick (CommonMark), else ```a``` would open one.
+const FENCE = /^[ ]{0,3}(`{3,}(?=[^`]*$)|~{3,})/;
 
-/** `[text](url)` → a link, if the scheme is safe. Expects already-escaped input. */
-export function linkMd(s: string, className = ""): string {
-  return s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, url: string) =>
-    safeHref(url) ? `<a${className ? ` class="${className}"` : ""} href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text);
-}
-
-/** GFM separator row, e.g. `| --- | :--: | --: |` (outer pipes optional). */
-function isTableSeparatorRow(line: string): boolean {
-  const t = line.trim();
-  if (!t.includes("-") || !t.includes("|")) return false;
-  return /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/.test(t);
-}
-
-function splitTableRow(line: string): string[] {
-  let t = line.trim();
-  if (t.startsWith("|")) t = t.slice(1);
-  if (t.endsWith("|")) t = t.slice(0, -1);
-  return t.split("|").map((cell) => cell.trim());
-}
-
-function alignFromSeparatorCell(cell: string): TableAlign {
-  const t = cell.trim();
-  if (t.startsWith(":") && t.endsWith(":")) return "center";
-  if (t.endsWith(":")) return "right";
-  if (t.startsWith(":")) return "left";
-  return null;
-}
-
-/** Collect data rows starting at `lines[start]` until a non-row line. */
-function collectTableRows(lines: ProseItem[], start: number): { rows: string[][]; end: number } {
-  const rows: string[][] = [];
-  let j = start;
-  for (; j < lines.length; j++) {
-    const row = lines[j];
-    if (typeof row !== "string" || row.trim() === "" || !row.includes("|")) break;
-    rows.push(splitTableRow(row));
-  }
-  return { rows, end: j };
-}
-
-/** Merge a run of `header / separator / data…` lines into one table item. */
-function mergeTables(lines: ProseItem[]): ProseItem[] {
-  const out: ProseItem[] = [];
+/** Splits markdown at blank lines outside code fences, so a streaming message re-parses only its
+ *  last block: a full re-parse every frame costs ~30 ms at 20 KB. A blank line followed by an
+ *  indented line stays joined, since that line may continue a list item. */
+export function splitMarkdownBlocks(text: string): string[] {
+  const lines = text.split("\n");
+  const blocks: string[] = [];
+  let current: string[] = [];
+  let fence: string | null = null;
   for (let i = 0; i < lines.length; i++) {
-    const item = lines[i]!;
+    const line = lines[i]!;
+    const marker = FENCE.exec(line)?.[1];
+    if (marker && fence === null) fence = marker;
+    else if (marker && fence !== null && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null;
+    current.push(line);
     const next = lines[i + 1];
-    const isTableStart =
-      typeof item === "string" && item.includes("|") &&
-      typeof next === "string" && isTableSeparatorRow(next);
-    if (!isTableStart) {
-      out.push(item);
-      continue;
+    if (fence === null && line.trim() === "" && next !== undefined && next.trim() !== "" && !/^\s/.test(next)) {
+      blocks.push(current.join("\n"));
+      current = [];
     }
-    const header = splitTableRow(item as string);
-    const align = splitTableRow(next as string).map(alignFromSeparatorCell);
-    const { rows, end } = collectTableRows(lines, i + 2);
-    out.push({ type: "table", header, align, rows });
-    i = end - 1;
   }
-  return out;
+  if (current.length > 0) blocks.push(current.join("\n"));
+  return blocks;
 }
 
-/** Split text into prose lines, ```fenced``` code blocks, and GFM tables. */
-export function splitProse(text: string): ProseItem[] {
-  const lines: ProseItem[] = [];
-  // The info string may hold `-`, `+`, `#`, `.`: ```ao-post (mission outboxes), ```c++, ```objective-c.
-  const re = /```([\w+#.-]*)\n([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) {
-      for (const line of text.slice(last, m.index).split("\n")) lines.push(line);
-    }
-    lines.push({ type: "code", lang: m[1] || "text", body: (m[2] ?? "").replace(/\n$/, "") });
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) {
-    const tail = text.slice(last);
-    const open = openFence(tail);
-    if (open) {
-      for (const line of tail.slice(0, open.index).split("\n")) lines.push(line);
-      lines.push({ type: "code", lang: open.lang || "text", body: open.body });
-    } else {
-      for (const line of tail.replace(/(?:^|\n)`{2,3}[\w+#.-]*$/, "").split("\n")) lines.push(line);
-    }
-  }
-  return mergeTables(lines);
-}
-
-// Unclosed fence → code block (CommonMark). Each clause guards a streaming frame — see markdown.test.ts.
-function openFence(tail: string): { index: number; lang: string; body: string } | null {
-  const m = /(?:^|\n)```([\w+#.-]*)[^\S\n]*\n([\s\S]*)$/.exec(tail);
-  if (!m) return null;
-  return {
-    index: m.index === 0 ? 0 : m.index + 1,
-    lang: m[1] ?? "",
-    body: (m[2] ?? "").replace(/\n`{1,2}$/, "").replace(/\n$/, ""),
-  };
+/** A link target, or "" to render the text without a link. Relative hrefs are dropped: `/\host`
+ *  normalises to `//host`, and same-origin `/api/...` files (e.g. an uploaded SVG) would open in-app. */
+export function safeLinkHref(url: string): string {
+  return /^(https?:\/\/|mailto:)/i.test(url.trim()) ? url : "";
 }

@@ -8,6 +8,8 @@ import { POLL } from "@/lib/polling";
 import { toast } from "@/lib/toast-store";
 import type { AgentInstance, Project, ProjectMetaPatch, ProjectSummary } from "@agent-office/domain/types";
 import { getGitStatus } from "@/lib/api/dev-server";
+import { removeSession } from "@/lib/api/roster";
+import type { WorkChoice } from "@agent-office/domain/config/sessions";
 import type { GitStatus } from "@agent-office/domain/types";
 
 export function useProjects() {
@@ -70,8 +72,11 @@ export function useUpdateProject() {
 export function useRemoveProjectFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ removed: string }>(API_ROUTES.projectFolder(id), { method: "DELETE" }),
+    mutationFn: ({ id, fullPath }: { id: string; fullPath: string }) =>
+      apiFetch<{ removed: string }>(
+        `${API_ROUTES.projectFolder(id)}?${new URLSearchParams({ path: fullPath }).toString()}`,
+        { method: "DELETE" },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.projects.all });
       qc.invalidateQueries({ queryKey: queryKeys.settings.all });
@@ -120,8 +125,8 @@ export function useUpdateInstance() {
 export function useRemoveInstance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, instanceId }: { projectId: string; instanceId: string }) =>
-      apiFetch<Project>(API_ROUTES.projectRosterItem(projectId, instanceId), { method: "DELETE" }),
+    mutationFn: ({ projectId, instanceId, work }: { projectId: string; instanceId: string; work?: WorkChoice }) =>
+      removeSession(projectId, instanceId, work),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.projects.all });
       qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.projectId) });

@@ -92,7 +92,7 @@ async function seatInstance(h: Hub, spec: SeatSpec, deps: ActionDeps): Promise<s
 /** Undoes seatInstance when the post that should follow it failed. */
 function dropSeatInstance(h: Hub, instanceId: string): void {
   try {
-    removeInstance(h.project.id, instanceId);
+    removeInstance(h.project.id, instanceId, "discard");
   } catch (err) {
     log.warn("missions.seat_instance_orphaned", { projectId: h.project.id, instanceId, err: err instanceof Error ? err.message : String(err) });
   }

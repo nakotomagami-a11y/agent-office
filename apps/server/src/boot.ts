@@ -63,8 +63,8 @@ function isDir(p: string): boolean {
 
 // Each bundled skill is offered once per install: one added to the bundle later
 // still reaches machines seeded before it existed, and one the user uninstalls
-// is not put back on the next boot. The settings "skill cache" cleanup resets
-// this marker to [] (packages/domain/src/services/projects/cleanup.ts).
+// is not put back on the next boot. The settings "skill cache" cleanup drops the
+// bundled skills it deleted from this marker (packages/domain/src/services/projects/cleanup.ts).
 const SEEDED_FILE = "_seeded.json";
 // The bundle as of the last fresh-machine-only seeding. An install with skill
 // folders but no marker was already offered these, so they are not offered again.

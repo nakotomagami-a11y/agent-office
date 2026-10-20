@@ -1,12 +1,12 @@
 // Portable project save-file bundle: export a project (+ its roster agents,
 // office layout, and optionally transcripts) and restore it. Framework-agnostic
 // - only touches domain services, so both /api/save routes stay thin controllers.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as agents from "../agents/agents";
 import * as db from "../db";
 import * as projects from "./projects";
-import { AGENTS_DIR, isValidIdSegment } from "../infra/paths";
+import { AGENTS_DIR, AGENT_BACKUPS_DIR, IMPORT_BACKUPS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { OFFICE_SETTING_KEYS, type OfficeSettingField } from "../../config/office";
 import type { Project, ProjectMetaPatch } from "../../types";
@@ -79,16 +79,62 @@ export function exportBundle(projectId: string, includeHistory: boolean): SaveBu
   };
 }
 
-function restoreAgents(list: SaveBundleAgent[]): void {
-  ensureDir(AGENTS_DIR);
-  for (const agent of list) {
-    if (!agent.id || !isValidIdSegment(agent.id)) continue;
-    if (agent.content) writeFileAtomic(join(AGENTS_DIR, `${agent.id}.md`), agent.content);
-    agents.writeAgentMemory(agent.id, agent.memory);
-  }
+export interface ImportOptions {
+  /** The office layout is global, not the project's: replaced only when the user asked. */
+  restoreOffice: boolean;
 }
 
-function restoreProject(p: ImportBundle["project"]): void {
+export interface ImportOutcome {
+  projectId: string;
+  agentCount: number;
+  backedUp: string[];
+  officeRestored: boolean;
+  snapshot: string | null;
+}
+
+function backupIfChanged(path: string, next: string, name: string, at: string): boolean {
+  if (!existsSync(path)) return false;
+  const current = readFileSync(path, "utf8");
+  if (!current || current === next) return false;
+  ensureDir(AGENT_BACKUPS_DIR);
+  writeFileAtomic(join(AGENT_BACKUPS_DIR, `${name}.import-${at}.md`), current);
+  return true;
+}
+
+function restoreAgents(list: SaveBundleAgent[], at: string): string[] {
+  ensureDir(AGENTS_DIR);
+  const backedUp: string[] = [];
+  for (const agent of list) {
+    if (!agent.id || !isValidIdSegment(agent.id)) continue;
+    let saved = false;
+    if (agent.content) {
+      const file = join(AGENTS_DIR, `${agent.id}.md`);
+      saved = backupIfChanged(file, agent.content, agent.id, at);
+      writeFileAtomic(file, agent.content);
+    }
+    // Empty means the exporting machine had no memory, not "erase this one's".
+    if (agent.memory) {
+      saved = backupIfChanged(agents.memoryPathFor(agent.id), agent.memory, `${agent.id}.memory`, at) || saved;
+      agents.writeAgentMemory(agent.id, agent.memory);
+    }
+    if (saved) backedUp.push(agent.id);
+  }
+  return backedUp;
+}
+
+/** Another machine's checkout and worktrees: here they are missing, or someone else's folder. */
+const MACHINE_KEYS = new Set(["cwd", "worktree", "worktreeMissing"]);
+
+function portableSeat(seat: unknown): unknown {
+  if (typeof seat !== "object" || seat === null) return seat;
+  return Object.fromEntries(Object.entries(seat).filter(([k]) => !MACHINE_KEYS.has(k)));
+}
+
+function seatId(seat: unknown): unknown {
+  return typeof seat === "object" && seat !== null && "instanceId" in seat ? seat.instanceId : undefined;
+}
+
+function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<unknown> {
   const meta = p.meta;
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
@@ -101,16 +147,23 @@ function restoreProject(p: ImportBundle["project"]): void {
     // arch.parse-dont-cast: bundle contents are untrusted input.
     planet: projects.parsePlanetConfig(meta.planet),
   };
-  if (!projects.readProject(p.id)) {
+  const existing = projects.readProject(p.id);
+  if (!existing) {
     projects.createProject({
       id: p.id,
       name: patch.name ?? p.id,
       description: patch.description ?? "",
     });
   }
-  projects.updateProject(p.id, { meta: patch, memory: p.memory }, "importBundle");
+  projects.updateProject(p.id, { meta: patch, memory: p.memory || undefined }, "importBundle");
   // Unconditional would let a roster-less bundle delete every instance.
-  if (Array.isArray(meta.roster)) projects.replaceRoster(p.id, meta.roster, "importBundle");
+  if (!Array.isArray(meta.roster)) return new Set();
+  // Added to, never replaced: replacing orphaned the existing seats' worktrees and chats.
+  const current: unknown[] = existing?.meta.roster ?? [];
+  const taken = new Set(current.map(seatId));
+  const added = meta.roster.map(portableSeat).filter((s) => !taken.has(seatId(s)));
+  projects.replaceRoster(p.id, [...current, ...added], "importBundle");
+  return new Set(added.map(seatId));
 }
 
 function restoreOffice(office: OfficeSnapshot): void {
@@ -120,19 +173,32 @@ function restoreOffice(office: OfficeSnapshot): void {
   }
 }
 
-function restoreHistory(history: SaveHistoryEntry[] | undefined): void {
+/** Only into seats this import added: an existing seat's transcript and session are the user's. */
+function restoreHistory(history: SaveHistoryEntry[] | undefined, added: Set<unknown>): void {
   if (!history) return;
   for (const entry of history) {
     if (!isValidIdSegment(entry.agentId) || !isValidIdSegment(entry.instanceId)) continue;
+    if (!added.has(entry.instanceId) || db.getTranscript(entry.agentId, entry.instanceId)) continue;
     db.saveTranscript(entry.agentId, entry.instanceId, entry.transcript, null, null);
   }
 }
 
-/** Restore a validated bundle. Returns the number of agents written. */
-export function importBundle(bundle: ImportBundle): { agentCount: number } {
-  restoreAgents(bundle.agents);
-  restoreProject(bundle.project);
-  restoreOffice(bundle.office);
-  restoreHistory(bundle.history);
-  return { agentCount: bundle.agents.length };
+function snapshotBefore(projectId: string, office: boolean, at: string): string | null {
+  const before = exportBundle(projectId, true) ?? (office ? { office: collectOfficeSnapshot() } : null);
+  if (!before) return null;
+  ensureDir(IMPORT_BACKUPS_DIR);
+  const file = join(IMPORT_BACKUPS_DIR, `${projectId}.${at}.agent-office.json`);
+  writeFileAtomic(file, JSON.stringify(before, null, 2));
+  return file;
+}
+
+/** Restore a validated bundle; whatever it replaces is saved under BACKUPS_DIR first. */
+export function importBundle(bundle: ImportBundle, opts: ImportOptions = { restoreOffice: false }): ImportOutcome {
+  const at = new Date().toISOString().replace(/[:.]/g, "-");
+  const snapshot = snapshotBefore(bundle.project.id, opts.restoreOffice, at);
+  const backedUp = restoreAgents(bundle.agents, at);
+  const added = restoreProjectReturningAddedSeats(bundle.project);
+  if (opts.restoreOffice) restoreOffice(bundle.office);
+  restoreHistory(bundle.history, added);
+  return { projectId: bundle.project.id, agentCount: bundle.agents.length, backedUp, officeRestored: opts.restoreOffice, snapshot };
 }

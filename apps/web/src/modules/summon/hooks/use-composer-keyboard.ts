@@ -9,6 +9,7 @@ export type UseComposerKeyboardInput = {
   setSlashIdx: (updater: (n: number) => number) => void;
   filteredSlashLength: number;
   onPickSlash: () => void;
+  onRunSlash: () => void;
   promptsOpen: boolean;
   setPromptsOpen: (v: boolean) => void;
   promptsIdx: number;
@@ -31,8 +32,9 @@ export function useComposerKeyboard(input: UseComposerKeyboardInput): (e: Keyboa
       input.onOpenMissions();
       return;
     }
-    if (input.promptsOpen && handlePromptsMenuKey(e, input)) return;
+    // The slash menu is the one drawn when both match, so it owns the keys; otherwise Enter picked an unseen prompt.
     if (input.slashOpen && input.filteredSlashLength > 0 && handleSlashMenuKey(e, input)) return;
+    if (input.promptsOpen && handlePromptsMenuKey(e, input)) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       input.onSend();
@@ -83,6 +85,11 @@ function handleSlashMenuKey(e: KeyboardEvent<HTMLTextAreaElement>, input: UseCom
   if (e.key === "Tab") {
     e.preventDefault();
     input.onPickSlash();
+    return true;
+  }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    input.onRunSlash();
     return true;
   }
   if (e.key === "Escape") {

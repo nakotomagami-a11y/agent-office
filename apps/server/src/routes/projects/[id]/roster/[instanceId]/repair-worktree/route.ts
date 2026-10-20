@@ -1,12 +1,10 @@
-// POST /api/projects/<id>/roster/<instanceId>/repair-worktree — recreate a
-// missing git worktree or clear a dead pin (falls back to the shared cwd).
+// POST /api/projects/<id>/roster/<instanceId>/repair-worktree — recreate a missing git worktree;
+// 409 worktree_unrepairable when it cannot be (never a fall back to the shared cwd).
 import { projects } from "@agent-office/domain/services";
-import { notFound, tryService, validateIdParam } from "../../../../../../lib/api-helpers";
+import { conflict, notFound, tryService, validateIdParam } from "../../../../../../lib/api-helpers";
 
 type Params = { params: Promise<{ id: string; instanceId: string }> };
 
-// Repair (recreate) a missing git worktree for an instance, or clear its dead pin
-// so it falls back to the shared project cwd. Idempotent.
 export async function POST(_request: Request, { params }: Params) {
   const { id, instanceId } = await params;
   const idCheck = validateIdParam(id);
@@ -19,8 +17,12 @@ export async function POST(_request: Request, { params }: Params) {
   const instance = project.meta.roster.find((i) => i.instanceId === instCheck.value);
   if (!instance) return notFound();
 
-  return tryService(() => {
-    const cwd = projects.resolveInstanceCwd(project, instance);
-    return { ok: true, cwd: cwd ?? project.meta.cwd ?? null };
-  });
+  let cwd: string | undefined;
+  try {
+    cwd = projects.resolveInstanceCwd(project, instance);
+  } catch (e) {
+    return tryService(() => { throw e; });
+  }
+  if (projects.instanceWorktreeMissing(project, instance)) return conflict("worktree_unrepairable");
+  return Response.json({ ok: true, cwd: cwd ?? project.meta.cwd ?? null });
 }

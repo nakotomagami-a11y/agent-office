@@ -6,6 +6,7 @@ import { MAX_UPLOAD_BYTES, safeFilename, isValidIdSegment } from "@agent-office/
 import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
 import { readSettings, isIntegrationEnabled } from "@agent-office/domain/services/settings";
 import { log } from "@agent-office/domain/services/infra/log";
+import { isSessionRemovalCode } from "@agent-office/domain/config/sessions";
 
 export function notFound(message = "not_found"): Response {
   return Response.json({ error: message }, { status: 404 });
@@ -108,6 +109,10 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<Response>
     if (err instanceof projects.UnreadableProjectMetadataError || code === "metadata_unreadable") {
       return conflict("metadata_unreadable", { detail: msg });
     }
+    if (err instanceof projects.SessionRemovalError || isSessionRemovalCode(code)) {
+      const e = err as Partial<projects.SessionRemovalError>;
+      return conflict(code ?? "session_has_work", { sessions: e.sessions ?? [], detail: e.detail });
+    }
     if (
       (err as NodeJS.ErrnoException).code === "ENOENT" ||
       /not found/i.test(msg) ||
@@ -154,6 +159,8 @@ const IMAGE_MIME: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+const SANDBOXED_UPLOAD_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
 export function handleServeUpload(dir: string, filename: string): Response {
   const safe = safeFilename(filename);
   const filePath = join(dir, safe);
@@ -166,6 +173,8 @@ export function handleServeUpload(dir: string, filename: string): Response {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "private, max-age=86400",
+        "Content-Security-Policy": SANDBOXED_UPLOAD_CSP,
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {

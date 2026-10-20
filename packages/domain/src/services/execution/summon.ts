@@ -57,37 +57,47 @@ function writeSystemPromptFile(content: string): string {
   return file;
 }
 
-// When an instance disables Playwright, the CLI must never even *connect* the
-// Playwright MCP server — otherwise its tool schemas load into context on every
-// turn (thousands of tokens) regardless of whether the agent calls them.
-// `--strict-mcp-config` makes the CLI use ONLY the servers we pass via
-// `--mcp-config`, ignoring all other MCP configuration, so we hand it the
-// user's global server set with Playwright stripped out. Native Task
-// sub-agents share this process's MCP connections, so they inherit the same
-// exclusion automatically. (Servers configured per-project via .mcp.json are
-// also dropped by strict mode — acceptable here since agents rely on the
-// global config; revisit if project-scoped MCP servers become common.)
+// A mission seat runs under `--strict-mcp-config`: only the servers we pass, so
+// it loses local-scope, project .mcp.json, plugin and claude.ai servers. Its
+// user-scope servers are forwarded from here.
 function readGlobalMcpServers(): Record<string, unknown> {
   try {
     const raw: unknown = JSON.parse(readFileSync(join(homedir(), ".claude.json"), "utf8"));
     const servers = (raw as { mcpServers?: unknown }).mcpServers;
     return servers && typeof servers === "object" ? (servers as Record<string, unknown>) : {};
   } catch {
-    // No global config / unreadable — an empty set under strict mode still
-    // guarantees the exclusions below, which is the point.
     return {};
   }
 }
 
-/** `--strict-mcp-config` means ONLY what we pass, so globals are forwarded. */
-function mcpArgs(opts: { excludePlaywright: boolean; withPermissionServer: boolean }): string[] {
-  const servers: Record<string, unknown> = { ...readGlobalMcpServers() };
-  if (opts.excludePlaywright) delete servers.playwright;
+/** Without `strict` the passed servers are added to everything else the CLI loads. */
+function mcpArgs(opts: { strict: boolean; withPermissionServer: boolean }): string[] {
+  const servers: Record<string, unknown> = opts.strict ? { ...readGlobalMcpServers() } : {};
   if (opts.withPermissionServer) {
     // AO_RUN_ID / AO_BASE_URL come from the spawn env.
     servers["agent-office"] = { command: process.execPath, args: [PERMISSION_SERVER_PATH] };
   }
-  return ["--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers: servers })];
+  if (!opts.strict && Object.keys(servers).length === 0) return [];
+  return [...(opts.strict ? ["--strict-mcp-config"] : []), "--mcp-config", JSON.stringify({ mcpServers: servers })];
+}
+
+/** Playwright's tool schemas cost thousands of tokens a turn, so a seat opts in. A run with no
+ *  seat of its own has no toggle and follows the agent's declared `mcp__playwright` tools. */
+export function playwrightAllowed(instance: AgentInstance | null, agentTools: readonly string[]): boolean {
+  if (instance) return instance.playwrightEnabled === true;
+  return agentTools.some((t) => t.split("__")[0] === "mcp" && t.split("__")[1] === "playwright");
+}
+
+export function disabledMcpServers(instance: AgentInstance | null, agentTools: readonly string[]): string[] {
+  return playwrightAllowed(instance, agentTools) ? [] : ["playwright"];
+}
+
+/** A server-level deny drops every tool of that server for the agent and its sub-agents (checked
+ *  against the CLI's system/init tool list); other servers are untouched. Names are normalised the
+ *  way the CLI prefixes tools (`claude.ai Gmail` → `mcp__claude_ai_Gmail`). */
+export function disabledMcpArgs(servers: readonly string[]): string[] {
+  if (servers.length === 0) return [];
+  return ["--disallowedTools", servers.map((name) => `mcp__${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`).join(",")];
 }
 
 /** Fully-qualified name of the tool the CLI calls to ask for approval. */
@@ -140,12 +150,10 @@ export function buildClaudeArgs(opts: {
     args.push("--permission-prompt-tool", PERMISSION_TOOL);
   }
   const needsPermissionServer = !!permissionMode && permissionMode !== "bypassPermissions";
-  const excludePlaywright = instance?.playwrightEnabled === false;
   const onHubBranch = opts.isolate ?? isMissionWorktree(instance);
   if (onHubBranch) args.push("--setting-sources", "user");
-  if (excludePlaywright || needsPermissionServer || onHubBranch) {
-    args.push(...mcpArgs({ excludePlaywright, withPermissionServer: needsPermissionServer }));
-  }
+  args.push(...mcpArgs({ strict: onHubBranch, withPermissionServer: needsPermissionServer }));
+  args.push(...disabledMcpArgs(disabledMcpServers(instance, agent.tools ?? [])));
   for (const dir of agent.addDirs ?? []) args.push("--add-dir", dir.replace(/^~/, homedir()));
   let systemPromptFile: string | undefined;
   if (appendedSystemPrompt) {

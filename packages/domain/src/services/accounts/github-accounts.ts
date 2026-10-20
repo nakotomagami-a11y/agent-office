@@ -26,6 +26,7 @@ import {
   PROJECTS_DIR,
   SYSTEM_GH_CONFIG_DIR,
   githubAccountConfigDir,
+  isInside,
   isValidIdSegment,
 } from "../infra/paths";
 import { isYamlMapping, parseYaml } from "../infra/yaml";
@@ -100,7 +101,7 @@ export function remove(id: string): RemoveResult {
   getDb().prepare("DELETE FROM github_accounts WHERE id = ?").run(id);
   // Only touch dirs under GITHUB_ACCOUNTS_DIR — never the system gh config.
   const dir = githubAccountConfigDir(id);
-  if (dir && dir.startsWith(GITHUB_ACCOUNTS_DIR + "/") && existsSync(dir)) {
+  if (dir && isInside(dir, GITHUB_ACCOUNTS_DIR) && existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true });
   }
   log.info("github_account.removed", { id });

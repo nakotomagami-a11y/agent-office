@@ -57,6 +57,8 @@ export function parseFrontmatter(content: string): { fm: YamlMapping; body: stri
   return { fm, body };
 }
 
+const ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r", "0": "\0", "\\": "\\", '"': '"', "/": "/" };
+
 const SCALAR_RE = /^[A-Za-z0-9_./@:+\-]+$/;
 
 function unquote(raw: string): string {
@@ -64,12 +66,9 @@ function unquote(raw: string): string {
   if (t.length >= 2 && (t.startsWith('"') || t.startsWith("'"))) {
     const q = t[0]!;
     if (t.endsWith(q)) {
-      return t
-        .slice(1, -1)
-        .replace(/\\n/g, "\n")
-        .replace(/\\"/g, '"')
-        .replace(/\\'/g, "'")
-        .replace(/\\\\/g, "\\");
+      if (q === "'") return t.slice(1, -1).replace(/''/g, "'");
+      return t.slice(1, -1).replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/g, (m, c: string) =>
+        c.length > 1 ? String.fromCharCode(parseInt(c.slice(1), 16)) : ESCAPES[c] ?? m);
     }
   }
   return t;
@@ -103,10 +102,12 @@ function parseFlowList(raw: string, nesting = 0): YamlValue[] {
   let depth = 0;
   let buf = "";
   let inQuote: '"' | "'" | null = null;
-  for (const ch of inner) {
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i]!;
     if (inQuote) {
       buf += ch;
-      if (ch === inQuote) inQuote = null;
+      if (inQuote === '"' && ch === "\\" && i + 1 < inner.length) buf += inner[++i];
+      else if (ch === inQuote) inQuote = null;
       continue;
     }
     if (ch === '"' || ch === "'") {

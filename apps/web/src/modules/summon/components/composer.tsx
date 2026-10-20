@@ -108,6 +108,12 @@ export function Composer(props: ComposerProps) {
     setSlashIdx: menus.setSlashIdx,
     filteredSlashLength: menus.filteredSlash.length,
     onPickSlash: () => { const picked = menus.filteredSlash[menus.slashIdx]; if (picked) insertSlash(picked.cmd); },
+    onRunSlash: () => {
+      const picked = menus.filteredSlash[menus.slashIdx];
+      if (!picked) return;
+      cancelDraftSave();
+      if (!handleSlashSend(picked.cmd, props.onCommand, props.draftKey, () => { setValue(""); menus.closeAll(); })) insertSlash(picked.cmd);
+    },
     promptsOpen: menus.promptsOpen,
     setPromptsOpen: menus.setPromptsOpen,
     promptsIdx: menus.promptsIdx,
@@ -219,7 +225,8 @@ function ComposerMenuLayer({
   onInsertSlash: (cmd: string) => void;
   onSelectPrompt: (body: string) => void;
 }): React.ReactElement | null {
-  if (menus.slashOpen) {
+  // Both menus open on "/"; the prompts menu shows (and owns the keys) once no command matches.
+  if (menus.slashOpen && menus.filteredSlash.length > 0) {
     return (
       <ComposerSlashMenu
         filtered={menus.filteredSlash}
@@ -229,7 +236,7 @@ function ComposerMenuLayer({
       />
     );
   }
-  if (menus.promptsOpen) {
+  if (menus.promptsOpen && menus.filteredPrompts.length > 0) {
     return (
       <ComposerPromptsMenu
         filtered={menus.filteredPrompts}
@@ -257,7 +264,7 @@ function ComposerInputShell({
   const t = useTranslations();
   return (
     <div
-      className={"bg-bg-1 border-[1.5px] border-line-2 rounded-[16px] [box-shadow:var(--shadow-1)] transition-[border-color] duration-[160ms] focus-within:border-[var(--acc)]" + (dragOver ? " drag-over" : "")}
+      className={"bg-bg-1 border-[1.5px] rounded-[16px] [box-shadow:var(--shadow-1)] transition-[border-color] duration-[160ms] focus-within:border-[var(--acc)]" + (dragOver ? " border-dashed border-[var(--acc)]" : " border-line-2")}
       aria-label={dragOver ? t("composer.drop_to_attach") : undefined}
     >
       {dragOver ? (

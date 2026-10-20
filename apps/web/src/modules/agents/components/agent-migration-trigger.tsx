@@ -17,8 +17,10 @@ import { useAgentDiff, useApplyAgentDiff } from "../hooks/use-agent-migration";
  *   1. First-run wizard has already completed (`firstRunComplete === true`
  *      — otherwise the wizard handles initial imports and a second modal
  *      would double-prompt).
- *   2. The bundled MANIFEST version differs from the installed version.
- *   3. There is at least one actionable diff entry (new + changed).
+ *   2. The bundled MANIFEST version is newer than the installed version
+ *      (an older build must never offer its agents over a newer roster).
+ *   3. There is at least one actionable diff entry (new + changed) the user
+ *      hasn't already skipped for this version or declined before.
  *
  * Silent path renders nothing. Wire once from the app-shell layout so a
  * single app session shows at most one modal across route transitions.
@@ -40,28 +42,27 @@ export function AgentMigrationTrigger() {
     if (handled) return;
     if (!firstRunDone) return;
     if (!diffQ.data) return;
-    const { bundleVersion, installedVersion, newAgents, changed } = diffQ.data;
-    // No manifest on disk (dev clone without starter-data present) →
-    // nothing to migrate.
+    const { bundleVersion, installedVersion, bundleOlder, newAgents, changed, skipped } = diffQ.data;
+    // No manifest on disk (dev clone without starter-data) → nothing to migrate.
     if (!bundleVersion) {
       setHandled(true);
       return;
     }
-    // User already processed this exact bundle version → don't re-nag.
-    if (installedVersion === bundleVersion) {
+    // Already processed this exact bundle version, or this build ships an older one → nothing to offer.
+    if (installedVersion === bundleVersion || bundleOlder) {
       setHandled(true);
       return;
     }
-    // Version changed but zero actionable entries → stamp the marker so
-    // the trigger doesn't re-run this exact diff on every reload. Fire
-    // and forget — errors are silently swallowed because the worst case
-    // is one extra reload issuing the same no-op.
+    // Nothing actionable → stamp the version (fire and forget: a failure only repeats this no-op).
     if (newAgents.length === 0 && changed.length === 0) {
       applyM.mutate({ accept: [], skip: [], markComplete: true });
       setHandled(true);
       return;
     }
-    setOpen(true);
+    // Skipped ("Remind me later") and declined agents don't re-open it; Settings still lists them.
+    const skippedSet = new Set(skipped);
+    const pending = [...newAgents.filter((a) => !a.declined), ...changed].some((a) => !skippedSet.has(a.id));
+    if (pending) setOpen(true);
     setHandled(true);
   }, [firstRunDone, diffQ.data, handled, applyM]);
 

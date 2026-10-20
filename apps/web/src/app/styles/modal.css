@@ -91,40 +91,55 @@ html .app-modal-backdrop::before {
 }
 
 /* ao-prose — generated markdown HTML, cannot use inline classes on inner nodes */
-.ao-modal .ao-prose {
+.ao-prose {
   color: var(--ao-fg-0); font-size: 14px; line-height: 1.65;
   overflow-wrap: anywhere;
   word-break: break-word;
   min-width: 0;
 }
-.ao-modal .ao-prose p { margin: 0 0 12px; overflow-wrap: anywhere; word-break: break-word; }
-.ao-modal .ao-prose p:last-child { margin-bottom: 0; }
-.ao-modal .ao-prose h3 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--ao-fg-0); }
-.ao-modal .ao-prose ul { margin: 0 0 14px; padding-left: 22px; list-style-type: disc; }
-.ao-modal .ao-prose ol { margin: 0 0 14px; padding-left: 22px; list-style-type: decimal; }
-.ao-modal .ao-prose li { margin-bottom: 4px; color: var(--ao-fg-0); }
-.ao-modal .ao-prose li::marker { color: var(--ao-fg-3); }
-.ao-modal .ao-prose strong { color: var(--ao-fg-0); font-weight: 700; }
-.ao-modal .ao-prose em { color: var(--ao-fg-1); font-style: italic; }
-.ao-modal .ao-prose a { color: var(--ao-accent); text-decoration: underline; text-underline-offset: 2px; opacity: 0.9; }
-.ao-modal .ao-prose a:hover { opacity: 1; }
-.ao-modal .ao-prose code {
+.ao-prose p { margin: 0 0 12px; overflow-wrap: anywhere; word-break: break-word; }
+.ao-prose p:last-child { margin-bottom: 0; }
+.ao-prose :is(h1, h2, h3, h4, h5, h6) { font-weight: 700; margin: 18px 0 8px; color: var(--ao-fg-0); }
+.ao-prose :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
+.ao-prose :is(h1, h2) { font-size: 15.5px; }
+.ao-prose h3 { font-size: 14.5px; }
+.ao-prose :is(h4, h5, h6) { font-size: 14px; color: var(--ao-fg-1); }
+.ao-prose blockquote { margin: 0 0 12px; padding: 2px 0 2px 12px; border-left: 2px solid var(--ao-line-1); color: var(--ao-fg-1); }
+.ao-prose hr { border: 0; border-top: 1px solid var(--ao-line-1); margin: 16px 0; }
+.ao-prose del { color: var(--ao-fg-2); }
+.ao-prose li > :is(ul, ol) { margin: 4px 0 0; }
+.ao-prose li > p { margin: 0; }
+.ao-prose .contains-task-list { padding-left: 4px; list-style: none; }
+.ao-prose .task-list-item input { margin: 0 6px 0 0; vertical-align: -1px; accent-color: var(--acc); }
+.ao-prose .ao-table th { text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--bg-2); padding: 8px 12px; font-weight: 600; color: var(--txt-2); }
+.ao-prose .ao-table td { border-bottom: 1px solid var(--line); padding: 8px 12px; line-height: 1.55; color: var(--txt); }
+.ao-prose .ao-table tr:last-child td { border-bottom: 0; }
+.ao-prose-sm { font-size: 13px; }
+.ao-prose ul { margin: 0 0 14px; padding-left: 22px; list-style-type: disc; }
+.ao-prose ol { margin: 0 0 14px; padding-left: 22px; list-style-type: decimal; }
+.ao-prose li { margin-bottom: 4px; color: var(--ao-fg-0); }
+.ao-prose li::marker { color: var(--ao-fg-3); }
+.ao-prose strong { color: var(--ao-fg-0); font-weight: 700; }
+.ao-prose em { color: var(--ao-fg-1); font-style: italic; }
+.ao-prose a { color: var(--acc); text-decoration: underline; text-underline-offset: 2px; opacity: 0.9; }
+.ao-prose a:hover { opacity: 1; }
+.ao-prose :not(pre) > code {
   background: var(--md-inline-bg); padding: 1px 5px; border-radius: 4px;
-  font-family: var(--ao-font-mono); font-size: 12.5px; color: var(--code-inline-fg);
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--code-inline-fg);
 }
 
 /* ao-codeblock — generated code block HTML */
-.ao-modal .ao-codeblock { margin: 12px 0 14px; border: 1px solid var(--ao-line-1); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
-.ao-modal .ao-codeblock pre {
-  margin: 0; padding: 12px 14px; font-family: var(--ao-font-mono);
+.ao-codeblock { margin: 12px 0 14px; border: 1px solid var(--ao-line-1); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.ao-codeblock pre {
+  margin: 0; padding: 12px 14px; font-family: var(--font-mono);
   font-size: 12.5px; line-height: 1.6; color: var(--code-fg); overflow-x: auto;
 }
-.ao-modal .ao-codeblock .tk-key { color: var(--hl-k); }
-.ao-modal .ao-codeblock .tk-str { color: var(--hl-s); }
-.ao-modal .ao-codeblock .tk-com { color: var(--hl-c); font-style: italic; }
-.ao-modal .ao-codeblock .tk-num { color: var(--hl-n); }
-.ao-modal .ao-codeblock .tk-typ { color: var(--hl-fn); }
-.ao-modal .ao-codeblock .tk-fn  { color: var(--hl-i); }
+.ao-codeblock .tk-key { color: var(--hl-k); }
+.ao-codeblock .tk-str { color: var(--hl-s); }
+.ao-codeblock .tk-com { color: var(--hl-c); font-style: italic; }
+.ao-codeblock .tk-num { color: var(--hl-n); }
+.ao-codeblock .tk-typ { color: var(--hl-fn); }
+.ao-codeblock .tk-fn  { color: var(--hl-i); }
 
 /* ao-tool-arg — expanded tool-call input (pretty-printed JSON). Its .hl-*
    token colors are defined in code.css alongside .code-block's (combined
@@ -132,9 +147,9 @@ html .app-modal-backdrop::before {
    can't be two separately-declared rules with identical bodies). */
 
 /* ao-cursor — streaming cursor */
-.ao-modal .ao-cursor {
+.ao-cursor {
   display: inline-block; width: 7px; height: 1.05em;
-  background: var(--ao-accent); margin-left: 2px; vertical-align: text-bottom;
+  background: var(--acc); margin-left: 2px; vertical-align: text-bottom;
   animation: ao-cursor-blink 1.05s step-end infinite;
 }
 

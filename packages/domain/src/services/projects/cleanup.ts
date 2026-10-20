@@ -7,10 +7,12 @@
  * drafts cleared".
  */
 
-import { existsSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import type { CleanupKind } from "../../config/cleanup";
 import { join } from "node:path";
 import { getDb, deleteRunsWhere } from "../db";
+import { emitAppEvent } from "../infra/events";
+import { writeFileAtomic } from "../infra/fs-atomic";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 
@@ -69,14 +71,22 @@ export function clearComposerDrafts(): CleanupResult {
 
 // ─── Orphaned recovered runs ─────────────────────────────────────────────────
 // Interrupted pipelines + zombie 'error/-1' runs left by a crash cleanup pass.
-// Analytics rows for successful/failed-but-completed runs are preserved.
+// Analytics rows for successful/failed-but-completed runs are preserved. A chat
+// turn (or a sub-agent inside one) is the transcript itself, so it is never an orphan.
+
+const ORPHANED_RUN = `status = 'error' AND exit_code = -1 AND conversation_id IS NULL
+  AND (parent_run_id IS NULL OR parent_run_id NOT IN (SELECT id FROM runs WHERE conversation_id IS NOT NULL))`;
 
 export function wipeOrphanedRuns(): CleanupResult {
   const db = getDb();
   const { orphanRunsChanges, orphanPipelinesChanges } = db.transaction(() => ({
-    orphanRunsChanges: deleteRunsWhere("status = 'error' AND exit_code = -1"),
+    orphanRunsChanges: deleteRunsWhere(ORPHANED_RUN),
     orphanPipelinesChanges: deletePipelinesWhere("interrupted = 1"),
   }))();
+  if (orphanRunsChanges > 0) {
+    emitAppEvent("conversations:changed");
+    emitAppEvent("loops:changed");
+  }
   return {
     cleared: orphanRunsChanges + orphanPipelinesChanges,
     detail: {
@@ -114,30 +124,66 @@ export function resetUserAnalysis(): CleanupResult {
   return { cleared: 0 };
 }
 
-// ─── Skills install cache ────────────────────────────────────────────────────
-// Every skill dir; the seeding marker (server boot.ts) is reset so bundled skills seed again.
+// ─── Downloaded and bundled skills ───────────────────────────────────────────
+// Only what can come back: registry installs (they carry `.source.json`) and
+// bundled skills still byte-identical to the bundle. This once deleted every
+// skill folder, the user's own forged and imported skills included.
 
-export function clearSkillInstallCache(dir: string = SKILLS_DIR): CleanupResult {
+function readSeeded(file: string): string[] | null {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
+    return Array.isArray(raw) ? raw.filter((n): n is string => typeof n === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
+function sameTree(a: string, b: string): boolean {
+  try {
+    const sa = statSync(a);
+    const sb = statSync(b);
+    if (sa.isDirectory() !== sb.isDirectory()) return false;
+    if (!sa.isDirectory()) return sa.size === sb.size && readFileSync(a).equals(readFileSync(b));
+    const na = readdirSync(a).sort();
+    const nb = readdirSync(b).sort();
+    return na.length === nb.length && na.every((n, i) => n === nb[i] && sameTree(join(a, n), join(b, n)));
+  } catch {
+    return false;
+  }
+}
+
+/** `bundledDir` is the shipped `starter-data/skills`; without it no bundled skill is touched. */
+export function clearSkillInstallCache(dir: string = SKILLS_DIR, bundledDir: string | null = null): CleanupResult {
   if (!existsSync(dir)) return { cleared: 0 };
+  const markerFile = join(dir, "_seeded.json");
+  const seeded = readSeeded(markerFile);
+  const reseed = new Set<string>();
   let cleared = 0;
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
-    if (!isKind(p, "dir")) continue;
+    if (name.startsWith("_") || !isKind(p, "dir")) continue;
+    const fromRegistry = isKind(join(p, ".source.json"), "file");
+    const asBundled = !fromRegistry && !!bundledDir && !!seeded?.includes(name) && sameTree(p, join(bundledDir, name));
+    if (!fromRegistry && !asBundled) continue;
     rmSync(p, { recursive: true, force: true });
+    if (asBundled) reseed.add(name);
     cleared++;
   }
-  writeFileSync(join(dir, "_seeded.json"), "[]");
+  // Boot (server boot.ts) re-offers what is missing from the marker: just these,
+  // not a bundled skill the user uninstalled on purpose.
+  if (seeded && reseed.size > 0) writeFileAtomic(markerFile, JSON.stringify(seeded.filter((n) => !reseed.has(n))));
   return { cleared };
 }
 
 // ─── UI settings (theme, layout, tab persistence) ────────────────────────────
 // The `_migrated` sentinel is preserved so the JSONL→SQLite migration doesn't
-// re-run on next boot.
+// re-run on next boot. `office-*` (maps, decorations) is work and
+// `claude-limits` (the spend cap) is configuration: neither is a preference.
 
 export function resetUiSettings(): CleanupResult {
   const db = getDb();
   const changes = db
-    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\'")
+    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' AND key NOT LIKE 'office-%' AND key != 'claude-limits'")
     .run().changes;
   return { cleared: changes };
 }
@@ -145,7 +191,12 @@ export function resetUiSettings(): CleanupResult {
 // ─── Everything ──────────────────────────────────────────────────────────────
 // The bulk nuke — also wipes analytics history. Confirmed twice at the UI.
 
-export function everything(): CleanupResult {
+export interface CleanupOptions {
+  /** The shipped `starter-data/skills`, so bundled skills can be told from the user's. */
+  bundledSkillsDir?: string | null;
+}
+
+export function everything(opts: CleanupOptions = {}): CleanupResult {
   const detail: Record<string, number> = {};
   const db = getDb();
 
@@ -172,7 +223,7 @@ export function everything(): CleanupResult {
   // Filesystem last: it cannot be rolled back if the db half fails.
   detail.agentMemory = resetAgentMemoryFiles().cleared;
   detail.userAnalysis = resetUserAnalysis().cleared;
-  detail.skillCache = clearSkillInstallCache().cleared;
+  detail.skillCache = clearSkillInstallCache(SKILLS_DIR, opts.bundledSkillsDir ?? null).cleared;
 
   const total = Object.values(detail).reduce((a, b) => a + b, 0);
   return { cleared: total, detail };
@@ -180,7 +231,7 @@ export function everything(): CleanupResult {
 
 // ─── Dispatch ────────────────────────────────────────────────────────────────
 
-export function runCleanup(kind: CleanupKind): CleanupResult {
+export function runCleanup(kind: CleanupKind, opts: CleanupOptions = {}): CleanupResult {
   switch (kind) {
     case "transcripts":
       return resetAllTranscripts();
@@ -193,10 +244,10 @@ export function runCleanup(kind: CleanupKind): CleanupResult {
     case "user-analysis":
       return resetUserAnalysis();
     case "skill-cache":
-      return clearSkillInstallCache();
+      return clearSkillInstallCache(SKILLS_DIR, opts.bundledSkillsDir ?? null);
     case "ui-settings":
       return resetUiSettings();
     case "everything":
-      return everything();
+      return everything(opts);
   }
 }

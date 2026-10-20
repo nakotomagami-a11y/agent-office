@@ -3,20 +3,36 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { homedir, platform, userInfo } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, posix, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { absoluteSearchPath } from "./search-path";
 
 export const HOME = homedir();
 
+type PathApi = typeof posix;
+const nativePath: PathApi = sep === "\\" ? win32 : posix;
+
+/** Windows compares case-insensitively. `pathApi` is a parameter so tests can pin `path.win32`. */
+function comparable(p: string, pathApi: PathApi): string {
+  const abs = pathApi.resolve(p);
+  return pathApi.sep === "\\" ? abs.toLowerCase() : abs;
+}
+
+export function samePath(a: string, b: string, pathApi: PathApi = nativePath): boolean {
+  return comparable(a, pathApi) === comparable(b, pathApi);
+}
+
+/** `child` is strictly below `parent`. Never `startsWith(parent + "/")`: that refused every
+ *  Windows path and every mixed-separator one, so guarded deletes silently did nothing. */
+export function isInside(child: string, parent: string, pathApi: PathApi = nativePath): boolean {
+  const rel = pathApi.relative(comparable(parent, pathApi), comparable(child, pathApi));
+  return rel !== "" && rel !== ".." && !rel.startsWith(".." + pathApi.sep) && !pathApi.isAbsolute(rel);
+}
+
 // A test that resolves the real profile can delete real user data (it did, on
 // Windows, where HOME is ignored and USERPROFILE wins). Fail before any path is used.
 // userInfo() reads the OS account, so env overrides cannot fool it. NODE_TEST_CONTEXT
 // is unset when a test file is run directly (`tsx x.test.ts`), hence the argv check.
-function samePath(a: string, b: string): boolean {
-  const norm = (p: string) => (platform() === "win32" ? resolve(p).toLowerCase() : resolve(p));
-  return norm(a) === norm(b);
-}
 function realAccountHome(): string | null {
   try {
     return userInfo().homedir;
@@ -70,6 +86,10 @@ export const APP_STATE_DIR = join(CLAUDE_DIR, "agent-office");
 export const DB_PATH = join(APP_STATE_DIR, "db.sqlite");
 /** Data a migration removes is written here first. */
 export const BACKUPS_DIR = join(APP_STATE_DIR, "backups");
+/** Never under AGENTS_DIR: the CLI loads every .md beneath it, a backup included, as an agent (C1). */
+export const AGENT_BACKUPS_DIR = join(BACKUPS_DIR, "agents");
+/** A project's state as it was before a save file was imported over it. */
+export const IMPORT_BACKUPS_DIR = join(BACKUPS_DIR, "imports");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
 export const DOCS_GLOBAL_OWNER = "_global";
 // Where local clients (the Minecraft mod) find running servers: one <pid>.json each (random ports).
@@ -147,8 +167,10 @@ export function isValidIdSegment(name: string): boolean {
   return /^[A-Za-z0-9._-]+$/.test(name);
 }
 
-export function expandTilde(p: string): string {
-  return p.replace(/^~(?=\/|$)/, HOME);
+/** `~`, `~/x` and, on Windows, `~\x`; the result uses the platform's separators throughout. */
+export function expandTilde(p: string, home: string = HOME, pathApi: PathApi = nativePath): string {
+  const tilde = pathApi.sep === "\\" ? /^~(?=[\\/]|$)/ : /^~(?=\/|$)/;
+  return tilde.test(p) ? pathApi.join(home, p.slice(1)) : p;
 }
 
 /**

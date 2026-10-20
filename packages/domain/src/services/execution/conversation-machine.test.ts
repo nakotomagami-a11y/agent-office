@@ -238,4 +238,44 @@ check("Resume is the user's action, whatever the failed turn was", () => {
   assert.equal(effects.at(-1)?.origin, "user");
 });
 
+// B16: a scheduled resume fires outside the send flow; the parked conversation
+// must adopt it, or its finish is dropped as foreign and the chat stays parked.
+const adopt = (runId: string, resumeSessionId: string | null = "s1"): ConversationAction =>
+  ({ type: "runAdopted", runId, prompt: "resume", origin: "user", resumeSessionId });
+
+check("a parked conversation adopts a scheduled resume and its finish resolves it", () => {
+  const { state, effects } = run(initialConversationState(), [
+    { type: "send", message: msg("a") },
+    { type: "runStarted", runId: "r1" },
+    { type: "send", message: msg("b") },
+    { type: "runFinished", runId: "r1", ok: false, sessionId: "s1" },
+    adopt("sched"),
+  ]);
+  assert.equal(state.status, "running");
+  assert.equal(state.activeRunId, "sched");
+  assert.equal(state.lastPrompt, "resume");
+  assert.deepEqual(state.queue.map((m) => m.id), ["b"]);
+  assert.equal(effects.length, 1, "adopting starts nothing");
+  const done = reduce(state, { type: "runFinished", runId: "sched", ok: true, sessionId: "s2" });
+  assert.deepEqual(done.effects, [{ type: "startRun", prompt: "b", origin: "user", resumeSessionId: "s2" }]);
+});
+
+check("a scheduled resume never takes a live or starting turn", () => {
+  const live = run(initialConversationState(), [{ type: "send", message: msg("a") }, { type: "runStarted", runId: "r1" }]).state;
+  assert.equal(reduce(live, adopt("x")).state, live);
+  const starting = reduce(initialConversationState(), { type: "send", message: msg("a") }).state;
+  assert.equal(reduce(starting, adopt("x")).state, starting);
+});
+
+check("a scheduled resume of a session the conversation moved past is not adopted", () => {
+  const parked = run(initialConversationState(), [
+    { type: "send", message: msg("a") },
+    { type: "runStarted", runId: "r1" },
+    { type: "runFinished", runId: "r1", ok: false, sessionId: "newer" },
+  ]).state;
+  assert.equal(reduce(parked, adopt("x", "older")).state.status, "needs_attention");
+  assert.equal(reduce(parked, adopt("x", "newer")).state.activeRunId, "x");
+  assert.equal(reduce(initialConversationState(), adopt("x", null)).state.activeRunId, "x", "no session yet: nothing to hand over");
+});
+
 console.log(`\n${passed} passed`);

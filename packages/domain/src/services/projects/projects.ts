@@ -4,14 +4,17 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
-import { expandTilde, PROJECTS_DIR } from "../infra/paths";
+import { expandTilde, isInside, PROJECTS_DIR, samePath } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatterDetailed, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
 import { readSettings, scanProjects, slugify, isFeatureEnabled } from "../settings";
-import { getDb } from "../db";
+import { getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
+import { liveRuns } from "../execution/runs/registry";
+import { isLiveServer } from "../infra/discovery";
+import type { SessionRemovalCode, WorkChoice } from "../../config/sessions";
 import {
   isGitRepo,
   createWorktree,
@@ -20,6 +23,10 @@ import {
   worktreePath,
   worktreeDirExists,
   ensureWorktree,
+  inspectWorktree,
+  hasWork,
+  WorktreeRemoveError,
+  type WorktreeWork,
 } from "./worktrees";
 
 function metadataFile(id: string): string {
@@ -468,24 +475,27 @@ export function deleteProject(id: string): boolean {
  * directory) plus any ~/.claude/projects/<id> metadata. Destructive and
  * irreversible — the UI gates this behind a type-to-confirm modal.
  *
- * Guarded so it only ever removes a *direct child* of the configured projects
- * root: it refuses the root itself, nested paths, and anything resolving
- * outside the root. Returns false when the id doesn't match a scanned folder.
+ * `fullPath` is the folder the user confirmed. It must be the folder `id`
+ * names under the SAVED root: the settings pane lists an unsaved root, and two
+ * folder names can share one slug, so the id alone once deleted a different
+ * folder. Only a direct child of the root is ever removed. Returns false when
+ * no scanned folder matches both.
  */
-export function removeProjectFolder(id: string): boolean {
+export function removeProjectFolder(id: string, fullPath: string): boolean {
   const settings = readSettings();
   if (!settings) return false;
-  const scanned = scanProjects(settings.projectsRoot, settings.excluded, true).find((e) => e.id === id);
+  const entries = scanProjects(settings.projectsRoot, settings.excluded, true);
+  const scanned = entries.find((e) => e.id === id && e.fullPath === fullPath);
   if (!scanned) return false;
 
   const root = expandTilde(settings.projectsRoot);
-  const rel = scanned.fullPath.startsWith(root + sep) ? scanned.fullPath.slice(root.length + 1) : null;
-  if (!rel || rel.includes(sep)) {
+  if (!isInside(scanned.fullPath, root) || !samePath(dirname(scanned.fullPath), root)) {
     throw new Error(`refuse to remove '${scanned.fullPath}': not a direct child of the projects root`);
   }
 
   rmSync(scanned.fullPath, { recursive: true, force: true });
-  deleteProject(id); // also drop ~/.claude/projects/<id> metadata (no-op if absent)
+  // Metadata is keyed by slug: a same-slug sibling still owns it.
+  if (!entries.some((e) => e !== scanned && e.id === id)) deleteProject(id);
   log.warn("project.folder_removed", { id, path: scanned.fullPath });
   return true;
 }
@@ -565,7 +575,7 @@ function appendInstance(projectId: string, instance: AgentInstance): Project {
 function discardWorktree(projectId: string, instance: AgentInstance, cwd: string | undefined): void {
   if (!instance.worktree || !cwd) return;
   try {
-    removeWorktree(cwd, instance.worktree);
+    removeWorktree(cwd, instance.worktree, { force: true, deleteBranch: true });
   } catch (err) {
     log.warn("project.worktree_orphaned", {
       projectId,
@@ -659,33 +669,169 @@ export function patchInstance(
   return project;
 }
 
-export function removeInstance(projectId: string, instanceId: string): Project {
+/** One session a removal concerns, as the UI lists it. */
+export interface SessionAtRisk extends Partial<WorktreeWork> {
+  projectId: string;
+  instanceId: string;
+  agentId: string;
+  label?: string;
+  branch?: string;
+}
+
+/** A removal refused: a run is live, work would go without the user's choice, or git kept a worktree. */
+export class SessionRemovalError extends Error {
+  constructor(
+    readonly code: SessionRemovalCode,
+    readonly sessions: SessionAtRisk[],
+    readonly detail?: string,
+  ) {
+    super(`${code}: ${sessions.map((s) => s.instanceId).join(", ")}`);
+    this.name = "SessionRemovalError";
+  }
+}
+
+interface Removal {
+  project: Project;
+  instance: AgentInstance;
+  wt: { branch: string; basePath: string } | null;
+  work: WorktreeWork | null;
+}
+
+/** A reviewer borrowing a seat's worktree runs under another agent id, so match the instance only.
+ *  Another server (desktop app and `pnpm server` side by side) owns its runs, seen only in the DB. */
+function isInstanceRunning(instanceId: string): boolean {
+  for (const run of liveRuns.values()) {
+    if (run.status === "running" && run.instanceId === instanceId) return true;
+  }
+  return runningOwnerPidsOnInstance(instanceId).some((pid) => pid !== process.pid && isLiveServer(pid));
+}
+
+function sessionWorktree(project: Project, instance: AgentInstance): Removal["wt"] {
+  if (!instance.worktree || !project.meta.cwd) return null;
+  const canonical = worktreePath(project.meta.cwd, instance.instanceId);
+  return {
+    branch: instance.worktree.branch,
+    basePath: worktreeDirExists(project.meta.cwd, instance.instanceId) ? canonical : instance.worktree.basePath,
+  };
+}
+
+function atRisk(r: Removal): SessionAtRisk {
+  return {
+    projectId: r.project.id,
+    instanceId: r.instance.instanceId,
+    agentId: r.instance.agentId,
+    ...(r.instance.label ? { label: r.instance.label } : {}),
+    ...(r.wt ? { branch: r.wt.branch } : {}),
+    ...(r.work ?? {}),
+  };
+}
+
+/** Checks the whole batch before touching anything, so a refusal never leaves a half-reset roster. */
+function planRemovals(targets: Array<{ project: Project; instance: AgentInstance }>, choice?: WorkChoice): Removal[] {
+  const plan: Removal[] = targets.map(({ project, instance }) => ({
+    project, instance, wt: sessionWorktree(project, instance), work: null,
+  }));
+  const running = plan.filter((r) => isInstanceRunning(r.instance.instanceId));
+  if (running.length > 0) throw new SessionRemovalError("session_running", running.map(atRisk));
+  for (const r of plan) {
+    if (!r.wt || !r.project.meta.cwd) continue;
+    const alsoGoing = plan.filter((o) => o !== r && o.project.id === r.project.id && o.wt).map((o) => o.wt!.branch);
+    r.work = inspectWorktree(r.project.meta.cwd, r.wt, alsoGoing);
+  }
+  const risky = plan.filter((r) => r.work && hasWork(r.work));
+  if (risky.length > 0 && !choice) throw new SessionRemovalError("session_has_work", risky.map(atRisk));
+  return plan;
+}
+
+/** Under "keep", a worktree with changes stays whole, and a branch with unmerged commits outlives its worktree. */
+function releaseWorktree(r: Removal, choice?: WorkChoice): void {
+  const cwd = r.project.meta.cwd;
+  if (!r.wt || !cwd) return;
+  const work = r.work ?? { uncommitted: 0, unmerged: 0 };
+  if (choice === "keep" && hasWork(work)) {
+    if (work.uncommitted > 0 || work.unknown) {
+      log.info("project.worktree_kept", { projectId: r.project.id, instanceId: r.instance.instanceId, ...r.wt, ...work });
+      return;
+    }
+    removeWorktree(cwd, r.wt, { force: false, deleteBranch: false });
+    return;
+  }
+  removeWorktree(cwd, r.wt, { force: true, deleteBranch: true });
+}
+
+/** Sessions whose worktree git kept stay in the roster, so the user can retry. */
+function removeSessions(reason: string, plan: Removal[], choice?: WorkChoice): void {
+  const failed: SessionAtRisk[] = [];
+  let detail: string | undefined;
+  const removedByProject = new Map<string, Set<string>>();
+  for (const r of plan) {
+    try {
+      releaseWorktree(r, choice);
+    } catch (err) {
+      failed.push(atRisk(r));
+      detail ??= (err instanceof WorktreeRemoveError ? err.detail : err instanceof Error ? err.message : String(err)).slice(0, 300);
+      continue;
+    }
+    const ids = removedByProject.get(r.project.id) ?? new Set<string>();
+    ids.add(r.instance.instanceId);
+    removedByProject.set(r.project.id, ids);
+  }
+  let writeError: unknown;
+  for (const [projectId, ids] of removedByProject) {
+    try {
+      // By id against current state, never a roster snapshot.
+      mutateMetadata(projectId, reason, (cur) => ({
+        meta: { ...cur.meta, roster: cur.meta.roster.filter((i) => !ids.has(i.instanceId)) },
+      }));
+    } catch (err) {
+      // One project's refused write must not strand the rest, whose worktrees are already gone.
+      log.error("project.instances_remove_write_failed", { projectId, reason, err: String(err) });
+      writeError ??= err;
+      continue;
+    }
+    // Transcript rows (runs, messages, tool_calls) are archived, not deleted.
+    log.info("project.instances_removed", { projectId, reason, instanceIds: [...ids], choice: choice ?? null });
+  }
+  if (failed.length > 0) {
+    const all = [detail, writeError ? String(writeError) : undefined].filter(Boolean).join("; ");
+    throw new SessionRemovalError("worktree_remove_failed", failed, all.slice(0, 300));
+  }
+  if (writeError) throw writeError;
+}
+
+/**
+ * Remove one session. Refuses (SessionRemovalError) while it runs, and while
+ * its worktree holds work no other branch has unless `choice` says what to do.
+ */
+export function removeInstance(projectId: string, instanceId: string, choice?: WorkChoice): Project {
   const p = readProject(projectId);
   if (!p) throw new Error(`project '${projectId}' not found`);
   const instance = p.meta.roster.find((i) => i.instanceId === instanceId);
   if (!instance) throw new Error(`instance '${instanceId}' not found`);
+  removeSessions("removeInstance", planRemovals([{ project: p, instance }], choice), choice);
+  return readProject(projectId) ?? p;
+}
 
-  // Clean up worktree before removing from roster.
-  if (instance?.worktree && p.meta.cwd) {
-    try {
-      removeWorktree(p.meta.cwd, instance.worktree);
-    } catch (err) {
-      log.warn("project.worktree_remove_failed", {
-        projectId,
-        instanceId,
-        err: err instanceof Error ? err.message : String(err),
-      });
-      // Do not fail the remove — roster entry is still removed below.
-    }
-  }
+/** Remove every session of a project, all-or-nothing on the checks of removeInstance. */
+export function resetRoster(projectId: string, choice?: WorkChoice): Project {
+  const p = readProject(projectId);
+  if (!p) throw new Error(`project '${projectId}' not found`);
+  removeSessions("resetRoster", planRemovals(p.meta.roster.map((instance) => ({ project: p, instance })), choice), choice);
+  return readProject(projectId) ?? p;
+}
 
-  // By id against current state, never a roster snapshot.
-  const project = mutateMetadata(projectId, "removeInstance", (cur) => ({
-    meta: { ...cur.meta, roster: cur.meta.roster.filter((i) => i.instanceId !== instanceId) },
-  }));
-  // Transcript rows (runs, messages, tool_calls) are archived, not deleted.
-  log.info("project.instance_removed", { projectId, instanceId });
-  return project;
+/** Remove an agent's sessions from every project, before the agent itself goes; a
+ *  session left behind would sit hidden in project.md with its worktree. */
+export function removeAgentSessions(agentId: string, choice?: WorkChoice): number {
+  const settings = readSettings();
+  if (!settings) return 0;
+  const targets = scanProjects(settings.projectsRoot, settings.excluded, true).flatMap((entry) => {
+    const project = projectFromScan(entry);
+    return project.meta.roster.filter((i) => i.agentId === agentId).map((instance) => ({ project, instance }));
+  });
+  if (targets.length === 0) return 0;
+  removeSessions("removeAgentSessions", planRemovals(targets, choice), choice);
+  return targets.length;
 }
 
 /**
@@ -705,6 +851,8 @@ export function reconcileAllWorktrees(settings: AppSettings | null): void {
     if (!isGitRepo(cwd)) continue;
 
     const md = readMetadata(entry.id);
+    // Unreadable is not empty: every session worktree would look orphaned.
+    if (md?.lossy) continue;
     const roster = normalizeRoster(md?.meta.roster);
     const rosterInstanceIds = new Set(roster.map((i) => i.instanceId));
 
@@ -712,9 +860,8 @@ export function reconcileAllWorktrees(settings: AppSettings | null): void {
       // Direction 1: remove worktree directories with no roster entry.
       reconcileWorktrees(cwd, rosterInstanceIds);
 
-      // Direction 2: heal roster entries whose worktree directory is missing —
-      // recreate when possible, otherwise clear the dead pin so the instance
-      // falls back to the shared project cwd instead of bricking on next run.
+      // Direction 2: recreate missing worktrees of roster entries. One that
+      // cannot be recreated keeps its pin, and its next turn fails as worktree_missing.
       const project = readProject(entry.id);
       if (project) {
         for (const instance of project.meta.roster) {
@@ -755,25 +902,9 @@ function hasWorktreeIntent(instance: AgentInstance): boolean {
   return !!instance.worktree || (!!instance.cwd && instance.cwd.includes(WORKTREE_PIN));
 }
 
-/** Remove a dead worktree pin from the roster so the instance falls back to the shared cwd. */
-function clearStaleWorktree(projectId: string, instanceId: string): void {
-  const p = readProject(projectId);
-  if (!p) return;
-  const idx = p.meta.roster.findIndex((i) => i.instanceId === instanceId);
-  if (idx === -1) return;
-  const seen = p.meta.roster[idx]!;
-  if (seen.cwd === undefined && seen.worktree === undefined) return;
-  mutateMetadata(projectId, "clearStaleWorktree", (cur) => {
-    const i = cur.meta.roster.findIndex((x) => x.instanceId === instanceId);
-    if (i === -1) return { meta: cur.meta };
-    const inst = { ...cur.meta.roster[i]! };
-    delete inst.cwd;
-    delete inst.worktree;
-    const roster = [...cur.meta.roster];
-    roster[i] = inst;
-    return { meta: { ...cur.meta, roster } };
-  });
-  log.info("project.worktree_pin_cleared", { projectId, instanceId });
+/** A seat's branch follows the mission hub: a fresh one off local HEAD would be unrelated work. */
+function isMissionSeat(instance: AgentInstance): boolean {
+  return (instance.worktree?.branch.startsWith("mission/") ?? false) || wasMissionSeat(instance.instanceId);
 }
 
 /**
@@ -794,10 +925,11 @@ export function instanceWorktreeMissing(project: Project | null, instance: Agent
  * For worktree-backed instances:
  *  - returns the worktree path when it exists (correcting a drifted absolute
  *    path, e.g. after the repo was moved);
- *  - otherwise recreates the worktree (reusing the original branch when
- *    possible) and persists the corrected pin;
- *  - if recreation is impossible, clears the dead pin and returns undefined so
- *    the agent degrades to the shared project cwd instead of erroring.
+ *  - otherwise recreates the worktree on its original branch and persists the
+ *    corrected pin;
+ *  - if recreation is impossible, returns the (missing) worktree path, so the
+ *    turn fails as worktree_missing. Never the shared project cwd: the session's
+ *    work is on its branch, and running elsewhere would hide that.
  *
  * Returns the absolute cwd, or undefined to defer to resolveSummonCwd.
  */
@@ -810,8 +942,8 @@ export function resolveInstanceCwd(
 
   const projectCwd = project.meta.cwd;
   if (!projectCwd || !isGitRepo(projectCwd)) {
-    clearStaleWorktree(project.id, instance.instanceId);
-    return undefined;
+    log.warn("project.worktree_unhealable", { projectId: project.id, instanceId: instance.instanceId, reason: "not_a_git_repo" });
+    return instance.worktree?.basePath ?? instance.cwd;
   }
 
   const expected = worktreePath(projectCwd, instance.instanceId);
@@ -826,7 +958,9 @@ export function resolveInstanceCwd(
     return expected;
   }
 
-  const recreated = ensureWorktree(projectCwd, instance.instanceId, instance.worktree?.branch);
+  const recreated = ensureWorktree(projectCwd, instance.instanceId, instance.worktree?.branch, {
+    freshBranch: !isMissionSeat(instance),
+  });
   if (recreated) {
     patchInstance(project.id, instance.instanceId, {
       cwd: recreated.basePath,
@@ -844,9 +978,8 @@ export function resolveInstanceCwd(
     return recreated.basePath;
   }
 
-  clearStaleWorktree(project.id, instance.instanceId);
   log.warn("project.worktree_unhealable", { projectId: project.id, instanceId: instance.instanceId });
-  return undefined;
+  return expected;
 }
 
 export interface CreateProjectInput {

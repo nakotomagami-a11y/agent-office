@@ -7,6 +7,7 @@ import { UnitSprite } from "@/components/ui/unit-sprite";
 import { WeaponIcon } from "@/components/ui/weapon-icon";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { PAGE_ROUTES } from "@/lib/page-routes";
+import { ApiError } from "@/lib/api/fetch";
 import {
   EMPTY_FORM,
   type AgentFormValues,
@@ -18,6 +19,8 @@ import {
   toCsv,
 } from "../form/agent-form";
 import { useCreateAgent, useWriteAgent, useDeleteAgent } from "../hooks/use-agents";
+import { sessionConflictOf } from "@/lib/api/roster";
+import type { WorkChoice } from "@agent-office/domain/config/sessions";
 import { useInstalledSkills, useSkillIcons, skillIconKey, skillIconConfig } from "@/modules/skills/hooks/use-skills";
 import type { IconConfig } from "@agent-office/pixel-icons";
 import { Button } from "@/components/ui/button";
@@ -418,10 +421,22 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
       if (onSaved) onSaved(id);
       else router.push(PAGE_ROUTES.agent(id));
     };
-    const onError = (err: unknown) => setServerError(err instanceof Error ? err.message : String(err));
+    const onError = (err: unknown) => {
+      if (err instanceof ApiError && err.data?.error === "agent_exists") {
+        const message = t("agent_editor.error_agent_exists", { id: body.id });
+        setErrors([{ field: "id", message }]);
+        setServerError(message);
+        return;
+      }
+      if (err instanceof ApiError && err.data?.error === "frontmatter_unparseable") {
+        setServerError(t("agent_editor.error_frontmatter_unparseable", { id: body.id }));
+        return;
+      }
+      setServerError(err instanceof Error ? err.message : String(err));
+    };
     if (mode === "new") createMut.mutate(body, { onSuccess, onError });
     else writeMut.mutate(body, { onSuccess, onError });
-  }, [values, mode, createMut, writeMut, onSaved, router]);
+  }, [values, mode, createMut, writeMut, onSaved, router, t]);
 
   const handleDiscard = () => setValues(baseline);
 
@@ -429,14 +444,26 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
 
   const handleDelete = () => {
     if (mode !== "edit") return;
-    if (!window.confirm(`Delete agent "${values.id}"? This cannot be undone.`)) return;
-    deleteMut.mutate(values.id, {
+    if (!window.confirm(t("session_removal.agent_delete_confirm", { id: values.id }))) return;
+    const remove = (work?: WorkChoice) => deleteMut.mutate({ id: values.id, work }, {
       onSuccess: () => {
         if (onDeleted) onDeleted();
         else router.push(PAGE_ROUTES.agents);
       },
-      onError: (err) => setServerError(err instanceof Error ? err.message : String(err)),
+      onError: (err) => {
+        const conflict = sessionConflictOf(err);
+        const count = conflict?.sessions.length ?? 0;
+        const names = conflict?.sessions.map((s) => `${s.label ?? s.instanceId} (${s.projectId})`).join(", ") ?? "";
+        if (conflict?.code === "session_has_work" && !work) {
+          if (window.confirm(t("session_removal.agent_delete_has_work", { count, names }))) remove("keep");
+          return;
+        }
+        if (conflict?.code === "session_running") setServerError(t("session_removal.running", { count }));
+        else if (conflict) setServerError(`${t("session_removal.remove_failed", { count })} ${conflict.detail ?? ""}`);
+        else setServerError(err instanceof Error ? err.message : String(err));
+      },
     });
+    remove();
   };
 
   useEffect(() => {

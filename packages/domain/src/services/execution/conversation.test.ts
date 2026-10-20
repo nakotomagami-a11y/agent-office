@@ -185,4 +185,60 @@ await check("self-heals a conversation stuck on an orphan-reaped run", async () 
   assert.equal(started.length, before); // retry found nothing to do post-heal
 });
 
+// B16: a scheduled resume (scheduler.ts) starts its run outside the send flow.
+// Before adoption its finish was dropped as foreign and the chat stayed parked.
+const startOutside = (instanceId: string, convId: string, prompt = "Continue after the rate limit", agentId = "dev") =>
+  runner.startRun({ agentId, instanceId, projectId: "p", prompt, origin: "user", resumeSessionId: "sess-s", conversationId: convId });
+
+await check("a scheduled resume is adopted by a parked conversation and its finish resolves it", async () => {
+  const convId = (await convo.ensureConversationView("dev", "sched", "p", runner)).id;
+  await convo.sendMessage("dev", "sched", "p", "limited", runner);
+  await convo.sendMessage("dev", "sched", "p", "waiting", runner);
+  await convo.onRunFinished(db.getConversation(convId)!.activeRunId!, false, "sess-s", runner);
+  assert.equal(statusOf(convId), "needs_attention");
+
+  const resumeRunId = await startOutside("sched", convId);
+  assert.equal(await convo.adoptScheduledRun(convId, resumeRunId, "sess-s", runner), true);
+  assert.equal(statusOf(convId), "running");
+  assert.equal(db.getConversation(convId)!.activeRunId, resumeRunId);
+  assert.deepEqual(queueOf(convId), ["waiting"], "adopting must not drain the queue");
+
+  await convo.onRunFinished(resumeRunId, true, "sess-s2", runner);
+  assert.equal(started.at(-1)!.prompt, "waiting", "the resume finishing drains the queue like a normal turn");
+  assert.equal(started.at(-1)!.resumeSessionId, "sess-s2");
+});
+
+await check("only a run of the conversation's own slot is adopted", async () => {
+  const convId = (await convo.ensureConversationView("dev", "slot", "p", runner)).id;
+  const otherConv = (await convo.ensureConversationView("dev", "slot-b", "p", runner)).id;
+  for (const foreign of [await startOutside("slot", otherConv), await startOutside("slot-b", convId), await startOutside("slot", convId, "x", "qa")]) {
+    assert.equal(await convo.adoptScheduledRun(convId, foreign, null, runner), false);
+  }
+  assert.equal(statusOf(convId), "idle");
+});
+
+await check("a direct /api/summon run still never takes over an idle conversation", async () => {
+  const convId = (await convo.ensureConversationView("dev", "direct", "p", runner)).id;
+  convo.attachExternalRun(convId, await startOutside("direct", convId));
+  assert.equal(statusOf(convId), "idle");
+  assert.equal(db.getConversation(convId)!.activeRunId, null);
+});
+
+await check("a start the server died in is parked, so a scheduled resume can be adopted", async () => {
+  const convId = (await convo.ensureConversationView("dev", "stall", "p", runner)).id;
+  mem.prepare("UPDATE conversations SET status='running', active_run_id=NULL, updated_at=? WHERE id=?").run(Date.now() - 10 * 60_000, convId);
+  const resumeRunId = await startOutside("stall", convId);
+  assert.equal(await convo.adoptScheduledRun(convId, resumeRunId, null, runner), true);
+  assert.equal(db.getConversation(convId)!.activeRunId, resumeRunId);
+});
+
+await check("a scheduled resume is not adopted by a conversation the user left with New thread", async () => {
+  const oldId = (await convo.ensureConversationView("dev", "moved", "p", runner)).id;
+  convo.newThread("dev", "moved", "p");
+  const before = started.length;
+  assert.equal(await convo.adoptScheduledRun(oldId, await startOutside("moved", oldId), null, runner), false);
+  assert.equal(statusOf(oldId), "idle");
+  assert.equal(started.length, before + 1, "only the scheduled run itself started; nothing queued ran");
+});
+
 console.log(`\n${passed} passed`);

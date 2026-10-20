@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { MISSION_LIMITS } from "@agent-office/domain/config/missions";
 import type { OpenAsk } from "@agent-office/domain/types";
 import { cn } from "@/lib/cn";
+import { MarkdownView } from "@/components/ui/markdown-view";
 import { FOCUS_RING } from "./mission-fields";
 
 export function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -72,7 +73,7 @@ export function AskItem({ ask, busy, drafts, onAnswer }: {
   return (
     <li className="flex flex-col gap-1.5 rounded-lg border border-edge-2 bg-card-3 p-2">
       <p className="text-txt-3"><code>{ask.seat}</code> · {t(`ask_kind.${ask.kind}`)}</p>
-      <p className="max-h-[120px] overflow-y-auto whitespace-pre-wrap text-txt" tabIndex={0}>{ask.text}</p>
+      <div className="ao-prose ao-prose-sm max-h-[120px] overflow-y-auto" tabIndex={0}><MarkdownView text={ask.text} /></div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

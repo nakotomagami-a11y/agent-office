@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
+import { SESSION_REMOVAL_CODES, WORK_CHOICES } from "@agent-office/domain/config/sessions";
 
 export const agentBodySchema = z.object({
   name: z.string().min(1),
@@ -20,6 +21,8 @@ export const agentBodySchema = z.object({
   // Zod strips unknown keys, so a council saved through the editor would lose
   // its seats here even though the form carries them.
   panel: z.array(z.object({ agent: z.string(), seat: z.string().default("") })).optional(),
+  // Omitted = keep the file's `add-dirs`; the editor has no field for it.
+  addDirs: z.array(z.string().min(1)).optional(),
 });
 
 export const agentBodyListSchema = z.array(agentBodySchema);
@@ -41,6 +44,11 @@ export const settingsScanQuerySchema = z.object({
   root: z.string().default(""),
   excluded: z.string().default(""),
   includeExcluded: z.string().optional(),
+});
+
+/** DELETE /api/projects/<id>/folder: `path` is the folder the user confirmed, checked server-side. */
+export const projectFolderDeleteQuerySchema = z.object({
+  path: z.string().min(1),
 });
 
 const rgbTriple = z.tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)]);
@@ -158,6 +166,27 @@ export const rosterPatchSchema = z.object({
   playwrightEnabled: z.boolean().optional(),
   qaLoopEnabled: z.boolean().optional(),
   room: z.string().optional(),
+});
+
+/** `?work=` on a session, roster or agent DELETE: what happens to work no other branch holds. Absent = refuse if there is any. */
+export const sessionRemovalQuerySchema = z.object({
+  work: z.enum(WORK_CHOICES).optional(),
+});
+
+/** The 409 body of a refused session, roster or agent DELETE: the sessions concerned and what each holds. */
+export const sessionConflictSchema = z.object({
+  error: z.enum(SESSION_REMOVAL_CODES),
+  sessions: z.array(z.object({
+    projectId: z.string(),
+    instanceId: z.string(),
+    agentId: z.string(),
+    label: z.string().optional(),
+    branch: z.string().optional(),
+    uncommitted: z.number().optional(),
+    unmerged: z.number().optional(),
+    unknown: z.boolean().optional(),
+  })).default([]),
+  detail: z.string().optional(),
 });
 
 export const skillInstallSchema = z.object({

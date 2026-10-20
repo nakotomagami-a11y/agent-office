@@ -174,6 +174,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     agentId: req.agentId,
     agentName: instanceLabel ?? agent.info.name,
     prompt: req.prompt,
+    origin: req.origin,
     model: built.model,
     effort: built.effort,
     cwd: cwdResolution.cwd,

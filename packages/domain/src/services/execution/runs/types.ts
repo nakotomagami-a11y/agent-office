@@ -4,6 +4,7 @@
 
 import type { ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
+import type { ChildProc } from "../process-scan";
 import type {
   SseAttachedEvent,
   SsePermissionRequestEvent,
@@ -39,7 +40,8 @@ export type SseEmit = (event: SseEvent) => void | Promise<void>;
 // `rate-limit` is replayable so the limit card survives an SSE reconnect or a
 // chat re-open. Without it, a reconnect replays only the streamed text chunk and
 // the card degrades back to a plain "You've hit your session limit" bubble.
-export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "tool-done" | "usage" | "subagent" | "rate-limit" }>;
+// `subagent-update` likewise: without it a reconnect left a finished sub-agent's card running.
+export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "tool-done" | "usage" | "subagent" | "subagent-update" | "rate-limit" }>;
 
 export interface SubAgentRecord {
   subRunId: string;
@@ -121,9 +123,10 @@ export interface LiveRun {
   subAgents: Map<string, SubAgentRecord>;
   /** Bash tool_use ids awaiting their tool_result, for `run_in_background`
    *  calls — keyed by tool_use id so the matching tool_result (which carries
-   *  no input, only the id) can be paired back up. See `trackBackgroundShell`
-   *  for what `childPidsBefore` is for. */
-  pendingBackgroundBash: Map<string, { command: string; description?: string; childPidsBefore: Set<number> }>;
+   *  no input, only the id) can be paired back up. See `trackBackgroundShell`. */
+  pendingBackgroundBash: Map<string, { command: string; description?: string; requestedAt: number }>;
+  /** The CLI's children at its first background call: its MCP servers among them. */
+  earlierChildren?: Promise<ChildProc[]>;
   /** Bash tool_use ids running `gh pr create`; see runs/pr-create.ts. */
   pendingPrCreate: Set<string>;
 }
