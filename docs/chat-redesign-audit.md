@@ -337,7 +337,7 @@ Why the hybrid for 4: an app-owned list would mean two lists that drift. The ter
 | same, 25-tool server denied | 8 | 32,858 |
 | same, both denied | 0 | 31,911 |
 
-A 25-tool server costs about **300 tokens per run (~1%)**: `ToolSearch` is in the tool set, so Claude Code lists MCP tool names and loads schemas only on demand. The premise behind the Playwright toggle ("thousands of tokens every turn") no longer holds. Saving context is not a reason to build per-session toggles.
+**Superseded:** these runs had no `--agent`. With an agent tool list (how agents really run) a 25-tool server costs ~7,800 tokens per run, or ~900 with `ToolSearch` in the list. See `docs/agent-capabilities-audit.md` C18.
 
 ### Design
 
