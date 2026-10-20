@@ -99,26 +99,13 @@
     "title": "Set up the office",
     "subtitle": "Six short steps and your crew can start work. Everything here is editable later in Settings.",
     "skip": "Skip setup",
-    "step_requirements": "Essentials",
+    "step_provider": "AI",
     "step_root": "Workspace",
     "step_excluded": "Ignore",
     "step_integrations": "Extras",
     "step_agents": "Crew",
     "step_project": "Project",
     "back_to_step": "Back to {step}",
-    "requirements_title": "First, the essentials",
-    "requirements_hint": "Your crew works through Claude Code running locally on this machine. It has to be installed before anyone can start.",
-    "req_claude_label": "Claude Code",
-    "req_claude_ok": "claude {version}",
-    "req_claude_missing": "Not found in PATH",
-    "req_claude_checking": "Checking…",
-    "req_claude_ready": "Ready",
-    "req_claude_blocked": "Missing",
-    "req_claude_install": "Install instructions: run `npm install -g @anthropic-ai/claude-code` then re-open this app.",
-    "req_claude_auth_note": "After installing, run `claude` once in a terminal to log in.",
-    "req_block": "Claude Code must be installed before you can continue.",
-    "what_runs_where_title": "What runs where",
-    "what_runs_where_body": "Every agent is a local Claude Code process working in a folder on this machine. Nothing leaves it except the calls Claude Code makes itself.",
     "root_title": "Where does the work live?",
     "root_hint": "Point the office at the folder that holds your repos. Each subfolder can become a project.",
     "root_examples": "Examples: ~/code, ~/Documents/work, /Users/you/dev",
@@ -148,7 +135,11 @@
     "project_no_git": "no git",
     "finish": "Open the office",
     "finishing": "Setting things up…",
-    "error_root_required": "Projects root is required."
+    "error_root_required": "Projects root is required.",
+    "provider_title": "Which AI runs your crew?",
+    "provider_hint": "Pick where agents run and make sure it connects. You can change it later in Settings.",
+    "provider_block": "Pick a provider and make sure it connects before you continue.",
+    "error_provider_required": "Choose an AI provider before finishing setup."
   },
   "sidebar": {
     "roster_label": "Roster · {count}",
@@ -559,7 +550,8 @@
     "nav_secrets_label": "Secrets",
     "nav_about_you_label": "About You",
     "nav_performance_label": "Performance",
-    "nav_cleanup_label": "Cleanup"
+    "nav_cleanup_label": "Cleanup",
+    "nav_provider_label": "AI provider"
   },
   "integrations_tab": {
     "title": "Integrations",
@@ -930,9 +922,100 @@
         "title": "Couldn't start the run",
         "body": "Something went wrong starting this run."
       },
+      "provider_unavailable": {
+        "title": "AI provider unavailable",
+        "body": "The AI provider chosen in Settings can't run right now.",
+        "action": "Open AI provider settings"
+      },
+      "provider_auth_failed": {
+        "title": "AI provider rejected the key",
+        "body": "Replace the key in Settings → AI provider. Signing in to Claude won't help.",
+        "action": "Open AI provider settings"
+      },
+      "provider_unreachable": {
+        "title": "AI provider unreachable",
+        "body": "The AI provider or local server didn't answer. Check that it is running.",
+        "action": "Open AI provider settings"
+      },
+      "provider_model_not_found": {
+        "title": "Model not found",
+        "body": "The model this agent maps to doesn't exist at the provider's address. For a local server, check that the address ends in /v1, then fix the model map in Settings → AI provider.",
+        "action": "Open AI provider settings"
+      },
+      "provider_mismatch": {
+        "title": "AI provider mismatch",
+        "body": "The agent signed in some other way than the chosen AI provider, so the run was stopped.",
+        "action": "Open AI provider settings"
+      },
+      "budget_exceeded": {
+        "title": "Budget cap reached",
+        "body": "This run reached its budget cap. Raise the run's budget or the mission seat cap, then retry."
+      },
       "unknown": {
         "title": "Run error",
         "body": "The agent hit an error."
+      }
+    },
+    "provider": {
+      "not_configured": {
+        "title": "No provider chosen",
+        "body": "Choose where agents run, then test it."
+      },
+      "invalid_config": {
+        "title": "Saved provider setting is invalid",
+        "body": "The stored provider setting can't be read. Pick a provider again and save it."
+      },
+      "cli_missing": {
+        "title": "Claude Code is not installed",
+        "body": "Every provider runs through the claude command. Run `npm install -g @anthropic-ai/claude-code`, reopen this app, then check again."
+      },
+      "not_signed_in": {
+        "title": "Not signed in to Claude",
+        "body": "The claude command has no login on this machine. Sign in here, no terminal needed."
+      },
+      "key_missing": {
+        "title": "No API key saved",
+        "body": "Enter the API key for this provider. It is stored encrypted on this device."
+      },
+      "key_unreadable": {
+        "title": "The saved key can't be read",
+        "body": "The stored key can't be decrypted on this machine. Enter the key again to replace it."
+      },
+      "key_invalid": {
+        "title": "The key was rejected",
+        "body": "The provider refused this key. Check it for typos and that it belongs to this provider, then enter it again."
+      },
+      "unreachable": {
+        "title": "The provider didn't answer",
+        "body": "Nothing answered at the address. Check that the server is running and the address is right, then check again."
+      },
+      "timeout": {
+        "title": "The provider took too long",
+        "body": "The request timed out. The server may be starting up or busy. Check again in a moment."
+      },
+      "empty_response": {
+        "title": "The provider sent an empty answer",
+        "body": "The server replied without any content. Check that it is an OpenAI-compatible server, then check again."
+      },
+      "no_models": {
+        "title": "No models on the server",
+        "body": "The server answered but lists no models. Load or pull a model, then check again."
+      },
+      "model_not_found": {
+        "title": "Model or address not found",
+        "body": "The provider doesn't offer a model you mapped, or the address is wrong. A local server address usually needs /v1 on the end. Pick a model from the list, or fix the address."
+      },
+      "rate_limited": {
+        "title": "Rate limited by the provider",
+        "body": "The provider is limiting requests for this key. Wait a little, or use another key."
+      },
+      "base_url_invalid": {
+        "title": "The address isn't valid",
+        "body": "Use an http or https address without a username, password or query, like http://localhost:11434/v1."
+      },
+      "budget_unenforceable": {
+        "title": "Spending caps need a known price",
+        "body": "This run has a spending cap, but the price of its model isn't known, so the cap couldn't be enforced. Remove the cap, or pick a model with a listed price."
       }
     }
   },
@@ -1210,7 +1293,8 @@
     "attention_stale": "More than 12h overdue — confirm before running.",
     "attention_missing_instance": "The target agent no longer exists. Reassign it.",
     "attention_bridge_missing": "The app's permission bridge is missing — reinstall. Reassigning will not help.",
-    "attention_retry_exceeded": "Still rate-limited after 5 retries. Run manually when ready."
+    "attention_retry_exceeded": "Still rate-limited after 5 retries. Run manually when ready.",
+    "attention_provider_unavailable": "The AI provider couldn't run it. Fix it in Settings → AI provider, then run it again."
   },
   "image_job": {
     "generating": "Generating {done}/{count}",
@@ -1218,5 +1302,115 @@
     "lookup_failed": "Couldn't check for the images",
     "slot_generating": "Generating…",
     "slot_missing": "Not generated"
+  },
+  "providers": {
+    "title": "AI provider",
+    "hero_sub": "Where agents run. Agent Office uses exactly the provider you pick, and never switches to another on its own.",
+    "picker_aria": "AI provider",
+    "never_swaps": "If the provider you pick can't run, agents stop and tell you why. Nothing falls back to another provider.",
+    "loading": "Loading providers…",
+    "load_failed": "Couldn't read the provider settings.",
+    "retry": "Try again",
+    "badge_active": "Active",
+    "active_label": "Active now",
+    "last_changed": "Last changed {time}",
+    "option_subscription_name": "Claude subscription",
+    "option_subscription_tag": "Default. Uses your claude login, no key needed.",
+    "option_anthropic_api_name": "Anthropic API key",
+    "option_anthropic_api_tag": "Pay per token with your own key.",
+    "option_openai_name": "OpenAI",
+    "option_openai_tag": "Pay per token with an OpenAI key.",
+    "option_local_name": "Local model",
+    "option_local_tag": "Ollama, LM Studio or any OpenAI-compatible server.",
+    "privacy_subscription": "Prompts and file contents go to Anthropic through your Claude login.",
+    "privacy_anthropic_api": "Prompts and file contents go to Anthropic with your API key.",
+    "privacy_openai": "Prompts and file contents go to OpenAI, or to the address you set. Prices for spending caps are fetched separately from a public catalog (see Model prices below).",
+    "privacy_local": "Prompts and file contents go only to the server address you enter. Nothing leaves your network unless that server sends it on.",
+    "key_label": "API key",
+    "key_label_optional": "API key (optional)",
+    "key_placeholder": "Paste the key",
+    "key_write_only": "Stored encrypted on this device. It is never shown again, only its last four characters.",
+    "key_saved": "Key saved, ends in {hint}",
+    "key_replace": "Replace",
+    "key_remove": "Remove",
+    "key_clears_warning": "Changing the address removes the saved key. Enter a new key to keep using this provider.",
+    "url_label_openai": "Base URL",
+    "url_label_local": "Server address",
+    "url_placeholder_openai": "https://api.openai.com/v1",
+    "url_placeholder_local": "http://localhost:11434/v1",
+    "url_hint_openai": "Leave empty to use OpenAI's own address.",
+    "url_hint_local": "An OpenAI-compatible address, usually ending in /v1.",
+    "url_invalid": "That isn't a valid http or https address.",
+    "url_credentials": "Remove the username and password from the address. Put a key in the key field instead.",
+    "url_preset_ollama": "Ollama",
+    "url_preset_lmstudio": "LM Studio",
+    "advanced": "Advanced",
+    "models_hint": "Agents ask for Fast, Balanced or Deep. Choose the model each one runs on.",
+    "tier_haiku": "Fast",
+    "tier_sonnet": "Balanced",
+    "tier_opus": "Deep",
+    "model_one_label": "Model",
+    "model_one_hint": "Every agent uses this model.",
+    "model_placeholder": "e.g. qwen3-coder:30b",
+    "model_use_one": "Use one model for every tier",
+    "model_use_per_tier": "Use a different model per tier",
+    "cli_label": "Claude Code",
+    "cli_ok": "claude {version}",
+    "cli_missing": "Not found in PATH",
+    "cli_checking": "Checking…",
+    "recheck": "Re-check",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "test_ok": "Connected in {ms} ms",
+    "test_models": "{count, plural, one {# model} other {# models}}",
+    "not_tested": "Not tested yet.",
+    "checked_ok_before": "The last check passed. Test again to be sure.",
+    "generic_error": "Couldn't complete the request.",
+    "unavailable": "Unavailable: {reason}",
+    "action_sign_in": "Sign in with Claude",
+    "action_recheck": "Check again",
+    "continue_anyway": "Continue anyway",
+    "pill_ready": "Ready",
+    "pill_none": "Not checked",
+    "switch_confirm": "Running agents finish on {from}. New turns use {to}.",
+    "use_provider": "Use this provider",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "prices_title": "Model prices",
+    "prices_hint": "Prices come from a public catalog, not from this app. Agent Office contacts raw.githubusercontent.com (LiteLLM), or openrouter.ai if that fails, about once a day and sends nothing about you. Turn the switch off to stop that: every price then reads as unknown, and a spending cap on an OpenAI run is refused because it can't be enforced.",
+    "prices_loading": "Loading prices…",
+    "prices_unavailable": "Prices unavailable (offline or not fetched yet).",
+    "prices_source": "Prices: {source}, updated {date}",
+    "prices_stale": "Stale",
+    "prices_refresh": "Refresh prices",
+    "prices_refreshing": "Refreshing…",
+    "prices_refresh_failed": "Couldn't refresh the prices.",
+    "cost_unknown": "—",
+    "cost_free": "no cost",
+    "cost_estimated": "est. {amount}",
+    "cost_unknown_label": "Cost unknown",
+    "capability_na": "n/a with this provider",
+    "open_settings": "Open AI provider settings",
+    "account_label_sessions": "Claude account (sessions only)",
+    "accounts_note": "Agents run on {provider} now. These Claude accounts hold sessions and shared files only; the plan and sign-in apply to the subscription.",
+    "caps_need_price": "Spending caps need a known price. With {provider} they can't be enforced until its model prices are known, so a run that has a cap is refused rather than allowed to overspend.",
+    "cap_cost_unknown": "cap needs a known price",
+    "reserved_name_note": "{name} is reserved. Agents never receive it from a project secret, because it selects which AI provider runs. Set the provider in Settings instead.",
+    "reserved_badge": "reserved, not passed to agents",
+    "context_cost_note": "Dollar figures here use Anthropic's prices and don't apply to {provider}. Token counts still do.",
+    "run_retry": "Retry",
+    "run_skip": "Skip",
+    "key_shape_anthropic_key_for_openai": "This looks like an Anthropic key. OpenAI keys usually start with sk-.",
+    "key_shape_not_an_anthropic_key": "Anthropic keys usually start with sk-ant-. Check that this key is from Anthropic.",
+    "pick_one": "Pick a provider to continue.",
+    "price_per_mtok": "{price}/Mt",
+    "prices_refresh_wait": "Refreshed a moment ago. Wait a little before refreshing again.",
+    "key_saved_plain": "Key saved",
+    "prices_fetch_off": "Prices unavailable (fetching is off)",
+    "prices_fetch_toggle": "Fetch prices automatically",
+    "prices_fetch_toggle_failed": "Couldn't change the setting.",
+    "prices_refresh_offline": "Couldn't reach the price sources. Check your connection.",
+    "context_cost_no_price": "No price is known for this model yet, so dollar figures show a dash. Token counts are unaffected.",
+    "unknown_cost_runs": "+ {count, plural, one {# run} other {# runs}} with unknown cost"
   }
 }

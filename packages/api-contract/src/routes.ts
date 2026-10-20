@@ -121,6 +121,19 @@ export const API_ROUTES = {
   scheduleRun: (id: string) => `/api/schedules/${encodeURIComponent(id)}/run`,
   broadcast: "/api/broadcast",
 
+  // AI providers (docs/architecture.md, "AI providers"). The gateway is called only by agents.
+  providers: "/api/providers",
+  providersSelected: "/api/providers/selected",
+  provider: (id: string) => `/api/providers/${encodeURIComponent(id)}`,
+  providerKey: (id: string) => `/api/providers/${encodeURIComponent(id)}/key`,
+  providerTest: (id: string) => `/api/providers/${encodeURIComponent(id)}/test`,
+  modelPrices: "/api/model-prices",
+  modelPricesRefresh: "/api/model-prices/refresh",
+  modelPricesSettings: "/api/model-prices/settings",
+  /** Agents reach these through ANTHROPIC_BASE_URL; no UI calls them. */
+  gatewayMessages: "/api/gateway/v1/messages",
+  gatewayCountTokens: "/api/gateway/v1/messages/count_tokens",
+
   settings: "/api/settings",
   settingsScan: "/api/settings/scan",
   userAnalysis: "/api/user-analysis",

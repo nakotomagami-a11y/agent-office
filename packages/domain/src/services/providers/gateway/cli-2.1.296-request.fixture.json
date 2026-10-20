@@ -1,0 +1,182 @@
+{
+ "cli": "2.1.296",
+ "note": "Sanitized second request of a real `claude -p` turn (tool_use then tool_result). Prompt text replaced, tools cut to Bash and Read.",
+ "url": "/v1/messages?beta=true",
+ "body": {
+  "model": "gpt-mid",
+  "messages": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "text",
+      "text": "[text 555 chars]"
+     },
+     {
+      "type": "text",
+      "text": "[text 577 chars]"
+     },
+     {
+      "type": "text",
+      "text": "[text 20 chars]"
+     }
+    ]
+   },
+   {
+    "role": "system",
+    "content": "[text 8540 chars]"
+   },
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_use",
+      "id": "toolu_1",
+      "name": "Bash",
+      "input": {
+       "command": "echo hi",
+       "description": "say hi"
+      }
+     }
+    ]
+   },
+   {
+    "role": "user",
+    "content": [
+     {
+      "tool_use_id": "toolu_1",
+      "type": "tool_result",
+      "content": "hi",
+      "is_error": false
+     }
+    ]
+   },
+   {
+    "role": "system",
+    "content": [
+     {
+      "type": "text",
+      "text": "[text 49 chars]",
+      "cache_control": {
+       "type": "ephemeral"
+      }
+     }
+    ]
+   }
+  ],
+  "system": [
+   {
+    "type": "text",
+    "text": "[text 74 chars]"
+   },
+   {
+    "type": "text",
+    "text": "[text 62 chars]",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   },
+   {
+    "type": "text",
+    "text": "[text 5697 chars]",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "tools": [
+   {
+    "name": "Bash",
+    "description": "[text 1583 chars]",
+    "input_schema": {
+     "$schema": "https://json-schema.org/draft/2020-12/schema",
+     "type": "object",
+     "properties": {
+      "command": {
+       "description": "The command to execute",
+       "type": "string"
+      },
+      "timeout": {
+       "description": "Optional timeout in milliseconds (max 600000 for a foreground command)",
+       "type": "number"
+      },
+      "description": {
+       "description": "Clear, concise description of what this command does in active voice. Never use words like \"complex\" or \"risk\" in the description - just describe what it does.\n\nSay what the command does in plain words: do not echo the command's text, its flags, or file paths - the user reads this description, often without seeing the command.\n\nFor simple commands (git, npm, standard CLI tools), keep it brief (5-10 words):\n- ls → \"List files in current directory\"\n- git status → \"Show working tree status\"\n- npm install → \"Install package dependencies\"\n\nFor commands that are harder to parse at a glance (piped commands, obscure flags, etc.), add enough context to clarify what it does:\n- find . -name \"*.tmp\" -exec rm {} \\; → \"Find and delete all .tmp files recursively\"\n- git reset --hard origin/main → \"Discard all local changes and match remote main\"\n- curl -s url | jq '.data[]' → \"Fetch JSON from URL and extract data array elements\"",
+       "type": "string"
+      },
+      "run_in_background": {
+       "description": "Set to true to run this command in the background. With it, `timeout` limits how long the command may run in the background before it is stopped (default 600000 ms, max 7200000 ms).",
+       "type": "boolean"
+      },
+      "dangerouslyDisableSandbox": {
+       "description": "Set this to true to dangerously override sandbox mode and run commands without sandboxing.",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "command"
+     ],
+     "additionalProperties": false
+    }
+   },
+   {
+    "name": "Read",
+    "description": "[text 790 chars]",
+    "input_schema": {
+     "$schema": "https://json-schema.org/draft/2020-12/schema",
+     "type": "object",
+     "properties": {
+      "file_path": {
+       "description": "The absolute path to the file to read",
+       "type": "string"
+      },
+      "offset": {
+       "description": "The line number to start reading from. Only provide if the file is too large to read at once",
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 9007199254740991
+      },
+      "limit": {
+       "description": "The number of lines to read. Only provide if the file is too large to read at once.",
+       "type": "integer",
+       "exclusiveMinimum": 0,
+       "maximum": 9007199254740991
+      },
+      "pages": {
+       "description": "Page range for PDF files (e.g., \"1-5\", \"3\", \"10-20\"). Only applicable to PDF files. Maximum 20 pages per request.",
+       "type": "string"
+      },
+      "allow_large": {
+       "description": "Set to true to read a text file, or a line range of one, that is over the usual size limits, up to what still fits in your context. Only use this when you genuinely need all of it or the user asked for the whole file; otherwise read it in parts with offset and limit, or search it.",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "file_path"
+     ],
+     "additionalProperties": false
+    }
+   }
+  ],
+  "metadata": {
+   "user_id": "{\"device_id\":\"redacted\",\"account_uuid\":\"\",\"session_id\":\"redacted\"}"
+  },
+  "max_tokens": 32000,
+  "thinking": {
+   "type": "adaptive",
+   "display": "updates"
+  },
+  "context_management": {
+   "edits": [
+    {
+     "type": "clear_thinking_20251015",
+     "keep": "all"
+    }
+   ]
+  },
+  "output_config": {
+   "effort": "high"
+  },
+  "stream": true
+ }
+}

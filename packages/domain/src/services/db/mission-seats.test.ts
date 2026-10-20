@@ -22,7 +22,7 @@ beforeEach(() => {
   globalThis.__agentOfficeDb = mem;
 });
 
-const base = { missionId: "k3f9q2", seat: "macos", projectId: "luma", prNumber: 690, agentId: "developer", instanceId: "mission-k3f9q2-macos", hubBranch: "mission/k3f9q2", leadDevice: "win-pc", manifestJson: "{}", capUsd: 5, cursor: { id: 10, at: "t10" } };
+const base = { missionId: "k3f9q2", seat: "macos", projectId: "demo", prNumber: 690, agentId: "developer", instanceId: "mission-k3f9q2-macos", hubBranch: "mission/k3f9q2", leadDevice: "win-pc", manifestJson: "{}", capUsd: 5, cursor: { id: 10, at: "t10" } };
 
 test("a claimed seat is findable by mission and by its chat's instance", () => {
   insertMissionSeat(base);

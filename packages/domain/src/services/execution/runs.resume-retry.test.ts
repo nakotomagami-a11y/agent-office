@@ -41,6 +41,10 @@ process.stdin.on("end", () => {
 });
 `;
 
+const sandbox = mkdtempSync(join(tmpdir(), "ao-resume-retry-"));
+process.env.HOME = sandbox;
+process.env.USERPROFILE = sandbox;
+
 const dir = mkdtempSync(join(tmpdir(), "ao-claude-stub-"));
 writeFileSync(join(dir, "stub.cjs"), STUB);
 writeFileSync(join(dir, "claude.cmd"), `@node "%~dp0stub.cjs" %*\r\n`);
@@ -50,6 +54,7 @@ process.env.AO_CLAUDE_BIN = join(dir, process.platform === "win32" ? "claude.cmd
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const { abortRun, attachEmit, startRun } = await import("./runs");
+(await import("../providers/store")).setSelection("subscription", "chosen");
 type SseEvent = import("./runs").SseEvent;
 
 function run(stdin: string, args: string[]): { runId: string; events: SseEvent[]; done: Promise<void> } {

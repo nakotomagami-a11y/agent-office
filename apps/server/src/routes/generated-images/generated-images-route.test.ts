@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { ON_WINDOWS, linkTo } from "@agent-office/domain/services/infra/fs-links.test.support";
 
 // The root is derived from HOME at import time, so HOME must be set before the route loads.
 const home = mkdtempSync(join(tmpdir(), "gen-img-"));
@@ -20,8 +21,19 @@ mkdirSync(day, { recursive: true });
 writeFileSync(join(day, "ok.png"), "png-bytes");
 writeFileSync(join(day, "a.svg"), "<svg/>");
 writeFileSync(join(home, "secret.txt"), "secret");
-symlinkSync(join(home, "secret.txt"), join(day, "leak.png"));
-execFileSync("mkfifo", [join(day, "pipe.png")]);
+// A file symlink needs privilege on Windows. A date folder that is a junction into
+// outside the root hits the same realpath check, so that is the Windows fixture.
+const LEAK_DATE = ON_WINDOWS ? "2026-10-09" : "2026-10-08";
+if (ON_WINDOWS) {
+  const outside = join(home, "outside");
+  mkdirSync(outside);
+  writeFileSync(join(outside, "leak.png"), "secret");
+  linkTo(outside, join(home, "Documents", "Generated Images", LEAK_DATE));
+} else {
+  symlinkSync(join(home, "secret.txt"), join(day, "leak.png"));
+  execFileSync("mkfifo", [join(day, "pipe.png")]);
+}
+mkdirSync(join(day, "folder.png"));
 
 const status = async (date: string, filename: string): Promise<number> => {
   const { GET } = await import("./[date]/[filename]/route");
@@ -49,9 +61,13 @@ test("malformed dates, traversal, hidden files and svg are 400", async () => {
 });
 
 test("a symlink pointing outside the root is not served", async () => {
-  assert.equal(await status("2026-10-08", "leak.png"), 404);
+  assert.equal(await status(LEAK_DATE, "leak.png"), 404);
 });
 
-test("a FIFO is not served: reading it would block the whole server", async () => {
+test("a directory named like an image is not served", async () => {
+  assert.equal(await status("2026-10-08", "folder.png"), 404);
+});
+
+test("a FIFO is not served: reading it would block the whole server", { skip: ON_WINDOWS && "Windows has no mkfifo; the directory case above covers the isFile guard there" }, async () => {
   assert.equal(await status("2026-10-08", "pipe.png"), 404);
 });

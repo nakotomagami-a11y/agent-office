@@ -7,6 +7,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { TextInput } from "@/components/ui/text-input";
 import { cn } from "@/lib/cn";
+import type { Provider } from "@agent-office/domain/types";
 import { useSettings, usePatchSettings } from "../../hooks/use-settings";
 import {
   useAccounts,
@@ -27,6 +28,7 @@ import { AccountsStatsPanel } from "@/modules/accounts/components/accounts-stats
 import { AddGithubAccountModal } from "@/modules/github-accounts/components/add-github-account-modal";
 import { DeleteGithubAccountModal } from "@/modules/github-accounts/components/delete-github-account-modal";
 import { useSignInModalStore } from "@/lib/sign-in-modal-store";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 
 /**
  * Integrations — the single surface for every external system the office
@@ -88,8 +90,10 @@ const GROUP_KEYS: Category[] = ["engine", "connections", "capabilities"];
 
 type Health = "connected" | "on" | "attention" | "off";
 
-export function IntegrationsTab() {
+export function IntegrationsTab({ onNavigate }: { onNavigate?: (tab: "provider") => void } = {}) {
   const t = useTranslations("integrations_tab");
+  const { id: providerId } = useActiveProvider();
+  const subscription = providerId === "subscription";
   const settingsQ = useSettings();
   const patchMut = usePatchSettings();
   const accountsQ = useAccounts();
@@ -110,7 +114,7 @@ export function IntegrationsTab() {
   const healthOf = (def: CardDef): Health => {
     const enabled = enabledOf(def.id);
     if (!enabled && !def.required) return "off";
-    if (def.kind === "claude") return claudeAccounts.some((a) => !a.ready) ? "attention" : "connected";
+    if (def.kind === "claude") return subscription && claudeAccounts.some((a) => !a.ready) ? "attention" : "connected";
     if (def.kind === "github") return githubAccounts.some((a) => !a.ready) ? "attention" : "connected";
     return "on";
   };
@@ -216,6 +220,8 @@ export function IntegrationsTab() {
                     (def.kind === "claude" ? (
                       <ClaudeAccountsPanel
                         accounts={claudeAccounts}
+                        providerId={providerId}
+                        onOpenProvider={onNavigate ? () => onNavigate("provider") : undefined}
                         onAdd={() => setAddClaude(true)}
                         onDelete={setDelClaude}
                       />
@@ -303,16 +309,22 @@ function CapabilityCard({
 
 function ClaudeAccountsPanel({
   accounts,
+  providerId,
+  onOpenProvider,
   onAdd,
   onDelete,
 }: {
   accounts: AccountWithStatus[];
+  providerId: Provider;
+  onOpenProvider: (() => void) | undefined;
   onAdd: () => void;
   onDelete: (account: Account) => void;
 }) {
   const t = useTranslations("integrations_tab");
+  const subscription = providerId === "subscription";
   return (
     <>
+      {subscription ? null : <OtherProviderNote providerId={providerId} onOpen={onOpenProvider} />}
       <div className="flex items-center gap-[10px] px-[20px] py-[11px] border-t border-edge bg-card-2">
         <span className="text-[9.5px] font-extrabold tracking-[0.09em] uppercase text-txt-4 whitespace-nowrap">
           {t("account_count", { count: accounts.length })}
@@ -329,7 +341,7 @@ function ClaudeAccountsPanel({
       {accounts.length === 0 ? (
         <EmptyAccounts icon="sparkle" />
       ) : (
-        accounts.map((a) => <ClaudeAccountRow key={a.id} account={a} onDelete={() => onDelete(a)} />)
+        accounts.map((a) => <ClaudeAccountRow key={a.id} account={a} subscription={subscription} onDelete={() => onDelete(a)} />)
       )}
       <div className="px-[20px] py-[13px] border-t border-edge">
         <AccountsStatsPanel />
@@ -338,7 +350,7 @@ function ClaudeAccountsPanel({
   );
 }
 
-function ClaudeAccountRow({ account, onDelete }: { account: AccountWithStatus; onDelete: () => void }) {
+function ClaudeAccountRow({ account, subscription, onDelete }: { account: AccountWithStatus; subscription: boolean; onDelete: () => void }) {
   const t = useTranslations("integrations_tab");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(account.label);
@@ -379,8 +391,8 @@ function ClaudeAccountRow({ account, onDelete }: { account: AccountWithStatus; o
         ) : (
           <div className="flex items-center gap-[9px]">
             <span className="text-[13px] font-bold whitespace-nowrap">{account.label}</span>
-            <PlanBadge plan={account.plan} />
-            {!account.ready ? (
+            {subscription ? <PlanBadge plan={account.plan} /> : null}
+            {subscription && !account.ready ? (
               <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] text-red whitespace-nowrap">
                 {t("needs_login")}
               </span>
@@ -394,7 +406,7 @@ function ClaudeAccountRow({ account, onDelete }: { account: AccountWithStatus; o
       </div>
       {!editing ? (
         <div className="flex items-center gap-[4px] shrink-0">
-          {!account.ready ? (
+          {subscription && !account.ready ? (
             <button
               type="button"
               onClick={() => openSignIn({ accountId: account.id })}
@@ -406,6 +418,21 @@ function ClaudeAccountRow({ account, onDelete }: { account: AccountWithStatus; o
           <IconBtn icon="pen" label={t("rename_aria", { name: account.label })} onClick={() => setEditing(true)} />
           {!isDefault ? <IconBtn icon="trash" label={t("remove_aria", { name: account.label })} danger onClick={onDelete} /> : null}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Under any other provider these accounts hold sessions only: say so, and point at where billing is set. */
+function OtherProviderNote({ providerId, onOpen }: { providerId: Provider; onOpen: (() => void) | undefined }) {
+  const tp = useTranslations("providers");
+  return (
+    <div className="flex flex-wrap items-center gap-[10px] border-t border-edge px-[20px] py-[11px] text-[11.5px] leading-[1.5] text-txt-3">
+      <span className="min-w-0 flex-1">{tp("accounts_note", { provider: tp(`option_${providerId}_name`) })}</span>
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="font-semibold text-acc hover:underline">
+          {tp("open_settings")}
+        </button>
       ) : null}
     </div>
   );

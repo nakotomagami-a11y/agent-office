@@ -10,6 +10,7 @@
  * imply that "tokens" matters as much as "spend".
  */
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import type { AnalyticsTotals } from "../hooks/use-analytics-page";
 import { usd, usdPrecise, compact, duration, delta } from "../format/format";
@@ -22,6 +23,7 @@ export type HeroBandProps = {
 };
 
 export function HeroBand({ totals, previous, hasPrevious, periodLabel }: HeroBandProps) {
+  const t = useTranslations("providers");
   const costDelta = delta(totals.cost, previous.cost);
   const settled = totals.done + totals.errors;
   const successRate = settled > 0 ? (totals.done / settled) * 100 : null;
@@ -57,6 +59,9 @@ export function HeroBand({ totals, previous, hasPrevious, periodLabel }: HeroBan
           <span className="font-mono text-[10.5px] text-[var(--an-muted)]">
             vs {usd(previous.cost)} previous
           </span>
+        )}
+        {totals.unknownCostRuns > 0 && (
+          <span className="font-mono text-[10.5px] text-amber">{t("unknown_cost_runs", { count: totals.unknownCostRuns })}</span>
         )}
       </div>
 

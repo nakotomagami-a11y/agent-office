@@ -16,7 +16,7 @@ export interface DiscoveryInfo {
   startedAt: number;
 }
 
-/** Loopback URL of this server. Next sets PORT to the bound port before boot hooks run. */
+/** Loopback URL of this server. Next sets PORT once it has bound; boot drops an inherited AO_BASE_URL. */
 export function appBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   return env.AO_BASE_URL ?? `http://127.0.0.1:${env.PORT ?? "3000"}`;
 }

@@ -48,7 +48,7 @@ server.listen(port, "127.0.0.1", () => {
   process.env.PORT = String(bound);
   process.env.AO_BASE_URL = `http://127.0.0.1:${bound}`;
   console.warn(`[server] Agent Office API on ${process.env.AO_BASE_URL}`);
-  void boot({ serve: true });
+  void boot({ serve: true, ownBaseUrl: true });
 });
 
 // `exit` handlers (the discovery file) only run on a real exit, not on a signal.

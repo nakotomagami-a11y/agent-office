@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { CAP_STEP_USD, COORDINATOR_SEAT } from "@agent-office/domain/config/missions";
 import type { MissionView, SeatView } from "@agent-office/domain/types";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { useMissionErrorText } from "../hooks/use-mission-error";
 import { useMissionActions } from "../hooks/use-missions";
 import { ExternalLink, useUsd } from "./mission-fields";
@@ -37,6 +38,8 @@ function SeatRow({ mission, seat: s, a, on }: { mission: MissionView; seat: Seat
 
 function LocalSeats({ mission, a, on }: { mission: MissionView; a: Actions; on: Callbacks }) {
   const t = useTranslations("missions.panel");
+  const tp = useTranslations("providers");
+  const { capabilities } = useActiveProvider();
   const usd = useUsd();
   return (
     <Section title={t("on_this_device")}>
@@ -44,6 +47,7 @@ function LocalSeats({ mission, a, on }: { mission: MissionView; a: Actions; on: 
         <li key={l.seat} className="flex flex-wrap items-center gap-2">
           <code className="text-txt">{l.seat}</code>
           <span className="text-txt-3">{l.accepted ? t("spent", { spent: usd(l.spentUsd), cap: usd(l.capUsd) }) : t("waiting_accept")}</span>
+          {l.accepted && !capabilities.costKnown ? <span className="text-amber">{tp("cap_cost_unknown")}</span> : null}
           {l.needsAttention && <span className="text-red">{t("needs_attention")}</span>}
           {l.accepted && (
             <span className="ml-auto">

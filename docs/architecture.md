@@ -262,6 +262,8 @@ POST /api/summon
 | opt | `--resume <sessionId>` | request.resumeSessionId |
 | last | `<prompt>` | priorContext (last 8 messages) + request.prompt (or just prompt on --resume) |
 
+`buildClaudeArgs` builds the table above; `startRun` then puts `--settings <pin>` in front (see "Per-run spawn environment"), so the spawned argv starts with it.
+
 **Resume retry:** If the run exits code 1 with stderr `"No conversation found with session ID"`, the app automatically retries the spawn without `--resume`.
 
 ### Per-run spawn environment (multi-account) — `resolveSpawnEnv` (`runs/spawn-env.ts`)
@@ -270,6 +272,7 @@ The child `claude` process env is built per run from the project's frontmatter:
 
 - **Claude account:** an explicit `opts.accountId` (or the project's `meta.accountId`) that is non-`default` → `CLAUDE_CONFIG_DIR = <account's config dir>`. `default`/unset → inherits the shared `~/.claude`.
 - **GitHub account:** the project's `meta.githubAccountId` that is non-`default` → `GH_CONFIG_DIR = <account's gh config dir>` **and** a git credential helper injected via `GIT_CONFIG_*` env (reset the `github.com` helper, then `!gh auth git-credential`, which reads `GH_CONFIG_DIR` at runtime). This makes `git push`/`fetch` — not just the `gh` CLI — authenticate as the project's GitHub identity, **without mutating the user's global `~/.gitconfig`**. `default`/unset → no injection (inherits the machine's active gh auth). When an account is pinned, inherited `GH_TOKEN`/`GITHUB_TOKEN` (any case) are dropped, since gh prefers them over `GH_CONFIG_DIR`; a token the project links as a secret still wins. The review's own gh calls (`review/gh.ts` `ghEnv`) follow the same rule.
+- **AI provider** (`runs/provider-spawn.ts`, `services/providers/`): every spawn first drops each inherited backend variable (`ANTHROPIC_*`, `CLAUDE_CODE_OAUTH_*`, `CLAUDE_CODE_API_KEY_*`, `CLAUDE_CODE_USE_<backend>`, `CLAUDE_CODE_SUBAGENT_MODEL`, and the parent-session variables of a server launched from a Claude session), then applies the chosen provider **last**. A project secret with one of those names is skipped. The same values are pinned in a per-run `--settings` file (0600, `tmp-prompts/settings-pin-*`, deleted when the run ends), with `"apiKeyHelper": ""`, because a repo's own `.claude/settings*.json` `env` outranks the process env and could otherwise point a subscription run, OAuth token included, at any URL. The pin decides only which backend and credential the CLI uses: a repo's settings can still run hooks or set `HTTPS_PROXY`/`NODE_EXTRA_CA_CERTS` on non-hub runs (hub worktrees load user settings only). A provider that cannot run refuses the spawn: the run is recorded as `provider_unavailable` with its reason, and nothing falls back to another provider.
 - **PATH:** `buildAugmentedPath()` keeps absolute entries only (`infra/search-path.ts`). A relative entry resolves inside the project's cwd, so a repo could otherwise ship its own `gh.exe`/`claude.exe`.
 
 ### System prompt composition (`composeAppendedPrompt` / `buildAppendedPrompt`, `agents/agents.ts`)
@@ -291,6 +294,70 @@ Segment order:
 Prior-turn conversation history (when *not* using `--resume`) is a **separate** mechanism — it's prepended to the user's prompt text, not this appended system prompt, so it's billed once (first message of a new thread) rather than on every turn. See `projects/history.ts` (`getContextMessages` / `formatPriorContext`, profiles `tight`/`balanced`/`deep`) and `docs/03-agents.md`'s "Prior context injection".
 
 ---
+
+## AI providers
+
+Agents run on exactly the provider the user chose: `subscription` (the CLI's own login, today's
+path), `anthropic_api`, `openai` or `local` (`config/providers.ts`). One runner serves all four,
+the `claude` CLI; only its environment differs (see "Per-run spawn environment" above). Everything
+but `subscription` reaches its backend through the in-process gateway at `<AO_BASE_URL>/api/gateway`
+with a per-run bearer token, so no provider key ever enters a child process.
+
+- **Choice:** `provider_selection` holds it; `resolveProvider` (`services/providers/resolve.ts`) is
+  pure and total. A stored choice is never swapped for another provider; an unknown value is
+  `invalid_config`; no row on a fresh install is `needsSetup`. An install from before providers is
+  moved to `subscription` once at boot (`ensureProviderMigrated`), and not while the settings file
+  exists but cannot be read.
+- **Keys:** `provider_configs.secret`, encrypted, bound to the normalized URL it was saved for.
+  Changing the URL clears the key unless the same save carries a new one. No response ever returns a
+  key, only its last four characters.
+- **Status:** `GET /api/providers` and `/api/health` never touch the network: presence checks plus the
+  last probe, kept 60 s. Probes run on `POST /api/providers/:id/test` and on a selection change. The
+  subscription's sign-in and plan come from `claude auth status --json` in the **default** account's
+  config dir, not a project's pinned account.
+- **Refusal:** a provider that cannot run (no key, invalid config, unmapped model tiers, a budget cap
+  it cannot enforce) refuses the spawn, recorded as the run error `provider_unavailable` with the
+  status reason as its detail.
+- **Prices:** no price is hardcoded. `services/providers/prices/` fetches LiteLLM's public catalog
+  (`raw.githubusercontent.com`, with OpenRouter's `openrouter.ai/api/v1/models` as the fallback; the
+  only outbound calls besides the chosen provider) at boot when the cache is a day old, then hourly checks; both fixed
+  URLs, no redirects, a 20 s timeout and a 16 MB cap. Only `openai`/`anthropic` chat models are
+  kept, per million tokens, each rate at its **highest** tier; a model with a pricing field the
+  parser does not know is unknown. A fetch is merged into the last good cache
+  (`~/.claude/agent-office/price-catalog.json`, atomic): a rate more than 100× off its old value
+  keeps the old one, and a model the catalog lists but this code cannot price loses any old one
+  (unknown, never cheaper). Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
+  ui_settings key (`PUT /api/model-prices/settings`) turns every fetch off; then every price is
+  unknown. `POST /api/model-prices/refresh` makes at most one upstream attempt a minute (429).
+  The 1-hour cache-write tier is ignored, so a Context & Cost estimate for a run using it is low
+  (display only: subscription and API-key costs are the CLI's own).
+- **Cost:** `runCost` (`runs/provider-spawn.ts`) sets `cost_usd` and `cost_basis` when a run ends.
+  Subscription and API-key runs keep the CLI's own figure. An openai run's cost is what the gateway
+  charged it: every response's real usage at the catalog price (cached tokens at the cache-read
+  rate; reasoning tokens are inside `completion_tokens`), or, when a response carries no usage, the
+  most it could have cost. One response from an unpriced model makes the run `unknown` at $0, and
+  every cost reader leaves it out of sums (`db/cost-sql.ts`) and counts it as `unknownCostRuns`.
+  A `local` run is `free`. A run ended by `budget_exceeded` or Stop records 0 tokens in and out (the
+  CLI never emits its final `result`), while its cost is still the gateway's charge: a known display gap.
+  A local server that reports usage only on request shows 0 tokens: the
+  gateway asks for streamed usage (`stream_options`) only from OpenAI. The CLI's first system line
+  (`x-anthropic-billing-header: cc_version=…`, a per-conversation hash) is dropped before translating,
+  so openai/local never receive it; the `anthropic_api` passthrough forwards the body unchanged.
+- **Caps:** on openai the CLI's own `--max-budget-usd` would price the wrong model, so the flag is
+  removed and the cap rides on the run token. Each call holds its worst case until it settles
+  (finished, cut by Stop or a dropped socket, or failed: an error status is not billed), so
+  parallel sub-agents cannot all pass the check at once: a call blocked only by holds gets a
+  retryable 429 (`budget_held`) and the CLI waits. Once real spend reaches the cap (or a price turns
+  unknown) the next request gets an Anthropic-shaped 400 and the run ends as `budget_exceeded`; as
+  with the CLI's cap, the call that crosses it still runs. When the run ends, a call still in flight
+  (cut by Stop) counts at its held worst case: an upper bound (the full output cap), so repeated
+  Stops on a capped seat use up its cap faster than they billed. A cap whose mapped
+  models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops the
+  flag. On openai and local a Claude model id in `--model` becomes its tier alias (fable runs as
+  opus), since the CLI maps only the aliases to their models; `anthropic_api` keeps the exact id
+  and the CLI's own cap. Only the run's own `--model` is rewritten: an agent or sub-agent definition
+  that pins a full Claude id gets `provider_model_not_found` on openai/local, and the fix is a tier
+  alias (`model: opus`) in that definition, not the provider settings.
 
 ## SSE events
 
@@ -329,14 +396,14 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v27**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v28**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
 
 | Table | Key columns | Notes |
 |-------|------------|-------|
-| `runs` | id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at, parent_run_id, account_id, owner_pid, rate_limited_resets_at, conversation_id, cache_creation_tokens, cache_read_tokens, origin, error_code, error_detail | Core run record. `error_code`/`error_detail` are the failure's `RunErrorCode` and its stderr/CLI reason. `origin` is `user` or `system` — Agent Office writes into conversations through the same path the reply box uses, so without it its own messages rendered as the user's. `parent_run_id` links sub-agents |
+| `runs` | id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, exit_code, prompt, output, tokens_in, tokens_out, cost_usd, dur_ms, model, effort, cwd, started_at, ended_at, parent_run_id, account_id, owner_pid, rate_limited_resets_at, conversation_id, cache_creation_tokens, cache_read_tokens, origin, error_code, error_detail, provider, cost_basis | Core run record. `provider` is the AI provider it ran on (NULL: `subscription`); `cost_basis` says what `cost_usd` means (`notional`, `billed`, `estimated`, `unknown`, `free`; NULL: `notional`), and `unknown` is never summed as $0. `error_code`/`error_detail` are the failure's `RunErrorCode` and its stderr/CLI reason. `origin` is `user` or `system` — Agent Office writes into conversations through the same path the reply box uses, so without it its own messages rendered as the user's. `parent_run_id` links sub-agents |
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
 | `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
@@ -350,9 +417,11 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
-| `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude` |
+| `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
+| `provider_configs` | provider, config, secret, secret_base_url, updated_at | One row per AI provider: non-secret `config` JSON (`baseUrl`, tier `models`) and its key, encrypted like `secrets` and bound to the normalized URL in `secret_base_url`; it is never sent anywhere else. Not the `secrets` table, so a provider key is never project-linked or injected |
+| `provider_selection` | id, provider, source, changed_at | The single chosen provider (`id = 1`). No row: not chosen yet. `source` is `chosen` or `migrated` (an install from before providers, moved to `subscription` once, recorded by the internal `ui_settings` key `_provider_migration`) |
 | `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Values encrypted at rest (AES-256-GCM, machine-local key: `services/accounts/secret-crypto.ts`) |
 | `project_secrets` | PK(project_id, secret_id) | Many-to-many link attaching a secret to projects |
 | `pr_links` | PK(repo, number), project_id, agent_id, instance_id, source, created_at | Which agent seat opened which GitHub PR (`source`: `recorded` when its `gh pr create` returned the URL, `branch` from an `agent/<instanceId>-…` head, `manual` when picked at the Review Lectern) — review feedback is routed to that seat's chat. `repo` is lowercase `owner/name` |
@@ -414,6 +483,7 @@ Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env
 |----------|---------|-----------------|
 | `AGENT_OFFICE_STARTER_DATA` | `<cwd>/starter-data` | Override path to bundled starter-data |
 | `AGENT_OFFICE_DOCS_DIR` | bundled `docs/` | Override path to the in-app docs source |
+| `AO_BASE_URL` | the bound port | This server's loopback URL, which agents use for the gateway and permission callbacks. The standalone server (`main.ts`) sets it to the port it bound. Embedded in Next, an inherited or exported value is dropped at boot and `PORT` (the port Next bound) is used: a server started from an agent's shell would otherwise point at the parent server |
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |

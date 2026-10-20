@@ -38,6 +38,7 @@ export function pushRun(run: PersistedRun): void {
     endedAt: run.ts + run.durMs,
     errorCode: run.errorCode,
     errorDetail: run.errorDetail,
+    costBasis: run.costBasis,
   });
 }
 

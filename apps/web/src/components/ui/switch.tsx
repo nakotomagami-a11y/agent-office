@@ -22,6 +22,7 @@ export function Switch({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative w-[34px] h-[19px] rounded-full shrink-0 cursor-pointer transition-colors duration-[140ms]",
+        "max-[600px]:before:absolute max-[600px]:before:-inset-[11px] max-[600px]:before:content-['']",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
         disabled && "opacity-40 cursor-not-allowed",
         checked ? "bg-acc" : "bg-bg-3 border border-line-2",

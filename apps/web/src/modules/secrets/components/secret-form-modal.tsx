@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ReservedNameNote } from "@/modules/providers/components/reserved-name-note";
 import {
   useCreateSecret,
   useUpdateSecret,
@@ -97,6 +98,7 @@ export function SecretFormModal({ open, onClose, secret, onCreated }: SecretForm
             placeholder="VERCEL_TOKEN"
             className="font-mono"
           />
+          <ReservedNameNote name={name} />
         </Field>
 
         <Field label="Label" hint="Optional human name shown in lists">

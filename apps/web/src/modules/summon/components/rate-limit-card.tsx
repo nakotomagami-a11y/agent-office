@@ -5,6 +5,8 @@ import { useClaudeLimitsStore, periodStart, periodEnd } from "@/lib/claude-limit
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { formatCountdown } from "../format/format-countdown";
 import { FlagCard, type FlagAction } from "./flag-card";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
+import { hasKnownCost } from "@/modules/providers/format/run-cost";
 
 export type RateLimitCardProps = {
   message: string;
@@ -33,6 +35,9 @@ export type RateLimitCardProps = {
  */
 export function RateLimitCard({ message, resetsAt, severity = "limit", onStop, onDismiss, onSchedule }: RateLimitCardProps) {
   const usageLabel = useRateLimitUsageLabel();
+  // Only a subscription has a usage window to wait out, and only a known cost can be shown as spend.
+  const { capabilities } = useActiveProvider();
+  const canWait = capabilities.rateLimitWindow || resetsAt !== undefined;
   const secsLeft = useRateLimitCountdown(resetsAt);
   const isLimit = severity === "limit";
   const [scheduled, setScheduled] = useState(false);
@@ -43,7 +48,7 @@ export function RateLimitCard({ message, resetsAt, severity = "limit", onStop, o
   const actions: FlagAction[] = [
     { key: "stop", label: "Stop agent", tone: "danger", onClick: onStop, disabled: !onStop },
     { key: "continue", label: isLimit ? "Retry" : "Continue", tone: "primary", onClick: onDismiss, disabled: !onDismiss },
-    ...(onSchedule
+    ...(onSchedule && canWait
       ? [{ key: "schedule", label: scheduled ? "Resume scheduled" : "Resume when limit resets", tone: "neutral", onClick: handleSchedule, disabled: scheduled } satisfies FlagAction]
       : []),
   ];
@@ -53,7 +58,7 @@ export function RateLimitCard({ message, resetsAt, severity = "limit", onStop, o
       tone={isLimit ? "err" : "warn"}
       icon="alert-circle"
       title={isLimit ? "Rate limited" : "Approaching rate limit"}
-      pill={usageLabel}
+      pill={capabilities.costKnown ? usageLabel : undefined}
       body={message}
       note={
         secsLeft !== null && secsLeft > 0 ? (
@@ -79,7 +84,7 @@ function useRateLimitUsageLabel(): string {
   return useMemo(() => {
     const start = periodStart(period);
     const end = periodEnd(period);
-    const cost = allRuns.filter((r) => r.ts >= start && r.ts < end).reduce((s, r) => s + (r.cost || 0), 0);
+    const cost = allRuns.filter((r) => r.ts >= start && r.ts < end).reduce((s, r) => (hasKnownCost(r) ? s + (r.cost || 0) : s), 0);
     if (quotaUsd > 0) {
       const pct = Math.round((cost / quotaUsd) * 100);
       return `used ${pct}%`;

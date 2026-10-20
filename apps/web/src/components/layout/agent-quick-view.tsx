@@ -20,6 +20,7 @@ import { LIVE_STATUSES } from "./roster-row-controls";
 import type { RosterGroupData } from "./roster-group";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { AgentInstance, ConversationView, PersistedRun } from "@agent-office/domain/types";
+import { knownCostTotal } from "@/modules/providers/format/run-cost";
 
 /**
  * The roster sidebar's hover card. Two shapes, chosen by the caller:
@@ -491,7 +492,7 @@ function SingleInstanceCard({ agent, instance, index, headerMode, spendByInstanc
   const model = instance.model ?? agent.defaultModel ?? "default";
   const effort = instance.effort ?? agent.defaultEffort ?? "default";
   const spendKey = `${agent.id}|${instance.instanceId}`;
-  const turnsCost = turns.reduce((sum, r) => sum + r.cost, 0);
+  const turnsCost = knownCostTotal(turns);
   const cost = spendByInstance[spendKey] || turnsCost;
   const runtimeMs = turns.reduce((sum, r) => sum + r.durMs, 0);
 

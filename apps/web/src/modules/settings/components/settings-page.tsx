@@ -13,6 +13,7 @@ import { CleanupPanel } from "./tabs/cleanup-panel";
 import { BundledAgentsTab } from "./tabs/bundled-agents-tab";
 import { IntegrationsTab } from "./tabs/integrations-tab";
 import { SettingsNav, type SettingsTabValue } from "./settings-nav";
+import { ProviderSettingsTab } from "@/modules/providers/components/provider-settings-tab";
 import { SecretsTab } from "@/modules/secrets/components/secrets-tab";
 import { useProjects, useUpdateProject } from "@/modules/projects/hooks/use-projects";
 import { RemoveProjectModal, type RemovableProject } from "@/modules/projects/components/remove-project-modal";
@@ -27,7 +28,8 @@ import type { PlanetConfig } from "@agent-office/domain/types";
 function SettingsSection({ children }: { children: ReactNode }) {
   return (
     <div className="flex-1 min-w-0 overflow-auto">
-      <div className="pb-[20px] flex flex-col gap-[14px]">{children}</div>
+      {/* The phone's fixed bottom nav (65px + safe area) would cover the last row. */}
+      <div className="pb-[20px] max-[600px]:pb-[calc(75px+env(safe-area-inset-bottom))] flex flex-col gap-[14px]">{children}</div>
     </div>
   );
 }
@@ -36,12 +38,20 @@ export function SettingsPage() {
   const t = useTranslations();
   const [tab, setTab] = useState<SettingsTabValue>("projects");
 
+  // A deep link (e.g. an error card's "Open AI provider settings") names its tab. Read after
+  // mount, not in the initial state, so the server-rendered markup and the first client render agree.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted === "provider") setTab("provider");
+  }, []);
+
   return (
     <div className="flex-1 min-h-0 flex flex-nowrap gap-[16px] px-[20px] pt-[16px] pb-[20px] max-[640px]:flex-col max-[640px]:gap-[10px] max-[640px]:px-[10px] max-[640px]:pb-[10px]">
       <SettingsNav value={tab} onChange={setTab} ariaLabel={t("settings.tabs_aria")} />
       {tab === "projects" && <SettingsSection><ProjectsPane /></SettingsSection>}
       {tab === "bundled-agents" && <SettingsSection><BundledAgentsTab /></SettingsSection>}
-      {tab === "integrations" && <SettingsSection><IntegrationsTab /></SettingsSection>}
+      {tab === "integrations" && <SettingsSection><IntegrationsTab onNavigate={setTab} /></SettingsSection>}
+      {tab === "provider" && <SettingsSection><ProviderSettingsTab /></SettingsSection>}
       {tab === "secrets" && <SettingsSection><SecretsTab /></SettingsSection>}
       {tab === "about-you" && <SettingsSection><AboutYouTab /></SettingsSection>}
       {tab === "performance" && <SettingsSection><PerformanceTab /></SettingsSection>}

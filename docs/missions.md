@@ -8,11 +8,11 @@ yet is listed at the end.
 ## Why
 
 Some work needs several agents on **several devices**, over **days**, talking to
-**each other**, with **decisions parked for a human**. AM-Shift/luma #673 and #688 did
+**each other**, with **decisions parked for a human**. An earlier project did
 exactly this by hand: three platform agents (macOS, Windows, Linux) plus a coordinator
 and a synthesizer, coordinating through one open PR. It worked. What hurt:
 
-| Pain in #673 / #688 | What this design does about it |
+| Pain in that manual run | What this design does about it |
 |---|---|
 | Every comment came from one GitHub account; agents were told apart only by headers like "🍎 macOS". `@Windows` notified nobody, so the human relayed every message | a machine-readable envelope on every post; each device polls and routes |
 | "The hub is currently lying to you": four instructions disproved and never folded back | `supersedes` on a post; the coordinator keeps the hub body current |
@@ -20,7 +20,7 @@ and a synthesizer, coordinating through one open PR. It worked. What hurt:
 | "Every 'it still does X' report had to be checked against which build is running" | every post is stamped with device, OS, branch, sha, dirty |
 | 164 KB of comments re-read by every agent | a turn gets a digest, not the thread |
 | "Answer independently", but Windows read the other two answers first | blind rounds: answers are held until every seat has posted |
-| The hub PR was superseded (#673 → #684 → #688) and the thread broke | the mission id lives in the envelope; a `moved` post re-points every device |
+| The hub PR was superseded twice and the thread broke | the mission id lives in the envelope; a `moved` post re-points every device |
 
 ## When to use what
 
@@ -193,6 +193,15 @@ so a turn's last response can overshoot a little), and with less than $0.25 left
 at all, typed by the human or not, until the cap is raised (`seat_cap_reached`); a broadcast
 skips seats; only the agent's own text (not a sub-agent's) is read as its outbox.
 
+**Caps per AI provider.** On the subscription and an Anthropic API key the CLI enforces
+`--max-budget-usd` itself. On OpenAI the CLI cannot price the model, so the gateway enforces the
+cap from the price catalog: every response is charged from its real usage (cached and reasoning
+tokens included, each rate at its highest tier) and the request after the cap is refused, ending
+the turn as `budget_exceeded`. A seat
+whose mapped models are not all priced, or with price fetching off, cannot start a turn
+(`provider_unavailable: budget_unenforceable`). A local server is free: the flag is dropped and
+the seat spends nothing.
+
 **The hub branch cannot configure a seat.** A seat's worktree is a checkout of the hub branch,
 which every seat (and anyone with push access) can push to. So seat turns run with
 `--setting-sources user` and `--strict-mcp-config`. Checked against Claude Code 2.1.296: the
@@ -361,7 +370,7 @@ Build in this order; each step is shippable and testable on its own.
 5. **Coordinator agent** — a `mission-coordinator` starter agent (drafted with
    `agent-architect`), plus the one template.
 
-**Acceptance:** a #673-style mission across Windows, macOS and Linux runs end to end with
+**Acceptance:** a mission like that manual run across Windows, macOS and Linux runs end to end with
 zero manual relaying: three claims accepted, roll call, a measure round, a blind design
 round, synthesis, an approved build, verification on each device, close.
 

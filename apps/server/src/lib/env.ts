@@ -8,9 +8,9 @@ import { z } from "zod";
  * app fails-fast at boot instead of surfacing a `undefined` deep in a
  * request handler.
  *
- * All fields are optional with documented defaults. Claude credentials are
- * not read here: `claude` uses its own sign-in (or ANTHROPIC_API_KEY, which
- * it inherits from this process's environment).
+ * All fields are optional with documented defaults. No AI credential is read
+ * from the environment: agents run on the provider chosen in Settings, and
+ * every ANTHROPIC_* / CLAUDE_CODE_OAUTH_* variable is removed from their spawn.
  */
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
