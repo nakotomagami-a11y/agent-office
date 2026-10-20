@@ -105,13 +105,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
         />
 
         <ProjectDangerZone
-          rosterCount={rosterAgentIds.length}
+          instanceCount={project.meta.roster.length}
           cwdOrName={project.meta.cwd ?? project.meta.name}
           pending={danger.pendingDanger}
           working={danger.dangerWorking}
+          conflict={danger.dangerConflict}
+          error={danger.dangerError}
           onRequest={danger.setPendingDanger}
           onCancel={() => danger.setPendingDanger(null)}
-          onConfirm={() => void danger.onConfirm()}
+          onConfirm={(work) => void danger.onConfirm(work)}
         />
       </div>
     </>

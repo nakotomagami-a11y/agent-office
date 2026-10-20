@@ -17,7 +17,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useRegisterModal } from "@/lib/modal-manager";
 import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
-import { useProject, useAddInstance, useRemoveInstance, useUpdateInstance } from "@/modules/projects/hooks/use-projects";
+import { useProject, useAddInstance, useUpdateInstance } from "@/modules/projects/hooks/use-projects";
+import { RemoveSessionModal } from "@/modules/projects/components/remove-session-modal";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
 import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain";
@@ -85,7 +86,6 @@ export function AgentDetailsModal() {
   const isMultiAgentSelected = agentInstances.length > 1;
 
   const addMut = useAddInstance();
-  const removeMut = useRemoveInstance();
   const updateInstanceMut = useUpdateInstance();
   const [confirmDeleteInstance, setConfirmDeleteInstance] = useState(false);
 
@@ -517,48 +517,28 @@ export function AgentDetailsModal() {
               {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
               {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
               {activeProjectId && selectedInstanceId && (
-                confirmDeleteInstance ? (
-                  <span className="inline-flex items-center gap-[6px] h-7 pl-[10px] pr-1 rounded-lg bg-[var(--ao-bad-soft)] border border-[rgba(217,83,79,0.30)] text-[var(--ao-bad)] text-[12.5px]">
-                    <span className="font-mono">delete this instance?</span>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-[4px] h-[22px] px-[8px] rounded-md bg-[var(--ao-bad)] text-white font-semibold text-[11.5px] hover:brightness-110 disabled:opacity-50"
-                      disabled={removeMut.isPending}
-                      onClick={() => {
-                        removeMut.mutate(
-                          { projectId: activeProjectId, instanceId: selectedInstanceId },
-                          {
-                            onSuccess: () => {
-                              setConfirmDeleteInstance(false);
-                              closeInspector();
-                            },
-                          }
-                        );
-                      }}
-                    >
-                      <Icon name="trash" size={11} /> delete
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex items-center h-[22px] px-[8px] rounded-md text-[var(--ao-fg-1)] text-[11.5px] hover:bg-white/[0.05]"
-                      onClick={() => setConfirmDeleteInstance(false)}
-                    >
-                      cancel
-                    </button>
-                  </span>
-                ) : (
+                <>
                   <Tooltip content={t("delete_instance_tooltip")} side="bottom" delayMs={400}>
                     <button
                       type="button"
                       aria-label="Delete this agent instance"
                       className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
-                      disabled={removeMut.isPending}
                       onClick={() => setConfirmDeleteInstance(true)}
                     >
                       <Icon name="trash" size={15} />
                     </button>
                   </Tooltip>
-                )
+                  <RemoveSessionModal
+                    projectId={activeProjectId}
+                    projectName={projectQ.data?.meta.name ?? ""}
+                    target={confirmDeleteInstance ? {
+                      instanceId: selectedInstanceId,
+                      name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
+                    } : null}
+                    onClose={() => setConfirmDeleteInstance(false)}
+                    onRemoved={closeInspector}
+                  />
+                </>
               )}
             </div>
           </div>

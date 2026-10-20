@@ -135,6 +135,13 @@ export function runningOwnerPidsForInstance(agentId: string, instanceId: string)
   return rows.map((r) => r.owner_pid);
 }
 
+export function runningOwnerPidsOnInstance(instanceId: string): number[] {
+  const rows = getDb()
+    .prepare("SELECT DISTINCT owner_pid FROM runs WHERE status = 'running' AND instance_id = ? AND owner_pid IS NOT NULL")
+    .all(instanceId) as { owner_pid: number }[];
+  return rows.map((r) => r.owner_pid);
+}
+
 // ─── Rate-limit outcome (used by the scheduler to detect a repeat limit) ──────
 
 export function setRunRateLimitResetsAt(id: string, resetsAt: number): void {
