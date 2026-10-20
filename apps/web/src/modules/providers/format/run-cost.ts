@@ -26,3 +26,12 @@ export function formatRunCost(cost: number, basis: CostBasis | undefined, words:
       return formatCost(shown.usd);
   }
 }
+
+/** A run with unknown cost contributes nothing to a total; it is counted aside, never as $0. */
+export const hasKnownCost = (run: { costBasis?: CostBasis }): boolean => run.costBasis !== "unknown";
+
+export function knownCostTotal(runs: ReadonlyArray<{ cost: number; costBasis?: CostBasis }>): number {
+  return runs.reduce((sum, r) => (hasKnownCost(r) ? sum + (r.cost || 0) : sum), 0);
+}
+
+export const unknownCostCount = (runs: ReadonlyArray<{ costBasis?: CostBasis }>): number => runs.filter((r) => !hasKnownCost(r)).length;

@@ -10,6 +10,7 @@ import { POLL } from "@/lib/polling";
 import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { shortName } from "../derive/sprite-palette";
 import { statusFromRuns, type AgentStatusInfo } from "../derive/derive-status";
+import { hasKnownCost } from "@/modules/providers/format/run-cost";
 
 export interface OfficeAgent extends ApiAgent {
   id: string;
@@ -75,7 +76,7 @@ export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
     const todayMs = todayStart.getTime();
     let spendToday = 0;
     for (const r of rawRuns) {
-      if (r.ts >= todayMs) spendToday += r.cost || 0;
+      if (r.ts >= todayMs && hasKnownCost(r)) spendToday += r.cost || 0;
     }
 
     return { agents, runs: rawRuns, workingCount, idleCount, errorCount, spendToday };

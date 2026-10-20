@@ -9,6 +9,7 @@ import {
 } from "../format/activity-formatters";
 import { formatCost, formatDuration } from "../format/format-run-meta";
 import { buildSparkData, buildSuccessSpark } from "../format/activity-stats";
+import { hasKnownCost, knownCostTotal } from "@/modules/providers/format/run-cost";
 
 /** Artistic per-tile icon (real illustration, no icon-font/badge). */
 export type StatTileIcon = { src: string; alt: string };
@@ -38,7 +39,7 @@ function dayStats(runs: PersistedRun[], day: string): DayStats {
   const ok = settled.filter((r) => r.status === "done").length;
   return {
     count,
-    cost: dayRuns.reduce((s, r) => s + r.cost, 0),
+    cost: knownCostTotal(dayRuns),
     tokens: dayRuns.reduce((s, r) => s + r.tokensIn + r.tokensOut, 0),
     success: settled.length === 0 ? 100 : Math.round((100 * ok) / settled.length),
     durMs: dayRuns.reduce((s, r) => s + r.durMs, 0),
@@ -66,7 +67,7 @@ export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
       value: formatCost(t.cost),
       unit: "USD",
       delta: formatDelta(t.cost, y.cost),
-      spark: buildSparkData(runs, (r) => r.cost),
+      spark: buildSparkData(runs, (r) => (hasKnownCost(r) ? r.cost : 0)),
       color: "var(--amber)",
       icon: { src: "/icons/coin.png", alt: "" },
     },

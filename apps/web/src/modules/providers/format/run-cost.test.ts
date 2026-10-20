@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import { COST_BASES } from "@agent-office/domain/config/providers";
-import { formatRunCost, type CostWords } from "./run-cost";
+import { formatRunCost, knownCostTotal, unknownCostCount, type CostWords } from "./run-cost";
 
 const words: CostWords = { unknown: "—", free: "no cost", estimated: (a) => `est. ${a}` };
 
@@ -18,4 +18,17 @@ test("unknown cost is a dash and free cost says so, never $0", () => {
 
 test("no cost basis can render empty", () => {
   for (const basis of COST_BASES) assert.notEqual(formatRunCost(0.01, basis, words), "", basis);
+});
+
+test("totals leave unknown-cost runs out and count them aside, so an unpriced run is never a free one", () => {
+  const runs = [
+    { cost: 1, costBasis: undefined },
+    { cost: 2, costBasis: "billed" as const },
+    { cost: 0, costBasis: "unknown" as const },
+    { cost: 0.5, costBasis: "estimated" as const },
+    { cost: 0, costBasis: "free" as const },
+  ];
+  assert.equal(knownCostTotal(runs), 3.5);
+  assert.equal(unknownCostCount(runs), 1);
+  assert.equal(unknownCostCount([]), 0);
 });

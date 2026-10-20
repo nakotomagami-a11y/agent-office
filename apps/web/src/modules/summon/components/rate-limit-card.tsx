@@ -6,6 +6,7 @@ import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { formatCountdown } from "../format/format-countdown";
 import { FlagCard, type FlagAction } from "./flag-card";
 import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
+import { hasKnownCost } from "@/modules/providers/format/run-cost";
 
 export type RateLimitCardProps = {
   message: string;
@@ -83,7 +84,7 @@ function useRateLimitUsageLabel(): string {
   return useMemo(() => {
     const start = periodStart(period);
     const end = periodEnd(period);
-    const cost = allRuns.filter((r) => r.ts >= start && r.ts < end).reduce((s, r) => s + (r.cost || 0), 0);
+    const cost = allRuns.filter((r) => r.ts >= start && r.ts < end).reduce((s, r) => (hasKnownCost(r) ? s + (r.cost || 0) : s), 0);
     if (quotaUsd > 0) {
       const pct = Math.round((cost / quotaUsd) * 100);
       return `used ${pct}%`;
