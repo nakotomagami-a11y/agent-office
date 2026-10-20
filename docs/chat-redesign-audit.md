@@ -309,6 +309,57 @@ records which round found each finding, plus its cost, duration and verdict.
 - If the server dies mid-start, the message being started is lost: the conversation parks, but no run row holds the text.
 - Jobs created from the Schedules panel carry no conversation, so they are never adopted (unchanged).
 
+## MCP management (joined this mission 2026-10-20)
+
+### Decisions
+
+1. A session gets **only the MCP servers its agent declares** (`mcp__<server>__*` in the agent's `tools`), plus any you switch on.
+2. **Playwright is off by default even when declared**; switch it on per session.
+3. MCP gets **its own entry in the main menu** (`NAV_ITEMS` in `components/layout/main-top-bar.tsx`, next to Skills) and its own page.
+4. **Hybrid source of truth** (lead's call, reasoning below): Claude Code's own config stays the single list of servers; Agent Office reads it directly and writes it only through the `claude mcp` CLI; secret values never go into it.
+5. **Secrets are in scope now**: server keys live in the existing Secrets module (encrypted, linked per project, injected into the run's env).
+
+Why the hybrid for 4: an app-owned list would mean two lists that drift. The terminal `claude` wouldn't see the app's servers, and `claude mcp login` OAuth tokens are keyed by the CLI's server names. Writing `~/.claude.json` ourselves would put us in charge of a format Claude Code owns. And with keys stored now (5), the CLI path keeps them out of that file.
+
+### How MCP works today (checked on this machine, CLI 2.1.296)
+
+- **Scopes:** user (`~/.claude.json` → `mcpServers`), local (`~/.claude.json` → `projects[<folder>].mcpServers`), project (`.mcp.json`, needs approval), plugins, claude.ai connectors (account-level).
+- **Here:** user and local scope are empty, `agent-office` has no `.mcp.json`, `luma` has `lumagit`, and 10 claude.ai connectors (Gmail, Drive, Docs, Sheets, Slack…) load into every non-strict run.
+- **Declared but not configured:** `developer` declares `mcp__playwright__*`; `level-designer` declares `mcp__unreal-mcp__*` and `mcp__blender__*`. No such server is configured anywhere found, so those tools don't exist for those agents today.
+- **Per-run control:** `--disallowedTools mcp__<server>` removes one server's tools for the agent and its sub-agents (verified); claude.ai names normalise (`claude.ai Gmail` → `mcp__claude_ai_Gmail`). `--strict-mcp-config` drops everything not passed and is kept for mission seats only.
+
+### Design
+
+| Part | What it does | Built on |
+|---|---|---|
+| **MCP page** (main menu) | Every server grouped by scope: User · Project (per project) · Local · Plugins · claude.ai. Each row shows transport, status (connected / needs login / pending approval / failed), tool count, **tokens it adds per run**, which agents declare it, linked secrets | Config files read directly; status from `claude mcp list` on demand (slow, it health-checks every server; cached, refresh button); token cost from `measureMcpTokens` (`agents/context-cost-measure.ts`) |
+| **Missing servers** | "Declared by level-designer but not configured: unreal-mcp, blender" with an Add button | `agentMcpServerNames` over every agent definition |
+| **Add / edit / remove** | Form: name, scope, stdio (command, args, env) or HTTP (URL, headers). Any env or header value can be "from a secret" | `claude mcp add-json <name> <json> -s <scope>` / `claude mcp remove <name> -s <scope>`, run in the project folder for local/project scope |
+| **Log in** | For HTTP servers and claude.ai connectors that need auth | `claude mcp login <name>` (verify it works without a TTY) |
+| **Per-session toggles** | The header's "tools N on" popover lists every server available to the session with a switch; defaults follow decisions 1 and 2 | New instance field `mcpOverrides: Record<string, boolean>` replacing `playwrightEnabled` (migrate `true` → `{ playwright: true }`); spawn denies every known server not on, via the existing `disabledMcpArgs` |
+| **Context & Cost tab** | Per-server cost rows link to the toggle | Existing tab |
+| **Mission seats** | Keep strict isolation; get only the user-scope servers their agent declares | Existing strict path |
+
+**Secrets flow.** The value is stored encrypted in Secrets and linked to the project. The server config written through the CLI holds only a reference, `${NAME}`. At spawn Agent Office injects `NAME` into the run's env (existing mechanism), and Claude Code expands it. Outside Agent Office, the terminal needs `NAME` exported; the page says so on that row.
+
+### Must verify before building
+
+- [ ] Claude Code expands `${VAR}` in **user/local-scope** configs and in **HTTP headers**, not only in `.mcp.json`. If not: pass that one server at spawn through `--mcp-config` as a temp file (mode 0600, deleted after; never in argv, which other processes can read), non-strict so nothing else is dropped.
+- [ ] `claude mcp login` and `add-json` work with stdin closed from a spawned process (Agent Office runs the CLI headless).
+- [ ] The list of claude.ai connector names is only available from `claude mcp list`. Denying "everything not on" uses the cached list, so a connector added since the last refresh loads until the next one (fails open). Decide whether to refresh before each spawn (slow) or accept it.
+- [ ] On Windows `claude` is a `.cmd`: spawn it the way runs already do, never with `shell: true`.
+
+### Risks
+
+- Adding a stdio server means running a command on every run: confirm on add, show the full command.
+- Project scope writes `.mcp.json` into the repo, which usually gets committed: warn, and never put a secret value there.
+- A connector or agent that should use Gmail etc. must now declare `mcp__claude_ai_Gmail__*` (or be switched on per session).
+
+### Open questions
+
+- M1. Menu label and position: **"MCP", after Skills** (recommended), or "Tools"?
+- M2. Connector names: refresh before every spawn (adds seconds to each run) or use the cached list (recommended; a brand-new connector loads until the next refresh)?
+
 ## Proposed build order
 
 Each phase is shippable on its own. Phases 0–1 change no stored data.
