@@ -108,7 +108,7 @@ export function parseDetails(raw: string): Map<number, ProcDetails> | null {
 const system32 = (...parts: string[]): string => join(process.env.SystemRoot ?? "C:\\Windows", "System32", ...parts);
 
 export async function listeners(): Promise<Listener[]> {
-  return parseNetstat(await commandOutput(system32("NETSTAT.EXE"), ["-ano"]));
+  return parseNetstat((await commandOutput(system32("NETSTAT.EXE"), ["-ano"])) ?? "");
 }
 
 // A cold PowerShell start under an antivirus scan can take seconds (see terminal.ts).
@@ -120,5 +120,5 @@ export async function details(pids: number[]): Promise<Map<number, ProcDetails> 
   if (safe.length === 0) return new Map();
   const powershell = system32("WindowsPowerShell", "v1.0", "powershell.exe");
   const encoded = Buffer.from(detailsScript(safe), "utf16le").toString("base64");
-  return parseDetails(await commandOutput(powershell, ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], POWERSHELL_TIMEOUT_MS));
+  return parseDetails((await commandOutput(powershell, ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], POWERSHELL_TIMEOUT_MS)) ?? "");
 }

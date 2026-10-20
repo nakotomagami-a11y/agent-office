@@ -117,3 +117,15 @@ export function groupByProject(processes: ProcessInfo[]): ProcessGroup[] {
     ...groups.filter((g) => g.label === "Other"),
   ];
 }
+
+const KILL_ERROR_KEYS = {
+  ownership_unverified: "kill_error_ownership_unverified",
+  forbidden: "kill_error_forbidden",
+  not_found: "kill_error_not_found",
+} as const;
+
+/** The server answers a failed kill with a machine code; the client owns the wording. */
+export function killErrorKey(e: unknown): (typeof KILL_ERROR_KEYS)[keyof typeof KILL_ERROR_KEYS] | "kill_error_failed" {
+  const code = e instanceof Error ? e.message : "";
+  return Object.hasOwn(KILL_ERROR_KEYS, code) ? KILL_ERROR_KEYS[code as keyof typeof KILL_ERROR_KEYS] : "kill_error_failed";
+}

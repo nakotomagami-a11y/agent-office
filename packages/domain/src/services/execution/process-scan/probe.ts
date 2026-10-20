@@ -15,14 +15,15 @@ export interface ProcessScanner {
   details(pids: number[]): Promise<Map<number, ProcDetails> | null>;
 }
 
-/** stdout of a command, "" if it can't run. `lsof` and BSD `ps` exit 1 when
- *  some pids matched nothing, yet still print the rest. */
-export async function commandOutput(cmd: string, args: string[], timeoutMs = 5000): Promise<string> {
+/** stdout of a command; null when it couldn't run or was killed by the timeout. A
+ *  non-zero exit keeps its stdout: `lsof` and BSD `ps` exit 1 when some pids matched
+ *  nothing, yet still print the rest. */
+export async function commandOutput(cmd: string, args: string[], timeoutMs = 5000): Promise<string | null> {
   try {
     return (await execFileP(cmd, args, { encoding: "utf8", timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 })).stdout;
   } catch (e) {
-    const stdout = (e as { stdout?: unknown }).stdout;
-    return typeof stdout === "string" ? stdout : "";
+    const { stdout, code, killed } = e as { stdout?: unknown; code?: unknown; killed?: boolean };
+    return typeof code === "number" && !killed && typeof stdout === "string" ? stdout : null;
   }
 }
 

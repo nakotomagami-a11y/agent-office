@@ -20,6 +20,7 @@ import {
   accentForProto,
   sparkPath,
   groupByProject,
+  killErrorKey,
   type ProcessGroup,
 } from "../format/process-format";
 import { API_ROUTES } from "@agent-office/api-contract";
@@ -243,14 +244,15 @@ export function ProcessesModal() {
   async function handleKill(pid: number) {
     setKilling((prev) => new Set(prev).add(pid));
     setKillError(null);
+    const dropRow = () =>
+      queryClient.setQueryData<ProcessInfo[]>(["processes"], (old) => (old ? old.filter((p) => p.pid !== pid) : old));
     try {
       await apiFetch(API_ROUTES.process(pid), { method: "DELETE" });
-      queryClient.setQueryData<ProcessInfo[]>(["processes"], (old) =>
-        old ? old.filter((p) => p.pid !== pid) : old
-      );
+      dropRow();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Kill failed";
-      setKillError(`PID ${pid}: ${msg}`);
+      const key = killErrorKey(e);
+      if (key === "kill_error_not_found") dropRow();
+      else setKillError(t(key, { pid }));
     } finally {
       setKilling((prev) => { const s = new Set(prev); s.delete(pid); return s; });
       void queryClient.invalidateQueries({ queryKey: ["processes"] });

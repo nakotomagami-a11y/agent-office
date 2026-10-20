@@ -15,10 +15,11 @@ test("live: the scanner finds this process's own listening socket and its cwd", 
   try {
     const { port } = server.address() as AddressInfo;
     const found = (await scanner!.listeners()).find((l) => l.pid === process.pid && l.port === port);
-    assert.deepStrictEqual(found && { address: found.address, port: found.port }, { address: "127.0.0.1", port });
+    assert.ok(found, "listeners() did not report our socket: is ss / netstat / lsof missing or timing out?");
+    assert.strictEqual(found.address, "127.0.0.1");
     const mine = (await scanner!.details([process.pid]))?.get(process.pid);
     assert.ok(mine, "details() returns our own pid");
-    const real = (p: string) => realpathSync.native(p).toLowerCase();
+    const real = (p: string) => (process.platform === "linux" ? realpathSync.native(p) : realpathSync.native(p).toLowerCase());
     assert.strictEqual(real(mine.cwd), real(process.cwd()));
     assert.ok(mine.memMb > 0 && mine.startedAt > 0 && mine.startedAt <= Date.now());
   } finally {

@@ -53,15 +53,16 @@ export function parsePs(out: string, uid: number | null, cwds: Map<number, strin
   return found;
 }
 
-const currentUid = (): number | null => (typeof process.getuid === "function" ? process.getuid() : null);
+// `ps -o uid` and `lsof -u` both mean the effective uid.
+const currentUid = (): number | null => (typeof process.geteuid === "function" ? process.geteuid() : null);
 
 export async function listeners(): Promise<Listener[]> {
   const uid = currentUid();
   const byUid = uid === null ? [] : ["-u", String(uid)];
-  return parseLsofListeners(await commandOutput("lsof", ["+c", "0", "-nP", "-a", "-iTCP", "-sTCP:LISTEN", ...byUid, "-Fpcn"]));
+  return parseLsofListeners((await commandOutput("lsof", ["+c", "0", "-nP", "-a", "-iTCP", "-sTCP:LISTEN", ...byUid, "-Fpcn"])) ?? "");
 }
 
-export async function details(pids: number[]): Promise<Map<number, ProcDetails>> {
+export async function details(pids: number[]): Promise<Map<number, ProcDetails> | null> {
   if (pids.length === 0) return new Map();
   const list = pids.join(",");
   const [ps, cwd] = await Promise.all([
@@ -69,5 +70,6 @@ export async function details(pids: number[]): Promise<Map<number, ProcDetails>>
     commandOutput("ps", ["-ww", "-o", "pid=", "-o", "uid=", "-o", "rss=", "-o", "etime=", "-o", "command=", "-p", list]),
     commandOutput("lsof", ["-a", "-d", "cwd", "-p", list, "-Fn"]),
   ]);
-  return parsePs(ps, currentUid(), parseLsofCwds(cwd), Date.now());
+  if (ps === null) return null;
+  return parsePs(ps, currentUid(), parseLsofCwds(cwd ?? ""), Date.now());
 }

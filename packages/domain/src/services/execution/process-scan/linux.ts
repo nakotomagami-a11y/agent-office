@@ -71,7 +71,7 @@ export function parseSs(out: string): Listener[] {
 }
 
 export async function listeners(): Promise<Listener[]> {
-  return parseSs(await commandOutput("ss", ["-tlnp"]));
+  return parseSs((await commandOutput("ss", ["-tlnp"])) ?? "");
 }
 
 export async function details(pids: number[]): Promise<Map<number, ProcDetails>> {

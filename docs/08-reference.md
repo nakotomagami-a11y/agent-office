@@ -184,7 +184,7 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 |---|---|---|
 | `GET` | `/api/processes` | List user's listening ports (Linux, macOS, Windows) and agent background shells |
 | `GET` | `/api/processes/:pid` | Check process liveness |
-| `DELETE` | `/api/processes/:pid` | SIGKILL process |
+| `DELETE` | `/api/processes/:pid` | SIGKILL process the user owns (on Windows/macOS checked first; `503 ownership_unverified` if the check cannot run) |
 | `GET` | `/api/processes/:pid/logs` | Captured stdout/stderr |
 | `POST` | `/api/processes/:pid/stdin` | Inject stdin (`{text}`) |
 

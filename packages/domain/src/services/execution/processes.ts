@@ -84,16 +84,21 @@ export function killProcessUnchecked(pid: number, { tree = false }: { tree?: boo
   }
 }
 
-/** Off Linux the pid must first pass the list's ownership rule. `tree` marks a shell this
- *  server launched and is still running, which is ours without asking. */
+/** null lets the kill go ahead; a failed check (`info` null) is 503, never a false "not yours". */
+export function ownershipVerdict(info: Map<number, unknown> | null, pid: number, alive: boolean): KillResult | null {
+  if (!info) return { ok: false, error: "ownership_unverified", status: 503 };
+  if (info.has(pid)) return null;
+  return alive ? { ok: false, error: "forbidden", status: 403 } : { ok: false, error: "not_found", status: 404 };
+}
+
+/** Off Linux the pid must pass the list's ownership rule; `tree` (a running shell we launched) is ours. */
 export async function killOwnedProcess(pid: number, opts: { tree?: boolean } = {}): Promise<KillResult> {
+  let result: KillResult | null = null;
   if (process.platform !== "linux" && scanner && !opts.tree && pid > 1 && pid !== process.pid) {
-    const info = await scanner.details([pid]).catch(() => null);
-    if (!info) return { ok: false, error: "ownership_unverified", status: 503 };
-    if (!info.has(pid)) return isProcessAlive(pid) ? { ok: false, error: "forbidden", status: 403 } : { ok: false, error: "not_found", status: 404 };
+    result = ownershipVerdict(await scanner.details([pid]).catch(() => null), pid, isProcessAlive(pid));
   }
-  const result = killProcessUnchecked(pid, opts);
-  if (result.ok) lastScan = null;
+  result ??= killProcessUnchecked(pid, opts);
+  if (result.ok || result.error === "not_found") lastScan = null;
   return result;
 }
 

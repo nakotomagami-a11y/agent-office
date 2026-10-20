@@ -833,7 +833,11 @@
     "command": "Command",
     "started": "Started",
     "address": "Address",
-    "started_by": "Started by"
+    "started_by": "Started by",
+    "kill_error_ownership_unverified": "Couldn't check who owns PID {pid}, so it was left running. Try again.",
+    "kill_error_forbidden": "PID {pid} belongs to the system or another user.",
+    "kill_error_not_found": "PID {pid} had already exited.",
+    "kill_error_failed": "Couldn't stop PID {pid}."
   },
   "search_page": {
     "title": "Search Runs",
