@@ -28,10 +28,12 @@ const VALUE = "ghp_supersecretvalue123";
 const secret = secrets.create({ name: "GITHUB_TOKEN", value: VALUE });
 secrets.link("proj", secret.id);
 
-test("the script never contains a secret value, only unsets its name", () => {
+test("the script never names a secret: no value, and no unset of the user's own variable", () => {
+  // The precmd hook sources this every prompt; unsetting GITHUB_TOKEN there wiped
+  // the user's own exported token once the file stopped exporting ours.
   const script = shellEnvScript("proj");
   assert.equal(script.includes(VALUE), false, "a plaintext secret value reached shell-env.sh");
-  assert.match(script, /^unset .*\bGITHUB_TOKEN\b/m);
+  assert.equal(script.includes("GITHUB_TOKEN"), false);
   assert.match(script, /^export AGENT_OFFICE_PROJECT=/m, "the project's non-secret env is still mirrored");
 });
 

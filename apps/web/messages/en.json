@@ -614,7 +614,7 @@
     "row_skill_cache_label": "Downloaded and bundled skills",
     "row_skill_cache_desc": "Deletes skills installed from the registry (reinstall them from Skills) and unedited bundled starter skills (restored at the next server start). Skills you created or imported, and any you edited in Agent Office, are kept.",
     "row_ui_settings_label": "App UI settings",
-    "row_ui_settings_desc": "Resets theme, performance mode, open tabs and the setup wizard draft. Office maps, layouts and decorations are kept.",
+    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project and the setup wizard draft. Office maps, layouts, decorations and your spend cap are kept.",
     "cleared": "Cleared",
     "failed": "Failed",
     "confirm_prompt": "Run this reset?",

@@ -7,10 +7,12 @@
  * drafts cleared".
  */
 
-import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import type { CleanupKind } from "../../config/cleanup";
 import { join } from "node:path";
 import { getDb, deleteRunsWhere } from "../db";
+import { emitAppEvent } from "../infra/events";
+import { writeFileAtomic } from "../infra/fs-atomic";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 
@@ -81,6 +83,10 @@ export function wipeOrphanedRuns(): CleanupResult {
     orphanRunsChanges: deleteRunsWhere(ORPHANED_RUN),
     orphanPipelinesChanges: deletePipelinesWhere("interrupted = 1"),
   }))();
+  if (orphanRunsChanges > 0) {
+    emitAppEvent("conversations:changed");
+    emitAppEvent("loops:changed");
+  }
   return {
     cleared: orphanRunsChanges + orphanPipelinesChanges,
     detail: {
@@ -165,19 +171,19 @@ export function clearSkillInstallCache(dir: string = SKILLS_DIR, bundledDir: str
   }
   // Boot (server boot.ts) re-offers what is missing from the marker: just these,
   // not a bundled skill the user uninstalled on purpose.
-  if (seeded && reseed.size > 0) writeFileSync(markerFile, JSON.stringify(seeded.filter((n) => !reseed.has(n))));
+  if (seeded && reseed.size > 0) writeFileAtomic(markerFile, JSON.stringify(seeded.filter((n) => !reseed.has(n))));
   return { cleared };
 }
 
 // ─── UI settings (theme, layout, tab persistence) ────────────────────────────
 // The `_migrated` sentinel is preserved so the JSONL→SQLite migration doesn't
-// re-run on next boot. `office-*` keys are the user's office maps and
-// decorations: work, not preferences.
+// re-run on next boot. `office-*` (maps, decorations) is work and
+// `claude-limits` (the spend cap) is configuration: neither is a preference.
 
 export function resetUiSettings(): CleanupResult {
   const db = getDb();
   const changes = db
-    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' AND key NOT LIKE 'office-%'")
+    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' AND key NOT LIKE 'office-%' AND key != 'claude-limits'")
     .run().changes;
   return { cleared: changes };
 }

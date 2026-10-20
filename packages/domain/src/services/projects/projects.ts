@@ -478,7 +478,7 @@ export function removeProjectFolder(id: string, fullPath: string): boolean {
   const settings = readSettings();
   if (!settings) return false;
   const entries = scanProjects(settings.projectsRoot, settings.excluded, true);
-  const scanned = entries.find((e) => e.id === id && samePath(e.fullPath, fullPath));
+  const scanned = entries.find((e) => e.id === id && e.fullPath === fullPath);
   if (!scanned) return false;
 
   const root = expandTilde(settings.projectsRoot);

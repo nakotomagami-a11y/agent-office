@@ -47,7 +47,7 @@ export function RemoveProjectModal({
       onClose();
     } catch (e) {
       setError(
-        e instanceof ApiError && e.status === 404
+        e instanceof ApiError && e.message === "folder_mismatch"
           ? "This folder is no longer the one the saved projects root lists. Nothing was deleted. Rescan and try again."
           : "Couldn't delete the folder. Check permissions and try again.",
       );

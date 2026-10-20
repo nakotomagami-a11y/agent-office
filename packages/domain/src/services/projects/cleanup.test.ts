@@ -448,10 +448,10 @@ test("a scoped run delete parks the chat it ran and ends the loop waiting on it"
   // Both reconcilers read a missing run as "just spawned" and wait forever, so
   // DELETE /api/runs left the chat "running" with every new message queued behind it.
   const db = freshDb();
-  seedRun(db, "live", "running", null);
-  seedConversation(db, "c1", "running", "live");
+  seedRun(db, "ended", "error", 1);
+  seedConversation(db, "c1", "running", "ended");
   db.prepare("INSERT INTO queued_messages (id, conversation_id, text, position, created_at) VALUES ('q1','c1','hi',0,1)").run();
-  seedLoop(db, "l1", "live");
+  seedLoop(db, "l1", "ended");
 
   deleteRunsByAgent("dev");
 
@@ -460,6 +460,20 @@ test("a scoped run delete parks the chat it ran and ends the loop waiting on it"
   assert.equal(count(db, "queued_messages"), 1, "the queued message is the user's: kept for Retry");
   const loop = db.prepare("SELECT phase, binding, active_run_id FROM loops WHERE id='l1'").get();
   assert.deepEqual(loop, { phase: "escalated", binding: "dispatch_failed", active_run_id: null });
+});
+
+test("a live run is never deleted, so its chat and loop still hear it finish", () => {
+  // Parking a chat under a live run dropped the run's finish (the machine ignores
+  // a runId that is not its active one) and let Resume start a second
+  // `claude --resume` on the same session while the first was still writing.
+  const db = freshDb();
+  seedRun(db, "live", "running", null);
+  seedConversation(db, "c1", "running", "live");
+  seedLoop(db, "l1", "live");
+
+  assert.equal(deleteRunsByAgent("dev"), 0);
+  assert.deepEqual(db.prepare("SELECT status, active_run_id FROM conversations").get(), { status: "running", active_run_id: "live" });
+  assert.equal((db.prepare("SELECT active_run_id FROM loops").get() as { active_run_id: string }).active_run_id, "live");
 });
 
 test("an idle chat whose old run is deleted only loses the pointer", () => {
@@ -490,12 +504,13 @@ test("the orphan sweep never deletes a chat turn or a sub-agent inside one", () 
 
 // --- S5-7: the UI reset keeps the office --------------------------------------
 
-test("resetting UI settings keeps office maps and decorations", () => {
+test("resetting UI settings keeps office maps, decorations and the spend cap", () => {
   const db = freshDb();
   const put = db.prepare("INSERT INTO ui_settings (key, value, updated_at) VALUES (?, 'v', 1)");
-  for (const k of ["theme", "tabs-state", "office-grid:p1", "office-decorations:p1", "office-agents", "_migrated"]) put.run(k);
+  for (const k of ["theme", "tabs-state", "office-grid:p1", "office-decorations:p1", "office-agents", "claude-limits", "_migrated"]) put.run(k);
 
   assert.equal(resetUiSettings().cleared, 2);
   const keys = (db.prepare("SELECT key FROM ui_settings ORDER BY key").all() as Array<{ key: string }>).map((r) => r.key);
-  assert.deepEqual(keys, ["_migrated", "office-agents", "office-decorations:p1", "office-grid:p1"]);
+  assert.deepEqual(keys, ["_migrated", "claude-limits", "office-agents", "office-decorations:p1", "office-grid:p1"],
+    "a reset that dropped claude-limits silently turned a hard spend cap back into a warning");
 });

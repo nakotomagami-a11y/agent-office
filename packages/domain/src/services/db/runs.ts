@@ -156,8 +156,11 @@ export function getChildRuns(parentRunId: string): PersistedRun[] {
   return rows.map(rowToRun);
 }
 
-export function deleteRunsWhere(where: string, ...params: unknown[]): number {
+const LIVE_RUNS_STAY = "status != 'running'";
+
+export function deleteRunsWhere(filter: string, ...params: unknown[]): number {
   const db = getDb();
+  const where = `(${filter}) AND ${LIVE_RUNS_STAY}`;
   const ids = `SELECT id FROM runs WHERE ${where}`;
   const now = Date.now();
   let changes = 0;
@@ -181,7 +184,7 @@ export function deleteRunsWhere(where: string, ...params: unknown[]): number {
     ).run(now, ...params).changes;
     changes = db.prepare(`DELETE FROM runs WHERE ${where}`).run(...params).changes;
   })();
-  if (parked > 0) {
+  if (parked > 0 && !db.inTransaction) {
     emitAppEvent("conversations:changed");
     emitAppEvent("loops:changed");
   }
