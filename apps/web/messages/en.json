@@ -1389,6 +1389,11 @@
     "cap_cost_unknown": "cap needs a known price",
     "reserved_name_note": "{name} is reserved. Agents never receive it from a project secret, because it selects which AI provider runs. Set the provider in Settings instead.",
     "reserved_badge": "reserved, not passed to agents",
-    "context_cost_note": "Dollar figures here use Anthropic's prices and don't apply to {provider}. Token counts still do."
+    "context_cost_note": "Dollar figures here use Anthropic's prices and don't apply to {provider}. Token counts still do.",
+    "pick_one": "Pick a provider to continue.",
+    "run_retry": "Retry",
+    "run_skip": "Skip",
+    "key_shape_anthropic_key_for_openai": "This looks like an Anthropic key. OpenAI keys usually start with sk-.",
+    "key_shape_not_an_anthropic_key": "Anthropic keys usually start with sk-ant-. Check that this key is from Anthropic."
   }
 }

@@ -2,7 +2,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 import { COST_BASES, PROVIDER_STATUS_REASONS, PROVIDER_STATUS_REASON_POLICY } from "@agent-office/domain/config/providers";
 import { ApiError } from "@/lib/api/fetch";
-import { REASON_ACTION, allTiersShare, baseUrlProblem, canContinueAnyway, costDisplay, formatPerMTok, reasonOfError, sameBaseUrl } from "./provider-format";
+import { REASON_ACTION, allTiersShare, baseUrlProblem, canContinueAnyway, costDisplay, formatPerMTok, keyShapeHint, reasonOfError, sameBaseUrl } from "./provider-format";
 
 test("Continue anyway is offered for exactly the reasons the server accepts", () => {
   for (const reason of PROVIDER_STATUS_REASONS) {
@@ -55,6 +55,15 @@ test("every cost basis renders as something, and unknown is never a dollar amoun
   assert.deepEqual(costDisplay(2, "estimated"), { kind: "estimated", usd: 2 });
   assert.deepEqual(costDisplay(3, undefined), { kind: "amount", usd: 3 });
   assert.deepEqual(costDisplay(3, "notional"), { kind: "amount", usd: 3 });
+});
+
+test("a key that looks like the wrong provider's gets a hint, and nothing else does", () => {
+  assert.equal(keyShapeHint("openai", "sk-ant-api03-abc"), "anthropic_key_for_openai");
+  assert.equal(keyShapeHint("openai", "sk-proj-abc"), null);
+  assert.equal(keyShapeHint("anthropic_api", "sk-proj-abc"), "not_an_anthropic_key");
+  assert.equal(keyShapeHint("anthropic_api", "sk-ant-api03-abc"), null);
+  assert.equal(keyShapeHint("anthropic_api", "  "), null);
+  assert.equal(keyShapeHint("local", "anything-goes"), null);
 });
 
 test("a price shows as per-million-tokens, and a missing one as nothing", () => {

@@ -6,7 +6,7 @@ import type { Provider, ProviderView } from "@agent-office/domain/types";
 import { MODEL_TIERS, type ModelTier } from "@agent-office/domain/config/providers";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
-import { baseUrlProblem, allTiersShare, withModelForAllTiers } from "../format/provider-format";
+import { baseUrlProblem, allTiersShare, keyShapeHint, withModelForAllTiers } from "../format/provider-format";
 import { keyWillBeCleared, type ProviderDraft } from "../format/provider-draft";
 import { useDeleteProviderKey } from "../hooks/use-providers";
 
@@ -72,6 +72,7 @@ function KeyField({ provider, draft, view, onEdit, onEnter }: FieldsProps) {
       ) : null}
       <Hint id={`${id}-hint`}>{t("key_write_only")}</Hint>
       {keyWillBeCleared(draft, view) ? <Hint tone="warn">{t("key_clears_warning")}</Hint> : null}
+      {keyShapeHint(provider, draft.apiKey) ? <Hint tone="warn">{t(`key_shape_${keyShapeHint(provider, draft.apiKey)}`)}</Hint> : null}
     </div>
   );
 }

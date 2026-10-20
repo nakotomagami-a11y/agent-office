@@ -6,7 +6,7 @@ import {
   type ModelTier,
   type ProviderStatusReason,
 } from "@agent-office/domain/config/providers";
-import type { ModelPrice, ProviderModels } from "@agent-office/domain/types";
+import type { ModelPrice, Provider, ProviderModels } from "@agent-office/domain/types";
 import { ApiError } from "@/lib/api/fetch";
 
 /** What the user can do about a reason, which decides the button under its copy. */
@@ -25,12 +25,11 @@ export const REASON_ACTION: Record<ProviderStatusReason, ReasonAction> = {
   empty_response: "recheck",
   no_models: "recheck",
   model_not_found: "edit",
-  rate_limited: "edit",
+  rate_limited: "recheck",
   base_url_invalid: "edit",
   budget_unenforceable: "edit",
 };
 
-/** "Continue anyway" is offered only for reasons the server accepts too. */
 export const canContinueAnyway = (reason: ProviderStatusReason | undefined): boolean =>
   reason !== undefined && PROVIDER_STATUS_REASON_POLICY[reason] === "accept";
 
@@ -64,7 +63,17 @@ export function sameBaseUrl(a: string | undefined, b: string | undefined): boole
   return left === right;
 }
 
-/** One model for every tier: the common local-server case. */
+export type KeyShapeHint = "anthropic_key_for_openai" | "not_an_anthropic_key";
+
+/** Soft hint only: a proxy or local server may use any key shape, so this never blocks. */
+export function keyShapeHint(provider: Provider, key: string): KeyShapeHint | null {
+  const k = key.trim();
+  if (!k) return null;
+  if (provider === "openai" && k.startsWith("sk-ant-")) return "anthropic_key_for_openai";
+  if (provider === "anthropic_api" && !k.startsWith("sk-ant-")) return "not_an_anthropic_key";
+  return null;
+}
+
 export function allTiersShare(models: ProviderModels): string | null {
   const ids = [models.haiku, models.sonnet, models.opus];
   return ids[0] && ids.every((m) => m === ids[0]) ? ids[0] : null;
@@ -99,7 +108,6 @@ export function costDisplay(usd: number, basis: CostBasis | undefined): CostDisp
   return { kind: "amount", usd };
 }
 
-/** `$3.00/Mt`, or null when the catalog has no price, so the caller shows its own dash. */
 export function formatPerMTok(price: number | undefined): string | null {
   if (price === undefined || !Number.isFinite(price)) return null;
   return price >= 10 ? `$${Math.round(price)}/Mt` : `$${price.toFixed(2)}/Mt`;

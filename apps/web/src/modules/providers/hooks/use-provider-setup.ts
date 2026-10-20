@@ -49,10 +49,12 @@ function useSetupState(initial: PersistedChoice | undefined, ready: boolean) {
   const draft = (choice && drafts[choice]) || EMPTY_DRAFT;
 
   const setChoice = useCallback((p: Provider) => {
+    // A key typed for a provider the user leaves is dropped, so no abandoned key lingers in memory.
+    setDrafts((prev) => (choice && prev[choice] ? { ...prev, [choice]: { ...prev[choice], apiKey: "" } } : prev));
     setChoiceState(p);
     setOutcome(null);
     setFailure(null);
-  }, []);
+  }, [choice]);
   const edit = useCallback(
     (patch: Partial<ProviderDraft>) => {
       if (!choice) return;
@@ -121,6 +123,7 @@ function useCommit(s: State, runTest: () => Promise<ProviderTestResult | null>, 
         return true;
       } catch (err) {
         setFailure(failureOf(err));
+        void refresh();
         return false;
       } finally {
         setPhase("idle");

@@ -29,14 +29,15 @@ export function ProviderErrorCard({
 }) {
   const t = useTranslations("errors.run");
   const te = useTranslations("errors.provider");
+  const tp = useTranslations("providers");
   const router = useRouter();
   const reason = isProviderStatusReason(detail) ? detail : null;
   // A rejected key or a spending cap fails again the same way, so Retry would only repeat it.
   const retryHelps = code === "provider_unreachable" || (reason !== null && REASON_ACTION[reason] === "recheck");
   const actions: FlagAction[] = [
     { key: "settings", label: t(`${code}.action`), tone: "primary", onClick: () => router.push(PAGE_ROUTES.settingsProvider) },
-    ...(retryHelps ? [{ key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry } satisfies FlagAction] : []),
-    { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
+    ...(retryHelps ? [{ key: "retry", label: tp("run_retry"), tone: "neutral", onClick: onRetry, disabled: !onRetry } satisfies FlagAction] : []),
+    { key: "skip", label: tp("run_skip"), tone: "neutral", onClick: onSkip, disabled: !onSkip },
   ];
   return (
     <FlagCard
