@@ -337,7 +337,9 @@ with a per-run bearer token, so no provider key ever enters a child process.
   rate; reasoning tokens are inside `completion_tokens`), or, when a response carries no usage, the
   most it could have cost. One response from an unpriced model makes the run `unknown` at $0, and
   every cost reader leaves it out of sums (`db/cost-sql.ts`) and counts it as `unknownCostRuns`.
-  A `local` run is `free`. A local server that reports usage only on request shows 0 tokens: the
+  A `local` run is `free`. A run ended by `budget_exceeded` or Stop records 0 tokens in and out (the
+  CLI never emits its final `result`), while its cost is still the gateway's charge: a known display gap.
+  A local server that reports usage only on request shows 0 tokens: the
   gateway asks for streamed usage (`stream_options`) only from OpenAI. The CLI's first system line
   (`x-anthropic-billing-header: cc_version=…`, a per-conversation hash) is dropped before translating,
   so openai/local never receive it; the `anthropic_api` passthrough forwards the body unchanged.
