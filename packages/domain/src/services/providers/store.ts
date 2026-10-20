@@ -165,7 +165,8 @@ export function deleteProviderKey(provider: Provider): void {
 /** Re-pointing the selected provider is as consequential as switching it (D-08): warn-level, so it
  *  persists, and "last changed" moves. */
 function audit(provider: Provider, change: { before?: string; after?: string; keyChanged: boolean }): void {
-  if (change.before !== change.after || change.keyChanged) log.warn("provider.changed", { provider, ...change });
+  if (change.before === change.after && !change.keyChanged) return;
+  log.warn("provider.changed", { provider, ...change });
   getDb().prepare("UPDATE provider_selection SET changed_at = ? WHERE id = 1 AND provider = ?").run(Date.now(), provider);
 }
 
@@ -184,8 +185,14 @@ export function getSelection(): Selection | undefined {
   return { provider: row.provider, source: row.source === "migrated" ? "migrated" : "chosen", changedAt: row.changed_at };
 }
 
+/** Re-choosing the provider already chosen (the wizard re-commits it) is no change: no new time, no audit line. */
 export function setSelection(provider: Provider, source: Selection["source"]): void {
-  const before = getSelection()?.provider ?? null;
+  const current = getSelection();
+  const before = current?.provider ?? null;
+  if (before === provider) {
+    if (current?.source !== source) getDb().prepare("UPDATE provider_selection SET source = ? WHERE id = 1").run(source);
+    return;
+  }
   getDb()
     .prepare(`INSERT INTO provider_selection (id, provider, source, changed_at) VALUES (1, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET provider = excluded.provider, source = excluded.source, changed_at = excluded.changed_at`)

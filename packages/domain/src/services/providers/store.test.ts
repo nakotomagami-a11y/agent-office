@@ -97,3 +97,24 @@ test("a short key never gets a hint, so a hint can never be most of the key", ()
   store.saveProviderConfig("openai", { apiKey: "short-key-12345" });
   assert.equal(store.keyHint("openai"), undefined);
 });
+
+test("re-choosing the selected provider, or re-saving its address unchanged, is no change: same time, no audit line", () => {
+  const warned: string[] = [];
+  const stderrWrite = process.stderr.write.bind(process.stderr);
+  const quietly = (fn: () => void): void => {
+    process.stderr.write = ((chunk: string | Uint8Array) => { warned.push(String(chunk)); return true; }) as typeof process.stderr.write;
+    try { fn(); } finally { process.stderr.write = stderrWrite; }
+  };
+  store.saveProviderConfig("local", { baseUrl: "http://localhost:7000/v1" });
+  store.setSelection("local", "migrated");
+  getDb().prepare("UPDATE provider_selection SET changed_at = 1").run();
+  quietly(() => {
+    store.setSelection("local", "chosen");
+    store.saveProviderConfig("local", { baseUrl: "http://localhost:7000/v1", models: { haiku: "q" } });
+  });
+  assert.deepStrictEqual([store.getSelection()?.changedAt, store.getSelection()?.source], [1, "chosen"]);
+  assert.ok(!warned.some((l) => l.includes("provider.changed")), warned.join(""));
+  quietly(() => store.setSelection("subscription", "chosen"));
+  assert.ok(store.getSelection()!.changedAt > 1, "a real switch still moves it");
+  assert.ok(warned.some((l) => l.includes("provider.changed")), "and is audited");
+});
