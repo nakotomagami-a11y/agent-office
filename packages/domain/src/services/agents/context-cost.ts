@@ -19,6 +19,7 @@ import { formatPriorContext, getContextMessages } from "../projects/history";
 import { findInstance } from "../projects/projects";
 import * as db from "../db";
 import { agentMcpServerNames } from "./context-cost-measure";
+import { playwrightAllowed } from "../execution/summon";
 // Re-exported so callers (the API route) only need one import — "Measure
 // exactly" is a distinct file for its own reasons (spawns real processes,
 // async, takes ~10-15s) but is conceptually part of this same feature.
@@ -344,7 +345,7 @@ export function buildContextCostBreakdown(opts: {
   // Subtract the accurate total (nonNativeKnownTokens), not the sum of the
   // display rows above — keeps native honest despite their header residual.
   const knownTokens = nonNativeKnownTokens(agentId, project, cwd, addDirs);
-  const playwrightEnabled = instance?.playwrightEnabled !== false;
+  const playwrightEnabled = playwrightAllowed(instance?.agentId === agentId ? instance : null, agent?.info.tools ?? []);
   const nativeRows = buildNativeRows(agentId, agent?.info.tools ?? [], knownTokens, history, playwrightEnabled);
   const priorRow = buildPriorHistoryRow(agentId, instanceId, project);
 

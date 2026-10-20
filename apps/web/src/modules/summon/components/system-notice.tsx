@@ -13,6 +13,7 @@
 "use client";
 
 import { Icon } from "@/components/ui/icon";
+import { MarkdownView } from "@/components/ui/markdown-view";
 
 export interface SystemNoticeProps {
   text: string;
@@ -46,8 +47,8 @@ export function SystemNotice({ text, pending, positionLabel, onDismiss }: System
             </span>
           ) : null}
         </div>
-        <div className="text-[13px] leading-[1.55] text-ao-fg-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-          {text}
+        <div className="ao-prose ao-prose-sm">
+          <MarkdownView text={text} />
         </div>
       </div>
       {onDismiss ? (

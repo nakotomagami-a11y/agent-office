@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
 import { asOrigin, rowToRun, type RunRow } from "./runs";
-import type { MessageOrigin, PersistedRun } from "../../types/index";
+import type { MessageOrigin, PersistedRun, SubAgentStatus, SubRun } from "../../types/index";
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
@@ -236,14 +236,47 @@ function backgroundTaskCommandFromRows(rows: ToolCallRow[] | undefined): string 
   return undefined;
 }
 
+type SubRunRow = Pick<RunRow, "id" | "agent_id" | "prompt" | "status" | "error_code" | "started_at" | "ended_at" | "dur_ms" | "tokens_in" | "tokens_out" | "cost_usd"> & { parent_run_id: string };
+
+/** A sub-agent's run row keeps only done/error; why it ended is in its error code. */
+function subRunStatus(status: string, errorCode: string | null): SubAgentStatus {
+  if (status === "running" || status === "done") return status;
+  return errorCode === "stopped" ? "cancelled" : errorCode === "max_runtime" ? "timeout" : "error";
+}
+
+/** Prompts capped like stored user messages: a card, not the transcript. */
+function subRunsByTurn(conversationId: string): Map<string, SubRun[]> {
+  const rows = getDb()
+    .prepare(`SELECT c.id, c.agent_id, substr(c.prompt, 1, 2000) AS prompt, c.status, c.error_code, c.started_at, c.ended_at, c.dur_ms,
+        c.tokens_in, c.tokens_out, c.cost_usd, c.parent_run_id
+      FROM runs c JOIN runs p ON c.parent_run_id = p.id
+      WHERE p.conversation_id = ? AND p.parent_run_id IS NULL ORDER BY c.started_at ASC`)
+    .all(conversationId) as SubRunRow[];
+  const out = new Map<string, SubRun[]>();
+  for (const r of rows) {
+    const sub: SubRun = {
+      id: r.id, agentId: r.agent_id, prompt: r.prompt, status: subRunStatus(r.status, r.error_code), ts: r.started_at,
+      durMs: r.dur_ms ?? (r.ended_at != null ? r.ended_at - r.started_at : 0),
+      tokensIn: r.tokens_in, tokensOut: r.tokens_out, cost: r.cost_usd,
+    };
+    const list = out.get(r.parent_run_id);
+    if (list) list.push(sub);
+    else out.set(r.parent_run_id, [sub]);
+  }
+  return out;
+}
+
 /** Top-level turns (runs) of a conversation, oldest → newest. */
 export function listConversationTurns(conversationId: string): PersistedRun[] {
   const rows = getDb()
     .prepare("SELECT * FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC")
     .all(conversationId) as RunRow[];
   const toolRows = toolCallRowsByRun(rows.map((r) => r.id));
+  const subRuns = subRunsByTurn(conversationId);
   return rows.map((row) => {
     const run = rowToRun(row);
+    const subs = subRuns.get(row.id);
+    if (subs) run.subRuns = subs;
     const trows = toolRows.get(row.id);
     const command = backgroundTaskCommandFromRows(trows);
     if (command) run.backgroundTaskCommand = command;
@@ -252,6 +285,12 @@ export function listConversationTurns(conversationId: string): PersistedRun[] {
     }
     return run;
   });
+}
+
+export function hasRunningTurn(conversationId: string, exceptRunId?: string): boolean {
+  return !!getDb()
+    .prepare("SELECT 1 FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL AND status = 'running' AND id != ? LIMIT 1")
+    .get(conversationId, exceptRunId ?? "");
 }
 
 /** The most recent top-level turn of a conversation (used to derive the prompt

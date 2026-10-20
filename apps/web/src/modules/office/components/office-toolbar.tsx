@@ -532,10 +532,29 @@ export function FlutterDeviceButton() {
   );
 }
 
+const OPEN_ERROR_KEYS = {
+  no_cwd: "open_error_no_cwd",
+  cwd_missing: "open_error_cwd_missing",
+  cwd_unreadable: "open_error_cwd_unreadable",
+  editor_not_found: "open_error_editor_not_found",
+} as const;
+
+/** The route answers with a machine code; a failed open used to vanish as an unhandled rejection. */
+function useOpenProject() {
+  const t = useTranslations("office");
+  return (projectId: string, app?: "code") => {
+    openProjectFolder(projectId, app).catch((e: unknown) => {
+      const code = e instanceof Error ? e.message : "";
+      toast(t(Object.hasOwn(OPEN_ERROR_KEYS, code) ? OPEN_ERROR_KEYS[code as keyof typeof OPEN_ERROR_KEYS] : "open_error_failed"));
+    });
+  };
+}
+
 export function OpenFolderButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+  const open = useOpenProject();
   if (menu) {
     return (
-      <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId); }}>
+      <button type="button" className={MROW} onClick={() => open(projectId)}>
         <img src="/icons/docs-chest.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open project folder
       </button>
     );
@@ -543,7 +562,7 @@ export function OpenFolderButton({ projectId, menu = false }: { projectId: strin
   return (
     <Tooltip content="Open project folder" side="bottom">
       <button type="button" className={IMG_BTN}
-        onClick={() => { void openProjectFolder(projectId); }}>
+        onClick={() => open(projectId)}>
         <img src="/icons/docs-chest.png" alt="" width={30} height={30} className={IMG_ICON} />
       </button>
     </Tooltip>
@@ -551,9 +570,10 @@ export function OpenFolderButton({ projectId, menu = false }: { projectId: strin
 }
 
 export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+  const open = useOpenProject();
   if (menu) {
     return (
-      <button type="button" className={MROW} onClick={() => { void openProjectFolder(projectId, "code"); }}>
+      <button type="button" className={MROW} onClick={() => open(projectId, "code")}>
         <img src="/icons/vscode.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open in VS Code
       </button>
     );
@@ -561,7 +581,7 @@ export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: str
   return (
     <Tooltip content="Open in VS Code" side="bottom">
       <button type="button" className={IMG_BTN}
-        onClick={() => { void openProjectFolder(projectId, "code"); }}>
+        onClick={() => open(projectId, "code")}>
         <img src="/icons/vscode.png" alt="" width={30} height={30} className={IMG_ICON} />
       </button>
     </Tooltip>

@@ -14,14 +14,13 @@ import { SystemNotice } from "./system-notice";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ThreadItem } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
-import { TableBlock } from "@/components/ui/table-block";
-import { splitProse, type ProseItem } from "@/lib/markdown";
+import { MarkdownView, type RenderCode } from "@/components/ui/markdown-view";
+import { splitMarkdownBlocks, trimPartialFence } from "@/lib/markdown";
 import {
   fmtDuration,
   extractImages,
   stripAttachmentFooter,
   highlightTS,
-  inlineMd,
 } from "../format/message-format";
 import { ExpandedStateContext, useExpandedState } from "./expanded-state";
 import { ToolGroupRow } from "./tool-group-row";
@@ -84,57 +83,22 @@ function CodeBlock({ lang, body, streaming }: { lang: string; body: string; stre
 }
 
 // ── Prose block ───────────────────────────────────────────────────────────────
-function ProseBlock({ items, streaming }: { items: ProseItem[]; streaming?: boolean }) {
-  const out: React.ReactNode[] = [];
-  let paraBuf: string[] = [];
-  let listBuf: string[] = [];
-  let listOrdered = false;
+const renderChatCode: RenderCode = (lang, body) => <CodeBlock lang={lang} body={body} />;
+const renderStreamingCode: RenderCode = (lang, body) => <CodeBlock lang={lang} body={body} streaming />;
 
-  const flushPara = (key: string) => {
-    if (!paraBuf.length) return;
-    out.push(<p key={key} dangerouslySetInnerHTML={{ __html: inlineMd(paraBuf.join(" ")) }} />);
-    paraBuf = [];
-  };
-  const flushList = (key: string) => {
-    if (!listBuf.length) return;
-    const items = listBuf.map((it, i) => (
-      <li key={i} dangerouslySetInnerHTML={{ __html: inlineMd(it) }} />
-    ));
-    out.push(listOrdered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>);
-    listBuf = [];
-  };
-
-  items.forEach((item, idx) => {
-    const k = `n${idx}`;
-    if (typeof item === "object" && item.type === "code") {
-      flushPara(`p${k}`); flushList(`l${k}`);
-      out.push(<CodeBlock key={k} lang={item.lang} body={item.body} streaming={streaming} />);
-      return;
-    }
-    if (typeof item === "object" && item.type === "table") {
-      flushPara(`p${k}`); flushList(`l${k}`);
-      out.push(<TableBlock key={k} header={item.header} align={item.align} rows={item.rows} inlineMd={inlineMd} />);
-      return;
-    }
-    const ln = item as string;
-    if (/^#{2,3}\s+/.test(ln)) {
-      flushPara(`p${k}`); flushList(`l${k}`);
-      out.push(<h3 key={k} dangerouslySetInnerHTML={{ __html: inlineMd(ln.replace(/^#{2,3}\s+/, "")) }} />);
-      return;
-    }
-    if (/^[-*]\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = false; listBuf.push(ln.replace(/^[-*]\s+/, "")); return; }
-    if (/^\d+\.\s+/.test(ln)) { flushPara(`p${k}`); if (!listBuf.length) listOrdered = true; listBuf.push(ln.replace(/^\d+\.\s+/, "")); return; }
-    if (ln.trim() === "") { flushPara(`p${k}`); flushList(`l${k}`); return; }
-    flushList(`l${k}`);
-    paraBuf.push(ln);
-  });
-
-  flushPara("pf"); flushList("lf");
-
-  if (streaming) {
-    out.push(<p key="tail"><span className="ao-cursor" aria-hidden /></p>);
+export function ChatProse({ text, streaming }: { text: string; streaming?: boolean }) {
+  if (!streaming) {
+    return <div className="ao-prose"><MarkdownView text={text} renderCode={renderChatCode} /></div>;
   }
-  return <>{out}</>;
+  // Finished blocks keep their memoized render; only the growing last block re-parses each frame.
+  return (
+    <div className="ao-prose">
+      {splitMarkdownBlocks(trimPartialFence(text)).map((block, i) => (
+        <MarkdownView key={i} text={block} renderCode={renderStreamingCode} />
+      ))}
+      <p><span className="ao-cursor" aria-hidden /></p>
+    </div>
+  );
 }
 
 // ── Single tool call detail panel ─────────────────────────────────────────────
@@ -543,7 +507,6 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
       if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
       if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
 
-      const proseItems = splitProse(item.text);
       const agentImgs = extractImages(item.text);
       const showClarify = isQuestion && !item.streaming && !!onReply;
       return (
@@ -567,9 +530,7 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
                 <span className="text-ao-fg-3 font-mono text-[11px] font-normal text-[var(--ao-accent)]">typing…</span>
               </div>
             )}
-            <div className="ao-prose">
-              <ProseBlock items={proseItems} streaming={item.streaming} />
-            </div>
+            <ChatProse text={item.text} streaming={item.streaming} />
             <ImageStrip urls={agentImgs} agentProse />
             {showClarify ? (
               <ClarifyInput agentId={agent.id} projectId={projectId} onReply={onReply} />
@@ -619,8 +580,8 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
         <div className="flex items-center gap-3 my-1">
           <span className="flex-1 h-[1px] bg-[var(--ao-line-0)]" />
           <span className="inline-flex items-center gap-[6px] px-3 py-[5px] bg-ao-bg-2 border border-ao-line-1 rounded-full font-mono text-[11px] text-ao-fg-2">
-            <span className="text-[var(--ao-ok)] inline-flex items-center gap-1">
-              <Icon name="check" size={11} />
+            <span className={`${item.exitCode === 0 ? "text-[var(--ao-ok,var(--green))]" : "text-[var(--ao-bad,var(--red))]"} inline-flex items-center gap-1`}>
+              <Icon name={item.exitCode === 0 ? "check" : "x"} size={11} />
               {item.exitCode === 0 ? "Done" : `Exited ${item.exitCode}`}
             </span>
             {item.durationMs !== undefined && (

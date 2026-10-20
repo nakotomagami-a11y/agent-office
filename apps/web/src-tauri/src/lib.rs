@@ -283,6 +283,9 @@ pub fn run() {
             .decorations(false)
             .transparent(true)
             .center()
+            // Per Tauri's docs its file-drop handler keeps HTML5 drag events from the page on Windows; the
+            // composer's drop zone needs them, and the app never listens for Tauri's own drop events.
+            .disable_drag_drop_handler()
             .build()?;
 
             Ok(())

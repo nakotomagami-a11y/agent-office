@@ -1,18 +1,12 @@
-// Pure helpers for rendering chat messages: duration, image extraction,
-// attachment cleanup, and lightweight syntax/inline-markdown highlighting.
+// Pure helpers for chat messages: durations, image extraction, attachment cleanup, code highlighting.
 
 import { GENERATED_IMAGE_EXT } from "@agent-office/domain/config/generated-images";
-import { escapeHtml, linkMd } from "@/lib/markdown";
+import { escapeHtml } from "@/lib/markdown";
 import { API_ROUTES, parseJson, strField } from "@agent-office/api-contract";
 
-/** Wall-clock "you" item ids are `y_<epoch-ms>` — extract a real HH:MM from
- *  them for the turn timeline. Returns undefined for non-`y_`-prefixed ids
- *  (or malformed ones) rather than guessing a time. */
-export function fmtClockTime(itemId: string): string | undefined {
-  const m = /^y_(\d+)$/.exec(itemId);
-  if (!m) return undefined;
-  const ts = Number(m[1]);
-  if (!Number.isFinite(ts)) return undefined;
+/** HH:MM for the turn timeline, or undefined when the ask has no timestamp. */
+export function fmtClockTime(ts: number | undefined): string | undefined {
+  if (ts === undefined || !Number.isFinite(ts)) return undefined;
   // hour12 forced off — 24h everywhere, matching the reference design,
   // instead of following the browser locale's default (which reads as
   // AM/PM on most US-locale setups).
@@ -89,7 +83,6 @@ export function pathToUrl(rawPath: string): string | null {
   // imggen output: ~/Documents/Generated Images/{YYYY-MM-DD}/{filename}
   const genM = raw.match(/\/Generated Images\/(\d{4}-\d{2}-\d{2})\/([^/\s]+)$/);
   if (genM && GENERATED_IMAGE_EXT.test(genM[2]!)) return API_ROUTES.generatedImage(genM[1]!, genM[2]!);
-  // Plain HTTP/HTTPS image URL
   if (/^https?:\/\/.+/i.test(raw) && IMG_EXT.test(raw.split("?")[0]!)) {
     return raw;
   }
@@ -119,7 +112,6 @@ export function extractImages(text: string): string[] {
     const url = pathToUrl(m[0].slice(0, end));
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   }
-  // HTTP/HTTPS URLs
   const urlRe = /https?:\/\/[^\s,'"<>()[\]]+/g;
   while ((m = urlRe.exec(text)) !== null) {
     const raw = m[0]!;
@@ -160,7 +152,6 @@ export function prettyPrintToolArg(arg: string): { text: string; json: boolean }
       return { text: pretty.replace(/\\n/g, "\n"), json: true };
     }
   } catch {
-    // not JSON — render as-is
   }
   return { text: arg, json: false };
 }
@@ -185,9 +176,3 @@ export function highlightTS(src: string): string {
     .replace(/\x01F\x01([\s\S]*?)\x02/g,  '<span class="tk-fn">$1</span>');
 }
 
-export function inlineMd(s: string): string {
-  return linkMd(escapeHtml(s)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>"));
-}

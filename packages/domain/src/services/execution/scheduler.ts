@@ -4,6 +4,8 @@ import * as db from "../db";
 import { isLiveServer } from "../infra/discovery";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
+import { adoptScheduledRun } from "./conversation";
+import { productionConversationRunner } from "./conversation-runner";
 import * as runs from "./runs";
 import { startSummonRun, summonTargetExists } from "./summon-run";
 
@@ -63,6 +65,12 @@ async function fireDue(job: ScheduledJob, now: number, bypassStale = false): Pro
 
   updateJob(job.id, { status: "firing", firedRunId: result.runId });
   log.info("scheduler.fired", { jobId: job.id, runId: result.runId, reason: job.reason });
+  const { conversationId, resumeSessionId } = job.summonRequest;
+  if (!conversationId) return;
+  // Best-effort: the run is live either way, and a throw here must not re-fire the job.
+  await adoptScheduledRun(conversationId, result.runId, resumeSessionId ?? null, productionConversationRunner).catch((err) => {
+    log.warn("scheduler.adopt_failed", { jobId: job.id, runId: result.runId, message: err instanceof Error ? err.message : String(err) });
+  });
 }
 
 /** A fired job's run has an outcome — mark done, or reschedule if re-limited. */
@@ -165,8 +173,13 @@ export function cancelJob(id: string): boolean {
 export function reassignJob(id: string, target: { agentId?: string; projectId?: string; instanceId?: string }): ScheduledJob | null {
   const job = db.getScheduledJob(id);
   if (!job) return null;
+  const { conversationId, resumeSessionId, ...rest } = job.summonRequest;
+  const retargeted = (target.agentId !== undefined && target.agentId !== job.summonRequest.agentId)
+    || (target.projectId !== undefined && (target.projectId || null) !== (job.summonRequest.projectId || null))
+    || (target.instanceId !== undefined && (target.instanceId || "default") !== (job.summonRequest.instanceId || "default"));
+  // Another seat's conversation and session are not this one's to resume.
   const summonRequest: SummonRequest = {
-    ...job.summonRequest,
+    ...(retargeted ? rest : { ...rest, conversationId, resumeSessionId }),
     ...(target.agentId ? { agentId: target.agentId } : {}),
     ...(target.projectId !== undefined ? { projectId: target.projectId } : {}),
     ...(target.instanceId !== undefined ? { instanceId: target.instanceId } : {}),

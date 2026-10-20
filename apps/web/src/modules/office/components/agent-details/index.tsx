@@ -164,7 +164,7 @@ export function AgentDetailsModal() {
   );
   const currentInstanceForToggle =
     agentInstances.find((i) => i.instanceId === selectedInstanceId) ?? null;
-  const playwrightEnabled = currentInstanceForToggle?.playwrightEnabled !== false;
+  const playwrightEnabled = currentInstanceForToggle?.playwrightEnabled === true;
   const togglePlaywright = () => {
     if (!activeProjectId || !selectedInstanceId) return;
     const next = !playwrightEnabled;
@@ -346,7 +346,7 @@ export function AgentDetailsModal() {
             <div className="relative shrink-0 w-[40px] h-[70px] flex items-center justify-center">
               <UnitSprite unit={agent.unitChoice} size={70} label={agent.name} animate action={isWorking ? "attack" : "idle"} />
             </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 overflow-hidden">
               {/* Agent name is always the primary heading — session/label is
                   secondary metadata after it, never the other way round. */}
               <div className="flex items-center gap-[7px] min-w-0">
@@ -367,7 +367,7 @@ export function AgentDetailsModal() {
                 )}
                 {statusDot}
               </div>
-              <div className="flex items-center gap-[7px] text-ao-fg-2 font-mono text-[12px]">
+              <div className="flex items-center gap-[7px] min-w-0 whitespace-nowrap text-ao-fg-2 font-mono text-[12px]">
                 <DropdownMenu
                   align="start"
                   ariaLabel="Model"

@@ -3,7 +3,7 @@ import * as linux from "./linux";
 import type { ProcessScanner } from "./probe";
 import * as windows from "./windows";
 
-export type { Listener, ProcDetails, ProcessScanner } from "./probe";
+export type { ChildProc, Listener, ProcDetails, ProcessScanner } from "./probe";
 export { readProcUid } from "./linux";
 
 const SCANNERS: Partial<Record<NodeJS.Platform, ProcessScanner>> = { linux, darwin, win32: windows };

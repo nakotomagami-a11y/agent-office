@@ -23,6 +23,11 @@
     "live_badge": "{count} live"
   },
   "office": {
+    "open_error_no_cwd": "This project has no folder set.",
+    "open_error_cwd_missing": "The project folder doesn't exist.",
+    "open_error_cwd_unreadable": "Agent Office can't read the project folder.",
+    "open_error_editor_not_found": "VS Code isn't installed, or it couldn't be found.",
+    "open_error_failed": "Couldn't open the project folder.",
     "title": "The office",
     "agents_count": "{count, plural, one {# agent} other {# agents}}",
     "working_count": "{count} working",
@@ -715,8 +720,6 @@
     "abort_title": "Abort current run",
     "remove_chip_aria": "Remove {name}",
     "command_clear_desc": "Start a new thread",
-    "command_branch_desc": "Fork the current thread",
-    "command_prompt_desc": "View the system prompt",
     "attach_title": "Attach file",
     "uploading_label": "uploading…",
     "upload_failed_title": "Upload failed: {error}",
@@ -750,7 +753,8 @@
     "jump_to_latest": "Jump to latest",
     "jump_to_latest_aria": "Scroll to the most recent message",
     "scroll_to_bottom": "Scroll to bottom",
-    "stop_run": "Stop"
+    "stop_run": "Stop",
+    "agent_office": "Agent Office"
   },
   "live_status": {
     "idle": "Idle",

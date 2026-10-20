@@ -93,7 +93,7 @@ The project detail page exposes buttons that shell out to the terminal:
 
 | Action | Endpoint | What it does |
 |---|---|---|
-| Open folder | `POST /api/projects/:id/open-folder` | `xdg-open` the project directory |
+| Open folder | `POST /api/projects/:id/open-folder` | Opens the project directory in the OS file manager (Explorer, Finder, `xdg-open`), or in VS Code with `?app=code` |
 | Dev server | `POST /api/projects/:id/dev` | Detects available package managers + dev script, spawns in a terminal |
 | Build | `POST /api/projects/:id/build` | Runs the build script in a terminal |
 | Install | `POST /api/projects/:id/install` | Runs `pnpm/npm/yarn install` |

@@ -1,6 +1,8 @@
 // Tauri window API helpers. No-op in a plain browser tab so the same React
 // code ships to both targets.
 
+import { safeLinkHref } from "./markdown";
+
 interface TauriWindow {
   close: () => Promise<void>;
   minimize: () => Promise<void>;
@@ -76,6 +78,8 @@ export async function toggleMaximizeWindow(): Promise<void> {
 // Opens a URL in the system browser. `window.open()` is a no-op in the Tauri
 // webview, so use the shell plugin there; falls back to `window.open` otherwise.
 export async function openExternalUrl(url: string): Promise<void> {
+  // The shell opener also launches local files, so only web and mail links may reach it.
+  if (!safeLinkHref(url)) return;
   if (isTauri()) {
     try {
       const { open } = await import("@tauri-apps/plugin-shell");

@@ -41,7 +41,7 @@ import {
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { resolveSpawnEnv } from "./runs/spawn-env";
-import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
+import { isBackgroundBashInput, isBackgroundedBashResult, noteEarlierChildren, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
 
@@ -445,6 +445,7 @@ function broadcast(run: LiveRun, raw: SseEvent): void {
     event.name === "tool-done" ||
     event.name === "usage" ||
     event.name === "subagent" ||
+    event.name === "subagent-update" ||
     event.name === "rate-limit"
   ) {
     run.eventLog.push(event as ReplayableEvent);
@@ -566,8 +567,9 @@ function handleStreamLine(run: LiveRun, line: string): void {
           run.pendingBackgroundBash.set(block.id, {
             command: block.input.command,
             description: typeof block.input.description === "string" ? block.input.description : undefined,
-            childPidsBefore: new Set(snapshotChildPids(run.proc.pid)),
+            requestedAt: ts,
           });
+          noteEarlierChildren(run);
         }
       }
     }
@@ -616,7 +618,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
         const pending = run.pendingBackgroundBash.get(block.tool_use_id);
         if (pending) {
           run.pendingBackgroundBash.delete(block.tool_use_id);
-          if (!block.is_error) trackBackgroundShell(run, pending);
+          if (!block.is_error) void trackBackgroundShell(run, pending);
         }
       }
     }
@@ -749,6 +751,7 @@ function bridgeChildToParent(parentRun: LiveRun, subRunId: string): void {
           tokensOut: childRun.tokensOut,
           cost: childRun.cost,
           lastOutputLine: lastLine,
+          durationMs: isDone ? now - childRun.startTs : undefined,
         },
       });
 
@@ -806,6 +809,7 @@ function spawnSubAgentRecord(
       agentId: childAgentId,
       prompt,
       status: "running",
+      startTs,
     },
   });
 
@@ -837,6 +841,7 @@ function finalizeSubAgent(
     db.updateRun(record.subRunId, {
       status: status === "done" ? "done" : "error",
       exitCode: status === "done" ? 0 : 1,
+      errorCode: status === "cancelled" ? "stopped" : status === "timeout" ? "max_runtime" : undefined,
       output,
       tokensIn: 0,
       tokensOut: 0,
@@ -858,6 +863,7 @@ function finalizeSubAgent(
       tokensOut: 0,
       cost: 0,
       lastOutputLine: lastLine,
+      durationMs: durMs,
     },
   });
 }

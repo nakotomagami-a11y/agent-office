@@ -54,6 +54,7 @@ const subagentSchema = z.object({
   agentId: z.string(),
   prompt: z.string(),
   status: subAgentStatusSchema,
+  startTs: z.number().optional(),
 });
 
 const subagentUpdateSchema = z.object({
@@ -65,6 +66,7 @@ const subagentUpdateSchema = z.object({
   tokensOut: z.number(),
   cost: z.number(),
   lastOutputLine: z.string().optional(),
+  durationMs: z.number().optional(),
 });
 
 const eventSchemas = {
@@ -149,7 +151,7 @@ export function applySseEvent(
       if (existingIdx !== -1) {
         const existing = thread[existingIdx]!;
         if (existing.kind === "agent-subagent") {
-          thread[existingIdx] = { ...existing, subRunId: data.subRunId, status: data.status as SubAgentStatus };
+          thread[existingIdx] = { ...existing, subRunId: data.subRunId, status: data.status as SubAgentStatus, startTs: data.startTs ?? existing.startTs };
         }
       } else {
         thread.push({
@@ -158,7 +160,8 @@ export function applySseEvent(
           name: data.agentId,
           prompt: data.prompt,
           status: data.status as SubAgentStatus,
-          startTs: Date.now(),
+          // Replayed on reconnect: the client's clock now is not when it started.
+          startTs: data.startTs ?? Date.now(),
           subRunId: data.subRunId,
         });
       }
@@ -171,7 +174,7 @@ export function applySseEvent(
         const now = Date.now();
         const durationMs =
           data.status !== "running" && data.status !== "queued" && data.status !== "cancelling"
-            ? now - it.startTs
+            ? data.durationMs ?? now - it.startTs
             : it.durationMs;
         return {
           ...it,

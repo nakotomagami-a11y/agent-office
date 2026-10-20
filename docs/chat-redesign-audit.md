@@ -1,6 +1,6 @@
 # Conversation modal redesign: audit before building
 
-Status: **Audit only. No code changed.** Written 2026-10-20 against `origin/main` @ `3ff14d4`.
+Status: **Audit done; bug fixes on this branch** (see "Fix log"). Audit written 2026-10-20 against `origin/main` @ `3ff14d4`.
 
 This document checks two design files against the code as it is today, so the build can be planned
 from facts instead of from the design's own notes. Every claim below was checked against a file and a
@@ -245,6 +245,69 @@ records which round found each finding, plus its cost, duration and verdict.
 | Slash menu icons, ⏎, key footer | diff | B8 |
 | Date picker | diff | **The handoff text and the drawing disagree**: text says preset cards + separate hour/minute steppers + typing; drawing shows pills + one ±15 m stepper + no typing. The picker is shared with `schedules-panel.tsx`, so the "Resume…" footer and inner Schedule button must be optional |
 | Item 11 tweaks (flag icon tile, banner borders, clarify border, notice sizes, code border) | all verified as described | S each |
+
+## Decisions (product owner, 2026-10-20)
+
+- Every bug related to the conversation modal is fixed in this mission PR, and each fix is logged below so QA knows what to test.
+- Q1 (design files in the repo): **no**; they live in the cloud and change fast.
+- Q2/Q4 (markdown library): **yes, in this PR**. Chat prose uses `react-markdown` + `remark-gfm`.
+- Q3 (system turns as YOU, Rerun): **fix now**.
+- Q7 (text-block offsets on runs for the work log): **approved**, not built yet.
+- Q8 (idle system messages wake the agent): **keep waking**; revisit later.
+- Q29 (date picker): the handoff text was written by the designer and is not a spec; fact-check every claim against the code.
+- Q31/Q32 (defaults): **Playwright and QA loop both off by default.** The Playwright toggle affects Playwright only; no other MCP server may change because of it.
+- MCP management (adding, removing and per-session toggling of every MCP server) joins this mission. Its design questions are open.
+
+## Fix log (QA: test these)
+
+"Auto" names the test file that covers the fix; the manual check is for a human or QA agent.
+
+### Conversation thread
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| B1, B13 | System-origin turns (mission digests, QA fix rounds, shell notices) show an Agent Office tile and label, not YOU with your avatar, and render as markdown | — | Open a mission seat chat: hub digests show "AGENT OFFICE", a terminal tile, quotes as quotes (no literal `>` / `**`) |
+| B2 | System turns offer Copy only, no Rerun or Delete | — | Hover a system turn: one copy button |
+| — | Runs started by the app are stored with their real origin (`startSummonRun` dropped it, so every system turn was saved as the user's) | `conversation.test.ts` | Same as B1, after a reload |
+| B3 | Non-zero exit line is red with ×, not a green check (inside the modal and in the full-page chat) | — | Make an agent run end with a non-zero exit: red "Exited N" |
+| B4 | YOU time shows on every turn, live and reloaded | `conversation-to-thread.test.ts` | Reload a chat: each YOU header shows HH:MM |
+| B5 | Sub-agent cards stay after the turn ends and after the 48 h tool-call prune; cancelled/timeout keep their status | `conversations.test.ts`, `conversation-to-thread.test.ts` | Spawn a sub-agent, let the turn end, reload: card with name, prompt, duration, status |
+| B6 | Sub-agent durations and finished state survive a reconnect | `parse-sse-event.test.ts` | Reload mid-sub-agent and after: real duration, not "since reload" |
+| B7 | Links open in the system browser in the desktop app | `markdown-view.test.tsx` | Desktop app: click a link in agent text, the browser opens |
+| B11, B12 | Four-backtick fences render as one code block; markdown inside inline code stays literal | `markdown-view.test.tsx` | A mission post with a code block inside an `ao-post` fence renders as one block |
+| — | Markdown: blockquotes, `#`–`######` headings, nested lists, task lists, strikethrough, `---`, GFM tables; bare URLs autolink | `markdown-view.test.tsx` | Ask an agent to reply with each element |
+| — | Link safety: only absolute `http(s)`/`mailto` links; relative, `//host`, `/\host`, `/api/...`, `javascript:`, `data:` render as text; raw HTML never renders. `openExternalUrl` itself refuses anything else | `markdown-view.test.tsx` | — |
+| B14 | Jump pill honours reduced-motion / perf-off; composer border turns dashed accent while dragging a file | — | Drag a file over the composer: dashed purple border |
+| — | Streaming stays smooth on long replies: only the last markdown block re-parses per frame (~1–2 ms at any length, was ~125 ms at 20 KB); reopening a chat reuses parsed messages | `markdown-view.test.tsx` | Ask for a 20 KB+ answer with code blocks: no stutter while it streams; close and reopen the chat: opens instantly the second time |
+
+### Composer, header, panels
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| B8 | Enter on the slash menu runs the highlighted command; it no longer sends `/c` or picks a hidden saved prompt. When no command matches, the saved-prompts menu is now shown (it took the keys while invisible) | `use-composer-keyboard.test.ts` | Type `/cl`, Enter: the thread clears. Type `/` + part of a saved prompt's title: the prompts menu shows |
+| — | Removed `/branch` (said "Fork", only started a blank thread, same as `/clear`) and `/prompt` (had no handler; did nothing) from the slash menu | — | Type `/`: only `/clear` |
+| B9 | Header chips (model, effort, Playwright, QA loop) never wrap or overlap; the branch label truncates instead | — | Inspector at 1280–1500 px, multi-session agent on a mission seat |
+| B10 | Mission panel questions render markdown | — | Open the mission pill on a seat with an open ask |
+| — | Queued system notices render markdown | — | Queue a message while a mission digest is pending |
+| — | Desktop drag-and-drop on Windows: Tauri's drop handler disabled (`src-tauri/src/lib.rs`) | — | **Needs a desktop build** (no Rust toolchain was available): drop a file on the composer in the Windows app |
+
+### Server and runtime
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| MCP | Playwright is off unless the session turns it on; a run with no session follows what the agent declares. Excluding it uses `--disallowedTools mcp__playwright` (verified on CLI 2.1.296, sub-agents included), so local, project, plugin and claude.ai servers are untouched | `summon.test.ts` | Session with Unreal/Blender/`.mcp.json` servers: the first turn's tool list has them and no Playwright. Turn Playwright on: it appears |
+| MCP | Pre-existing on `main`: any agent in default/acceptEdits/plan mode lost every non-user MCP server (strict mode). The permission bridge is now additive; strict mode is kept only for mission seats | `summon.test.ts` | An acceptEdits session keeps its local and claude.ai servers |
+| B16 | A scheduled resume is adopted by its conversation: its finish clears needs-attention and drains the queue. Not adopted after "New thread", on a session mismatch, or while running; a stalled start (server died mid-start) heals after 2 min | `conversation*.test.ts`, `scheduler.test.ts` | Hit a limit, schedule a resume 1 min out, queue a message: after the run the queue drains. Schedule, then New thread: the new thread stays idle |
+| B17 | Open folder / VS Code work on Windows, macOS and Linux with no shell. Failures return a code and the toolbar shows a toast (`no_cwd`, `cwd_missing`, `cwd_unreadable`, `editor_not_found`, `open_failed`). Windows refuses UNC/`\\wsl$\`, commas and quotes; macOS reveals `.app` bundles instead of launching them | `os-opener.test.ts` | Kebab → Open project folder / Open in VS Code on each OS. Rename the VS Code folder: a toast says VS Code wasn't found, and the server keeps running |
+| — | Background-shell tracking works on Windows and macOS (it silently did nothing there); each background call claims at most one child; MCP servers started at CLI boot are excluded | `background-shell.test.ts`, `process-scan.test.ts` | Ask an agent to background `sleep 60`: "Shell running" pill, then "[background task finished]" |
+| — | Uploaded files (SVG included) are served with a sandboxing CSP and `nosniff` | `project-uploads-route.test.ts` | Open an uploaded SVG containing `<script>` directly: no alert |
+
+### Not fixed in this round
+
+- **B15** (no sub-agent tree in the inspector): waits on the header design (Q36).
+- Pre-existing test failures on Windows (symlink/chmod `EPERM`): 8 domain tests and `generated-images-route.test.ts`. They fail the same way on `main`.
+- If the server dies mid-start, the message being started is lost: the conversation parks, but no run row holds the text.
+- Jobs created from the Schedules panel carry no conversation, so they are never adopted (unchanged).
 
 ## Proposed build order
 

@@ -118,6 +118,20 @@ export interface PersistedRun {
    *  this simply stops appearing once a call ages out — no separate
    *  client-side expiry check needed. */
   toolCalls?: Array<{ id: string; name: string; input: string; ts: number; doneTs?: number; backgrounded?: boolean }>;
+  /** Sub-agents this turn spawned. Unlike `toolCalls`, runs are never pruned. */
+  subRuns?: SubRun[];
+}
+
+export interface SubRun {
+  id: string;
+  agentId: string;
+  prompt: string;
+  status: SubAgentStatus;
+  ts: number;
+  durMs: number;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
 }
 
 // ─── Server-authoritative chat conversations (see docs/chat-refactor.md) ─────
@@ -169,7 +183,7 @@ export interface AgentInstance {
   effort?: string;
   permissionMode?: string;
   room?: string;
-  /** Undefined/true = Playwright MCP loaded; false = excluded from the spawn. */
+  /** Opt-in: only true loads the Playwright MCP; otherwise the spawn excludes it (`execution/summon.ts`). */
   playwrightEnabled?: boolean;
   /** True = a turn that edits files is followed by a review loop (`execution/qa-loop.ts`). */
   qaLoopEnabled?: boolean;
@@ -500,6 +514,8 @@ export interface SseSubAgentEvent {
   agentId: string;
   prompt: string;
   status: SubAgentStatus;
+  /** Replayed on reconnect, when the client's clock is no longer the start. */
+  startTs: number;
 }
 
 export interface SseSubAgentUpdateEvent {
@@ -511,6 +527,7 @@ export interface SseSubAgentUpdateEvent {
   tokensOut: number;
   cost: number;
   lastOutputLine?: string;
+  durationMs?: number;
 }
 
 export type RunStreamEvent =

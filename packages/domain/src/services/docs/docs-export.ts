@@ -328,7 +328,7 @@ const API: DocsExport["api"] = [
   {
     method: "POST",
     path: "/api/projects/[id]/open-folder",
-    description: "Open project directory with xdg-open",
+    description: "Open the project directory in the OS file manager, or in VS Code with ?app=code",
     response_type: "{ ok: boolean }",
   },
   {

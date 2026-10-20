@@ -91,12 +91,24 @@ function persist(convId: string, next: ConversationState): void {
  * needed. A no-op (single indexed SELECT) in the overwhelmingly common case
  * where the active run really is still running or there is none.
  */
-async function reconcileIfStale(convId: string, runner: ConversationRunner): Promise<void> {
+async function reconcileIfStale(convId: string, runner: ConversationRunner, adoptingRunId?: string): Promise<void> {
   const conv = db.getConversation(convId);
+  if (conv && !conv.activeRunId) return healStalledStart(conv, adoptingRunId);
   if (!conv?.activeRunId) return;
   const run = db.getRun(conv.activeRunId);
   if (!run || run.status === "running") return; // genuinely live, or not persisted yet (just spawned)
   await apply(convId, { type: "runFinished", runId: run.id, ok: run.status === "done", sessionId: run.sessionId ?? null }, runner);
+}
+
+/** A start window (`running`, no run yet) lasts seconds; one this old means the
+ *  server died mid-start. Parked rather than left blocking every send and adoption. */
+const STALLED_START_MS = 2 * 60_000;
+
+function healStalledStart(conv: db.ConversationRow, adoptingRunId?: string): void {
+  if (conv.status !== "running" || Date.now() - conv.updatedAt < STALLED_START_MS) return;
+  if (db.hasRunningTurn(conv.id, adoptingRunId)) return;
+  db.updateConversation(conv.id, { status: "needs_attention", activeRunId: null });
+  emitAppEvent("conversations:changed");
 }
 
 /**
@@ -280,6 +292,29 @@ export function attachExternalRun(convId: string, runId: string): void {
   const conv = db.getConversation(convId);
   if (!conv) return;
   persist(convId, reduce(buildState(conv), { type: "runStarted", runId }).state);
+}
+
+/** A scheduled resume becomes the conversation's turn, so its finish clears
+ *  `needs_attention` and drains the queue (or parks it again). Without it the
+ *  finish was dropped as foreign. Only a run of this very slot is adopted. */
+export async function adoptScheduledRun(
+  convId: string,
+  runId: string,
+  resumeSessionId: string | null,
+  runner: ConversationRunner,
+): Promise<boolean> {
+  await reconcileIfStale(convId, runner, runId);
+  const conv = db.getConversation(convId);
+  const run = db.getRun(runId);
+  if (!conv || !run || run.conversationId !== convId || run.agentId !== conv.agentId) return false;
+  // After "New thread" the old conversation is abandoned: its queue would run out of sight.
+  if (db.getActiveConversation(conv.agentId, conv.instanceId)?.id !== convId) return false;
+  if ((run.instanceId ?? "default") !== conv.instanceId) return false;
+  const next = reduce(buildState(conv), { type: "runAdopted", runId, prompt: run.prompt, origin: run.origin, resumeSessionId }).state;
+  if (next.activeRunId !== runId) return false;
+  persist(convId, next);
+  emitAppEvent("conversations:changed");
+  return true;
 }
 
 export function retry(convId: string, runner: ConversationRunner): Promise<ConversationView> {

@@ -121,7 +121,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       const liveItems: ThreadItem[] = [];
       const hasLiveContent = stream.thread.length > 0 || stream.phase === "streaming" || stream.phase === "starting";
       if (hasLiveContent) {
-        liveItems.push({ kind: "you", id: `${liveTurn.id}_you`, text: liveTurn.prompt, origin: liveTurn.origin });
+        liveItems.push({ kind: "you", id: `${liveTurn.id}_you`, text: liveTurn.prompt, origin: liveTurn.origin, ts: liveTurn.ts });
         liveItems.push(...stream.thread);
       } else {
         liveItems.push(...turnToThreadItems(liveTurn));
@@ -237,7 +237,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
   };
 
   const onCommand = (cmd: string) => {
-    if (cmd === "/clear" || cmd === "/branch") void onNewThread();
+    if (cmd === "/clear") void onNewThread();
   };
 
   const onNewThread = async () => {
@@ -270,10 +270,8 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       projectId: input.projectId,
       instanceId: input.instanceId,
       resumeSessionId: view?.sessionId ?? undefined,
-      // Tag the scheduled resume with this conversation so that when it
-      // fires, its run's finish is dispatched back into the SAME conversation
-      // (auto-advancing its queue / clearing needs_attention) instead of
-      // becoming an untracked orphan run.
+      // The scheduler hands the run to this conversation (adoptScheduledRun) so its finish clears
+      // needs_attention and drains the queue — unless "New thread" replaced it or it moved sessions.
       conversationId: view?.id,
     };
     await fetch(API_ROUTES.schedules, {

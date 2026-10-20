@@ -1,7 +1,6 @@
 /* Composer drag-and-drop. */
 
 /* ─── Drag-and-drop (color-mix background) ─── */
-.composer-box.drag-over { border-color: var(--acc); border-style: dashed; }
 .drag-overlay {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: var(--acc); pointer-events: none; font-weight: 500; gap: 8px;

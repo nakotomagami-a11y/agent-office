@@ -96,4 +96,44 @@ check("a finished turn ends calls that never got a result; a running one does no
   assert.deepEqual(tools({ ...baseTurn, status: "running", toolCalls }), [[1200, undefined], [undefined, undefined], [1450, true]]);
 });
 
+// B4: the "YOU 14:02" stamp needs the turn's start on the you item.
+check("the you item carries the turn's start time", () => {
+  const you = turnToThreadItems({ ...baseTurn, ts: 1_791_444_000_000 })[0];
+  assert.equal(you?.kind === "you" ? you.ts : undefined, 1_791_444_000_000);
+});
+
+// B5: history skipped the spawn call and never attached the child runs, so a
+// finished turn lost every sub-agent card.
+const spawnCall = (id: string, ts: number) => ({ id, name: "Agent", input: JSON.stringify({ subagent_type: "qa-code-review", prompt: "review" }), ts });
+const sub = (id: string, ts: number, extra: Partial<NonNullable<PersistedRun["subRuns"]>[number]> = {}) =>
+  ({ id, agentId: "qa-code-review", prompt: "review", status: "done" as const, ts, durMs: 4000, tokensIn: 5, tokensOut: 6, cost: 0.02, ...extra });
+
+check("a finished turn keeps its sub-agent card where the spawn call was", () => {
+  const items = turnToThreadItems({
+    ...baseTurn, output: "all good",
+    toolCalls: [{ id: "t1", name: "Read", input: "{}", ts: 1100 }, spawnCall("t2", 1200), { id: "t3", name: "Bash", input: "{}", ts: 1300 }],
+    subRuns: [sub("s1", 1201)],
+  });
+  assert.deepEqual(items.map((i) => i.kind), ["you", "agent-tool", "agent-subagent", "agent-tool", "agent-text", "system-done"]);
+  const card = items[2]!;
+  assert.ok(card.kind === "agent-subagent");
+  assert.deepEqual(
+    { name: card.name, prompt: card.prompt, status: card.status, startTs: card.startTs, durationMs: card.durationMs, subRunId: card.subRunId, tokensIn: card.tokensIn, tokensOut: card.tokensOut, cost: card.cost },
+    { name: "qa-code-review", prompt: "review", status: "done", startTs: 1201, durationMs: 4000, subRunId: "s1", tokensIn: 5, tokensOut: 6, cost: 0.02 },
+  );
+});
+
+check("sub-agent cards survive the 48h tool-call prune", () => {
+  const items = turnToThreadItems({ ...baseTurn, output: "x", subRuns: [sub("s1", 1100), sub("s2", 1200, { status: "error" })] });
+  assert.deepEqual(items.map((i) => i.kind), ["you", "agent-subagent", "agent-subagent", "agent-text", "system-done"]);
+  assert.deepEqual(items.filter((i) => i.kind === "agent-subagent").map((i) => i.kind === "agent-subagent" && i.status), ["done", "error"]);
+});
+
+check("a sub-run left running under a finished turn settles with the turn, as live does", () => {
+  const card = turnToThreadItems({ ...baseTurn, status: "error", subRuns: [sub("s1", 1100, { status: "running", durMs: 0 })] })[1]!;
+  assert.ok(card.kind === "agent-subagent");
+  assert.equal(card.status, "error");
+  assert.equal(card.durationMs, undefined);
+});
+
 console.log(`\n${passed} passed`);

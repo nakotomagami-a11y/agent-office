@@ -311,7 +311,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 
 **Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/workflow` which queries the `runs` table for rows where `parent_run_id = runId`.
 
-**Replay:** `chunk`, `tool`, `tool-done`, `usage` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
+**Replay:** `chunk`, `tool`, `tool-done`, `usage`, `subagent`, `subagent-update` and `rate-limit` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
 
 **Heartbeat:** `: keepalive` every 25 seconds.
 

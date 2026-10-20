@@ -7,12 +7,16 @@ export type Listener = { pid: number; port: number; address: string; name: strin
 
 export type ProcDetails = { name: string; cmd: string; cwd: string; startedAt: number; memMb: number };
 
+export type ChildProc = { pid: number; startedAt: number };
+
 export interface ProcessScanner {
   /** Listening TCP sockets, null when the probe couldn't run. May include other users' pids; `details` drops those. */
   listeners(): Promise<Listener[] | null>;
   /** One entry per pid that is still alive and belongs to the current user;
    *  null when the check itself failed, which must not read as "not ours". */
   details(pids: number[]): Promise<Map<number, ProcDetails> | null>;
+  /** Direct children of `pid`; null when the check itself failed, which must not read as "none". */
+  children(pid: number): Promise<ChildProc[] | null>;
 }
 
 /** stdout of a command; null when it couldn't run or was killed by the timeout. A
@@ -34,4 +38,29 @@ export function splitHostPort(raw: string): { address: string; port: number } | 
   if (i <= 0 || !Number.isInteger(port) || port <= 0) return null;
   const host = raw.slice(0, i).replace(/^\[(.*)\]$/, "$1");
   return { address: host === "*" ? "0.0.0.0" : host, port };
+}
+
+/** `ps -o etime` → seconds. Format: `[[dd-]hh:]mm:ss`. */
+export function parseEtime(etime: string): number {
+  const [days, clock] = etime.includes("-") ? etime.split("-") : ["0", etime];
+  const parts = (clock ?? "").split(":").map(Number).reverse();
+  const [s = 0, m = 0, h = 0] = parts;
+  const total = Number(days) * 86400 + h * 3600 + m * 60 + s;
+  return Number.isFinite(total) ? total : 0;
+}
+
+/** `ps -A -o pid= -o ppid= -o etime=` rows whose parent is `ppid`. etime has 1 s resolution. */
+export function parsePsChildren(out: string, ppid: number, now: number): ChildProc[] {
+  const found: ChildProc[] = [];
+  for (const line of out.split("\n")) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
+    if (m && Number(m[2]) === ppid) found.push({ pid: Number(m[1]), startedAt: now - parseEtime(m[3]!) * 1000 });
+  }
+  return found;
+}
+
+/** BSD and procps `ps` agree on these flags; `--ppid` is procps-only. */
+export async function posixChildren(pid: number): Promise<ChildProc[] | null> {
+  const out = await commandOutput("ps", ["-A", "-o", "pid=", "-o", "ppid=", "-o", "etime="]);
+  return out === null ? null : parsePsChildren(out, pid, Date.now());
 }

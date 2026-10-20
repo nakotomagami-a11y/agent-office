@@ -117,7 +117,7 @@ function notify(entry: Entry) {
  *
  * A bare rAF caps this to ~60/s, but 60fps is wasted on streaming text: each
  * emit makes the streaming bubble re-parse its FULL accumulated markdown
- * (splitProse/highlight), which grows with the message — the main remaining
+ * (markdown parse/highlight), which grows with the message — the main remaining
  * active-run cost on the WebKitGTK renderer. A setTimeout paces the interval to
  * ~30fps (imperceptible for reading, ~2x fewer re-parses); the trailing rAF
  * keeps updates vsync-aligned AND auto-pauses while the window is hidden (rAF

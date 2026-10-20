@@ -154,6 +154,8 @@ const IMAGE_MIME: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+const SANDBOXED_UPLOAD_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
 export function handleServeUpload(dir: string, filename: string): Response {
   const safe = safeFilename(filename);
   const filePath = join(dir, safe);
@@ -166,6 +168,8 @@ export function handleServeUpload(dir: string, filename: string): Response {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "private, max-age=86400",
+        "Content-Security-Policy": SANDBOXED_UPLOAD_CSP,
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {

@@ -32,3 +32,18 @@ test("tool-done stamps its row once; a replayed event cannot move the stamp", ()
   const item = thread[0];
   assert.equal(item?.kind === "agent-tool" ? item.doneTs : undefined, 200);
 });
+
+// B6: `subagent` is replayed on reconnect, and the card's start was the replay time.
+test("a replayed sub-agent keeps the server's start and duration, not the reconnect time", () => {
+  const empty = { thread: [], usage: { tokensIn: 0, tokensOut: 0, cost: 0 } };
+  const spawned = parseSseEvent("subagent", { type: "subagent", parentRunId: "r1", subRunId: "s1", agentId: "qa", prompt: "check", status: "running", startTs: 1_000 });
+  assert.ok(spawned);
+  let { thread } = applySseEvent(empty, spawned);
+  const done = parseSseEvent("subagent-update", { type: "subagent-update", subRunId: "s1", status: "done", tokensIn: 0, tokensOut: 0, cost: 0, durationMs: 4_000 });
+  assert.ok(done);
+  ({ thread } = applySseEvent({ ...empty, thread }, done));
+  const card = thread[0];
+  assert.equal(card?.kind, "agent-subagent");
+  assert.equal(card?.kind === "agent-subagent" ? card.startTs : undefined, 1_000);
+  assert.equal(card?.kind === "agent-subagent" ? card.durationMs : undefined, 4_000);
+});

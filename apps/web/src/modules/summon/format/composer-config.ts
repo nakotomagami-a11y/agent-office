@@ -8,8 +8,6 @@ export type SlashCommand = {
 /** Slash commands accepted by the composer. Order = display order in the menu. */
 export const SLASH_COMMANDS: SlashCommand[] = [
   { cmd: "/clear", descKey: "composer.command_clear_desc" },
-  { cmd: "/branch", descKey: "composer.command_branch_desc" },
-  { cmd: "/prompt", descKey: "composer.command_prompt_desc" },
 ];
 
 /** Rotation order for the context-profile toggle button. */

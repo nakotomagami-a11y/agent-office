@@ -2,6 +2,8 @@ import { readFileSync, readlinkSync } from "node:fs";
 import * as os from "node:os";
 import { commandOutput, splitHostPort, type Listener, type ProcDetails } from "./probe";
 
+export { posixChildren as children } from "./probe";
+
 const CLOCK_TICKS = 100;
 
 function readStatus(pid: number): string {

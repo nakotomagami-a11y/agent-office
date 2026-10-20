@@ -50,6 +50,7 @@ export interface ConversationState {
 export type ConversationAction =
   | { type: "send"; message: QueuedMessage }
   | { type: "runStarted"; runId: string }
+  | { type: "runAdopted"; runId: string; prompt: string; origin: MessageOrigin; resumeSessionId: string | null }
   | { type: "runFinished"; runId: string; ok: boolean; sessionId?: string | null }
   | { type: "retry" }
   | { type: "resume" }
@@ -117,6 +118,13 @@ export function reduce(state: ConversationState, action: ConversationAction): Re
     case "runStarted": {
       if (state.status !== "running") return noop(state);
       return noop({ ...state, activeRunId: action.runId });
+    }
+
+    case "runAdopted": {
+      // A scheduled resume. Never over a live or starting turn, and never one resuming a session
+      // this conversation has moved past: its finish would hand over that session.
+      if (state.status === "running" || (state.sessionId !== null && action.resumeSessionId !== state.sessionId)) return noop(state);
+      return noop({ ...state, status: "running", activeRunId: action.runId, lastPrompt: action.prompt, lastOrigin: action.origin });
     }
 
     case "runFinished": {

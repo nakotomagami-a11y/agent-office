@@ -1,4 +1,6 @@
-import { commandOutput, splitHostPort, type Listener, type ProcDetails } from "./probe";
+import { commandOutput, parseEtime, splitHostPort, type Listener, type ProcDetails } from "./probe";
+
+export { parseEtime, posixChildren as children } from "./probe";
 
 /** `lsof -F` emits one field per line, tagged by its first char: `p` opens a
  *  process, `c` is its command, `n` a file name (here `host:port` or a path). */
@@ -24,15 +26,6 @@ export function parseLsofListeners(out: string): Listener[] {
 
 export function parseLsofCwds(out: string): Map<number, string> {
   return new Map(Array.from(lsofFields(out), (f) => [f.pid, f.name]));
-}
-
-/** `ps -o etime` → seconds. Format: `[[dd-]hh:]mm:ss`. */
-export function parseEtime(etime: string): number {
-  const [days, clock] = etime.includes("-") ? etime.split("-") : ["0", etime];
-  const parts = (clock ?? "").split(":").map(Number).reverse();
-  const [s = 0, m = 0, h = 0] = parts;
-  const total = Number(days) * 86400 + h * 3600 + m * 60 + s;
-  return Number.isFinite(total) ? total : 0;
 }
 
 /** `ps -o pid= -o uid= -o rss= -o etime= -o command=` rows; rss is KiB. Other users' rows are dropped. */

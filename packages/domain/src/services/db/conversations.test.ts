@@ -195,4 +195,25 @@ check("a stopped run records why, even when the CLI never reported", () => {
   assert.equal(convo.latestConversationTurn(c.id)?.errorCode, "stopped");
 });
 
+// B5: sub-agent runs are rows with parent_run_id; the turn view never attached them.
+check("each turn carries its own sub-agent runs, and only its own", () => {
+  const c = convo.createConversation("dev", "subs", "p", null);
+  const other = convo.createConversation("dev", "subs2", "p", null);
+  const base = { agentId: "dev", agentName: "Dev", status: "done", model: "", effort: "" };
+  insertRun({ ...base, id: "turnA", prompt: "a", startedAt: 100, conversationId: c.id });
+  insertRun({ ...base, id: "turnB", prompt: "b", startedAt: 200, conversationId: c.id });
+  insertRun({ ...base, id: "turnX", prompt: "x", startedAt: 150, conversationId: other.id });
+  insertRun({ ...base, id: "subA2", agentId: "qa", prompt: "second", startedAt: 120, parentRunId: "turnA" });
+  insertRun({ ...base, id: "subA1", agentId: "qa", prompt: "first", startedAt: 110, parentRunId: "turnA" });
+  insertRun({ ...base, id: "subX", agentId: "qa", prompt: "elsewhere", startedAt: 160, parentRunId: "turnX" });
+  updateRun("subA1", { status: "done", exitCode: 0, output: "ok", tokensIn: 0, tokensOut: 0, costUsd: 0, durMs: 900, endedAt: 1010 });
+  const turns = convo.listConversationTurns(c.id);
+  assert.deepEqual(turns.map((t) => t.id), ["turnA", "turnB"], "sub-runs are not turns");
+  assert.deepEqual(turns[0]!.subRuns?.map((s) => [s.id, s.prompt, s.ts]), [["subA1", "first", 110], ["subA2", "second", 120]]);
+  assert.equal(turns[0]!.subRuns?.[0]!.durMs, 900);
+  assert.equal(turns[1]!.subRuns, undefined);
+  updateRun("subA2", { status: "error", exitCode: 1, output: "", tokensIn: 0, tokensOut: 0, costUsd: 0, durMs: 5, endedAt: 125, errorCode: "stopped" });
+  assert.equal(convo.listConversationTurns(c.id)[0]!.subRuns?.[1]!.status, "cancelled", "a swept sub-agent reads as cancelled, not failed");
+});
+
 console.log(`\n${passed} passed`);
