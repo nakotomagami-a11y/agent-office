@@ -327,18 +327,21 @@ test("an unwritable target returns write_failed instead of throwing", () => {
   // makes the atomic rename over it fail. It must be our own file, or the write
   // would be refused as handwritten before it is attempted.
   const target = join(root, "CLAUDE.md");
+  let restore: () => void;
   if (ON_WINDOWS) {
     writeFileSync(target, `${PROJECT_MAP_MARKER}\n`);
     chmodSync(target, 0o444);
+    restore = () => chmodSync(target, 0o666);
   } else {
     chmodSync(root, 0o555);
+    restore = () => chmodSync(root, 0o755);
   }
   try {
     const r = refreshProjectMap("p", root, "Proj");
     assert.equal(r.written, false);
     assert.equal(r.reason, "write_failed");
   } finally {
-    chmodSync(ON_WINDOWS ? target : root, ON_WINDOWS ? 0o666 : 0o755);
+    restore();
     rmSync(root, { recursive: true, force: true });
   }
 });
