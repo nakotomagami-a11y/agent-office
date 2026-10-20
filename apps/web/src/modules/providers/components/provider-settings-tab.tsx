@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format-date";
 import { cn } from "@/lib/cn";
 import { keyWillBeCleared, requestBody } from "../format/provider-draft";
-import { useProviderSetup } from "../hooks/use-provider-setup";
+import { useProviderSetup, type ProviderSetup } from "../hooks/use-provider-setup";
 import { PriceSourceLine } from "./price-source";
 import { ProviderSetupPanel } from "./provider-setup-panel";
 
@@ -28,6 +28,23 @@ function StatusPill({ view }: { view: ProviderView | undefined }) {
       {state === "ok" ? t("pill_ready") : state === "bad" ? t("unavailable", { reason: status?.reason ? te(`${status.reason}.title`) : "" }) : t("pill_none")}
     </span>
   );
+}
+
+/** What saving will do that the user might not expect: drop a key, or move running work's future turns. */
+function SaveNotes({ setup }: { setup: ProviderSetup }) {
+  const t = useTranslations("providers");
+  const { data, choice } = setup;
+  if (!data?.selected || !choice) return null;
+  if (choice !== data.selected) {
+    return (
+      <p className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">
+        {t("switch_confirm", { from: t(`option_${data.selected}_name`), to: t(`option_${choice}_name`) })}
+      </p>
+    );
+  }
+  return keyWillBeCleared(setup.draft, setup.view) ? (
+    <p role="note" className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">{t("key_clears_warning")}</p>
+  ) : null;
 }
 
 /** Settings → Credentials → AI provider. The same setup the wizard uses, saved by an explicit button. */
@@ -57,14 +74,7 @@ export function ProviderSettingsTab() {
           ) : null}
         </div>
         <ProviderSetupPanel setup={setup} signIn="modal" />
-        {choice && choice === data?.selected && keyWillBeCleared(setup.draft, setup.view) ? (
-          <p role="note" className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">{t("key_clears_warning")}</p>
-        ) : null}
-        {switching && data?.selected && choice ? (
-          <p className="m-0 text-[12px] leading-[1.55] text-amber text-pretty">
-            {t("switch_confirm", { from: t(`option_${data.selected}_name`), to: t(`option_${choice}_name`) })}
-          </p>
-        ) : null}
+        <SaveNotes setup={setup} />
         <div className="flex flex-wrap items-center gap-[10px]">
           <Button variant="primary" disabled={!dirty || setup.busy} onClick={() => void setup.commit(false)}>
             {setup.phase === "saving" ? t("saving") : switching ? t("use_provider") : t("save")}
