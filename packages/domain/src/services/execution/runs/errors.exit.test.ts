@@ -95,10 +95,10 @@ test("a secret containing another secret is scrubbed whole", () => {
 
 test("a streamed 'Not logged in' result gets the Sign-in card", () => {
   const out = "Not logged in · Please run /login";
-  assert.deepEqual(classifyResultError("", out), { code: "auth_expired", detail: out });
+  assert.deepEqual(classifyResultError("", out, "subscription"), { code: "auth_expired", detail: out });
 });
 
 test("an agent quoting another tool's login prompt is not sent to Claude Sign-in", () => {
   const out = "You're not logged in to gh — please run `gh auth login`";
-  assert.equal(classifyResultError("", out).code, "unknown");
+  assert.equal(classifyResultError("", out, "subscription").code, "unknown");
 });

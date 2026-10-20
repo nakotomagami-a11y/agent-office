@@ -4,6 +4,7 @@
 import {
   isImage, isText, isToolResult, isToolUse, type AnthropicBlock, type AnthropicRequest, type ToolResultPart,
 } from "./anthropic-request";
+import { toolAliases } from "./tool-names";
 
 type Part = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 export interface ChatToolCall { id: string; type: "function"; function: { name: string; arguments: string } }
@@ -51,10 +52,10 @@ function userMessages(blocks: AnthropicBlock[]): ChatMessage[] {
 }
 
 /** Null for a turn that was thinking only (a resumed Claude session): Chat Completions rejects an empty one. */
-function assistantMessage(blocks: AnthropicBlock[]): ChatMessage | null {
+function assistantMessage(blocks: AnthropicBlock[], alias: (name: string) => string): ChatMessage | null {
   const text = textOf(blocks);
   const calls: ChatToolCall[] = blocks.filter(isToolUse).map((b) => ({
-    id: b.id, type: "function", function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
+    id: b.id, type: "function", function: { name: alias(b.name), arguments: JSON.stringify(b.input ?? {}) },
   }));
   if (!text && calls.length === 0) return null;
   return { role: "assistant", content: text || null, ...(calls.length > 0 ? { tool_calls: calls } : {}) };
@@ -80,24 +81,24 @@ function mergeAdjacent(messages: ChatMessage[]): ChatMessage[] {
   return out;
 }
 
-function toMessages(req: AnthropicRequest): ChatMessage[] {
+function toMessages(req: AnthropicRequest, alias: (name: string) => string): ChatMessage[] {
   const system = typeof req.system === "string" ? req.system : (req.system ?? []).map((s) => s.text ?? "").join("\n\n");
   const out: ChatMessage[] = system ? [{ role: "system", content: system }] : [];
   for (const m of req.messages) {
     if (typeof m.content === "string") out.push({ role: m.role, content: m.content });
     else if (m.role === "user") out.push(...userMessages(m.content));
     else if (m.role === "assistant") {
-      const message = assistantMessage(m.content);
+      const message = assistantMessage(m.content, alias);
       if (message) out.push(message);
     } else out.push({ role: "system", content: textOf(m.content) });
   }
   return mergeAdjacent(out);
 }
 
-function toolChoice(choice: AnthropicRequest["tool_choice"]): unknown {
+function toolChoice(choice: AnthropicRequest["tool_choice"], alias: (name: string) => string): unknown {
   if (!choice) return undefined;
   if (choice.type === "any") return "required";
-  if (choice.type === "tool" && choice.name) return { type: "function", function: { name: choice.name } };
+  if (choice.type === "tool" && choice.name) return { type: "function", function: { name: alias(choice.name) } };
   return choice.type === "none" ? "none" : "auto";
 }
 
@@ -113,14 +114,16 @@ export interface ChatOptions {
  * is sent where it can break a request.
  */
 export function toChatRequest(req: AnthropicRequest, model: string, capParam: CapParam, opts: ChatOptions): Record<string, unknown> {
+  const aliases = toolAliases(req);
+  const alias = (name: string): string => aliases.get(name) ?? name;
   const tools = (req.tools ?? []).filter((t) => t.input_schema).map((t) => ({
-    type: "function", function: { name: t.name, description: t.description ?? "", parameters: t.input_schema },
+    type: "function", function: { name: alias(t.name), description: t.description ?? "", parameters: t.input_schema },
   }));
   return {
     model,
-    messages: toMessages(req),
+    messages: toMessages(req, alias),
     [capParam]: Math.min(req.max_tokens, opts.maxTokens ?? OUTPUT_TOKEN_CAP),
-    ...(tools.length > 0 ? { tools, tool_choice: toolChoice(req.tool_choice) } : {}),
+    ...(tools.length > 0 ? { tools, tool_choice: toolChoice(req.tool_choice, alias) } : {}),
     ...(opts.provider === "local" && req.temperature !== undefined ? { temperature: req.temperature } : {}),
     ...(opts.provider === "local" && req.top_p !== undefined ? { top_p: req.top_p } : {}),
     ...(req.stop_sequences?.length ? { stop: req.stop_sequences } : {}),

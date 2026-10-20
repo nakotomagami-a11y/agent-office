@@ -137,3 +137,6 @@ export const PROVIDER_PROBE_TIMEOUT_MS = 5_000;
 /** The CLI version the `--settings` pin was verified against; the settings-pin e2e fails on any other. */
 export const PIN_VERIFIED_CLI_VERSION = "2.1.296";
 export const LOCAL_MAX_RETRIES = 2;
+/** Response headers from upstream within this, or the run is ended as unreachable. A local server
+ *  loading a large model answers late, so this is generous; the body may stream as long as it likes. */
+export const GATEWAY_FIRST_BYTE_TIMEOUT_MS = 180_000;

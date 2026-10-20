@@ -431,7 +431,7 @@ function misclassifiedAuthCode(text: string, streaming: boolean): "auth_expired"
   if (streaming) return null;
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > MISCLASSIFIED_AUTH_MAX_LEN) return null;
-  const { code } = classifyResultError(trimmed, trimmed);
+  const { code } = classifyResultError(trimmed, trimmed, "subscription");
   return code === "auth_expired" || code === "subscription_disabled" ? code : null;
 }
 

@@ -3,23 +3,26 @@
 // gets a status it would retry ten times for nothing.
 import { gateway } from "@agent-office/domain/services";
 import { gatewayError } from "./gateway-errors";
-import { readCapped } from "./gateway-read";
+import { fetchUpstream, type FetchFailure, type GatewayOptions } from "./gateway-fetch";
 
 type ChatProvider = "openai" | "local";
-interface Call { ownerId: string; provider: ChatProvider; url: string; key?: string; req: gateway.AnthropicRequest; signal: AbortSignal }
+interface Call {
+  ownerId: string; provider: ChatProvider; url: string; key?: string; req: gateway.AnthropicRequest;
+  signal: AbortSignal; opts: GatewayOptions;
+  /** alias → original tool name, for names the request had to alias. */
+  names: Map<string, string>;
+}
 
 const secretsOf = (call: Call): string[] => (call.key ? [call.key] : []);
 const report = (call: Call, code: Parameters<typeof gateway.reportGatewayFailure>[1], detail: string): void =>
   gateway.reportGatewayFailure(call.ownerId, code, detail, secretsOf(call));
 
-function post(call: Call, param: gateway.CapParam, maxTokens?: number): Promise<Response> {
-  return fetch(call.url, {
+function post(call: Call, param: gateway.CapParam, maxTokens: number): Promise<Response | FetchFailure> {
+  return fetchUpstream(call.url, {
     method: "POST",
     headers: { "content-type": "application/json", ...(call.key ? { authorization: `Bearer ${call.key}` } : {}) },
     body: JSON.stringify(gateway.toChatRequest(call.req, call.req.model, param, { provider: call.provider, maxTokens })),
-    redirect: "error",
-    signal: call.signal,
-  });
+  }, call.signal, call.opts);
 }
 
 function jsonOf(text: string): unknown {
@@ -30,20 +33,33 @@ function jsonOf(text: string): unknown {
   }
 }
 
-/** One retry, only when the upstream's own 400 names the cap parameter; the new name sticks only if it worked. */
-async function send(call: Call): Promise<Response> {
-  const sent = gateway.capParamFor(call.provider, call.req.model);
-  const first = await post(call, sent);
-  if (first.status !== 400) return first;
-  const retry = gateway.capRetry(sent, Math.min(call.req.max_tokens, gateway.OUTPUT_TOKEN_CAP), jsonOf(await readCapped(first.clone())));
-  if (!retry) return first;
-  const second = await post(call, retry.param, retry.maxTokens);
-  if (second.ok && retry.param !== sent) gateway.rememberCapParam(call.provider, call.req.model, retry.param);
-  return second;
+/**
+ * At most three upstream calls per request: the first, one name swap, one clamp, each only on the
+ * upstream's own 400 about the cap. What worked is remembered per model; a guess that failed is not.
+ */
+async function send(call: Call): Promise<Response | FetchFailure> {
+  const { provider, req } = call;
+  let param = gateway.capParamFor(provider, req.model);
+  let tokens = gateway.capTokensFor(provider, req.model, req.max_tokens);
+  const used = { swap: false, clamp: false };
+  let res = await post(call, param, tokens);
+  while (typeof res !== "string" && res.status === 400) {
+    const retry = gateway.capRetry(param, tokens, jsonOf((await gateway.readCapped(res.clone())).text));
+    const kind = retry?.maxTokens !== undefined ? "clamp" : "swap";
+    if (!retry || used[kind]) return res;
+    used[kind] = true;
+    param = retry.param;
+    tokens = retry.maxTokens ?? tokens;
+    res = await post(call, param, tokens);
+  }
+  const ok = typeof res !== "string" && res.ok;
+  if (ok && used.swap) gateway.rememberCapParam(provider, req.model, param);
+  if (ok && used.clamp) gateway.rememberCapLimit(provider, req.model, tokens);
+  return res;
 }
 
 async function failure(call: Call, upstream: Response): Promise<Response> {
-  const text = await readCapped(upstream);
+  const text = (await gateway.readCapped(upstream)).text;
   const { status } = upstream;
   if (status === 401 || status === 403) {
     report(call, "provider_auth_failed", text);
@@ -65,7 +81,7 @@ const STREAM_END_CODE = { empty_response: "provider_unavailable", stream_incompl
 const errorFrame = (message: string): string => gateway.sse("error", { error: { type: "api_error", message } });
 
 function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-  const writer = new gateway.AnthropicStreamWriter(call.req.model);
+  const writer = new gateway.AnthropicStreamWriter(call.req.model, call.names);
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let buffered = "";
@@ -104,19 +120,21 @@ function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): Read
 }
 
 async function complete(call: Call, upstream: Response): Promise<Response> {
-  const raw = jsonOf(await readCapped(upstream));
+  const raw = jsonOf((await gateway.readCapped(upstream)).text);
   const inBand = gateway.inBandError(raw);
   if (inBand) {
     report(call, "unknown", `upstream error: ${inBand}`);
     return gatewayError(400, "invalid_request_error", "upstream rejected the request");
   }
-  const message = gateway.fromChatCompletion(raw, call.req.model);
+  const message = gateway.fromChatCompletion(raw, call.req.model, call.names);
   if (message) return Response.json(message);
   report(call, "provider_unavailable", "empty_response");
   return gatewayError(400, "invalid_request_error", "empty_response");
 }
 
-export async function proxyChat(request: Request, body: string, owner: { ownerId: string; provider: ChatProvider }): Promise<Response> {
+export async function proxyChat(
+  request: Request, body: string, owner: { ownerId: string; provider: ChatProvider }, opts: GatewayOptions = {},
+): Promise<Response> {
   const parsed = gateway.anthropicRequestSchema.safeParse(jsonOf(body));
   if (!parsed.success) return gatewayError(400, "invalid_request_error", "not a Messages request");
   const target = gateway.chatTarget(owner.provider, parsed.data.model);
@@ -124,13 +142,12 @@ export async function proxyChat(request: Request, body: string, owner: { ownerId
     gateway.reportGatewayFailure(owner.ownerId, target.code, target.detail);
     return gatewayError(target.status, target.type, target.detail);
   }
-  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal };
-  let upstream: Response;
-  try {
-    upstream = await send(call);
-  } catch {
+  const names = gateway.reverseAliases(gateway.toolAliases(parsed.data));
+  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal, opts, names };
+  const upstream = await send(call);
+  if (typeof upstream === "string") {
     // Stop and a closed client abort the fetch too: that is not the provider failing.
-    if (!request.signal.aborted) report(call, "provider_unreachable", "connection_failed");
+    if (upstream !== "aborted") report(call, "provider_unreachable", upstream);
     return gatewayError(502, "api_error", "upstream unreachable");
   }
   if (!upstream.ok) return failure(call, upstream);

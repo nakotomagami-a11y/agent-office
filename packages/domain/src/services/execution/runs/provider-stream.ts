@@ -3,6 +3,7 @@
 // subscription's "Not logged in" text (verified on CLI 2.1.296).
 import type { Provider } from "../../../config/providers";
 import type { RunErrorCode } from "../../../config/run-errors";
+import { log } from "../../infra/log";
 
 /** A refused connection is retried this many times before the run is ended as unreachable. */
 export const MAX_CONNECT_RETRIES = 2;
@@ -27,14 +28,22 @@ export function initModel(evt: unknown): string | undefined {
   return e?.type === "system" && e.subtype === "init" && typeof e.model === "string" ? e.model : undefined;
 }
 
+/**
+ * The key sources the env and pin exist to prevent. Anything else unknown is logged, not fatal: a
+ * future CLI naming its OAuth login differently must not stop every subscription run.
+ */
+const FORBIDDEN_KEY_SOURCE = /^(?:apiKeyHelper|[A-Z][A-Z0-9_]*)$/;
+
 /** Ends the run early. A mismatch counts for every provider: the env and pin promise `none`. */
 export function failFastOnEvent(provider: Provider, evt: unknown): ProviderFailure | null {
   const e = record(evt);
   if (e?.type !== "system") return null;
   if (e.subtype === "init") {
-    return typeof e.apiKeySource === "string" && e.apiKeySource !== "none"
-      ? { code: "provider_mismatch", detail: e.apiKeySource }
-      : null;
+    const source = e.apiKeySource;
+    if (typeof source !== "string" || source === "none") return null;
+    if (FORBIDDEN_KEY_SOURCE.test(source)) return { code: "provider_mismatch", detail: source };
+    log.warn("run.unknown_key_source", { provider, source: source.slice(0, 40) });
+    return null;
   }
   if (provider === "subscription" || e.subtype !== "api_retry") return null;
   const status = byStatus(e.error_status);

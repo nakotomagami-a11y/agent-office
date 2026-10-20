@@ -1,12 +1,24 @@
 // The output-cap parameter and its size, per (provider, model). Retried once, and only on the
 // upstream's own complaint about it: any other 400 is the caller's real error.
 import type { Provider } from "../../../config/providers";
-import type { CapParam } from "./to-chat";
+import { OUTPUT_TOKEN_CAP, type CapParam } from "./to-chat";
 
 declare global {
   var __agentOfficeCapParams: Map<string, CapParam> | undefined;
+  var __agentOfficeCapLimits: Map<string, number> | undefined;
 }
 const capParams: Map<string, CapParam> = globalThis.__agentOfficeCapParams ?? (globalThis.__agentOfficeCapParams = new Map());
+const capLimits: Map<string, number> = globalThis.__agentOfficeCapLimits ?? (globalThis.__agentOfficeCapLimits = new Map());
+
+/** The tokens to ask for: the request's, under the default cap and any ceiling this model stated before. */
+export function capTokensFor(provider: Provider, model: string, requested: number): number {
+  return Math.min(requested, OUTPUT_TOKEN_CAP, capLimits.get(`${provider}|${model}`) ?? Infinity);
+}
+
+/** Only after a request at this limit succeeded. */
+export function rememberCapLimit(provider: Provider, model: string, limit: number): void {
+  capLimits.set(`${provider}|${model}`, limit);
+}
 
 export function capParamFor(provider: Provider, model: string): CapParam {
   return capParams.get(`${provider}|${model}`) ?? (provider === "openai" ? "max_completion_tokens" : "max_tokens");

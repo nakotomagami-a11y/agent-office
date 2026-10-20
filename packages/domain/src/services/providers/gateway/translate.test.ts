@@ -11,6 +11,7 @@ import { anthropicRequestSchema } from "./anthropic-request";
 import { OUTPUT_TOKEN_CAP, toChatRequest, type ChatMessage } from "./to-chat";
 import { AnthropicStreamWriter, inBandError, parseChatChunk } from "./from-chat-stream";
 import { fromChatCompletion } from "./from-chat";
+import { reverseAliases, toolAliases } from "./tool-names";
 
 const fixture: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "cli-2.1.296-request.fixture.json"), "utf8"));
 const body = fixture && typeof fixture === "object" && "body" in fixture ? fixture.body : null;
@@ -143,4 +144,29 @@ test("openai gets no temperature or top_p; local gets no stream_options", () => 
   const local = toChatRequest(req, "m", "max_tokens", { provider: "local", maxTokens: 4 });
   assert.deepStrictEqual([openai.temperature, openai.top_p, openai.stream_options], [undefined, undefined, { include_usage: true }]);
   assert.deepStrictEqual([local.temperature, local.top_p, local.stream_options, local.max_tokens], [1, 0.9, undefined, 4]);
+});
+
+test("tool names OpenAI would reject get a stable alias; valid names are untouched; the reverse map restores them", () => {
+  const long = `mcp__playwright__${"browser_take_screenshot_".repeat(4)}`;
+  const twin = `${long}_variant`;
+  const req = anthropicRequestSchema.parse({ model: "m", max_tokens: 10, messages: [
+    { role: "assistant", content: [{ type: "tool_use", id: "t0", name: long, input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t0", content: "ok" }] },
+  ], tools: [
+    { name: long, input_schema: { type: "object" } }, { name: twin, input_schema: { type: "object" } },
+    { name: "Bash", input_schema: { type: "object" } }, { name: "mcp__x__has.dot", input_schema: { type: "object" } },
+  ] });
+  const aliases = toolAliases(req);
+  const chat = toChatRequest(req, "m", "max_tokens", { provider: "openai" });
+  const sent = (chat.tools as Array<{ function: { name: string } }>).map((t) => t.function.name);
+  assert.ok(sent.every((n) => /^[A-Za-z0-9_-]{1,64}$/.test(n)), sent.join(","));
+  assert.equal(sent[2], "Bash");
+  assert.notEqual(aliases.get(long), aliases.get(twin));
+  assert.equal(toolAliases(req).get(long), aliases.get(long), "deterministic");
+  assert.equal((chat.messages as ChatMessage[])[0]!.tool_calls![0]!.function.name, aliases.get(long), "earlier turns use the alias too");
+  const w = new AnthropicStreamWriter("m", reverseAliases(aliases));
+  const frames = w.push(parseChatChunk({ choices: [{ delta: { tool_calls: [{ index: 0, id: "c", function: { name: aliases.get(long), arguments: "{}" } }] }, finish_reason: "tool_calls" }] })!);
+  assert.equal(events(frames).find((e) => e.type === "content_block_start")!.content_block!.name, long);
+  const back = fromChatCompletion({ choices: [{ message: { tool_calls: [{ id: "c", function: { name: "unknown_tool", arguments: "{}" } }] } }] }, "m", reverseAliases(aliases));
+  assert.equal((back!.content as Array<{ name: string }>)[0]!.name, "unknown_tool", "an unknown name passes through");
 });

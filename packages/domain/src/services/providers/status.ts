@@ -3,9 +3,8 @@
 
 import { MODEL_TIERS, PROVIDER_PROBE_TIMEOUT_MS } from "../../config/providers";
 import type { Provider, ProviderConfig, ProviderStatus, ProviderStatusReason, ProviderTestResult } from "../../types/index";
+import { readCapped } from "./read-capped";
 import { keyTargetUrl } from "./urls";
-
-const MAX_MODELS_BYTES = 2 * 1024 * 1024;
 
 export interface ProbeTarget {
   config: ProviderConfig;
@@ -34,24 +33,11 @@ function modelIds(body: unknown): string[] {
   return body.data.flatMap((m: unknown) => (m && typeof m === "object" && "id" in m && typeof m.id === "string" ? [m.id] : []));
 }
 
-/** The URL is user-chosen, so its body is read under a cap, never whole. */
 async function boundedJson(res: Response): Promise<unknown> {
-  const reader = res.body?.getReader();
-  if (!reader) return null;
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_MODELS_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
+  const { text, complete } = await readCapped(res);
+  if (!complete) return null;
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(text);
   } catch {
     return null;
   }

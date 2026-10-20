@@ -51,7 +51,8 @@ export class AnthropicStreamWriter {
   private finish: string | null = null;
   private usage = { input: 0, output: 0, cached: 0 };
 
-  constructor(private readonly model: string) {}
+  /** `names`: alias → original tool name, for names the request had to alias. */
+  constructor(private readonly model: string, private readonly names: Map<string, string> = new Map()) {}
 
   push(chunk: ChatChunk): string[] {
     const out = this.start();
@@ -77,7 +78,7 @@ export class AnthropicStreamWriter {
     if (!this.finish && !sawDone) return { ok: false, reason: "stream_incomplete" };
     if (this.finish === "length" && this.toolBlocks > 0) return { ok: false, reason: "truncated_tool_call" };
     const stop = this.toolBlocks > 0 ? "tool_use" : STOP_REASON[this.finish ?? "stop"] ?? "end_turn";
-    const usage = { input_tokens: this.usage.input - this.usage.cached, output_tokens: this.usage.output, cache_read_input_tokens: this.usage.cached };
+    const usage = { input_tokens: Math.max(0, this.usage.input - this.usage.cached), output_tokens: this.usage.output, cache_read_input_tokens: this.usage.cached };
     return { ok: true, frames: [...this.start(), ...this.close(), sse("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage }), sse("message_stop", {})] };
   }
 
@@ -104,7 +105,8 @@ export class AnthropicStreamWriter {
     const out: string[] = [];
     if (this.open?.kind !== "tool" || this.open.toolIndex !== call.index) {
       out.push(...this.close());
-      const block = { type: "tool_use", id: call.id ?? `toolu_${randomUUID().replace(/-/g, "")}`, name: call.function?.name ?? "", input: {} };
+      const name = call.function?.name ?? "";
+      const block = { type: "tool_use", id: call.id ?? `toolu_${randomUUID().replace(/-/g, "")}`, name: this.names.get(name) ?? name, input: {} };
       out.push(this.openBlock(block, { kind: "tool", toolIndex: call.index }));
       this.toolBlocks++;
     }

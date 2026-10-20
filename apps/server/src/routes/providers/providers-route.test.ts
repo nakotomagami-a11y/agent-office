@@ -13,6 +13,14 @@ import { test } from "node:test";
 const home = mkdtempSync(join(tmpdir(), "providers-route-"));
 process.env.HOME = home;
 process.env.USERPROFILE = home;
+// Hermetic: no test here may depend on a real `claude` on PATH (CI has none). The health cache is
+// pinned fresh, so GET /api/providers never spawns `claude --version`.
+// Mutated, never replaced: health.ts holds on to the object it found at import.
+const pinHealth = (available: boolean) => {
+  const state = (globalThis.__agentOfficeHealthState ??= { cached: null, inflight: null });
+  Object.assign(state, { cached: { available, version: available ? "test" : null }, cachedAt: Date.now() });
+};
+pinHealth(true);
 
 const list = await import("./route");
 const selected = await import("./selected/route");
@@ -79,7 +87,18 @@ test("a short local key shows as stored without a hint; DELETE and an address ch
   assert.deepStrictEqual([local.hasKey, local.config.baseUrl], [false, "http://localhost:1234/v1"]);
 });
 
+test("with the CLI missing, a selection is refused with cli_missing", async () => {
+  pinHealth(false);
+  try {
+    const res = await selected.PUT(put({ provider: "subscription" }));
+    assert.deepStrictEqual([res.status, await res.json()], [409, { error: "provider_not_ready", reason: "cli_missing" }]);
+  } finally {
+    pinHealth(true);
+  }
+});
+
 test("selecting a provider that passes its probe returns the new selection; then first run can complete", async () => {
+  pinHealth(true);
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => Response.json({ data: [{ id: "q" }] })) as typeof fetch;
   try {

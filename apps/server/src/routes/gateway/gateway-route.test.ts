@@ -39,6 +39,9 @@ const messages = (token: string, body: unknown, extra: Record<string, string> = 
   }));
 const minimal = (model: string, stream = false) => ({ model, max_tokens: 50, stream, messages: [{ role: "user", content: "hi" }] });
 
+const lastFailure = () => failures.at(-1)!;
+const err400 = (message: string) => Response.json({ error: { message } }, { status: 400 });
+
 test("no token, a never-issued token or a revoked one: 401, and nothing goes upstream", async () => {
   sent = [];
   const none = await POST(new Request("http://127.0.0.1/", { method: "POST", body: "{}" }));
@@ -105,44 +108,8 @@ test("openai: an unmapped model is refused and reported; nothing goes upstream",
   assert.deepStrictEqual(failures.at(-1)!.slice(0, 2), ["run-model", "provider_model_not_found"]);
 });
 
-test("openai: a 400 naming the cap parameter is retried once with the other name; any other 400 is not", async () => {
-  const t = tokens.issueGatewayToken("run-cap", "openai");
-  sent = [];
-  reply = () => (sent.length === 1
-    ? Response.json({ error: { message: "Unsupported parameter: 'max_completion_tokens'" } }, { status: 400 })
-    : Response.json({ choices: [{ message: { content: "ok" } }] }));
-  assert.equal((await messages(t, minimal("s"))).status, 200);
-  assert.equal(sent.length, 2);
-  assert.ok(String(sent[1]!.init.body).includes('"max_tokens"'));
-  sent = [];
-  reply = () => Response.json({ error: { message: "bad tool schema" } }, { status: 400 });
-  await messages(t, minimal("b"));
-  assert.equal(sent.length, 1);
-});
-
 test("count_tokens is an honest 404", async () => {
   assert.equal((await countTokens.POST()).status, 404);
-});
-
-const lastFailure = () => failures.at(-1)!;
-const err400 = (message: string) => Response.json({ error: { message } }, { status: 400 });
-
-test("a cap 'too large' is clamped once; a second 400 reaches the child as a 400, never a retried 500; nothing is cached", async () => {
-  const t = tokens.issueGatewayToken("run-big", "openai");
-  sent = [];
-  reply = () => err400("max_completion_tokens is too large: 32000. This model supports at most 16384 completion tokens.");
-  const res = await messages(t, { ...minimal("b"), max_tokens: 32000 });
-  assert.equal(res.status, 400);
-  assert.equal(sent.length, 2);
-  assert.ok(String(sent[1]!.init.body).includes('"max_completion_tokens":16384'));
-  assert.deepStrictEqual(lastFailure().slice(0, 2), ["run-big", "unknown"]);
-  sent = [];
-  reply = () => (sent.length === 1 ? err400("max_completion_tokens is not supported with this model") : err400("still bad"));
-  await messages(t, minimal("m"));
-  sent = [];
-  reply = () => Response.json({ choices: [{ message: { content: "ok" } }] });
-  await messages(t, minimal("m"));
-  assert.ok(String(sent[0]!.init.body).includes('"max_completion_tokens"'), "a failed swap is not remembered");
 });
 
 test("a local server's key echoed in an error is redacted, whatever its shape", async () => {

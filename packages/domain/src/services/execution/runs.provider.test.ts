@@ -164,3 +164,20 @@ test("a key source other than none is a mismatch that ends the run, on the subsc
   const runId = await runEmitting([{ type: "system", subtype: "init", apiKeySource: "ANTHROPIC_API_KEY", model: "claude-x" }]);
   assert.deepStrictEqual([getRun(runId)?.errorCode, getRun(runId)?.errorDetail, getRun(runId)?.model], ["provider_mismatch", "ANTHROPIC_API_KEY", "m"]);
 });
+
+test("Stop stays 'stopped' even when the gateway then sees its upstream request fail", async () => {
+  store.setSelection("openai", "chosen");
+  process.env.STUB_HANG = "1";
+  const { abortRun } = await import("./runs");
+  const { reportGatewayFailure } = await import("../providers/gateway/failures");
+  try {
+    const { runId } = startRun({ agentId: "t", agentName: "T", prompt: "hi", model: "m", effort: "e", args: ["-p"], stdin: "hi" });
+    const done = new Promise<void>((resolve) => attachEmit(runId, (e) => { if (e.name === "done") resolve(); }));
+    abortRun(runId);
+    reportGatewayFailure(runId, "provider_unreachable", "connection_failed");
+    await done;
+    assert.equal(getRun(runId)?.errorCode, "stopped");
+  } finally {
+    delete process.env.STUB_HANG;
+  }
+});

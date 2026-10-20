@@ -43,7 +43,7 @@ const SUBSCRIPTION_DISABLED_RE =
  * fall back to the LAST SINGLE LINE of output (capped), never the whole
  * paragraph, so the error card can never become a transcript dump.
  */
-export function classifyResultError(raw: string, output: string, provider = "subscription"): { code: RunErrorCode; detail?: string } {
+export function classifyResultError(raw: string, output: string, provider: string): { code: RunErrorCode; detail?: string } {
   const text = raw.trim();
   const detail = text || output.trim().split("\n").filter(Boolean).at(-1) || "";
   const subscription = provider === "subscription";
@@ -73,9 +73,9 @@ export function classifyExitFailure(
   // Only a run that streamed nothing can be an auth failure: a later crash's
   // stderr may quote some other tool's "not logged in" (gh, an MCP server).
   if (!opts.output?.trim()) {
-    const { code } = classifyResultError(tail, "", opts.provider);
+    const { code } = classifyResultError(tail, "", opts.provider ?? "subscription");
     if (code !== "unknown") {
-      const line = tail.split("\n").find((l) => classifyResultError(l, "", opts.provider).code === code);
+      const line = tail.split("\n").find((l) => classifyResultError(l, "", opts.provider ?? "subscription").code === code);
       return { code, detail: capDetail(line ?? message) };
     }
   }

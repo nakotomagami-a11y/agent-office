@@ -26,14 +26,14 @@ function toolInput(args: string): unknown {
 }
 
 /** Null when the body is not a completion, or the completion is empty. */
-export function fromChatCompletion(raw: unknown, model: string): Record<string, unknown> | null {
+export function fromChatCompletion(raw: unknown, model: string, names: Map<string, string> = new Map()): Record<string, unknown> | null {
   const parsed = completionSchema.safeParse(raw);
   if (!parsed.success) return null;
   const { message, finish_reason } = parsed.data.choices[0]!;
   const content: Array<Record<string, unknown>> = [];
   if (message.content) content.push({ type: "text", text: message.content });
   for (const call of message.tool_calls ?? []) {
-    content.push({ type: "tool_use", id: call.id, name: call.function.name, input: toolInput(call.function.arguments) });
+    content.push({ type: "tool_use", id: call.id, name: names.get(call.function.name) ?? call.function.name, input: toolInput(call.function.arguments) });
   }
   if (content.length === 0) return null;
   const usage = parsed.data.usage;
@@ -43,6 +43,6 @@ export function fromChatCompletion(raw: unknown, model: string): Record<string, 
     id: `msg_${randomUUID()}`, type: "message", role: "assistant", model, content,
     stop_reason: toolUse ? "tool_use" : finish_reason === "length" ? "max_tokens" : "end_turn",
     stop_sequence: null,
-    usage: { input_tokens: (usage?.prompt_tokens ?? 0) - cached, output_tokens: usage?.completion_tokens ?? 0, cache_read_input_tokens: cached },
+    usage: { input_tokens: Math.max(0, (usage?.prompt_tokens ?? 0) - cached), output_tokens: usage?.completion_tokens ?? 0, cache_read_input_tokens: cached },
   };
 }

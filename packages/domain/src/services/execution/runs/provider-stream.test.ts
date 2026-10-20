@@ -31,6 +31,9 @@ test("init: any key source but none is a mismatch, for every provider; the model
     assert.equal(failFastOnEvent(p, init("none")), null);
     assert.deepStrictEqual(failFastOnEvent(p, init("apiKeyHelper")), { code: "provider_mismatch", detail: "apiKeyHelper" });
   }
+  assert.deepStrictEqual(failFastOnEvent("subscription", init("ANTHROPIC_API_KEY")), { code: "provider_mismatch", detail: "ANTHROPIC_API_KEY" });
+  assert.equal(failFastOnEvent("subscription", init("oauth")), null, "an unknown non-env value is logged, not fatal");
+  assert.equal(failFastOnEvent("subscription", init("claude.ai")), null);
   assert.equal(initModel(init("none")), "qwen3:30b");
   assert.equal(initModel({ type: "result" }), undefined);
   assert.equal(failFastOnEvent("openai", "garbage"), null);
@@ -45,7 +48,7 @@ test("a final result on a gateway provider is classified by status, then by text
 });
 
 test("the Sign-in card is only ever for the subscription", () => {
-  assert.equal(classifyResultError("Invalid API key · Fix external API key", "").code, "auth_expired");
+  assert.equal(classifyResultError("Invalid API key · Fix external API key", "", "subscription").code, "auth_expired");
   assert.equal(classifyResultError("Invalid API key · Fix external API key", "", "openai").code, "provider_auth_failed");
   assert.equal(classifyResultError("", "Not logged in · Please run /login", "local").code, "provider_auth_failed");
   assert.equal(classifyResultError("Your organization has disabled Claude subscription access", "", "anthropic_api").code, "unknown");

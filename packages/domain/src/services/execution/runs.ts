@@ -527,7 +527,8 @@ function pumpStderr(run: LiveRun): void {
 
 /** A provider failure seen early: end the run with its code instead of riding out the CLI's retries. */
 function failRun(run: LiveRun, failure: ProviderFailure): void {
-  if (run.status !== "running" || run.error) return;
+  // Stop closes the CLI's gateway connection, which fails the upstream fetch: that is not an outage.
+  if (run.aborted || run.status !== "running" || run.error) return;
   broadcast(run, { name: "error", data: { runId: run.id, code: failure.code, detail: failure.detail } });
   killRunProc(run.proc);
 }

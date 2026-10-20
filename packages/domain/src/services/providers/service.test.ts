@@ -13,6 +13,8 @@ import { join } from "node:path";
 const sandbox = mkdtempSync(join(tmpdir(), "ao-provider-service-"));
 process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
+// Hermetic: the view reads the CLI health; a pinned fresh entry means no real `claude` is spawned.
+globalThis.__agentOfficeHealthState = { cached: { available: true, version: "test" }, cachedAt: Date.now(), inflight: null };
 
 const { selectProvider, testProvider, providersView } = await import("./service");
 const store = await import("./store");
