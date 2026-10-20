@@ -153,6 +153,7 @@ Ordered so each wave removes a root cause rather than patching symptoms. Each wa
 - **D3 · Remove the skill names starter agents can't resolve**; keep only bundled skills.
 - **D4 · The ADHD response style is the harness's one built-in default**, not a setting. It replaces every other response-style text in the app (`RESPONSE_STYLE`, the `i-have-adhd` skill duplicate, per-agent copies).
 - **D5 · Remove the Playwright toggle.**
+- **D7 · Remove three features entirely** (never used): **About You** (the `user-analyst` profiler, its settings tab, routes and `user_analysis.md`), the **Flutter integration** (toolbar, modal, routes, `flutter.ts`), and the **Activity page**. This makes S4-8, S4-19, S5-12, S7-10 moot and resolves the response-style exception for `user-analyst`. Done as its own step right after Wave 0 (Wave 0 doesn't touch these files).
 - **D6 · #212 is nearly finished** (fine-tuning and testing left): its files are no longer off-limits; resolve conflicts when it merges.
 
 ### Decisions needed before building (answered above)
