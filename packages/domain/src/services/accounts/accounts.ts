@@ -24,6 +24,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   PROJECTS_DIR,
   accountConfigDir,
+  isInside,
   isValidIdSegment,
 } from "../infra/paths";
 import { getDb, isPidAlive } from "../db";
@@ -111,7 +112,7 @@ export function remove(id: string): RemoveResult {
   getDb().prepare("DELETE FROM accounts WHERE id = ?").run(id);
   // Only touch dirs under ACCOUNTS_DIR — never ~/.claude root.
   const dir = accountConfigDir(id);
-  if (dir.startsWith(ACCOUNTS_DIR + "/") && existsSync(dir)) {
+  if (isInside(dir, ACCOUNTS_DIR) && existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true });
   }
   log.info("account.removed", { id });

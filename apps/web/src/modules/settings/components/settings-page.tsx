@@ -90,6 +90,9 @@ function ProjectsPane() {
     [projectsQ.data],
   );
 
+  // Rows list the root being edited, but the server acts on the saved one: a
+  // Delete there once removed a same-named folder under the old root.
+  const rootUnsaved = !!settingsQ.data && root.trim() !== settingsQ.data.projectsRoot;
   const scanned = scanQ.data ?? [];
   const activeEntries = scanned.filter((e) => !projectById.get(e.id)?.shelved);
   const shelvedEntries = scanned.filter((e) => projectById.get(e.id)?.shelved);
@@ -226,6 +229,9 @@ function ProjectsPane() {
           </div>
         </div>
 
+        {rootUnsaved && scanned.length > 0 ? (
+          <div className="px-[20px] py-[10px] border-b border-edge text-[11.5px] text-txt-3">{t("settings.unsaved_root_hint")}</div>
+        ) : null}
         {scanQ.isLoading ? null : scanned.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-[10px] py-[38px] text-center">
             <span className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-card-2 border border-edge text-txt-4">
@@ -270,6 +276,7 @@ function ProjectsPane() {
                     open={openProjectIds.has(entry.id)}
                     shelved={view === "shelved"}
                     busy={updateProject.isPending}
+                    locked={rootUnsaved}
                     excludedLabel={t("settings.excluded_badge")}
                     onToggleShelve={() =>
                       updateProject.mutate({ id: entry.id, patch: { meta: { shelved: view !== "shelved" } } })
@@ -315,6 +322,7 @@ function ScanProjectRow({
   open,
   shelved,
   busy,
+  locked,
   excludedLabel,
   onToggleShelve,
   onRemove,
@@ -324,6 +332,8 @@ function ScanProjectRow({
   open: boolean;
   shelved: boolean;
   busy: boolean;
+  /** Root has unsaved edits: the server would resolve this row under another folder. */
+  locked: boolean;
   excludedLabel: string;
   onToggleShelve: () => void;
   onRemove: () => void;
@@ -363,8 +373,8 @@ function ScanProjectRow({
         <button
           type="button"
           onClick={onToggleShelve}
-          disabled={busy}
-          title={shelveLabel}
+          disabled={busy || locked}
+          title={locked ? t("settings.unsaved_root_hint") : shelveLabel}
           aria-label={`${shelveLabel} ${entry.name}`}
           className="flex items-center gap-[7px] py-[6px] px-[11px] rounded-[9px] text-txt-4 text-[11.5px] font-semibold cursor-pointer whitespace-nowrap transition-all duration-150 hover:bg-card-3 hover:text-txt disabled:opacity-50"
         >
@@ -374,9 +384,10 @@ function ScanProjectRow({
         <button
           type="button"
           onClick={onRemove}
-          title={t("settings.delete_folder")}
+          disabled={locked}
+          title={locked ? t("settings.unsaved_root_hint") : t("settings.delete_folder")}
           aria-label={t("settings.delete_folder_aria", { name: entry.name })}
-          className="w-[28px] h-[28px] flex items-center justify-center rounded-[9px] text-txt-4 cursor-pointer transition-all duration-150 hover:bg-red-soft hover:text-red"
+          className="w-[28px] h-[28px] flex items-center justify-center rounded-[9px] text-txt-4 cursor-pointer transition-all duration-150 hover:bg-red-soft hover:text-red disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-txt-4"
         >
           <Icon name="trash" size={13} />
         </button>

@@ -4,9 +4,9 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
-import { expandTilde, PROJECTS_DIR } from "../infra/paths";
+import { expandTilde, isInside, PROJECTS_DIR, samePath } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatterDetailed, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
@@ -468,24 +468,27 @@ export function deleteProject(id: string): boolean {
  * directory) plus any ~/.claude/projects/<id> metadata. Destructive and
  * irreversible — the UI gates this behind a type-to-confirm modal.
  *
- * Guarded so it only ever removes a *direct child* of the configured projects
- * root: it refuses the root itself, nested paths, and anything resolving
- * outside the root. Returns false when the id doesn't match a scanned folder.
+ * `fullPath` is the folder the user confirmed. It must be the folder `id`
+ * names under the SAVED root: the settings pane lists an unsaved root, and two
+ * folder names can share one slug, so the id alone once deleted a different
+ * folder. Only a direct child of the root is ever removed. Returns false when
+ * no scanned folder matches both.
  */
-export function removeProjectFolder(id: string): boolean {
+export function removeProjectFolder(id: string, fullPath: string): boolean {
   const settings = readSettings();
   if (!settings) return false;
-  const scanned = scanProjects(settings.projectsRoot, settings.excluded, true).find((e) => e.id === id);
+  const entries = scanProjects(settings.projectsRoot, settings.excluded, true);
+  const scanned = entries.find((e) => e.id === id && samePath(e.fullPath, fullPath));
   if (!scanned) return false;
 
   const root = expandTilde(settings.projectsRoot);
-  const rel = scanned.fullPath.startsWith(root + sep) ? scanned.fullPath.slice(root.length + 1) : null;
-  if (!rel || rel.includes(sep)) {
+  if (!isInside(scanned.fullPath, root) || !samePath(dirname(scanned.fullPath), root)) {
     throw new Error(`refuse to remove '${scanned.fullPath}': not a direct child of the projects root`);
   }
 
   rmSync(scanned.fullPath, { recursive: true, force: true });
-  deleteProject(id); // also drop ~/.claude/projects/<id> metadata (no-op if absent)
+  // Metadata is keyed by slug: a same-slug sibling still owns it.
+  if (!entries.some((e) => e !== scanned && e.id === id)) deleteProject(id);
   log.warn("project.folder_removed", { id, path: scanned.fullPath });
   return true;
 }

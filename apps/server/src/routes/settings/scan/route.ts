@@ -1,12 +1,10 @@
 // GET /api/settings/scan — scan the projects root for candidate project folders.
-import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { settings } from "@agent-office/domain/services";
+import { expandTilde, HOME, isInside, samePath } from "@agent-office/domain/services/infra/paths";
 import { validateQuery } from "../../../lib/validation";
 import { settingsScanQuerySchema } from "@agent-office/api-contract";
 import { badRequest } from "../../../lib/api-helpers";
-
-const HOME = homedir();
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -15,9 +13,8 @@ export async function GET(request: Request) {
 
   // Expand ~ before resolving — path.resolve treats ~ as a literal directory
   // name relative to cwd, producing a nonsense path like /cwd/~/Documents.
-  const expanded = q.root ? q.root.replace(/^~(?=\/|$)/, HOME) : HOME;
-  const root = resolve(expanded);
-  if (root !== HOME && !root.startsWith(HOME + "/")) {
+  const root = resolve(q.root ? expandTilde(q.root) : HOME);
+  if (!samePath(root, HOME) && !isInside(root, HOME)) {
     return badRequest("root_outside_home");
   }
 
