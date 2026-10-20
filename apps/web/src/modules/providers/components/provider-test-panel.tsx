@@ -82,8 +82,7 @@ function Verdict({ setup, onAction }: { setup: ProviderSetup; onAction: (reason:
       <p className="m-0 text-[12.5px] font-bold text-red">{t("unavailable", { reason: te(`${reason}.title`) })}</p>
       <p className="m-0 text-[12px] leading-[1.55] text-txt-2 text-pretty">{te(`${reason}.body`)}</p>
       {detail ? <code className="break-words font-mono text-[10.5px] text-txt-4">{detail}</code> : null}
-      {action === "wait" ? <p className="m-0 text-[12px] text-txt-3">{t("action_wait")}</p> : null}
-      {action === "recheck" || action === "sign_in" ? (
+      {action !== "edit" ? (
         <Button size="sm" className="self-start" onClick={() => onAction(reason)} disabled={setup.busy}>
           {t(action === "sign_in" ? "action_sign_in" : "action_recheck")}
         </Button>

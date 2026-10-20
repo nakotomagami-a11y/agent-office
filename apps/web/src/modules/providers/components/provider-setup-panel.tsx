@@ -37,6 +37,7 @@ export function ProviderSetupPanel({ setup, signIn }: { setup: ProviderSetup; si
         {t("never_swaps")}
       </p>
       <ProviderPicker value={choice} onChange={setup.setChoice} activeId={data.selected} disabled={setup.busy} />
+      {choice === null ? <p className="m-0 text-[12.5px] text-txt-3">{t("pick_one")}</p> : null}
       {choice ? (
         <div className="flex flex-col gap-[14px] rounded-2xl border border-edge bg-card-2 px-[16px] py-[14px]">
           <ProviderFields
