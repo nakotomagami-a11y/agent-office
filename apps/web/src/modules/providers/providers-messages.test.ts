@@ -3,7 +3,7 @@
  * Every code the server can name, and every word the setup screens use, must exist in en.json.
  */
 import assert from "node:assert";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { wizardDraftSchema } from "@agent-office/api-contract";
@@ -68,7 +68,15 @@ test("a wizard draft keeps the provider choice and never a key", () => {
   assert.equal(wizardDraftSchema.parse({ step: "root" }).provider, null, "an old draft reads as no choice");
 });
 
-test("the setup hook never puts a key in the mutation cache", () => {
-  const source = readFileSync(join(process.cwd(), "src", "modules", "providers", "hooks", "use-provider-setup.ts"), "utf8");
-  assert.ok(!source.includes("useMutation"), "keys must travel in plain async calls, not react-query mutations");
+function sourcesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? sourcesUnder(join(dir, e.name)) : /.tsx?$/.test(e.name) && !e.name.includes(".test.") ? [join(dir, e.name)] : [],
+  );
+}
+
+test("no provider file but the key-free hooks uses a react-query mutation, so a key never enters the mutation cache", () => {
+  const root = join(process.cwd(), "src", "modules", "providers");
+  // use-providers.ts mutates only price refresh and key deletion: neither carries a key value.
+  const offenders = sourcesUnder(root).filter((f) => !f.endsWith("use-providers.ts") && readFileSync(f, "utf8").includes("useMutation"));
+  assert.deepEqual(offenders, []);
 });

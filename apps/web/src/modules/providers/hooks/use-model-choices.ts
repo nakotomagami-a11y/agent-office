@@ -29,6 +29,10 @@ export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
   const { id: providerId, view, capabilities } = useActiveProvider();
   const prices = useModelPrices().data?.entries;
   const gateway = usesGateway(providerId);
+  const priceLabel = (price: number | undefined): string => {
+    const figure = formatPerMTok(price);
+    return figure ? t("price_per_mtok", { price: figure }) : "—";
+  };
   const mapped = view?.config.models;
 
   const models = useMemo(() => {
@@ -42,7 +46,7 @@ export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
         full,
         badge: info.tier,
         icon: info.icon,
-        price: formatPerMTok(inputPriceOf(prices, full)) ?? "—",
+        price: priceLabel(inputPriceOf(prices, full)),
         desc: info.description,
       };
     });

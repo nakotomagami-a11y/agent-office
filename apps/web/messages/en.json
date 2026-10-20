@@ -1394,6 +1394,8 @@
     "run_skip": "Skip",
     "key_shape_anthropic_key_for_openai": "This looks like an Anthropic key. OpenAI keys usually start with sk-.",
     "key_shape_not_an_anthropic_key": "Anthropic keys usually start with sk-ant-. Check that this key is from Anthropic.",
-    "pick_one": "Pick a provider to continue."
+    "pick_one": "Pick a provider to continue.",
+    "price_per_mtok": "{price}/Mt",
+    "prices_refresh_wait": "Refreshed a moment ago. Wait a little before refreshing again."
   }
 }

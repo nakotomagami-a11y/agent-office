@@ -60,7 +60,7 @@ function KeyField({ provider, draft, view, onEdit, onEnter }: FieldsProps) {
         <TextInput
           id={id}
           type="password"
-          autoComplete="off"
+          autoComplete="new-password"
           spellCheck={false}
           value={draft.apiKey}
           onChange={(e) => onEdit({ apiKey: e.target.value })}

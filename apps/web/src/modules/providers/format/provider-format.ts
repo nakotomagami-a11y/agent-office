@@ -108,9 +108,10 @@ export function costDisplay(usd: number, basis: CostBasis | undefined): CostDisp
   return { kind: "amount", usd };
 }
 
+/** The dollar figure only; the per-million-tokens unit is words, so the caller supplies it from i18n. */
 export function formatPerMTok(price: number | undefined): string | null {
   if (price === undefined || !Number.isFinite(price)) return null;
-  return price >= 10 ? `$${Math.round(price)}/Mt` : `$${price.toFixed(2)}/Mt`;
+  return price >= 10 ? `$${Math.round(price)}` : `$${price.toFixed(2)}`;
 }
 
 export const inputPriceOf = (entries: Record<string, ModelPrice> | undefined, modelId: string): number | undefined =>

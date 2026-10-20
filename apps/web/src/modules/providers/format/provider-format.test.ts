@@ -67,9 +67,9 @@ test("a key that looks like the wrong provider's gets a hint, and nothing else d
 });
 
 test("a price shows as per-million-tokens, and a missing one as nothing", () => {
-  assert.equal(formatPerMTok(3), "$3.00/Mt");
-  assert.equal(formatPerMTok(15), "$15/Mt");
-  assert.equal(formatPerMTok(0.8), "$0.80/Mt");
+  assert.equal(formatPerMTok(3), "$3.00");
+  assert.equal(formatPerMTok(15), "$15");
+  assert.equal(formatPerMTok(0.8), "$0.80");
   assert.equal(formatPerMTok(undefined), null);
   assert.equal(formatPerMTok(Number.NaN), null);
 });
