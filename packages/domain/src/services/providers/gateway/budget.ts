@@ -29,13 +29,20 @@ const worstUsage = (bound: CallBound): MessageUsage => ({ input_tokens: bound.re
 
 const usd = (n: number): string => `$${n.toFixed(4)}`;
 
-function refusalOf(ownerId: string, priced: boolean): string | null {
+/** `final`: the cap is spent and the run ends. Otherwise only calls in flight hold it: wait for them. */
+export interface BudgetRefusal {
+  refusal: string;
+  final: boolean;
+}
+
+function refusalOf(ownerId: string, priced: boolean): BudgetRefusal | null {
   const spend = gatewaySpend(ownerId);
   if (spend?.budgetUsd === undefined) return null;
-  if (spend.unpriced || !priced) return "budget_exceeded: the price is unknown";
+  if (spend.unpriced || !priced) return { refusal: "budget_exceeded: the price is unknown", final: true };
+  const cap = `$${spend.budgetUsd.toFixed(2)}`;
+  if (spend.spentUsd >= spend.budgetUsd) return { refusal: `budget_exceeded: spent ${usd(spend.spentUsd)} of ${cap}`, final: true };
   if (spend.spentUsd + spend.reservedUsd < spend.budgetUsd) return null;
-  const inFlight = spend.reservedUsd > 0 ? ` (+${usd(spend.reservedUsd)} in flight)` : "";
-  return `budget_exceeded: spent ${usd(spend.spentUsd)}${inFlight} of $${spend.budgetUsd.toFixed(2)}`;
+  return { refusal: `budget_held: spent ${usd(spend.spentUsd)}, ${usd(spend.reservedUsd)} held by calls in flight, cap ${cap}`, final: false };
 }
 
 /**
@@ -43,10 +50,10 @@ function refusalOf(ownerId: string, priced: boolean): string | null {
  * all pass the cap check before any of them is charged; the call that crosses the cap still runs,
  * as with the CLI's own cap. `settle` runs once: the real usage, or the worst case when none came.
  */
-export function openCharge(ownerId: string, model: string, bound: CallBound): { refusal: string } | { settle: (usage: MessageUsage | null) => void } {
+export function openCharge(ownerId: string, model: string, bound: CallBound): BudgetRefusal | { settle: (usage: MessageUsage | null) => void } {
   const price = priceFor(model);
   const refusal = refusalOf(ownerId, price !== null);
-  if (refusal) return { refusal };
+  if (refusal) return refusal;
   const held = price ? usageCostUsd(price, worstUsage(bound)) : 0;
   reserveGatewayRun(ownerId, held);
   let settled = false;

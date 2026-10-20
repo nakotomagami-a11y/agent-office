@@ -35,7 +35,7 @@ import {
   type TaskStarted,
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
-import { prepareProviderSpawn, releaseProviderSpawn, runCost, type ProviderRefusal } from "./runs/provider-spawn";
+import { prepareProviderSpawn, releaseProviderSpawn, runCost, settleRunCost, type ProviderRefusal } from "./runs/provider-spawn";
 import { spawnClaude } from "../infra/claude-bin";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
@@ -1010,7 +1010,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
-  const settled = runCost(run.id, run.provider, run.cost);
+  const settled = settleRunCost(run.id, run.provider, run.cost);
   run.cost = settled.cost;
   releaseProviderSpawn(run.id, run.pinFile);
 

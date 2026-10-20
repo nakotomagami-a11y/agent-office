@@ -56,7 +56,7 @@ test("each call settles once: real usage, or the worst case when none came; an u
   settled(openCharge("b1", "gpt-5", { requestBytes: 4000, maxTokens: 1000 }))(null);
   assert.equal(gatewaySpend("b1")?.spentUsd, EXPECTED + (4000 * 1.25 + 1000 * 10) / 1e6);
   assert.equal(gatewaySpend("b1")?.reservedUsd, 0);
-  assert.deepStrictEqual(openCharge("b1", "gpt-mystery", ZERO), { refusal: "budget_exceeded: the price is unknown" });
+  assert.deepStrictEqual(openCharge("b1", "gpt-mystery", ZERO), { refusal: "budget_exceeded: the price is unknown", final: true });
   issueGatewayToken("b4", "openai");
   settled(openCharge("b4", "gpt-mystery", ZERO))(null);
   assert.equal(gatewaySpend("b4")?.unpriced, true, "uncapped: runs on, but its cost becomes unknown");
@@ -67,17 +67,17 @@ test("a capped run is refused once spent plus calls in flight reach the cap; the
   settled(openCharge("b2", "gpt-5", ZERO))({ input_tokens: 0, output_tokens: 999 });
   const crossing = settled(openCharge("b2", "gpt-5", ZERO));
   crossing({ input_tokens: 0, output_tokens: 1 });
-  assert.deepStrictEqual(openCharge("b2", "gpt-5", ZERO), { refusal: "budget_exceeded: spent $0.0100 of $0.01" });
+  assert.deepStrictEqual(openCharge("b2", "gpt-5", ZERO), { refusal: "budget_exceeded: spent $0.0100 of $0.01", final: true });
   issueGatewayToken("b3", "openai");
   settled(openCharge("b3", "gpt-5", ZERO))({ input_tokens: 1e9, output_tokens: 1e9 });
   assert.ok("settle" in openCharge("b3", "gpt-5", ZERO), "uncapped: never refused");
 });
 
-test("parallel calls: the worst case of the ones in flight counts against the cap until they settle", () => {
+test("parallel calls: holds in flight make the next call wait (not final); only real spend ends the run", () => {
   issueGatewayToken("p", "openai", 0.05);
   const a = settled(openCharge("p", "gpt-5", { requestBytes: 0, maxTokens: 5000 }));
   const refused = openCharge("p", "gpt-5", { requestBytes: 0, maxTokens: 10 });
-  assert.deepStrictEqual(refused, { refusal: "budget_exceeded: spent $0.0000 (+$0.0500 in flight) of $0.05" });
+  assert.deepStrictEqual(refused, { refusal: "budget_held: spent $0.0000, $0.0500 held by calls in flight, cap $0.05", final: false });
   a({ input_tokens: 0, output_tokens: 100 });
   assert.ok("settle" in openCharge("p", "gpt-5", ZERO), "the hold is released when the call settles");
 });

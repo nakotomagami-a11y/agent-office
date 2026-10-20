@@ -55,6 +55,14 @@ export function chargeGatewayRun(ownerId: string, usd: number | null): void {
   else entry.spentUsd += usd;
 }
 
+/** At run end: a call cut by Stop may settle after the token is gone, so its hold is charged now. */
+export function chargeOutstandingHolds(ownerId: string): void {
+  const entry = entryOf(ownerId);
+  if (!entry) return;
+  entry.spentUsd += entry.reservedUsd;
+  entry.reservedUsd = 0;
+}
+
 export function reserveGatewayRun(ownerId: string, usd: number): void {
   const entry = entryOf(ownerId);
   if (entry) entry.reservedUsd = Math.max(0, entry.reservedUsd + usd);

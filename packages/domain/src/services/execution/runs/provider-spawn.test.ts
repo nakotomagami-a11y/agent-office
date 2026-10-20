@@ -15,9 +15,9 @@ const sandbox = mkdtempSync(join(tmpdir(), "ao-provider-spawn-"));
 process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 
-const { prepareProviderSpawn, releaseProviderSpawn, runCost } = await import("./provider-spawn");
+const { prepareProviderSpawn, releaseProviderSpawn, runCost, settleRunCost } = await import("./provider-spawn");
 const store = await import("../../providers/store");
-const { chargeGatewayRun, gatewaySpend } = await import("../../providers/gateway-tokens");
+const { chargeGatewayRun, gatewaySpend, reserveGatewayRun } = await import("../../providers/gateway-tokens");
 const { forgetPriceCatalog, PRICE_FETCH_ENABLED_KEY } = await import("../../providers/prices/catalog");
 const { PRICE_CATALOG_FILE } = await import("../../infra/paths");
 const { setUiSetting } = await import("../../db/ui-settings");
@@ -82,4 +82,15 @@ test("a run's cost: the CLI's for Claude models, the gateway's estimate for open
   assert.deepStrictEqual(runCost("cost", "openai", 9), { cost: 0, costBasis: "unknown" });
   releaseProviderSpawn("cost", plan.pinFile);
   assert.deepStrictEqual(runCost("cost", "openai", 9), { cost: 0, costBasis: "unknown" }, "no token: nothing to vouch for");
+});
+
+test("at run end a call still in flight (cut by Stop) counts at its held worst case", () => {
+  const plan = spawn("stop-held", ["-p"]);
+  assert.ok(plan.ok);
+  chargeGatewayRun("stop-held", 0.1);
+  reserveGatewayRun("stop-held", 0.4);
+  assert.deepStrictEqual(runCost("stop-held", "openai", 0), { cost: 0.1, costBasis: "estimated" }, "live figure: real spend only");
+  assert.deepStrictEqual(settleRunCost("stop-held", "openai", 0), { cost: 0.5, costBasis: "estimated" });
+  assert.equal(gatewaySpend("stop-held")?.reservedUsd, 0);
+  releaseProviderSpawn("stop-held", plan.pinFile);
 });

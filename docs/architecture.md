@@ -319,7 +319,8 @@ with a per-run bearer token, so no provider key ever enters a child process.
   it cannot enforce) refuses the spawn, recorded as the run error `provider_unavailable` with the
   status reason as its detail.
 - **Prices:** no price is hardcoded. `services/providers/prices/` fetches LiteLLM's public catalog
-  (OpenRouter's as the fallback) at boot when the cache is a day old, then hourly checks; both fixed
+  (`raw.githubusercontent.com`, with OpenRouter's `openrouter.ai/api/v1/models` as the fallback; the
+  only outbound calls besides the chosen provider) at boot when the cache is a day old, then hourly checks; both fixed
   URLs, no redirects, a 20 s timeout and a 16 MB cap. Only `openai`/`anthropic` chat models are
   kept, per million tokens, each rate at its **highest** tier; a model with a pricing field the
   parser does not know is unknown. A fetch is merged into the last good cache
@@ -328,6 +329,8 @@ with a per-run bearer token, so no provider key ever enters a child process.
   (unknown, never cheaper). Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
   ui_settings key (`PUT /api/model-prices/settings`) turns every fetch off; then every price is
   unknown. `POST /api/model-prices/refresh` makes at most one upstream attempt a minute (429).
+  The 1-hour cache-write tier is ignored, so a Context & Cost estimate for a run using it is low
+  (display only: subscription and API-key costs are the CLI's own).
 - **Cost:** `runCost` (`runs/provider-spawn.ts`) sets `cost_usd` and `cost_basis` when a run ends.
   Subscription and API-key runs keep the CLI's own figure. An openai run's cost is what the gateway
   charged it: every response's real usage at the catalog price (cached tokens at the cache-read
@@ -339,13 +342,17 @@ with a per-run bearer token, so no provider key ever enters a child process.
 - **Caps:** on openai the CLI's own `--max-budget-usd` would price the wrong model, so the flag is
   removed and the cap rides on the run token. Each call holds its worst case until it settles
   (finished, cut by Stop or a dropped socket, or failed: an error status is not billed), so
-  parallel sub-agents cannot all pass the check at once. Once spent plus held reaches the cap (or a
-  price turns unknown) the next request gets an Anthropic-shaped 400 and the run ends as
-  `budget_exceeded`; as with the CLI's cap, the call that crosses it still runs. A cap whose mapped
+  parallel sub-agents cannot all pass the check at once: a call blocked only by holds gets a
+  retryable 429 (`budget_held`) and the CLI waits. Once real spend reaches the cap (or a price turns
+  unknown) the next request gets an Anthropic-shaped 400 and the run ends as `budget_exceeded`; as
+  with the CLI's cap, the call that crosses it still runs. When the run ends, a call still in flight
+  (cut by Stop) counts at its held worst case. A cap whose mapped
   models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops the
   flag. On openai and local a Claude model id in `--model` becomes its tier alias (fable runs as
   opus), since the CLI maps only the aliases to their models; `anthropic_api` keeps the exact id
-  and the CLI's own cap.
+  and the CLI's own cap. Only the run's own `--model` is rewritten: an agent or sub-agent definition
+  that pins a full Claude id gets `provider_model_not_found` on openai/local, and the fix is a tier
+  alias (`model: opus`) in that definition, not the provider settings.
 
 ## SSE events
 

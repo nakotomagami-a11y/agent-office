@@ -86,6 +86,27 @@ test("a stream cut by Stop, or by the upstream dropping, is still charged its wo
   upstream = () => FULL;
 });
 
+test("a call held only by others in flight gets a retryable 429, records no failure, and passes once they settle", async () => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const small = 'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\n'
+    + 'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\ndata: [DONE]\n\n';
+  upstream = () => new ReadableStream<Uint8Array>({ async start(c) { await gate; c.enqueue(new TextEncoder().encode(small)); c.close(); } });
+  const token = tokens.issueGatewayToken("run-held", "openai", WORST * 1.5);
+  const before = failures.length;
+  const [a, b] = await Promise.all([request(token), request(token)]);
+  const held = await request(token);
+  assert.equal(held.status, 429);
+  assert.equal(held.headers.get("retry-after"), "2");
+  assert.match(await held.text(), /"type":"rate_limit_error".*budget_held/);
+  release();
+  await Promise.all([a.text(), b.text()]);
+  assert.deepStrictEqual(spend("run-held"), [22e-6, 0]);
+  assert.equal((await send(token)).status, 200);
+  assert.equal(failures.length, before, "the run was never ended");
+  upstream = () => FULL;
+});
+
 test("an upstream error status is not billed and releases its hold", async () => {
   upstream = () => FULL;
   globalThis.fetch = (async () => Response.json({ error: { message: "nope" } }, { status: 500 })) as typeof fetch;

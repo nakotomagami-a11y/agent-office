@@ -37,7 +37,8 @@ function asPrice(v: unknown): ModelPrice | null {
 
 export function readCatalogFile(file = PRICE_CATALOG_FILE): CatalogFile | null {
   try {
-    if (!statSync(file).isFile() || statSync(file).size > MAX_CACHE_BYTES) return null;
+    const st = statSync(file);
+    if (!st.isFile() || st.size > MAX_CACHE_BYTES) return null;
     const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
     const raw = record(parsed);
     if (!raw || (raw.source !== "litellm" && raw.source !== "openrouter") || !positive(raw.fetchedAt)) return null;

@@ -177,6 +177,8 @@ export async function proxyChat(
   const bound = { requestBytes: Buffer.byteLength(body), maxTokens: parsed.data.max_tokens };
   const charge = owner.provider === "openai" ? gateway.openCharge(owner.ownerId, parsed.data.model, bound) : { settle: () => {} };
   if ("refusal" in charge) {
+    // Held only by calls in flight: a retryable 429, so the CLI waits for them to settle.
+    if (!charge.final) return gatewayError(429, "rate_limit_error", charge.refusal, { "retry-after": "2" });
     gateway.reportGatewayFailure(owner.ownerId, "budget_exceeded", charge.refusal);
     return gatewayError(400, "invalid_request_error", charge.refusal);
   }

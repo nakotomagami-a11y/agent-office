@@ -8,7 +8,7 @@ import { peekHealth } from "../../infra/health";
 import { CLAUDE_DIR } from "../../infra/paths";
 import { currentProvider } from "../../providers/current";
 import { buildSettingsPin, type ProviderEnvInput } from "../../providers/env";
-import { gatewaySpend, issueGatewayToken, revokeGatewayTokens } from "../../providers/gateway-tokens";
+import { chargeOutstandingHolds, gatewaySpend, issueGatewayToken, revokeGatewayTokens } from "../../providers/gateway-tokens";
 import { discoverBackendEnvNames, removePinFile, writePinFile } from "../../providers/pin-file";
 import { priceFor } from "../../providers/prices/catalog";
 import { readProvider } from "../../providers/store";
@@ -119,6 +119,12 @@ export class ProviderUnavailableError extends Error {
   constructor(readonly reason: ProviderStatusReason) {
     super(`provider_unavailable: ${reason}`);
   }
+}
+
+/** The run's final cost: holds of calls still in flight count at their worst case. */
+export function settleRunCost(ownerId: string, provider: Provider, cliCostUsd: number): { cost: number; costBasis: CostBasis } {
+  chargeOutstandingHolds(ownerId);
+  return runCost(ownerId, provider, cliCostUsd);
 }
 
 export function releaseProviderSpawn(ownerId: string, pinFile: string | undefined): void {
