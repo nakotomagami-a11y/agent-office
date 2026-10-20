@@ -1,6 +1,6 @@
 # Agent capabilities audit: what really reaches an agent
 
-Status: **findings complete, nothing fixed yet.** 49 capability findings (C1–C49) + 125 app-wide sweep findings (S1–S7). Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows 11.
+Status: **findings complete; Wave 0 (stop data loss) done and merged, see Fix log.** 49 capability findings (C1–C49) + 125 app-wide sweep findings (S1–S7). Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows 11.
 
 Why this exists: agents declared tools, MCP servers and skills that silently never reached them while the UI showed them as working. The same pattern turned up across the app, so everything was swept with one lens: does it reach the agent or the user, does it make sense now that the product's shape is known, does it work on Windows, does the UI tell the truth. PR #212 (AI providers, under development) was excluded; findings that touch its files are marked **#212**.
 
@@ -122,6 +122,49 @@ Declared vs installed, live `~/.claude/agents`: **100 declared, 1 resolves (`dev
 | C49 | WRONG (latent) | Double loading once a name exists in both stores: subagents would get the CLI's native preload plus the app's copy | CLI subagent preload |
 
 Open: whether CLI 2.1.296 preloads frontmatter `skills:` for a main `--agent` run (it does for subagents). One probe settles it.
+
+## Fix log (QA: test these)
+
+Per wave: what changed, the test that covers it, and a manual check for a human or QA agent. Known pre-existing failures on Windows that are not regressions: 7 domain tests (symlink/EPERM in `cleanup`, `project-map-file.security`) and `apps/server/src/routes/generated-images/generated-images-route.test.ts`.
+
+### Wave 0 · Stop data loss (merged a4a2fb3)
+
+**Worktrees and sessions**
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| S1-9, S4-3, S7-8 | Boot clean-up works on Windows (paths normalised) and only ever removes an Agent Office session worktree (right folder, right branch, registered with git). An orphan with uncommitted changes or commits on no other branch is kept and logged | `worktrees.test.ts` | `git worktree add .worktrees/mine -b my-feature`, add a file, restart: still there |
+| S1-10, S4-4, S1-17, S7-9 | Removing a session, Reset roster and deleting an agent refuse (409) while a session runs, or while its worktree holds work no other branch has. You choose **Keep work** (session leaves, folder/branch stay) or **Discard work**. Nothing is deleted before you choose; a failed `git worktree remove` keeps the session and says so | `projects.session-removal.test.ts`, `session-removal-response.test.ts` | Edit a file in a second session, remove it: the dialog lists it with Keep/Discard. Remove a running session: told to stop it first |
+| S4-2, S4-4 | Danger-zone copy says exactly what goes and what stays; Reset counts sessions; errors are shown | — | Reset a roster with one dirty session: list + Keep/Discard, nothing removed first |
+| S1-11 | A worktree that can't be repaired fails the turn with the "Worktree missing" card instead of silently running in the main checkout; mission seats never get a fresh branch off HEAD | `projects.session-removal.test.ts` | Delete a session's worktree, check out its branch in the main checkout, send a message: the card appears |
+
+**Agent files and roster**
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| S1-5 | Saving an agent edits its frontmatter in place: only the fields the editor owns change; `add-dirs`, unknown keys, comments, quoted keys and skills order survive. Windows paths and escapes read back exactly. A header that never closes is refused (422), not rewritten | `agent-save.test.ts`, `frontmatter.test.ts` | Add `add-dirs:`, a comment and `color: purple` to an agent, change its model in the chat header: all three survive |
+| S1-6 | Creating an agent whose id exists returns 409 `agent_exists`; nothing is overwritten (bulk route too) | `agents-route.test.ts` | "Forge" an agent named Developer: error shown, `developer.md` unchanged |
+| S1-1 | A bundle older than the installed roster is never offered or applied (`bundle_older`) | `starter-data.test.ts` | Put `2026-10-20-1` in `~/.claude/agent-office/agent-manifest-version`, launch: no update modal |
+| S1-2 | The update modal says whether the bundle changed, you edited the agent, or both; your edits are never replaced unless you tick them | `starter-data.test.ts` | Edit a starter agent, bump the bundle version: row labelled and unticked |
+| S1-3 | "Remind me later" and declined agents are respected; onboarding records them; a failed save shows an error and the dialog can still close | `starter-data.test.ts` | Untick a row, "Remind me later", reload: it doesn't come back |
+| S1-4 | Starter agents with Windows line endings show their names in onboarding | `starter-data.test.ts` | Onboarding on Windows lists names and descriptions |
+| C1 (going forward) | New backups go to `~/.claude/agent-office/backups/agents/`, outside the folder the CLI loads agents from. Existing `_archive` files untouched (Wave 1) | apply test | Accept an agent update, check the backup's location |
+| S4-7 | Import backs up agents and the project (with history) first, adds seats instead of replacing the roster, strips other machines' paths, never overwrites an existing chat, keeps memory when the file's is empty, replaces the office map only if ticked, lists replaced agents; drag-and-drop works; export errors shown | `save-import.test.ts` | Import over an existing project: check `~/.claude/agent-office/backups/`, office map unchanged, drop a `.json` on the card |
+
+**Deletes, cleanup, secrets**
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| S5-1, S1-13, S4-1 | "Delete folder" works on Windows (one shared `isInside`/`samePath` helper; `~\` expanded) | `paths.inside.test.ts`, `projects.remove-folder.test.ts` | Root `~/Something`, delete a folder: it goes |
+| S5-2 | Delete/Shelve act only on the exact folder you confirmed (server checks the path; mismatch → `folder_mismatch`, nothing deleted); disabled while the root field has unsaved edits; same-slug folders don't share deletion | `projects.remove-folder.test.ts`, `project-folder-route.test.ts` | Edit the root without saving: row buttons disabled with a hint. Create `My App` and `my-app`, delete one: the other survives |
+| S7-6 | Onboarding's folder scan works on Windows | `scan-route.test.ts` | Onboarding with `~/Documents` lists folders |
+| S7-7 | Removing a GitHub or Claude account deletes its folder (token included) on Windows | `accounts.remove-dir.test.ts` | Add and remove a GitHub account: its folder is gone |
+| S5-6 | Cleanup's skill row ("Downloaded and bundled skills") never deletes skills you created, imported or edited | `cleanup.test.ts` | Create a skill, run that cleanup: your skill stays |
+| S5-7 | "App UI settings" reset keeps the office map | `cleanup.test.ts` | Customize the map, reset UI settings: map unchanged |
+| S2-14 | Deleting runs never leaves a chat stuck "running" (pointer cleared, chat parked with its queue); never deletes a live run; the orphan cleanup never deletes chat turns | `cleanup.test.ts` | Delete an agent's run history while idle, send a message: a turn starts |
+| S5-13, S7-13 | No secret values in `shell-env.sh`; on Windows the file isn't written and an old copy is deleted; the `source` hint is quoted; the Secrets tab says truthfully how values are stored | `shell-env.test.ts` | On Windows switch project tabs: `~/.claude/agent-office/shell-env.sh` is gone |
+
+Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being removed (D7). Import still targets the project id inside the file; export with history still reads the retired table (Wave 9); `<id>.body.<ts>.md` snapshots and old `_archive` files (Wave 1); the Minecraft mod has no Keep/Discard choice for session removal.
 
 ## Overlap with PR #212 (AI providers mission)
 
