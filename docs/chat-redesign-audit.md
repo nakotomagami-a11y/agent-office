@@ -324,9 +324,20 @@ Why the hybrid for 4: an app-owned list would mean two lists that drift. The ter
 ### How MCP works today (checked on this machine, CLI 2.1.296)
 
 - **Scopes:** user (`~/.claude.json` → `mcpServers`), local (`~/.claude.json` → `projects[<folder>].mcpServers`), project (`.mcp.json`, needs approval), plugins, claude.ai connectors (account-level).
-- **Here:** user and local scope are empty, `agent-office` has no `.mcp.json`, `luma` has `lumagit`, and 10 claude.ai connectors (Gmail, Drive, Docs, Sheets, Slack…) load into every non-strict run.
+- **Here:** user and local scope are empty, `agent-office` has no `.mcp.json`, `luma` has `lumagit`. The account has 10 claude.ai connectors, but in a `claude -p` run (how agents run) only 2 appear: Claude Docs (often still "pending" when the run starts, so 0 tools) and Google Drive (needs login).
 - **Declared but not configured:** `developer` declares `mcp__playwright__*`; `level-designer` declares `mcp__unreal-mcp__*` and `mcp__blender__*`. No such server is configured anywhere found, so those tools don't exist for those agents today.
 - **Per-run control:** `--disallowedTools mcp__<server>` removes one server's tools for the agent and its sub-agents (verified); claude.ai names normalise (`claude.ai Gmail` → `mcp__claude_ai_Gmail`). `--strict-mcp-config` drops everything not passed and is kept for mission seats only.
+
+### Measured cost (2026-10-20, haiku, `claude -p`, input tokens per run)
+
+| Setup | MCP tools listed | Input tokens |
+|---|---|---|
+| Plain run, as agents run today | 0 | 30,954 |
+| + a 25-tool server with long descriptions | 33 (25 + Claude Docs' 8) | 33,158 |
+| same, 25-tool server denied | 8 | 32,858 |
+| same, both denied | 0 | 31,911 |
+
+A 25-tool server costs about **300 tokens per run (~1%)**: `ToolSearch` is in the tool set, so Claude Code lists MCP tool names and loads schemas only on demand. The premise behind the Playwright toggle ("thousands of tokens every turn") no longer holds. Saving context is not a reason to build per-session toggles.
 
 ### Design
 
@@ -357,8 +368,9 @@ Why the hybrid for 4: an app-owned list would mean two lists that drift. The ter
 
 ### Open questions
 
-- M1. Menu label and position: **"MCP", after Skills** (recommended), or "Tools"?
-- M2. Connector names: refresh before every spawn (adds seconds to each run) or use the cached list (recommended; a brand-new connector loads until the next refresh)?
+- M1. Menu label and position: **"MCP", after Skills** (agreed).
+- M2. Dropped: connectors barely load in agent runs and cost little (see Measured cost).
+- M3. **Scope cut proposed** after measuring: keep the MCP page (list, declared-but-missing, add/remove via CLI, secrets); drop per-session toggles, per-server token cost and connector handling; keep the existing Playwright toggle. Awaiting the product owner.
 
 ## Proposed build order
 
