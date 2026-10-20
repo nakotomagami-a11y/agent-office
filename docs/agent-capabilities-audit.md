@@ -185,3 +185,25 @@ Every user-facing setting was traced to its reader. Most work; these don't:
 | S5-15 | WRONG | "Saved" stays visible after later edits in the Projects pane | `settings-page.tsx:68,145` #212 |
 | S5-16 | WRONG | Office nav entry stays when the iso view is unavailable and silently redirects | `page.tsx:39-42` |
 | S5-17 | WASTE | Memory files live in `~/.claude/agents/` (the CLI's agent folder), not `~/.claude/agent-office/` as C33 says | `agents.ts:244`, `paths.ts:40` |
+
+### S1 · Agents, roster, sessions, worktrees
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S1-1 | BROKEN | **The installed app and the dev checkout downgrade each other's agents**: the roster update only checks `installed !== bundle`, not which is newer. The installed build (`2026-10-06-1`) overwrote the newer `2026-10-11-1` agents; 8 agents (all cs-*, qa-code-review, user-analyst) run old text | `agent-migration-trigger.tsx:51`; `agent-manifest-version`; `_archive/cs-ceo.pre-2026-10-06-1-backup.md` |
+| S1-2 | WRONG | "Updated" can't tell a local edit from a bundle change (hash compare only, no install record, no diff); accepting reverts local edits into `_archive/` (C1) | `starter-data.ts:248-267`, `bundled-agents-tab.tsx:163` |
+| S1-3 | WRONG | "Remind me later" re-shows the modal every launch (skips ignored); the first-run wizard never records the version, so declined agents come back pre-checked | `agent-migration-modal.tsx:50-54`, `first-run-wizard.tsx:191-197` #212 |
+| S1-4 | BROKEN | On the installed Windows build the wizard shows all 34 starter agents with no name/description: CRLF files vs a `^---\n` parser | `starter-data.ts:67` |
+| S1-5 | BROKEN | **Saving an agent drops `add-dirs`** (and any unknown field); the chat header's model/effort picker rewrites the whole file and changes the model for every session in every project | `schemas.ts:6-23`, `agents.ts:130-155`, `agent-details/index.tsx:146-155` #212 |
+| S1-6 | BROKEN | **"Forge agent" silently overwrites an existing agent** (POST is create-or-overwrite, no backup; name "Developer" → `developer.md`) | `routes/agents/route.ts:12-17`, `agent-editor-form.tsx:422` #212 |
+| S1-7 | WRONG | Per-session model/effort/permission overrides are stored and spawned but nothing can set them; model/effort are unvalidated strings passed to `--model` | `schemas.ts:145-156` |
+| S1-8 | BROKEN | **Parallel sessions share the main checkout.** Worktrees need `features.multiInstance` (off, no UI) and even then the first session uses the main checkout. 25 `developer` sessions ran in the main checkout, overlapping in time (e.g. 7 overlaps between two sessions); the docs call per-session worktrees "the standout" | `projects.ts:534,543`, DB, `docs/00-features.md:46` |
+| S1-9 | BROKEN | Startup worktree clean-up never matches on Windows (`C:\` vs git's `C:/`); on macOS/Linux it force-removes **any** worktree under `.worktrees/` that isn't a session, including hand-made ones with uncommitted work | `worktrees.ts:309,321` |
+| S1-10 | WRONG | Removing a session force-deletes its worktree and branch with no run check and no warning (mission seats lose unpushed work) | `worktrees.ts:218,232`, `en.json:175,471` #212 |
+| S1-11 | WRONG | An unrepairable worktree silently falls back to the main checkout for good; a mission seat without its branch quietly gets a fresh branch off HEAD; the computed "worktree missing" flag has no reader | `projects.ts:812-849`, `worktrees.ts:111` |
+| S1-12 | BROKEN | Project export "include history" exports nothing (reads the retired `transcripts`); import overwrites agents and memory with no backup | `save.ts:62,86-87,127` |
+| S1-13 | BROKEN | "Delete project folder" always fails on Windows (same as S5-1) | `paths.ts:151`, `projects.ts:481-484` |
+| S1-14 | WASTE | Unused endpoints: `/api/templates` (templates also invalid and colliding), `/api/agents/bulk`, `PUT /api/agents/:id/body` (would wipe CRLF headers), body-history routes (each save writes `<id>.body.<ts>.md` into the CLI's agent folder) | `templates.ts`, `body/route.ts:43` |
+| S1-15 | WASTE | `resolveStarterDataDir` ×3, agent-file filter ×2, stale header comment | `starter-data.ts:4,42,227`, `boot.ts:38`, `project-bootstrap.ts:80`, `agents.ts:113` |
+| S1-16 | WRONG | Docs on sessions are wrong: caps (8/24 vs code 5/10), worktree rules, leftovers "archived" (code force-deletes), a file that doesn't exist; identity files "travel alongside" (they don't) | `docs/06-usage.md:113-140`, `docs/07-interface.md:257` |
+| S1-17 | WRONG | Deleting an agent leaves its sessions in `project.md` (hidden), worktrees uncleaned; session numbers shift after a removal; non-409 spawn errors swallowed | `use-roster-display.ts:48-56`, `use-spawn-instance.ts:38` |
