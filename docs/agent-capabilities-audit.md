@@ -146,7 +146,16 @@ Ordered so each wave removes a root cause rather than patching symptoms. Each wa
 | **8 · Chat, missions, loops** | Reconnect doesn't double text; scheduled resume cancelled when resolved and sent as system; human-addressed posts and claims visible; `supersedes` taught and honoured; loop Stop stops; reviewer runs not charged to seats | S2-7, S2-9–S2-12, S3-1–S3-16 | Now, except files shared with #212 |
 | **9 · Retire the dead** (root 7) | Remove unused routes, files, exports, i18n keys, tables; one HTTP client that parses responses; env through `env`; regenerate API docs from the route table; rewrite the user docs against the code | S2-13, S2-15, S4-14, S4-17, S4-18, S4-24, S5-4, S5-5, S5-8, S5-11, S5-12, S6-1–S6-12, S1-16 | After #212 (shared files) |
 
-### Decisions needed before building
+### Decisions (product owner, 2026-10-21)
+
+- **D1 · Sessions get their own worktree** so agents don't step on each other. Constraint: the user often asks an agent in chat to put its work into the user's own checkout, so delivering a session's changes into the main checkout must stay a first-class, easy path (not something isolation blocks).
+- **D2 · Skills use Claude Code's native store.** For OpenAI and local-LLM providers (#212), where native skills don't apply, show "Skills: coming soon" rather than building a second mechanism now. Other providers are low priority.
+- **D3 · Remove the skill names starter agents can't resolve**; keep only bundled skills.
+- **D4 · The ADHD response style is the harness's one built-in default**, not a setting. It replaces every other response-style text in the app (`RESPONSE_STYLE`, the `i-have-adhd` skill duplicate, per-agent copies).
+- **D5 · Remove the Playwright toggle.**
+- **D6 · #212 is nearly finished** (fine-tuning and testing left): its files are no longer off-limits; resolve conflicts when it merges.
+
+### Decisions needed before building (answered above)
 
 - **D1 · Session isolation.** Every session of a git project gets its own worktree by default, including the first (recommended), or keep the shared main checkout and label it clearly?
 - **D2 · Skills.** One store, Claude Code's native `~/.claude/skills`, with the app as installer/editor and the CLI doing delivery (recommended), or keep the app's own inline/pointer mechanism?
