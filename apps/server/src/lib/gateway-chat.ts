@@ -11,9 +11,14 @@ interface Call {
   signal: AbortSignal; opts: GatewayOptions;
   /** alias → original tool name, for names the request had to alias. */
   names: Map<string, string>;
+  /** The worst case a response without usage is charged at. */
+  bound: { requestBytes: number; maxTokens: number };
 }
 
 const secretsOf = (call: Call): string[] => (call.key ? [call.key] : []);
+/** A local server is free; only openai spends. */
+const charge = (call: Call, usage: gateway.MessageUsage | null): void =>
+  void (call.provider === "openai" && gateway.chargeResponse(call.ownerId, call.req.model, usage, call.bound));
 const report = (call: Call, code: Parameters<typeof gateway.reportGatewayFailure>[1], detail: string): void =>
   gateway.reportGatewayFailure(call.ownerId, code, detail, secretsOf(call));
 
@@ -54,6 +59,7 @@ async function send(call: Call): Promise<Response | FetchFailure> {
     tokens = retry.maxTokens ?? tokens;
     res = await post(call, param, tokens);
   }
+  call.bound.maxTokens = tokens;
   const ok = typeof res !== "string" && res.ok;
   if (ok && used.swap) gateway.rememberCapParam(provider, req.model, param);
   if (ok && used.clamp) gateway.rememberCapLimit(provider, req.model, tokens);
@@ -112,6 +118,7 @@ function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): Read
     },
     flush(out) {
       if (buffered) line(buffered, out);
+      charge(call, writer.billedUsage());
       if (failed) return;
       const end = writer.end(sawDone);
       if (end.ok) return end.frames.forEach((f) => out.enqueue(encoder.encode(f)));
@@ -129,6 +136,7 @@ async function complete(call: Call, upstream: Response): Promise<Response> {
     return gatewayError(400, "invalid_request_error", "upstream rejected the request");
   }
   const message = gateway.fromChatCompletion(raw, call.req.model, call.names);
+  charge(call, gateway.completionUsage(raw));
   if (message) return Response.json(message);
   report(call, "provider_unavailable", "empty_response");
   return gatewayError(400, "invalid_request_error", "empty_response");
@@ -144,8 +152,14 @@ export async function proxyChat(
     gateway.reportGatewayFailure(owner.ownerId, target.code, target.detail);
     return gatewayError(target.status, target.type, target.detail);
   }
+  const refusal = owner.provider === "openai" ? gateway.budgetRefusal(owner.ownerId) : null;
+  if (refusal) {
+    gateway.reportGatewayFailure(owner.ownerId, "unknown", refusal);
+    return gatewayError(400, "invalid_request_error", refusal);
+  }
   const names = gateway.reverseAliases(gateway.toolAliases(parsed.data));
-  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal, opts, names };
+  const bound = { requestBytes: Buffer.byteLength(body), maxTokens: parsed.data.max_tokens };
+  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal, opts, names, bound };
   const upstream = await send(call);
   if (typeof upstream === "string") {
     // Stop and a closed client abort the fetch too: that is not the provider failing.

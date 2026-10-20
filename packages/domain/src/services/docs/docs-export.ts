@@ -710,7 +710,7 @@ const ENV_VARS: DocsExport["env_vars"] = [
   {
     name: "ANTHROPIC_API_KEY",
     effect:
-      "Optional. Inherited by the claude CLI subprocess, which uses it instead of its own sign-in",
+      "Not used. Every ANTHROPIC_* and CLAUDE_CODE_OAUTH_* variable is removed from agent runs; an API key is saved in Settings, AI provider",
   },
   {
     name: "PATH",

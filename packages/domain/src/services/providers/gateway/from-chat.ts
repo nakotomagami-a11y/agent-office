@@ -1,6 +1,7 @@
 // A non-streamed Chat Completion → an Anthropic Messages response body.
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { MessageUsage } from "./budget";
 
 const completionSchema = z.object({
   choices: z.array(z.object({
@@ -16,6 +17,13 @@ const completionSchema = z.object({
     prompt_tokens_details: z.object({ cached_tokens: z.number().optional() }).nullish(),
   }).nullish(),
 });
+
+export function completionUsage(raw: unknown): MessageUsage | null {
+  const usage = completionSchema.safeParse(raw).data?.usage;
+  if (!usage) return null;
+  const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
+  return { input_tokens: Math.max(0, (usage.prompt_tokens ?? 0) - cached), output_tokens: usage.completion_tokens ?? 0, cache_read_input_tokens: cached };
+}
 
 function toolInput(args: string): unknown {
   try {

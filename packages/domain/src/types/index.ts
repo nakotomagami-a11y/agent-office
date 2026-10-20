@@ -700,6 +700,7 @@ export interface AnalyticsTotals {
   tokensIn: number;
   tokensOut: number;
   cost: number;
+  unknownCostRuns: number;
   runtimeMs: number;
   done: number;
   errors: number;
@@ -779,6 +780,7 @@ export interface AnalyticsSummary {
   totalRuns: number;
   totalTokens: number;
   totalCost: number;
+  unknownCostRuns: number;
   byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
   byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
   dailySpend?: Array<{ day: string; spend: number }>;

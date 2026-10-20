@@ -35,7 +35,7 @@ import {
   type TaskStarted,
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
-import { prepareProviderSpawn, releaseProviderSpawn, type ProviderRefusal } from "./runs/provider-spawn";
+import { prepareProviderSpawn, releaseProviderSpawn, runCost, type ProviderRefusal } from "./runs/provider-spawn";
 import { spawnClaude } from "../infra/claude-bin";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
@@ -728,7 +728,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
       run.cacheCreationTokens = evt.usage.cache_creation_input_tokens ?? run.cacheCreationTokens;
       run.cacheReadTokens = evt.usage.cache_read_input_tokens ?? run.cacheReadTokens;
     }
-    if (typeof evt.total_cost_usd === "number") run.cost = evt.total_cost_usd;
+    if (typeof evt.total_cost_usd === "number") run.cost = runCost(run.id, run.provider, evt.total_cost_usd).cost;
     if (typeof evt.session_id === "string") run.sessionId = evt.session_id;
     broadcast(run, {
       name: "usage",
@@ -1010,6 +1010,8 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
+  const settled = runCost(run.id, run.provider, run.cost);
+  run.cost = settled.cost;
   releaseProviderSpawn(run.id, run.pinFile);
 
   // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
@@ -1071,6 +1073,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
     conversationId: run.conversationId,
     errorCode: run.error?.code,
     errorDetail: run.error?.detail,
+    costBasis: settled.costBasis,
   };
 
   // Persist best-effort - a DB failure must never swallow the broadcast below.

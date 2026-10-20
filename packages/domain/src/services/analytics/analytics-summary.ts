@@ -14,7 +14,7 @@
  * the two can evolve independently.
  */
 
-import { getDb } from "../db";
+import { getDb, KNOWN_COST_USD, UNKNOWN_COST_RUNS } from "../db";
 
 import type { AnalyticsSummary, SummaryRange } from "../../types/index";
 export type { AnalyticsSummary, SummaryRange } from "../../types/index";
@@ -39,11 +39,12 @@ export function getAnalyticsSummary(range: SummaryRange): AnalyticsSummary {
       `SELECT
          COUNT(*)                                         AS runs,
          COALESCE(SUM(COALESCE(tokens_in,0) + COALESCE(tokens_out,0)), 0) AS tokens,
-         COALESCE(SUM(COALESCE(cost_usd,0)), 0)           AS cost
+         COALESCE(SUM(${KNOWN_COST_USD}), 0)           AS cost,
+         ${UNKNOWN_COST_RUNS}                             AS unknownCostRuns
        FROM runs
        WHERE started_at >= @start AND started_at < @end ${scope}`,
     )
-    .get(params) as { runs: number; tokens: number; cost: number };
+    .get(params) as { runs: number; tokens: number; cost: number; unknownCostRuns: number };
 
   const byModel = db
     .prepare(
@@ -51,7 +52,7 @@ export function getAnalyticsSummary(range: SummaryRange): AnalyticsSummary {
          COALESCE(model, 'unknown')                       AS model,
          COUNT(*)                                         AS runs,
          COALESCE(SUM(COALESCE(tokens_in,0) + COALESCE(tokens_out,0)), 0) AS tokens,
-         COALESCE(SUM(COALESCE(cost_usd,0)), 0)           AS cost
+         COALESCE(SUM(${KNOWN_COST_USD}), 0)           AS cost
        FROM runs
        WHERE started_at >= @start AND started_at < @end ${scope}
        GROUP BY COALESCE(model, 'unknown')
@@ -65,7 +66,7 @@ export function getAnalyticsSummary(range: SummaryRange): AnalyticsSummary {
          agent_id                                AS agentId,
          COALESCE(MAX(agent_name), agent_id)     AS agentName,
          COUNT(*)                                AS runs,
-         COALESCE(SUM(COALESCE(cost_usd,0)), 0)  AS cost
+         COALESCE(SUM(${KNOWN_COST_USD}), 0)  AS cost
        FROM runs
        WHERE started_at >= @start AND started_at < @end ${scope}
        GROUP BY agent_id
@@ -78,6 +79,7 @@ export function getAnalyticsSummary(range: SummaryRange): AnalyticsSummary {
     totalRuns: totals.runs,
     totalTokens: totals.tokens,
     totalCost: totals.cost,
+    unknownCostRuns: totals.unknownCostRuns,
     byModel,
     byAgent,
   };
@@ -102,7 +104,7 @@ export function getDailySpend(days: number, projectId?: string): Array<{ day: st
     .prepare(
       `SELECT
          date(started_at / 1000, 'unixepoch', 'localtime') AS day,
-         COALESCE(SUM(COALESCE(cost_usd,0)), 0)            AS spend
+         COALESCE(SUM(${KNOWN_COST_USD}), 0)            AS spend
        FROM runs
        WHERE started_at >= @startMs ${scope}
        GROUP BY day`,

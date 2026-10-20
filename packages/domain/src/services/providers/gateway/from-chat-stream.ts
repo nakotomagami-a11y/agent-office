@@ -2,6 +2,7 @@
 // parses them: message_start, content blocks (text or tool_use), message_delta, message_stop.
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { MessageUsage } from "./budget";
 
 const chunkSchema = z.object({
   choices: z.array(z.object({
@@ -50,12 +51,14 @@ export class AnthropicStreamWriter {
   private sawText = false;
   private finish: string | null = null;
   private usage = { input: 0, output: 0, cached: 0 };
+  private sawUsage = false;
 
   /** `names`: alias → original tool name, for names the request had to alias. */
   constructor(private readonly model: string, private readonly names: Map<string, string> = new Map()) {}
 
   push(chunk: ChatChunk): string[] {
     const out = this.start();
+    if (chunk.usage) this.sawUsage = true;
     if (chunk.usage) this.usage = {
       input: chunk.usage.prompt_tokens ?? this.usage.input,
       output: chunk.usage.completion_tokens ?? this.usage.output,
@@ -80,6 +83,12 @@ export class AnthropicStreamWriter {
     const stop = this.toolBlocks > 0 ? "tool_use" : STOP_REASON[this.finish ?? "stop"] ?? "end_turn";
     const usage = { input_tokens: Math.max(0, this.usage.input - this.usage.cached), output_tokens: this.usage.output, cache_read_input_tokens: this.usage.cached };
     return { ok: true, frames: [...this.start(), ...this.close(), sse("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage }), sse("message_stop", {})] };
+  }
+
+  /** What the upstream reported it billed; null when it sent no usage (a local server may not). */
+  billedUsage(): MessageUsage | null {
+    if (!this.sawUsage) return null;
+    return { input_tokens: Math.max(0, this.usage.input - this.usage.cached), output_tokens: this.usage.output, cache_read_input_tokens: this.usage.cached };
   }
 
   private start(): string[] {

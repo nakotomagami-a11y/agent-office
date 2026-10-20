@@ -9,6 +9,11 @@ interface TokenEntry {
   digest: Buffer;
   ownerId: string;
   provider: Provider;
+  /** The run's `--max-budget-usd`, enforced here because the CLI prices only Claude models. */
+  budgetUsd?: number;
+  spentUsd: number;
+  /** A response whose model had no catalog price: the run's cost is unknown. */
+  unpriced: boolean;
 }
 
 declare global {
@@ -20,10 +25,10 @@ const tokens: Map<string, TokenEntry> =
 
 const digestOf = (token: string): Buffer => createHash("sha256").update(token).digest();
 
-export function issueGatewayToken(ownerId: string, provider: Provider): string {
+export function issueGatewayToken(ownerId: string, provider: Provider, budgetUsd?: number): string {
   const token = randomBytes(32).toString("base64url");
   const digest = digestOf(token);
-  tokens.set(digest.toString("hex"), { digest, ownerId, provider });
+  tokens.set(digest.toString("hex"), { digest, ownerId, provider, budgetUsd, spentUsd: 0, unpriced: false });
   return token;
 }
 
@@ -36,4 +41,19 @@ export function lookupGatewayToken(token: string): { ownerId: string; provider: 
   const entry = tokens.get(digest.toString("hex"));
   if (!entry || !timingSafeEqual(entry.digest, digest)) return null;
   return { ownerId: entry.ownerId, provider: entry.provider };
+}
+
+const entryOf = (ownerId: string): TokenEntry | undefined => [...tokens.values()].find((e) => e.ownerId === ownerId);
+
+/** `null`: the response's model has no price. */
+export function chargeGatewayRun(ownerId: string, usd: number | null): void {
+  const entry = entryOf(ownerId);
+  if (!entry) return;
+  if (usd === null) entry.unpriced = true;
+  else entry.spentUsd += usd;
+}
+
+export function gatewaySpend(ownerId: string): { spentUsd: number; unpriced: boolean; budgetUsd?: number } | null {
+  const entry = entryOf(ownerId);
+  return entry ? { spentUsd: entry.spentUsd, unpriced: entry.unpriced, budgetUsd: entry.budgetUsd } : null;
 }

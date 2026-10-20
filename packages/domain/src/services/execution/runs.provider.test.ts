@@ -97,7 +97,7 @@ test("openai: the child gets the gateway and a run token, never the key; the tok
   assert.equal(record!.env.ANTHROPIC_DEFAULT_OPUS_MODEL, "big");
   assert.ok(!JSON.stringify(record).includes("SENTINEL"), "no provider key in argv, env or pin");
   assert.equal(lookupGatewayToken(token), null, "revoked at finalize");
-  assert.deepStrictEqual([getRun(runId)?.provider, getRun(runId)?.costBasis], ["openai", "unknown"]);
+  assert.deepStrictEqual([getRun(runId)?.provider, getRun(runId)?.costBasis, getRun(runId)?.cost], ["openai", "estimated", 0], "no upstream call: nothing spent");
 });
 
 test("a budget cap openai cannot enforce refuses the run; local drops the flag", async () => {

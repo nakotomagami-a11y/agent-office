@@ -12,7 +12,7 @@
  * out into 8 requests would be silly.
  */
 
-import { getDb } from "../db";
+import { getDb, KNOWN_COST_USD, UNKNOWN_COST_RUNS } from "../db";
 import { toolCallLabel } from "./bash-command";
 import { familyOf } from "../../config/models";
 import type {
@@ -58,7 +58,8 @@ const TOTALS_SQL = `
     COUNT(*)                                        AS runs,
     COALESCE(SUM(COALESCE(tokens_in,0)), 0)         AS tokensIn,
     COALESCE(SUM(COALESCE(tokens_out,0)), 0)        AS tokensOut,
-    COALESCE(SUM(COALESCE(cost_usd,0)), 0)          AS cost,
+    COALESCE(SUM(${KNOWN_COST_USD}), 0)          AS cost,
+    ${UNKNOWN_COST_RUNS}                            AS unknownCostRuns,
     COALESCE(SUM(COALESCE(dur_ms,0)), 0)            AS runtimeMs,
     COALESCE(SUM(status = 'done'), 0)               AS done,
     COALESCE(SUM(status = 'error'), 0)              AS errors
@@ -87,7 +88,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         start: start - span,
         end: start,
       }) as AnalyticsTotals)
-    : { runs: 0, tokensIn: 0, tokensOut: 0, cost: 0, runtimeMs: 0, done: 0, errors: 0 };
+    : { runs: 0, tokensIn: 0, tokensOut: 0, cost: 0, unknownCostRuns: 0, runtimeMs: 0, done: 0, errors: 0 };
 
   const byModel = foldModels(
     db
@@ -95,7 +96,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         `SELECT COALESCE(NULLIF(model,''),'unknown') AS model,
                 COUNT(*) AS runs,
                 COALESCE(SUM(COALESCE(tokens_in,0) + COALESCE(tokens_out,0)),0) AS tokens,
-                COALESCE(SUM(COALESCE(cost_usd,0)),0) AS cost
+                COALESCE(SUM(${KNOWN_COST_USD}),0) AS cost
          FROM runs
          WHERE started_at >= @start AND started_at < @end ${scope}
          GROUP BY COALESCE(NULLIF(model,''),'unknown')`,
@@ -108,7 +109,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
       `SELECT agent_id AS agentId,
               COALESCE(MAX(agent_name), agent_id) AS agentName,
               COUNT(*) AS runs,
-              COALESCE(SUM(COALESCE(cost_usd,0)),0) AS cost,
+              COALESCE(SUM(${KNOWN_COST_USD}),0) AS cost,
               COALESCE(SUM(COALESCE(dur_ms,0)),0) AS runtimeMs,
               COALESCE(SUM(status='error'),0) AS errors
        FROM runs
@@ -126,7 +127,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
         .prepare(
           `SELECT COALESCE(project_id,'(unassigned)') AS projectId,
                   COUNT(*) AS runs,
-                  COALESCE(SUM(COALESCE(cost_usd,0)),0) AS cost,
+                  COALESCE(SUM(${KNOWN_COST_USD}),0) AS cost,
                   COALESCE(SUM(COALESCE(dur_ms,0)),0) AS runtimeMs
            FROM runs
            WHERE started_at >= @start AND started_at < @end
@@ -171,7 +172,7 @@ export function getAnalyticsPage(range: PageRange): AnalyticsPage {
       `SELECT CAST(strftime('%w', started_at/1000, 'unixepoch', 'localtime') AS INTEGER) AS dow,
               CAST(strftime('%H', started_at/1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
               COUNT(*) AS runs,
-              COALESCE(SUM(COALESCE(cost_usd,0)),0) AS cost
+              COALESCE(SUM(${KNOWN_COST_USD}),0) AS cost
        FROM runs
        WHERE started_at >= @start AND started_at < @end ${scope}
        GROUP BY dow, hour`,
@@ -233,7 +234,7 @@ function buildSeries(
   const rows = db
     .prepare(
       `SELECT ${bucketExpr} AS key,
-              COALESCE(SUM(COALESCE(cost_usd,0)),0) AS cost,
+              COALESCE(SUM(${KNOWN_COST_USD}),0) AS cost,
               COUNT(*) AS runs,
               COALESCE(SUM(COALESCE(dur_ms,0)),0) AS runtimeMs
        FROM runs

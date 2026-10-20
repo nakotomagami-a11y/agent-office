@@ -1,4 +1,5 @@
 import { getDb } from "./connection";
+import { KNOWN_COST_USD } from "./cost-sql";
 import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
 import { isRunErrorCode } from "../../config/run-errors";
 import { isCostBasis, isProvider, type CostBasis, type Provider } from "../../config/providers";
@@ -31,6 +32,7 @@ export interface RunUpdate {
   cacheCreationTokens?: number; cacheReadTokens?: number;
   durMs: number; sessionId?: string; endedAt: number;
   errorCode?: RunErrorCode; errorDetail?: string;
+  costBasis?: CostBasis;
 }
 
 export function updateRun(id: string, u: RunUpdate): void {
@@ -39,12 +41,12 @@ export function updateRun(id: string, u: RunUpdate): void {
       tokens_in=@tokensIn, tokens_out=@tokensOut, cost_usd=@costUsd,
       cache_creation_tokens=@cacheCreationTokens, cache_read_tokens=@cacheReadTokens,
       dur_ms=@durMs, session_id=@sessionId, ended_at=@endedAt,
-      error_code=@errorCode, error_detail=@errorDetail
+      error_code=@errorCode, error_detail=@errorDetail, cost_basis=COALESCE(@costBasis, cost_basis)
     WHERE id=@id
   `).run({
     id, ...u, exitCode: u.exitCode ?? null, sessionId: u.sessionId ?? null,
     cacheCreationTokens: u.cacheCreationTokens ?? 0, cacheReadTokens: u.cacheReadTokens ?? 0,
-    errorCode: u.errorCode ?? null, errorDetail: u.errorDetail ?? null,
+    errorCode: u.errorCode ?? null, errorDetail: u.errorDetail ?? null, costBasis: u.costBasis ?? null,
   });
 }
 
@@ -108,14 +110,14 @@ export function listRuns(opts: ListRunsOpts = {}): PersistedRun[] {
 
 export function getSpendForInstance(agentId: string, instanceId: string): number {
   const row = getDb().prepare(
-    "SELECT COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE agent_id = ? AND instance_id = ?"
+    `SELECT COALESCE(SUM(${KNOWN_COST_USD}), 0) as total FROM runs WHERE agent_id = ? AND instance_id = ?`
   ).get(agentId, instanceId) as { total: number };
   return row.total;
 }
 
 export function getSpendByInstanceForProject(projectId: string): Record<string, number> {
   const rows = getDb().prepare(
-    "SELECT agent_id, instance_id, COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE project_id = ? GROUP BY agent_id, instance_id"
+    `SELECT agent_id, instance_id, COALESCE(SUM(${KNOWN_COST_USD}), 0) as total FROM runs WHERE project_id = ? GROUP BY agent_id, instance_id`
   ).all(projectId) as Array<{ agent_id: string; instance_id: string; total: number }>;
   const out: Record<string, number> = {};
   for (const row of rows) {

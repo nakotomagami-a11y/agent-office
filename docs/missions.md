@@ -193,6 +193,14 @@ so a turn's last response can overshoot a little), and with less than $0.25 left
 at all, typed by the human or not, until the cap is raised (`seat_cap_reached`); a broadcast
 skips seats; only the agent's own text (not a sub-agent's) is read as its outbox.
 
+**Caps per AI provider.** On the subscription and an Anthropic API key the CLI enforces
+`--max-budget-usd` itself. On OpenAI the CLI cannot price the model, so the gateway enforces the
+cap from the price catalog: every response is charged from its real usage (cached and reasoning
+tokens included, each rate at its highest tier) and the request after the cap is refused. A seat
+whose mapped models are not all priced, or with price fetching off, cannot start a turn
+(`provider_unavailable: budget_unenforceable`). A local server is free: the flag is dropped and
+the seat spends nothing.
+
 **The hub branch cannot configure a seat.** A seat's worktree is a checkout of the hub branch,
 which every seat (and anyone with push access) can push to. So seat turns run with
 `--setting-sources user` and `--strict-mcp-config`. Checked against Claude Code 2.1.296: the

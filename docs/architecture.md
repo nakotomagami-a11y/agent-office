@@ -327,6 +327,20 @@ with a per-run bearer token, so no provider key ever enters a child process.
   keeps the old one. Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
   ui_settings key (`PUT /api/model-prices/settings`) turns every fetch off; then every price is
   unknown. `POST /api/model-prices/refresh` makes at most one upstream attempt a minute (429).
+- **Cost:** `runCost` (`runs/provider-spawn.ts`) sets `cost_usd` and `cost_basis` when a run ends.
+  Subscription and API-key runs keep the CLI's own figure. An openai run's cost is what the gateway
+  charged it: every response's real usage at the catalog price (cached tokens at the cache-read
+  rate; reasoning tokens are inside `completion_tokens`), or, when a response carries no usage, the
+  most it could have cost. One response from an unpriced model makes the run `unknown` at $0, and
+  every cost reader leaves it out of sums (`db/cost-sql.ts`) and counts it as `unknownCostRuns`.
+  A `local` run is `free`. A local server that reports usage only on request shows 0 tokens: the
+  gateway asks for streamed usage (`stream_options`) only from OpenAI.
+- **Caps:** on openai the CLI's own `--max-budget-usd` would price the wrong model, so the flag is
+  removed and the cap rides on the run token: the gateway refuses the request after the cap is
+  spent (or once a price turns unknown) with an Anthropic-shaped 400 and ends the run. A cap whose
+  mapped models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops
+  the flag. On the gateway providers a Claude model id in `--model` becomes its tier alias (fable
+  runs as opus), since the CLI maps only the aliases to the provider's models.
 
 ## SSE events
 
