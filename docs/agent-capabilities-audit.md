@@ -134,3 +134,30 @@ Rule for the fixes: anything in those files waits for #212 to merge, or is coord
 1. ~~Finish the skills audit~~ (done: C38–C49).
 2. A wider sweep of the rest of the app with the same lens (does it reach the agent or user, does it make sense, does it work on Windows), excluding #212's files.
 3. One fix plan, ordered so the root causes go first: move app files out of `~/.claude/agents` (C1, C2), one config folder story (C5–C7), a generated tool catalog checked against live init events (C9–C15), session-fixed context with one source per concern (C24–C34).
+
+## App-wide sweep (2026-10-20)
+
+Same lens across the rest of the app: does it reach the agent or the user, does it make sense, does it work on Windows, does the UI tell the truth. PR #212's 195 files are excluded; findings that touch them are marked **#212**.
+
+### S3 · Missions and QA loops
+
+Earlier live-mission findings F1–F4 (in `chat-redesign-audit.md` context) all still hold: claim Accept only in the pill dropdown; seat chats created empty before Accept; `supersedes` parsed but never acted on (agents are never even told the field exists, `protocol.ts:115-122`); several open asks for one decision.
+
+| # | Sev | Finding | Evidence |
+|---|---|---|---|
+| S3-1 | BROKEN | A non-question post addressed to the human (`result`, `blocker`) is lost; only question/human-task/decision-request become open items; `forHuman` is computed and never read | `state.ts:62,167`, `routing.ts:43-46`, `poller.ts:138` |
+| S3-2 | WRONG | The coordinator never hears about claims, accepts, pauses, evictions or close, so "roll call when every seat is ✅" can't be event-driven | `routing.ts:41`, `protocol.ts:135` |
+| S3-3 | WASTE | The welcome tells seats to "read the hub" while forbidding `gh api`; agents read the whole thread the digest exists to avoid | `protocol.ts:135` |
+| S3-4 | WRONG | A ruling to a coordinator whose chat needs attention is queued silently; the hub records the decision and the ask disappears everywhere | `human-acts.ts:54-61`, `conversation-machine.ts:110-112` |
+| S3-5 | WRONG | Open asks from a seat that left stay open forever | `state.ts:146-153` |
+| S3-6 | WASTE | A hub PR merged/closed on GitHub without a `close` post keeps seats active and is polled every 30 s forever | `hub.ts:143-146`, `actions.ts:61-68`, `poller.ts:77-107` |
+| S3-7 | WRONG | QA-loop reviewer runs on a seat count as the seat's: charged to its cap, their text parsed as the seat's hub posts | `loop-production-runner.ts:25-31`, `posting.ts:59-63` |
+| S3-8 | WRONG | Loop "Stop" / "Accept as-is" only change stored state; the reviewer (or fix round) keeps running and spending | `loop-machine.ts:207-212`, `loop-runner.ts:170,187` |
+| S3-9 | BROKEN | QA loop toggle does nothing on mission seats (loops start only after a human-typed turn) but is shown there | `qa-loop.ts:68`, `agent-details/index.tsx:441` #212 |
+| S3-10 | WRONG | With QA loop on, turns are silently not reviewed when a message is queued, the chat isn't idle, another loop runs, or edits went through Bash; a missing reviewer only logs | `qa-loop.ts:72-82`, `config/loop.ts:22` |
+| S3-11 | WRONG | A loop review runs outside the chat, so the chat looks idle and a new turn can change the worktree mid-review | `poller.ts:32-35` |
+| S3-12 | WRONG | UI text: claims accepted "from their Missions window" (it's the pill); close "stops every seat on every device" (only routing on next poll) | `en.json:1085,1140` #212 |
+| S3-13 | WASTE | Joining by PR link reads every open hub in the project then filters client-side | `views.ts:48-73`, `mission-join-list.tsx:108,117` |
+| S3-14 | WRONG | `docs/missions.md` out of date in 7 places (status, owned paths, join flow, promised cards/badges, seat chat id, template) | #212 |
+| S3-15 | WRONG | Nearly every human answer reaches other devices labelled "unverifiable", ranking it below the seat's brief | `protocol.ts:160`, `routing.ts:39` |
+| S3-16 | WRONG | A rejected/evicted seat's pill vanishes with no notice; the empty chat and worktree stay | `poller.ts:126-129` |
