@@ -26,6 +26,11 @@ public final class RunErrors {
             Map.entry("no_output", "No response"),
             Map.entry("server_restart", "Response unavailable"),
             Map.entry("start_failed", "Couldn't start the run"),
+            Map.entry("provider_unavailable", "AI provider unavailable"),
+            Map.entry("provider_auth_failed", "AI provider rejected the key"),
+            Map.entry("provider_unreachable", "AI provider unreachable"),
+            Map.entry("provider_model_not_found", "Model not found"),
+            Map.entry("provider_mismatch", "AI provider mismatch"),
             Map.entry("unknown", "Run error"));
 
     private RunErrors() {}

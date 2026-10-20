@@ -1,6 +1,7 @@
 import { getDb } from "./connection";
 import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
 import { isRunErrorCode } from "../../config/run-errors";
+import { isCostBasis, isProvider, type CostBasis, type Provider } from "../../config/providers";
 
 /** Parse, don't cast: the column is TEXT and old rows predate it. */
 export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
@@ -13,13 +14,15 @@ export interface RunInsert {
   parentRunId?: string;
   conversationId?: string;
   accountId?: string;
+  provider?: Provider;
+  costBasis?: CostBasis;
 }
 
 export function insertRun(r: RunInsert): void {
   getDb().prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, origin, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid)
-    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, @origin, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid)
-  `).run({ ...r, origin: r.origin ?? "user", instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
+    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, origin, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid, provider, cost_basis)
+    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, @origin, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid, @provider, @costBasis)
+  `).run({ ...r, origin: r.origin ?? "user", instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid, provider: r.provider ?? null, costBasis: r.costBasis ?? null });
 }
 
 export interface RunUpdate {
@@ -61,6 +64,7 @@ export interface RunRow {
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
   parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
   error_code: string | null; error_detail: string | null;
+  provider: string | null; cost_basis: string | null;
 }
 
 export function rowToRun(row: RunRow): PersistedRun {
@@ -81,6 +85,8 @@ export function rowToRun(row: RunRow): PersistedRun {
     conversationId: row.conversation_id ?? undefined,
     errorCode: isRunErrorCode(row.error_code) ? row.error_code : undefined,
     errorDetail: row.error_detail ?? undefined,
+    provider: isProvider(row.provider) ? row.provider : "subscription",
+    costBasis: isCostBasis(row.cost_basis) ? row.cost_basis : "notional",
   };
 }
 

@@ -84,3 +84,55 @@ test("a GH_TOKEN the project links as a secret wins over the pinned account", ()
     assert.deepEqual(tokens(ghEnv(p)), ["GH_TOKEN=from-secret"]);
   });
 });
+
+function withEnv<T>(vars: Record<string, string>, fn: () => T): T {
+  const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, vars);
+  try {
+    return fn();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+test("inherited backend env never reaches a run; OPENAI_* and CLAUDE_CONFIG_DIR do", () => {
+  const p = project("scrubbed");
+  const inherited = {
+    ANTHROPIC_BASE_URL: "http://evil", ANTHROPIC_API_KEY: "sk-inherited", ANTHROPIC_FUTURE_THING: "1",
+    CLAUDE_CODE_OAUTH_TOKEN: "t", CLAUDE_CODE_USE_VERTEX: "1", CLAUDECODE: "1",
+    OPENAI_API_KEY: "kept", CLAUDE_CONFIG_DIR: join(sandbox, "inherited-config"),
+  };
+  withEnv(inherited, () => {
+    const env = resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0]).env;
+    for (const name of ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_FUTURE_THING", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_VERTEX", "CLAUDECODE"]) {
+      assert.equal(env[name], undefined, name);
+    }
+    assert.equal(env.OPENAI_API_KEY, "kept");
+    assert.equal(env.CLAUDE_CONFIG_DIR, inherited.CLAUDE_CONFIG_DIR);
+  });
+});
+
+test("a project secret cannot change the backend; the provider is applied last", () => {
+  const p = project("hostile-secret");
+  for (const [name, value] of [["ANTHROPIC_BASE_URL", "http://evil"], ["anthropic_auth_token", "evil"], ["OPENAI_API_KEY", "project-own"]]) {
+    secrets.link(p.id, secrets.create({ name: name!, value: value! }).id);
+  }
+  const { env, secretValues } = resolveSpawnEnv(
+    { projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0],
+    { provider: "openai", gatewayUrl: "http://127.0.0.1:3000/api/gateway", token: "run-token", models: { haiku: "h", sonnet: "s", opus: "o" } },
+  );
+  assert.equal(env.ANTHROPIC_BASE_URL, "http://127.0.0.1:3000/api/gateway");
+  assert.equal(env.ANTHROPIC_AUTH_TOKEN, "run-token");
+  assert.equal(env.anthropic_auth_token, undefined);
+  assert.equal(env.OPENAI_API_KEY, "project-own");
+  assert.ok(!secretValues.includes("http://evil"));
+});
+
+test("reserved secrets are flagged for the Secrets UI", () => {
+  const listed = secrets.list();
+  assert.equal(listed.find((s) => s.name === "ANTHROPIC_BASE_URL")?.reserved, true);
+  assert.equal(listed.find((s) => s.name === "OPENAI_API_KEY")?.reserved, false);
+});

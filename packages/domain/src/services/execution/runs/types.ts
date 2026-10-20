@@ -19,6 +19,7 @@ import type {
   SseUsageEvent,
   SubAgentStatus,
   MessageOrigin,
+  Provider,
 } from "../../../types/index";
 
 export type SseEvent =
@@ -126,6 +127,9 @@ export interface LiveRun {
   pendingBackgroundBash: Map<string, { command: string; description?: string; childPidsBefore: Set<number> }>;
   /** Bash tool_use ids running `gh pr create`; see runs/pr-create.ts. */
   pendingPrCreate: Set<string>;
+  provider: Provider;
+  /** The run's `--settings` pin, deleted when it finishes. */
+  pinFile?: string;
 }
 
 export interface StartRunOpts {

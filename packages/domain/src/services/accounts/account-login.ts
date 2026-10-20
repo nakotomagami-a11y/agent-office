@@ -10,9 +10,9 @@
 // On this machine it can also self-complete via the OS keychain (exit 0 with
 // no code), which we detect the same way — by watching for process exit.
 
-// cross-spawn: `claude` is a `.cmd` shim on Windows — see runs.ts's import.
-import spawn from "cross-spawn";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawnClaude } from "../infra/claude-bin";
+import { scrubBackendEnv } from "../providers/env";
 import { accountConfigDir, buildAugmentedPath, DEFAULT_ACCOUNT_ID, CLAUDE_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureAccountDir } from "./accounts";
 import { log } from "../infra/log";
@@ -65,14 +65,9 @@ export function startLogin(accountId: string): LoginState {
   if (accountId !== DEFAULT_ACCOUNT_ID) ensureAccountDir(accountId);
   const configDir = configDirFor(accountId);
 
-  const proc = spawn("claude", ["auth", "login", "--claudeai"], {
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: configDir,
-      PATH: buildAugmentedPath(),
-    },
-    stdio: ["pipe", "pipe", "pipe"],
-  }) as ChildProcessWithoutNullStreams;
+  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_CONFIG_DIR: configDir, PATH: buildAugmentedPath() };
+  scrubBackendEnv(env);
+  const proc = spawnClaude(["auth", "login", "--claudeai"], { env, stdio: ["pipe", "pipe", "pipe"] }) as ChildProcessWithoutNullStreams;
 
   const session: LoginSession = {
     phase: "starting",

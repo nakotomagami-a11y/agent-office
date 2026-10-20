@@ -926,6 +926,26 @@
         "title": "Couldn't start the run",
         "body": "Something went wrong starting this run."
       },
+      "provider_unavailable": {
+        "title": "AI provider unavailable",
+        "body": "The AI provider chosen in Settings can't run right now."
+      },
+      "provider_auth_failed": {
+        "title": "AI provider rejected the key",
+        "body": "Replace the key in Settings → AI provider. Signing in to Claude won't help."
+      },
+      "provider_unreachable": {
+        "title": "AI provider unreachable",
+        "body": "The AI provider or local server didn't answer. Check that it is running."
+      },
+      "provider_model_not_found": {
+        "title": "Model not found",
+        "body": "The model this agent maps to doesn't exist on the provider. Fix the model map in Settings → AI provider."
+      },
+      "provider_mismatch": {
+        "title": "AI provider mismatch",
+        "body": "The agent signed in some other way than the chosen AI provider, so the run was stopped."
+      },
       "unknown": {
         "title": "Run error",
         "body": "The agent hit an error."

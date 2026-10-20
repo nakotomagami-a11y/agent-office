@@ -8,11 +8,6 @@
 // stream handling, sub-agent record-keeping, finalize). Pure helpers live
 // alongside in `./runs/`: types, error classification, and sub-agent parsing.
 
-// `node:child_process` cannot spawn `claude` on Windows: it is a `claude.cmd`
-// shim, which recent Node refuses without `shell: true` — and `shell: true`
-// concatenates the args array unescaped, corrupting args and reopening the
-// injection hole that restriction closes. cross-spawn escapes for cmd.exe.
-import spawn from "cross-spawn";
 import { execFileSync, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
@@ -40,7 +35,8 @@ import {
   type TaskStarted,
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
-import { resolveSpawnEnv } from "./runs/spawn-env";
+import { prepareProviderSpawn, releaseProviderSpawn, type ProviderRefusal } from "./runs/provider-spawn";
+import { spawnClaude } from "../infra/claude-bin";
 import { isBackgroundBashInput, isBackgroundedBashResult, snapshotChildPids, trackBackgroundShell } from "./runs/background-shell";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
@@ -130,14 +126,13 @@ if (!globalThis.__agentOfficeRunsInstalled) {
   globalThis.__agentOfficeRunsInstalled = true;
 }
 
-function spawnClaude(
+function spawnRunProcess(
   args: string[],
   cwd: string | undefined,
   env: NodeJS.ProcessEnv,
   stdin: string | undefined,
 ): ChildProcessByStdio<Writable | null, Readable, Readable> {
-  // AO_CLAUDE_BIN is for tests: an absolute stub path no install on PATH can shadow.
-  const proc = spawn(process.env.AO_CLAUDE_BIN ?? "claude", args, {
+  const proc = spawnClaude(args, {
     stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     cwd,
     env,
@@ -150,14 +145,46 @@ function spawnClaude(
   return proc;
 }
 
+/** The provider cannot run: a failed run row, and no process. Listeners fire on the next tick, after
+ *  the caller has adopted the run id, exactly as for a run that failed at once. */
+function refuseRun(runId: string, opts: StartRunOpts, refusal: ProviderRefusal): { runId: string } {
+  const ts = Date.now();
+  const origin = opts.origin ?? "user";
+  db.insertRun({
+    id: runId, agentId: opts.agentId, agentName: opts.agentName, instanceId: opts.instanceId,
+    instanceLabel: opts.instanceLabel, projectId: opts.projectId, status: "running", prompt: opts.prompt, origin,
+    model: opts.model, effort: opts.effort, cwd: opts.cwd, startedAt: ts, parentRunId: opts.parentRunId,
+    conversationId: opts.conversationId, accountId: opts.accountId, provider: refusal.provider ?? undefined,
+  });
+  pushRun({
+    id: runId, agentId: opts.agentId, agentName: opts.agentName, ts, origin, prompt: opts.prompt, status: "error",
+    exitCode: 1, output: "", tokensIn: 0, tokensOut: 0, cost: 0, durMs: 0, model: opts.model, effort: opts.effort,
+    errorCode: "provider_unavailable", errorDetail: refusal.reason,
+  });
+  log.warn("run.refused", { runId, provider: refusal.provider, reason: refusal.reason, detail: refusal.detail });
+  emitAppEvent("runs:changed");
+  setImmediate(() => {
+    for (const listener of runFinishedListeners) {
+      try {
+        listener(runId, false, null);
+      } catch (err) {
+        log.warn("run.finished_listener_failed", { runId, err: String(err) });
+      }
+    }
+  });
+  return { runId };
+}
+
 export function startRun(opts: StartRunOpts): { runId: string } {
   const runId = randomUUID();
-  const { env, accountId, secretValues } = resolveSpawnEnv(opts);
+  const plan = prepareProviderSpawn(runId, opts);
+  if (!plan.ok) return refuseRun(runId, opts, plan);
+  const { env, accountId, secretValues } = plan;
   // The MCP permission bridge is spawned by the CLI and inherits this env; it
   // has no other way to know which run it is answering for.
   env.AO_RUN_ID = runId;
   env.AO_BASE_URL = appBaseUrl();
-  const proc = spawnClaude(opts.args, opts.cwd, env, opts.stdin);
+  const proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,
@@ -182,7 +209,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     parseFailures: 0,
     sawStreamDelta: false,
     toolSinceText: false,
-    args: opts.args,
+    args: plan.args,
     stderrBuf: "",
     secretValues,
     lastActivityAt: Date.now(),
@@ -194,6 +221,8 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     pendingBackgroundBash: new Map(),
     pendingPrCreate: new Set(),
     origin: opts.origin ?? "user",
+    provider: plan.provider,
+    pinFile: plan.pinFile,
   };
   liveRuns.set(runId, run);
   acquireInhibit();
@@ -216,9 +245,11 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     parentRunId: opts.parentRunId,
     conversationId: opts.conversationId,
     accountId,
+    provider: plan.provider,
+    costBasis: plan.costBasis,
   });
 
-  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId });
+  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId, provider: plan.provider });
   // A new run appeared — refresh runs lists / office agent statuses / trees.
   emitAppEvent("runs:changed");
 
@@ -238,7 +269,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
         ...run.args.slice(resumeIdx + 2), // drop "--resume" and the session ID value after it
       ];
       log.warn("run.retry_no_resume", { runId: run.id, accountId });
-      const retryProc = spawnClaude(retryArgs, run.cwd, env, opts.stdin);
+      const retryProc = spawnRunProcess(retryArgs, run.cwd, env, opts.stdin);
       run.proc = retryProc;
       run.stderrBuf = "";
       run.error = undefined;
@@ -943,6 +974,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
+  releaseProviderSpawn(run.id, run.pinFile);
 
   // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
   // stream-json result event, so nothing has said why. Its stderr is the only

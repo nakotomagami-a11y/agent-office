@@ -1,0 +1,39 @@
+// Per-run bearer tokens: the only credential a gateway-provider child ever holds. A token lives as
+// long as its run (the missing-session respawn included) and dies with this process. The map hangs
+// off globalThis, like the live-run registry, so the Next-embedded route sees what the spawner wrote.
+
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import type { Provider } from "../../types/index";
+
+interface TokenEntry {
+  digest: Buffer;
+  ownerId: string;
+  provider: Provider;
+}
+
+declare global {
+  var __agentOfficeGatewayTokens: Map<string, TokenEntry> | undefined;
+}
+
+const tokens: Map<string, TokenEntry> =
+  globalThis.__agentOfficeGatewayTokens ?? (globalThis.__agentOfficeGatewayTokens = new Map());
+
+const digestOf = (token: string): Buffer => createHash("sha256").update(token).digest();
+
+export function issueGatewayToken(ownerId: string, provider: Provider): string {
+  const token = randomBytes(32).toString("base64url");
+  const digest = digestOf(token);
+  tokens.set(digest.toString("hex"), { digest, ownerId, provider });
+  return token;
+}
+
+export function revokeGatewayTokens(ownerId: string): void {
+  for (const [key, entry] of tokens) if (entry.ownerId === ownerId) tokens.delete(key);
+}
+
+export function lookupGatewayToken(token: string): { ownerId: string; provider: Provider } | null {
+  const digest = digestOf(token);
+  const entry = tokens.get(digest.toString("hex"));
+  if (!entry || !timingSafeEqual(entry.digest, digest)) return null;
+  return { ownerId: entry.ownerId, provider: entry.provider };
+}

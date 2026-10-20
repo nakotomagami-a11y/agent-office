@@ -179,6 +179,20 @@ Three dead citations shipped: `CLAUDE.md` (cited 7×), `docs/redesign-v3/REDESIG
 
 ---
 
+## spawn.claude-one-site
+**A `claude` process is started only through `spawnClaude` (`services/infra/claude-bin.ts`).**
+
+Four sites once spawned `"claude"` each their own way: only one honoured `AO_CLAUDE_BIN`, so a test
+stub and the health check disagreed, and only one built the provider env. One helper is one place to
+get the binary right; the provider env itself comes from `prepareProviderSpawn` (agent runs) or
+`scrubBackendEnv` (`--version`, `auth login`).
+
+*Fix:* call `spawnClaude(args, options)`.
+
+> **enforced by** `services/infra/claude-bin.test.ts`
+
+---
+
 ## mod.core-pure
 **`apps/minecraft-mod`'s `core/` names only `java.*`, Gson, SLF4J and itself, imported or written
 out in full.**

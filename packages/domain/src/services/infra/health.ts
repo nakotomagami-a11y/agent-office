@@ -1,8 +1,8 @@
 // `claude --version` cache. Refreshed on demand.
 
-// cross-spawn: `claude` is a `.cmd` shim on Windows — see runs.ts's import.
-import spawn from "cross-spawn";
 import type { HealthInfo } from "../../types/index";
+import { scrubBackendEnv } from "../providers/env";
+import { spawnClaude } from "./claude-bin";
 import { buildAugmentedPath } from "./paths";
 
 interface HealthState {
@@ -23,10 +23,9 @@ function probe(): Promise<HealthInfo> {
     let stdout = "";
     let stderr = "";
     try {
-      const proc = spawn("claude", ["--version"], {
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, PATH: buildAugmentedPath() },
-      });
+      const env: NodeJS.ProcessEnv = { ...process.env, PATH: buildAugmentedPath() };
+      scrubBackendEnv(env);
+      const proc = spawnClaude(["--version"], { stdio: ["ignore", "pipe", "pipe"], env });
       proc.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString();
       });

@@ -108,6 +108,9 @@ export interface PersistedRun {
   cacheReadTokens?: number;
   errorCode?: RunErrorCode;
   errorDetail?: string;
+  /** Rows from before providers existed read as `subscription` / `notional`. */
+  provider?: Provider;
+  costBasis?: CostBasis;
   /** Set from the run's own tool_calls when it started a `run_in_background`
    *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
   backgroundTaskCommand?: string;
@@ -268,6 +271,8 @@ export type SecretWithStatus = Omit<Secret, "value"> & {
   /** True when past expiresAt. */
   expired: boolean;
   projectCount: number;
+  /** Agents never get it: an `AO_*` or AI-provider env name. */
+  reserved: boolean;
 };
 
 export interface AppSettings {
@@ -473,6 +478,8 @@ export interface SseUsageEvent {
 export interface SseDoneEvent { runId: string; exitCode: number; sessionId?: string; durationMs?: number; tokensIn?: number; tokensOut?: number; cost?: number }
 export type { RunErrorCode } from "../config/run-errors";
 import type { RunErrorCode } from "../config/run-errors";
+export type * from "./providers";
+import type { CostBasis, Provider } from "./providers";
 export type { DocCategory } from "../config/doc-categories";
 export type { SkillIconClass } from "../config/skill-icons";
 export type { CleanupKind } from "../config/cleanup";

@@ -22,6 +22,9 @@ import type { Secret, SecretWithStatus } from "../../types/index";
 import { getDb } from "../db";
 import { log } from "../infra/log";
 import { decryptSecret, encryptSecret } from "./secret-crypto";
+import { isReservedEnvName } from "../../config/providers";
+
+export { isReservedEnvName };
 
 interface SecretRow {
   id: string;
@@ -57,6 +60,7 @@ function toStatus(s: Secret, projectCount: number): SecretWithStatus {
     ...rest,
     expired: s.expiresAt !== null && s.expiresAt < Date.now(),
     projectCount,
+    reserved: isReservedEnvName(s.name),
   };
 }
 
