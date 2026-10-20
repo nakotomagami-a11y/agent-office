@@ -82,3 +82,18 @@ test("the selection: insert-if-absent never overwrites a choice", () => {
   assert.equal(store.getSelection()?.provider, "openai");
   assert.equal(store.getSelection()?.source, "chosen");
 });
+
+test("re-pointing or re-keying the selected provider moves its last-changed time; a null tier unmaps it", async () => {
+  store.setSelection("local", "chosen");
+  getDb().prepare("UPDATE provider_selection SET changed_at = 1").run();
+  store.saveProviderConfig("local", { baseUrl: "http://localhost:5000/v1" });
+  assert.ok(store.getSelection()!.changedAt > 1);
+  store.saveProviderConfig("local", { models: { haiku: "a", sonnet: "b", opus: "c" } });
+  store.saveProviderConfig("local", { models: { opus: null } });
+  assert.deepStrictEqual(store.readProvider("local")?.config?.models, { haiku: "a", sonnet: "b" });
+});
+
+test("a short key never gets a hint, so a hint can never be most of the key", () => {
+  store.saveProviderConfig("openai", { apiKey: "short-key-12345" });
+  assert.equal(store.keyHint("openai"), undefined);
+});

@@ -184,7 +184,14 @@ export function startRun(opts: StartRunOpts): { runId: string } {
   // has no other way to know which run it is answering for.
   env.AO_RUN_ID = runId;
   env.AO_BASE_URL = appBaseUrl();
-  const proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
+  let proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
+  try {
+    proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
+  } catch (err) {
+    // A synchronous throw (a NUL byte in an argument) must not leave a live token or pin behind.
+    releaseProviderSpawn(runId, plan.pinFile);
+    throw err;
+  }
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,

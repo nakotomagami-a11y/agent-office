@@ -94,7 +94,7 @@ export function keyState(provider: Provider): KeyState {
 
 export function keyHint(provider: Provider): string | undefined {
   const read = decrypt(readRow(provider)?.secret ?? null);
-  return read.ok && read.key.length >= 8 ? read.key.slice(-4) : undefined;
+  return read.ok && read.key.length >= 16 ? read.key.slice(-4) : undefined;
 }
 
 export interface ProviderConfigInput {
@@ -102,7 +102,8 @@ export interface ProviderConfigInput {
   baseUrl?: string | null;
   /** Blank or absent keeps the stored key, unless the key's URL changes. */
   apiKey?: string;
-  models?: ProviderModels;
+  /** A null tier removes that mapping. */
+  models?: Partial<Record<ModelTier, string | null>>;
 }
 
 export type SaveResult = { ok: true } | { ok: false; reason: "base_url_invalid" | "invalid_config" };
@@ -115,7 +116,15 @@ function nextConfig(current: ProviderConfig, input: ProviderConfigInput): Provid
     if (!url) return null;
     next.baseUrl = url;
   }
-  if (input.models) next.models = { ...current.models, ...input.models };
+  if (input.models) {
+    const models: ProviderModels = { ...current.models };
+    for (const [tier, model] of Object.entries(input.models)) {
+      if (!isModelTier(tier)) continue;
+      if (model) models[tier] = model;
+      else delete models[tier];
+    }
+    next.models = models;
+  }
   return next;
 }
 
@@ -143,13 +152,21 @@ export function saveProviderConfig(provider: Provider, input: ProviderConfigInpu
       ON CONFLICT(provider) DO UPDATE SET config = excluded.config, secret = excluded.secret,
         secret_base_url = excluded.secret_base_url, updated_at = excluded.updated_at`)
     .run(provider, JSON.stringify(config), secret, secretUrl, Date.now());
-  log.info("provider.config_saved", { provider, baseUrl: config.baseUrl, keyChanged: !!input.apiKey });
+  audit(provider, { before: row ? parseProviderConfig(row.config)?.baseUrl : undefined, after: config.baseUrl, keyChanged: !!input.apiKey || (!!row?.secret && !secret) });
   return { ok: true };
 }
 
 export function deleteProviderKey(provider: Provider): void {
   getDb().prepare("UPDATE provider_configs SET secret = NULL, secret_base_url = NULL, updated_at = ? WHERE provider = ?")
     .run(Date.now(), provider);
+  audit(provider, { keyChanged: true });
+}
+
+/** Re-pointing the selected provider is as consequential as switching it (D-08): warn-level, so it
+ *  persists, and "last changed" moves. */
+function audit(provider: Provider, change: { before?: string; after?: string; keyChanged: boolean }): void {
+  if (change.before !== change.after || change.keyChanged) log.warn("provider.changed", { provider, ...change });
+  getDb().prepare("UPDATE provider_selection SET changed_at = ? WHERE id = 1 AND provider = ?").run(Date.now(), provider);
 }
 
 export interface Selection {

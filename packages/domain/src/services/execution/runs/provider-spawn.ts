@@ -68,19 +68,18 @@ export function prepareProviderSpawn(ownerId: string, opts: StartRunOpts): Provi
     input.token = issueGatewayToken(ownerId, provider);
     input.models = readProvider(provider)?.config?.models;
   }
-  const { env, accountId, secretValues } = resolveSpawnEnv(opts, input);
-  if (input.token) secretValues.push(input.token);
-  let pinFile: string;
   try {
-    pinFile = writePinFile(buildSettingsPin(input, discoverBackendEnvNames(opts.cwd, env.CLAUDE_CONFIG_DIR ?? CLAUDE_DIR)));
+    const { env, accountId, secretValues } = resolveSpawnEnv(opts, input);
+    if (input.token) secretValues.push(input.token);
+    const pinFile = writePinFile(buildSettingsPin(input, discoverBackendEnvNames(opts.cwd, env.CLAUDE_CONFIG_DIR ?? CLAUDE_DIR)));
+    return {
+      ok: true, provider, costBasis: COST_BASIS[provider], env, accountId, secretValues,
+      args: ["--settings", pinFile, ...args], pinFile,
+    };
   } catch (err) {
     revokeGatewayTokens(ownerId);
     throw err;
   }
-  return {
-    ok: true, provider, costBasis: COST_BASIS[provider], env, accountId, secretValues,
-    args: ["--settings", pinFile, ...args], pinFile,
-  };
 }
 
 export function releaseProviderSpawn(ownerId: string, pinFile: string | undefined): void {

@@ -29,6 +29,7 @@ const githubAccounts = await import("../../accounts/github-accounts");
 const secrets = await import("../../accounts/secrets");
 
 const account = githubAccounts.create({ label: "Work" });
+const SUB = { provider: "subscription" } as const;
 
 function project(id: string, githubAccountId?: string) {
   mkdirSync(join(projectsRoot, id), { recursive: true });
@@ -58,7 +59,7 @@ const tokens = (env: NodeJS.ProcessEnv) =>
 test("pinned to a GitHub account: inherited tokens are dropped, whatever their case", () => {
   const p = project("pinned", account.id);
   withInherited(() => {
-    const run = resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0]).env;
+    const run = resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0], SUB).env;
     assert.equal(run.GH_CONFIG_DIR, account.configDir);
     assert.deepEqual(tokens(run), []);
     const gh = ghEnv(p);
@@ -70,7 +71,7 @@ test("pinned to a GitHub account: inherited tokens are dropped, whatever their c
 test("not pinned: the inherited token is kept (the system gh identity)", () => {
   const p = project("unpinned");
   withInherited(() => {
-    assert.ok(tokens(resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0]).env).includes("GH_TOKEN=inherited"));
+    assert.ok(tokens(resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0], SUB).env).includes("GH_TOKEN=inherited"));
     assert.ok(tokens(ghEnv(p)).includes("GH_TOKEN=inherited"));
   });
 });
@@ -80,7 +81,7 @@ test("a GH_TOKEN the project links as a secret wins over the pinned account", ()
   const s = secrets.create({ name: "GH_TOKEN", value: "from-secret" });
   secrets.link(p.id, s.id);
   withInherited(() => {
-    assert.deepEqual(tokens(resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0]).env), ["GH_TOKEN=from-secret"]);
+    assert.deepEqual(tokens(resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0], SUB).env), ["GH_TOKEN=from-secret"]);
     assert.deepEqual(tokens(ghEnv(p)), ["GH_TOKEN=from-secret"]);
   });
 });
@@ -106,7 +107,7 @@ test("inherited backend env never reaches a run; OPENAI_* and CLAUDE_CONFIG_DIR 
     OPENAI_API_KEY: "kept", CLAUDE_CONFIG_DIR: join(sandbox, "inherited-config"),
   };
   withEnv(inherited, () => {
-    const env = resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0]).env;
+    const env = resolveSpawnEnv({ projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0], SUB).env;
     for (const name of ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_FUTURE_THING", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_VERTEX", "CLAUDECODE"]) {
       assert.equal(env[name], undefined, name);
     }

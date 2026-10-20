@@ -13,7 +13,7 @@ export const providerBaseUrlSchema = z
 const modelIdSchema = z.string().trim().min(1).max(200);
 
 export const providerModelsSchema = z
-  .object({ haiku: modelIdSchema, sonnet: modelIdSchema, opus: modelIdSchema })
+  .object({ haiku: modelIdSchema.nullable(), sonnet: modelIdSchema.nullable(), opus: modelIdSchema.nullable() })
   .partial()
   .strict();
 

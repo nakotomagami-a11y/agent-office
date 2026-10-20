@@ -5,6 +5,7 @@ import assert from "node:assert";
 import { test } from "node:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 const sandbox = mkdtempSync(join(tmpdir(), "ao-pin-file-"));
@@ -31,6 +32,19 @@ test("a malformed or oversized repo settings file is skipped, never thrown", () 
   writeFileSync(join(repo, ".claude", "settings.local.json"), JSON.stringify({ env: { ANTHROPIC_X: "y".repeat(1024 * 1024) } }));
   assert.deepStrictEqual(discoverBackendEnvNames(repo, join(sandbox, "no-user")), []);
   assert.deepStrictEqual(discoverBackendEnvNames(undefined, join(sandbox, "no-user")), []);
+});
+
+test("a settings path that is not a regular file is never read", () => {
+  const repo = mkdtempSync(join(sandbox, "dir-"));
+  mkdirSync(join(repo, ".claude", "settings.json"), { recursive: true });
+  assert.deepStrictEqual(discoverBackendEnvNames(repo, join(sandbox, "no-user")), []);
+});
+
+test("on POSIX, a FIFO named settings.json is skipped without blocking", { skip: process.platform === "win32" && "Windows has no mkfifo" }, () => {
+  const repo = mkdtempSync(join(sandbox, "fifo-"));
+  mkdirSync(join(repo, ".claude"));
+  execFileSync("mkfifo", [join(repo, ".claude", "settings.json")]);
+  assert.deepStrictEqual(discoverBackendEnvNames(repo, join(sandbox, "no-user")), []);
 });
 
 test("a pin file holds the pin, is unique per write, owner-only where POSIX modes exist, and is removable", () => {

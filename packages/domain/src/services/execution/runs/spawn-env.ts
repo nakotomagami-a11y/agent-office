@@ -46,7 +46,7 @@ export { isReservedEnvName } from "../../accounts/secrets";
  */
 export function resolveSpawnEnv(
   opts: StartRunOpts,
-  provider: ProviderEnvInput = { provider: "subscription" },
+  provider: ProviderEnvInput,
 ): { env: NodeJS.ProcessEnv; accountId: string | undefined; secretValues: string[] } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.

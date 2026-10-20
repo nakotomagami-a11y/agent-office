@@ -6,7 +6,7 @@
  */
 import assert from "node:assert";
 import { after, test } from "node:test";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -107,4 +107,13 @@ test("a budget cap openai cannot enforce refuses the run; local drops the flag",
   const local = await run(["-p", "--max-budget-usd", "1"]);
   assert.ok(local.record && !local.record.args.includes("--max-budget-usd"));
   assert.equal(local.record.env.CLAUDE_CODE_MAX_RETRIES, "2");
+});
+
+test("a spawn that throws synchronously leaves no live token and no pin file behind", () => {
+  const pins = () => readdirSync(join(sandbox, ".claude", "agent-office", "tmp-prompts")).filter((f) => f.startsWith("settings-pin-")).length;
+  const tokensBefore = globalThis.__agentOfficeGatewayTokens?.size ?? 0;
+  const pinsBefore = pins();
+  assert.throws(() => startRun({ agentId: "t", agentName: "T", prompt: "x", model: "m", effort: "e", args: ["-p", "nul\u0000byte"], stdin: "x" }));
+  assert.equal(globalThis.__agentOfficeGatewayTokens?.size ?? 0, tokensBefore);
+  assert.equal(pins(), pinsBefore);
 });

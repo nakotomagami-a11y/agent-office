@@ -1,5 +1,6 @@
 // The per-run `--settings` file on disk: written 0600 with `wx`, deleted when the run ends, swept
-// at boot after a crash. It holds the run's gateway token, never a provider key.
+// at boot after a crash. It holds the run's gateway token, never a provider key. summon.ts also
+// prunes tmp-prompts files older than 6 h, above the 4 h run cap, so a live pin is never pruned.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -12,15 +13,18 @@ import type { SettingsPin } from "./env";
 const PIN_PREFIX = "settings-pin-";
 const MAX_SETTINGS_BYTES = 1024 * 1024;
 
+/** Repo-controlled: a symlink to a FIFO or device would block the server's thread on read. */
 function envKeysOf(file: string): string[] {
   try {
-    if (!existsSync(file) || statSync(file).size > MAX_SETTINGS_BYTES) return [];
+    if (!existsSync(file)) return [];
+    const st = statSync(file);
+    if (!st.isFile() || st.size > MAX_SETTINGS_BYTES) return [];
     const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
     if (!raw || typeof raw !== "object" || !("env" in raw)) return [];
     const env = raw.env;
     return env && typeof env === "object" && !Array.isArray(env) ? Object.keys(env) : [];
-  } catch (err) {
-    log.warn("provider.settings_unparseable", { file, err: String(err) });
+  } catch {
+    log.warn("provider.settings_unparseable", { file });
     return [];
   }
 }

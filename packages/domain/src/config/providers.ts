@@ -5,7 +5,6 @@ export type Provider = (typeof PROVIDERS)[number];
 export const isProvider = (v: unknown): v is Provider =>
   typeof v === "string" && (PROVIDERS as readonly string[]).includes(v);
 
-/** Everything but the subscription reaches its backend through the in-process gateway. */
 export const usesGateway = (p: Provider): boolean => p !== "subscription";
 
 export const PROVIDER_STATUS_REASONS = [
@@ -29,7 +28,6 @@ export type ProviderStatusReason = (typeof PROVIDER_STATUS_REASONS)[number];
 export const isProviderStatusReason = (v: unknown): v is ProviderStatusReason =>
   typeof v === "string" && (PROVIDER_STATUS_REASONS as readonly string[]).includes(v);
 
-/** `accept`: the user may save the provider anyway ("Continue anyway"). `block`: never. */
 export const PROVIDER_STATUS_REASON_POLICY: Record<ProviderStatusReason, "block" | "accept"> = {
   not_configured: "block",
   invalid_config: "block",
@@ -53,7 +51,6 @@ export type ModelTier = (typeof MODEL_TIERS)[number];
 export const isModelTier = (v: unknown): v is ModelTier =>
   typeof v === "string" && (MODEL_TIERS as readonly string[]).includes(v);
 
-/** What a run's `cost_usd` means. `unknown` is never summed as $0. */
 export const COST_BASES = ["notional", "billed", "estimated", "unknown", "free"] as const;
 export type CostBasis = (typeof COST_BASES)[number];
 export const isCostBasis = (v: unknown): v is CostBasis =>
@@ -90,7 +87,6 @@ export const PARENT_SESSION_ENV_NAMES = [
   "CLAUDE_EFFORT",
 ] as const;
 
-/** Pinned in every run's `--settings` file even when nothing set them. */
 export const PINNED_ENV_NAMES = [
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
@@ -108,14 +104,12 @@ export const PINNED_ENV_NAMES = [
 
 const startsWithAny = (upper: string, prefixes: readonly string[]): boolean => prefixes.some((p) => upper.startsWith(p));
 
-/** Case-insensitive, because Windows env lookup is. */
 export function isBackendEnvName(name: string): boolean {
   const upper = name.toUpperCase();
   return startsWithAny(upper, BACKEND_ENV_PREFIXES) || (BACKEND_ENV_NAMES as readonly string[]).includes(upper);
 }
 
-/** Names a run never takes from a project secret: `AO_*` is the app's own namespace, and the
- *  backend names belong to the chosen provider. */
+/** Never taken from a project secret: `AO_*` is the app's own, backend names the provider's. */
 export function isReservedEnvName(name: string): boolean {
   return name.toUpperCase().startsWith("AO_") || isBackendEnvName(name);
 }
@@ -125,11 +119,8 @@ export function isParentSessionEnvName(name: string): boolean {
   return startsWithAny(upper, PARENT_SESSION_ENV_PREFIXES) || (PARENT_SESSION_ENV_NAMES as readonly string[]).includes(upper);
 }
 
-/**
- * One form for every comparison a stored key depends on: lowercase host, no default port, no
- * trailing slash. Userinfo, query and fragment are refused, so a key is never bound to a URL that
- * hides credentials or varies by query string.
- */
+/** The one form a stored key is bound to. Userinfo, query and fragment are refused, so a key is
+ *  never bound to a URL that hides credentials or varies by query string. */
 export function normalizeBaseUrl(raw: string): string | null {
   let url: URL;
   try {
@@ -145,5 +136,4 @@ export function normalizeBaseUrl(raw: string): string | null {
 export const PROVIDER_PROBE_TIMEOUT_MS = 5_000;
 /** The CLI version the `--settings` pin was verified against; the settings-pin e2e fails on any other. */
 export const PIN_VERIFIED_CLI_VERSION = "2.1.296";
-/** A local server is either up or not: two retries, not the CLI's ten. */
 export const LOCAL_MAX_RETRIES = 2;
