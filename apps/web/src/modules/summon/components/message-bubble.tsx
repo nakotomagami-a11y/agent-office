@@ -94,7 +94,7 @@ export function ChatProse({ text, streaming }: { text: string; streaming?: boole
   return (
     <div className="ao-prose">
       {splitMarkdownBlocks(trimPartialFence(text)).map((block, i) => (
-        <MarkdownView key={i} text={block} renderCode={renderStreamingCode} />
+        <MarkdownView key={i} text={block} renderCode={renderStreamingCode} uncached />
       ))}
       <p><span className="ao-cursor" aria-hidden /></p>
     </div>

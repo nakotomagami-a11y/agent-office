@@ -67,12 +67,18 @@ export type MarkdownViewProps = {
   text: string;
   /** Overrides how fenced code renders (the chat streams plain text, then highlights). */
   renderCode?: RenderCode;
+  /** Streaming text never repeats, so caching it only holds memory. */
+  uncached?: boolean;
 };
 
 // Parsing costs ~4 ms per KB, so reopening a chat re-parsed every visible message. The element tree
 // is immutable and depends only on the text and renderer, so it can be reused across mounts.
 const RENDER_CACHE_MAX = 300;
 const renderCache = new WeakMap<RenderCode, Map<string, ReactElement>>();
+
+function renderMarkdownTree(text: string, renderCode: RenderCode): ReactElement {
+  return renderMarkdown({ children: text, remarkPlugins: REMARK_PLUGINS, urlTransform: safeLinkHref, components: componentsFor(renderCode) });
+}
 
 function renderCached(text: string, renderCode: RenderCode): ReactElement {
   let byText = renderCache.get(renderCode);
@@ -83,13 +89,14 @@ function renderCached(text: string, renderCode: RenderCode): ReactElement {
     byText.set(text, hit);
     return hit;
   }
-  const element = renderMarkdown({ children: text, remarkPlugins: REMARK_PLUGINS, urlTransform: safeLinkHref, components: componentsFor(renderCode) });
+  const element = renderMarkdownTree(text, renderCode);
   byText.set(text, element);
   if (byText.size > RENDER_CACHE_MAX) byText.delete(byText.keys().next().value!);
   return element;
 }
 
 /** GFM markdown; only absolute http(s)/mailto links survive, and raw HTML is never rendered. */
-export const MarkdownView = memo(function MarkdownView({ text, renderCode }: MarkdownViewProps) {
-  return renderCached(text, renderCode ?? defaultRenderCode);
+export const MarkdownView = memo(function MarkdownView({ text, renderCode, uncached }: MarkdownViewProps) {
+  const rc = renderCode ?? defaultRenderCode;
+  return uncached ? renderMarkdownTree(text, rc) : renderCached(text, rc);
 });

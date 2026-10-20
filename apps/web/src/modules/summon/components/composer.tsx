@@ -236,7 +236,7 @@ function ComposerMenuLayer({
       />
     );
   }
-  if (menus.promptsOpen) {
+  if (menus.promptsOpen && menus.filteredPrompts.length > 0) {
     return (
       <ComposerPromptsMenu
         filtered={menus.filteredPrompts}

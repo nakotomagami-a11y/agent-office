@@ -137,3 +137,8 @@ test("a lone list or rule marker at the end of a stream never turns the paragrap
   assert.ok(!/<h\d/.test(html(trimPartialFence("Changes:\n-"))));
   assert.ok(!/<h\d/.test(html(trimPartialFence("Changes:\n=="))));
 });
+
+test("a line with inline triple backticks does not open a fence for the block splitter", () => {
+  const text = "Use ```inline``` here.\n\n```ts\nconst a = 1;\n\nconst b = 2;\n```\n\nmore";
+  assert.ok(splitMarkdownBlocks(text).some((b) => b.includes("const a = 1;\n\nconst b = 2;")));
+});

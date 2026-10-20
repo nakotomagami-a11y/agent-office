@@ -12,7 +12,8 @@ export function trimPartialFence(text: string): string {
   return text.replace(/(^|\n)[^\S\n]{0,3}(`+[\w+#.-]*|~+[\w+#.-]*|[-=]+[^\S\n]*)$/, "$1");
 }
 
-const FENCE = /^[ ]{0,3}(`{3,}|~{3,})/;
+// A backtick fence's info string can't hold a backtick (CommonMark), else ```a``` would open one.
+const FENCE = /^[ ]{0,3}(`{3,}(?=[^`]*$)|~{3,})/;
 
 /** Splits markdown at blank lines outside code fences, so a streaming message re-parses only its
  *  last block: a full re-parse every frame costs ~30 ms at 20 KB. A blank line followed by an

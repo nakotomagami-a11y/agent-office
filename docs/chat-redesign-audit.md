@@ -284,7 +284,7 @@ records which round found each finding, plus its cost, duration and verdict.
 
 | # | Fix | Auto | Manual check |
 |---|---|---|---|
-| B8 | Enter on the slash menu runs the highlighted command; it no longer sends `/c` or picks a hidden saved prompt. When no command matches, the saved-prompts menu is now shown (it took the keys while invisible) | `use-composer-keyboard.test.ts` | Type `/cl`, Enter: the thread clears. Type `/` + part of a saved prompt's title: the prompts menu shows |
+| B8 | Enter on the slash menu runs the highlighted command; it no longer sends `/c` or picks a hidden saved prompt. When no command matches, matching saved prompts are shown (the menu used to take the keys while invisible) | `use-composer-keyboard.test.ts` | Type `/cl`, Enter: the thread clears. Type `/` + part of a saved prompt's title: the prompts menu shows |
 | — | Removed `/branch` (said "Fork", only started a blank thread, same as `/clear`) and `/prompt` (had no handler; did nothing) from the slash menu | — | Type `/`: only `/clear` |
 | B9 | Header chips (model, effort, Playwright, QA loop) never wrap or overlap; the branch label truncates instead | — | Inspector at 1280–1500 px, multi-session agent on a mission seat |
 | B10 | Mission panel questions render markdown | — | Open the mission pill on a seat with an open ask |
