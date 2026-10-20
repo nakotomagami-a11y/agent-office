@@ -31,6 +31,7 @@ import { RateLimitCard } from "./rate-limit-card";
 import { ScheduleResumeMenu } from "./schedule-resume-menu";
 import { FlagCard, type FlagAction } from "./flag-card";
 import { MsgActions } from "./msg-actions";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { ProviderErrorCard, isProviderRunCode } from "@/modules/providers/components/provider-error-card";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
 import { useComposerAttachments } from "../hooks/use-composer-attachments";
@@ -427,11 +428,11 @@ const MISCLASSIFIED_AUTH_MAX_LEN = 240;
  * finished agent-text so this still surfaces the interactive card instead of
  * a dead wall of text the user has to go fix in Settings on their own.
  */
-function misclassifiedAuthCode(text: string, streaming: boolean): "auth_expired" | "subscription_disabled" | null {
+function misclassifiedAuthCode(text: string, streaming: boolean, provider: string): "auth_expired" | "subscription_disabled" | null {
   if (streaming) return null;
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > MISCLASSIFIED_AUTH_MAX_LEN) return null;
-  const { code } = classifyResultError(trimmed, trimmed, "subscription");
+  const { code } = classifyResultError(trimmed, trimmed, provider);
   return code === "auth_expired" || code === "subscription_disabled" ? code : null;
 }
 
@@ -520,6 +521,7 @@ function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string
 }
 
 function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+  const { id: providerId } = useActiveProvider();
   switch (item.kind) {
     case "you": {
       // Agent Office's own messages reach here through the same path as the
@@ -541,7 +543,7 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
       );
     }
     case "agent-text": {
-      const misclassified = misclassifiedAuthCode(item.text, item.streaming);
+      const misclassified = misclassifiedAuthCode(item.text, item.streaming, providerId);
       if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
       if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
 

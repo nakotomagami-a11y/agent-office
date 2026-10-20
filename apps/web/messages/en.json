@@ -935,7 +935,7 @@
       },
       "provider_model_not_found": {
         "title": "Model not found",
-        "body": "The model this agent maps to doesn't exist on the provider. Fix the model map in Settings → AI provider.",
+        "body": "The model this agent maps to doesn't exist at the provider's address. For a local server, check that the address ends in /v1, then fix the model map in Settings → AI provider.",
         "action": "Open AI provider settings"
       },
       "provider_mismatch": {
@@ -994,8 +994,8 @@
         "body": "The server answered but lists no models. Load or pull a model, then check again."
       },
       "model_not_found": {
-        "title": "Model not found",
-        "body": "A model you mapped isn't offered by the provider. Pick one from the list or fix the name."
+        "title": "Model or address not found",
+        "body": "The provider doesn't offer a model you mapped, or the address is wrong. A local server address usually needs /v1 on the end. Pick a model from the list, or fix the address."
       },
       "rate_limited": {
         "title": "Rate limited by the provider",
