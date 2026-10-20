@@ -1,26 +1,26 @@
 # Agent capabilities audit: what really reaches an agent
 
-Status: **findings only, nothing fixed yet. 49 findings; app-wide sweep running.** Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows.
+Status: **findings complete, nothing fixed yet.** 49 capability findings (C1–C49) + 125 app-wide sweep findings (S1–S7). Started 2026-10-20 on branch `chat-redesign-audit` (PR #214) against `origin/main` @ `3ff14d4`, Claude Code CLI 2.1.296, Windows 11.
 
-Why this exists: agents declare tools, MCP servers and skills that silently never reach them. The UI shows them as working. This document lists every such case found so far, with evidence, so the fix can be planned once instead of patched case by case. The app-wide sweep (7 areas) is running and will be appended.
+Why this exists: agents declared tools, MCP servers and skills that silently never reached them while the UI showed them as working. The same pattern turned up across the app, so everything was swept with one lens: does it reach the agent or the user, does it make sense now that the product's shape is known, does it work on Windows, does the UI tell the truth. PR #212 (AI providers, under development) was excluded; findings that touch its files are marked **#212**.
 
 How it was checked:
-- **Live probes.** All 34 agent definitions were started exactly the way Agent Office starts them (`claude -p --agent <id> --output-format stream-json --verbose`), the CLI's `system/init` event was read (it lists tools, MCP servers, skills, agents, memory paths) and the process was killed before any model call.
+- **Live probes.** All 34 agent definitions were started exactly the way Agent Office starts them (`claude -p --agent <id> --output-format stream-json --verbose`), the CLI's `system/init` event was read (tools, MCP servers, skills, agents, memory paths) and the process was killed before any model call.
 - **Measured runs.** Token cost of MCP tools was measured with real `--agent` runs (haiku, a fake 25-tool server).
 - **Recorded sessions.** The CLI stores the exact system prompt of each session (`prompt_snapshot` in `~/.claude/projects/<cwd>/<session>.jsonl`); real `developer` sessions were compared to the agent files.
-- **Code and data.** Three read-only audits of the code (MCP/tools, context layering, skills) and Agent Office's DB.
+- **Code and data.** Ten read-only audits of the code and Agent Office's real DB.
 
-Severity: **BROKEN** = a capability doesn't reach the agent or silently fails. **WRONG** = works, but misleads or contradicts itself. **WASTE** = dead, duplicated or costly for nothing.
+Severity: **BROKEN** = doesn't reach the agent/user or silently fails. **WRONG** = works, but misleads or contradicts itself. **WASTE** = dead, duplicated or costly for nothing.
 
-## The five root causes
+## The seven root causes
 
-Most findings below come from five design decisions made before the end product was clear:
-
-1. **Agent Office stores its own files inside the folder the CLI scans for agents.** Backups (`~/.claude/agents/_archive/`) and skills (`~/.claude/agents/_skills/`) are read by the CLI as agent definitions. → C1, C2.
-2. **Each account gets its own Claude config folder** (`CLAUDE_CONFIG_DIR=~/.claude/agent-office/accounts/acc_*/`), but Agent Office's own code reads `~/.claude.json` and `~/.claude/settings.json`. Anything configured the normal way (`claude mcp add`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`) does not reach agents, and the app reads the wrong files. → C3, C4.
-3. **Agent `tools:` lists are strict whitelists**, and they were hand-edited without a check against what the CLI actually provides. → C5–C8.
-4. **The context the app adds was built per turn, but the CLI freezes the system prompt per session**, and several layers duplicate what the CLI already loads. → C10–C16.
-5. **No feedback loop.** Every mismatch is either logged to `server.log` only or not detected at all, and the Context & Cost tab estimates from a different spawn plan than the real one. → C9, C17.
+1. **Agent Office stores its own files inside folders the CLI owns.** Backups, skills, memory and body history in `~/.claude/agents/`; project metadata in `~/.claude/projects/`. The CLI reads them as agents. → C1, C2, S1-14, S4-22, S5-17.
+2. **Each account gets its own Claude config folder, but the app reads `~/.claude`.** Normal Claude config (`claude mcp add`, `~/.claude/CLAUDE.md`, `settings.json`, `skills`) never reaches agents, and the app reads the wrong files. → C5–C7, C42.
+3. **Agent definitions were hand-edited with nothing checking them against the CLI.** Tool whitelists, MCP servers and skill names that don't exist, all silent. → C9–C17, C38–C41.
+4. **The app's context was built per turn, the CLI freezes it per session**, and several layers duplicate what the CLI already loads. → C24–C34.
+5. **No feedback loop.** Mismatches go to `server.log` or nowhere; cost and token numbers come from estimates or partial data. → C15, C34, C43, C47, S2-2–S2-6.
+6. **Windows was second-class.** Path comparisons with `/`, LF-only parsers, POSIX commands in the UI, Linux-only features, hard-kill shutdown, no Windows CI. → S1-4, S1-9, S2-1, S4-15, S5-1, S5-3, S7-*.
+7. **Retired or half-built features are still wired in.** The `transcripts` table behind two buttons, an unmounted limits modal, a Docs tab nobody reads, worktree isolation behind a flag with no UI, 15 routes with no caller. → S1-8, S2-13, S5-5, S5-8, S5-11, S6-*.
 
 ## Findings
 
@@ -129,11 +129,31 @@ PR #212 changes 195 files. It shares these with the capability pipeline: `servic
 
 Rule for the fixes: anything in those files waits for #212 to merge, or is coordinated with its seats. Fixes in agent files (`~/.claude/agents`, `starter-data/agents`), `starter-data.ts`, skills, tool catalog, history, project map and the web UI can go first.
 
-## Next
+## Fix plan
 
-1. ~~Finish the skills audit~~ (done: C38–C49).
-2. A wider sweep of the rest of the app with the same lens (does it reach the agent or user, does it make sense, does it work on Windows), excluding #212's files.
-3. One fix plan, ordered so the root causes go first: move app files out of `~/.claude/agents` (C1, C2), one config folder story (C5–C7), a generated tool catalog checked against live init events (C9–C15), session-fixed context with one source per concern (C24–C34).
+Ordered so each wave removes a root cause rather than patching symptoms. Each wave is one or more commits on the mission branch; each gets the fix log + review treatment used in `chat-redesign-audit.md`. "After #212" = touches its files, so it lands after #212 merges or is coordinated with its seats.
+
+| Wave | Goal | Findings | When |
+|---|---|---|---|
+| **0 · Stop data loss** | Nothing the app does may destroy work or delete the wrong thing | S1-9/S4-3 worktree clean-up; S1-10/S4-4 session and roster removal force-delete; S5-2 wrong folder deleted; S5-6 "skill cache" deletes user skills; S5-7 UI reset wipes the office map; S1-5 save drops fields; S1-6 "Forge" overwrites an agent; S1-1 roster downgrade; S4-7 destructive import; S2-14 chat wedged after deleting runs; S4-8/S7-10 Flutter crashes the server; S5-13 plaintext secrets file | Now (S5-2 path check and S5-13 partly after #212) |
+| **1 · Own our files** (root 1) | App data lives only under `~/.claude/agent-office/`; nothing of ours in folders the CLI scans | C1, C2, S1-14, S4-22, S5-17 | Now, except `paths.ts` moves after #212 |
+| **2 · One config story** (root 2) | Every account folder links the shared pieces properly (skills, plugins, settings, `CLAUDE.md`); the app reads the run's own account folder | C5–C7, C42, C6 | After #212 (`accounts.ts`) |
+| **3 · Capabilities that are checked** (root 3, 5) | Tool catalog generated from live `system/init` events; skills in one native store, equipped via frontmatter and delivered by the CLI; agents validated on save and badged in the UI ("declared but missing"); starter agents fixed and covered by a real test; small MCP page (configured servers + missing ones + add via CLI with secrets); `ToolSearch` and the right tools in every agent | C9–C23, C38–C49 | Mostly now; MCP spawn args after #212 |
+| **4 · Context fixed per session** (root 4) | Appended prompt built once per session; one source per concern (response style as a user setting, memory in two layers, no duplicate of `CLAUDE.md`); history note and prior context fixed; Context & Cost built from the real spawn plan | C24–C37 | Now, except Context & Cost after #212 |
+| **5 · Sessions and worktrees** | Decide isolation (see D1), then make it true end to end: create, surface "missing", clean up safely, delete with the agent | S1-7, S1-8, S1-11, S1-17, S4-5 | After Wave 0 |
+| **6 · Windows first-class** (root 6) | Graceful shutdown and Job Object (no orphan agents), updater hook, no console window, visible startup errors, single instance, sleep inhibit, atomic-write retry, CRLF-safe parsers, one `isInside` path helper, OS-correct commands in the UI, **Windows CI job** | S1-4, S2-1, S2-17, S4-13, S4-15, S5-1, S5-3, S7-1–S7-21 | Now, except `runs.ts` shutdown hook after #212 |
+| **7 · Numbers you can trust** | Cost when no `result` arrives, de-duplicated usage, cache tokens shown, sub-agent rows excluded from totals, stuck sub-agent rows closed | S2-2–S2-6, S2-8 | After #212 (coordinate: it rewrites run accounting) |
+| **8 · Chat, missions, loops** | Reconnect doesn't double text; scheduled resume cancelled when resolved and sent as system; human-addressed posts and claims visible; `supersedes` taught and honoured; loop Stop stops; reviewer runs not charged to seats | S2-7, S2-9–S2-12, S3-1–S3-16 | Now, except files shared with #212 |
+| **9 · Retire the dead** (root 7) | Remove unused routes, files, exports, i18n keys, tables; one HTTP client that parses responses; env through `env`; regenerate API docs from the route table; rewrite the user docs against the code | S2-13, S2-15, S4-14, S4-17, S4-18, S4-24, S5-4, S5-5, S5-8, S5-11, S5-12, S6-1–S6-12, S1-16 | After #212 (shared files) |
+
+### Decisions needed before building
+
+- **D1 · Session isolation.** Every session of a git project gets its own worktree by default, including the first (recommended), or keep the shared main checkout and label it clearly?
+- **D2 · Skills.** One store, Claude Code's native `~/.claude/skills`, with the app as installer/editor and the CLI doing delivery (recommended), or keep the app's own inline/pointer mechanism?
+- **D3 · Starter agents' 99 missing skills.** Remove the names they can't resolve and keep only bundled skills (recommended), or ship the external skill pack in the bundle?
+- **D4 · Response style.** A user setting (yours defaults to the ADHD style) that agents can opt out of, instead of hard-coded product text (recommended)?
+- **D5 · Playwright toggle.** Remove it: the agent's tool list decides, `ToolSearch` keeps the cost low, and "Add Playwright server" lives on the MCP page (recommended)?
+- **D6 · Coordination with #212.** Tell #212's coordinator which files the later waves will touch, through the hub (needs your go-ahead, since it posts to GitHub)?
 
 ## App-wide sweep (2026-10-20)
 
