@@ -8,7 +8,7 @@ import { FlagCard, type FlagAction } from "@/modules/summon/components/flag-card
 import { REASON_ACTION } from "../format/provider-format";
 
 /** Run codes that mean the chosen AI provider failed, not the agent. */
-export const isProviderRunCode = (code: string): boolean => code.startsWith("provider_");
+export const isProviderRunCode = (code: string): boolean => code.startsWith("provider_") || code === "budget_exceeded";
 
 /**
  * A failed run on the chosen provider. The fix is always in Settings, never "sign in": the

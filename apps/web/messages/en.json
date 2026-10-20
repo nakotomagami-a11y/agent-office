@@ -945,7 +945,8 @@
       },
       "budget_exceeded": {
         "title": "Budget cap reached",
-        "body": "The run spent its cap at the price catalog's rates, so it was stopped. Raise the cap to continue."
+        "body": "The run spent its cap at the price catalog's rates, so it was stopped. Raise the cap to continue.",
+        "action": "Open AI provider settings"
       },
       "unknown": {
         "title": "Run error",

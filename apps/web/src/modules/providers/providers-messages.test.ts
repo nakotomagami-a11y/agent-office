@@ -31,8 +31,8 @@ test("every status reason has a title and a body", () => {
 });
 
 test("every provider run error code has a title, a body and the Settings action", () => {
-  const codes = RUN_ERROR_CODES.filter((c) => c.startsWith("provider_"));
-  assert.ok(codes.length >= 5, "the provider run codes are missing");
+  const codes = RUN_ERROR_CODES.filter((c) => c.startsWith("provider_") || c === "budget_exceeded");
+  assert.ok(codes.length >= 6, "the provider run codes are missing");
   for (const code of codes) {
     const copy = messages.errors.run[code];
     assert.ok(copy?.["title"] && copy["body"] && copy["action"], `errors.run.${code} needs title, body and action`);
