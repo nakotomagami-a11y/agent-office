@@ -29,9 +29,10 @@ export function contextCacheRates(model: string): CacheRates {
   const id = provider ? upstreamModelId(provider, model) : null;
   const price = id ? priceFor(id) : null;
   if (!price) return { write: 0, read: 0, known: false };
-  // OpenAI has no cache-write charge: the first turn bills the prompt as plain input.
+  // OpenAI has no cache-write charge (the first turn bills the prompt as input); Anthropic's is 1.25x.
+  const writeFallback = price.provider === "anthropic" ? price.inputPerMTok * 1.25 : price.inputPerMTok;
   return {
-    write: (price.cacheWritePerMTok ?? price.inputPerMTok) / 1_000_000,
+    write: (price.cacheWritePerMTok ?? writeFallback) / 1_000_000,
     read: (price.cacheReadPerMTok ?? price.inputPerMTok) / 1_000_000,
     known: true,
   };

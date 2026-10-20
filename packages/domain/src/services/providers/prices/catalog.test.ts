@@ -79,6 +79,19 @@ test("a price more than 100x off is rejected and keeps its last good value; new 
   assert.equal(catalog.priceFor("gpt-4o")?.inputPerMTok, 5);
   assert.equal(catalog.priceFor("gpt-new"), null);
   assert.ok(catalog.priceFor("o3"), "a model the new file lacks keeps its last price");
+  raw["gpt-5-mini"] = { ...raw["gpt-5-mini"], output_cost_per_new_surcharge: 1e-6 };
+  catalog.forgetPriceCatalog();
+  await catalog.refreshPrices(fakeFetch({ [LITELLM_URL]: ok(JSON.stringify(raw)) }), 3 * DAY);
+  assert.equal(catalog.priceFor("gpt-5-mini"), null, "a field it cannot price drops the old price: unknown, not cheaper");
+});
+
+test("a model id named like an object member is never a price", async () => {
+  await catalog.refreshPrices(litellmOnly, 1_000);
+  for (const id of ["constructor", "__proto__", "toString", "hasOwnProperty"]) assert.equal(catalog.priceFor(id), null, id);
+  writeFileSync(PRICE_CATALOG_FILE, '{"source":"litellm","fetchedAt":5,"entries":{"__proto__":{"provider":"openai","inputPerMTok":1,"outputPerMTok":2}}}');
+  catalog.forgetPriceCatalog();
+  assert.equal(catalog.priceFor("__proto__")?.inputPerMTok, 1, "an own key is read as data");
+  assert.equal(catalog.priceFor("constructor"), null);
 });
 
 test("a corrupt or hand-edited cache file is no cache", () => {

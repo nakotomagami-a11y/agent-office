@@ -53,7 +53,8 @@ export function pricesView(now = Date.now()): ModelPricesResponse {
 /** Null is unknown: no catalog, fetching off, or a model the catalog does not price. */
 export function priceFor(model: string): ModelPrice | null {
   if (!priceFetchEnabled()) return null;
-  return catalog()?.entries[model] ?? null;
+  const entries = catalog()?.entries;
+  return entries && Object.hasOwn(entries, model) ? entries[model]! : null;
 }
 
 /** When the catalog that priced these models was fetched; undefined when unknown. */
@@ -109,6 +110,7 @@ export function setPriceFetchEnabled(enabled: boolean): ModelPricesResponse {
 
 /** Never blocks boot: the first fetch runs in the background, then an unref'd hourly check. */
 export function startPriceRefresh(): void {
-  void refreshPricesIfDue();
-  setInterval(() => void refreshPricesIfDue(), 60 * 60_000).unref();
+  const tick = (): void => void refreshPricesIfDue().catch((err: unknown) => log.warn("prices.refresh_failed", { err: String(err) }));
+  tick();
+  setInterval(tick, 60 * 60_000).unref();
 }

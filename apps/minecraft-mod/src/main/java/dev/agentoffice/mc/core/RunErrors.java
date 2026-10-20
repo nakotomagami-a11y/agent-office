@@ -31,6 +31,7 @@ public final class RunErrors {
             Map.entry("provider_unreachable", "AI provider unreachable"),
             Map.entry("provider_model_not_found", "Model not found"),
             Map.entry("provider_mismatch", "AI provider mismatch"),
+            Map.entry("budget_exceeded", "Budget cap reached"),
             Map.entry("unknown", "Run error"));
 
     private RunErrors() {}

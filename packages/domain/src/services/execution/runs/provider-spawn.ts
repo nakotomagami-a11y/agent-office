@@ -43,6 +43,9 @@ export interface ProviderRefusal {
 
 const BUDGET_FLAG = "--max-budget-usd";
 
+/** The providers whose models the CLI does not know: the gateway maps their tiers and meters their cost. */
+const nonClaude = (p: Provider): p is "openai" | "local" => p === "openai" || p === "local";
+
 /** Flags come before `--`; whatever follows is the prompt, which may contain anything. */
 function flagAt(args: string[], flag: string): number {
   const end = args.indexOf("--");
@@ -55,7 +58,7 @@ function flagAt(args: string[], flag: string): number {
  */
 function budgetPlan(provider: Provider, args: string[]): { args: string[]; budgetUsd?: number } | null {
   const at = flagAt(args, BUDGET_FLAG);
-  if (at === -1 || !usesGateway(provider)) return { args };
+  if (at === -1 || !nonClaude(provider)) return { args };
   const stripped = [...args.slice(0, at), ...args.slice(at + 2)];
   if (provider === "local") return { args: stripped };
   const budgetUsd = Number(args[at + 1]);
@@ -64,10 +67,10 @@ function budgetPlan(provider: Provider, args: string[]): { args: string[]; budge
   return priced && Number.isFinite(budgetUsd) && budgetUsd > 0 ? { args: stripped, budgetUsd } : null;
 }
 
-/** The CLI maps only the three tier aliases to the provider's models; a full Claude id or fable would 404. */
+/** On openai/local the CLI maps only the three tier aliases to the provider's models; a full Claude id or fable would 404. */
 function tierArgs(provider: Provider, args: string[]): string[] {
   const at = flagAt(args, "--model");
-  const tier = at === -1 || !usesGateway(provider) ? null : tierOf(args[at + 1]);
+  const tier = at === -1 || !nonClaude(provider) ? null : tierOf(args[at + 1]);
   return tier ? args.map((a, i) => (i === at + 1 ? tier : a)) : args;
 }
 

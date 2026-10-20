@@ -12,13 +12,12 @@ interface Call {
   /** alias → original tool name, for names the request had to alias. */
   names: Map<string, string>;
   /** The worst case a response without usage is charged at. */
-  bound: { requestBytes: number; maxTokens: number };
+  bound: gateway.CallBound;
+  /** Charges this call once, however it ends. A local server is free: a no-op. */
+  settle: (usage: gateway.MessageUsage | null) => void;
 }
 
 const secretsOf = (call: Call): string[] => (call.key ? [call.key] : []);
-/** A local server is free; only openai spends. */
-const charge = (call: Call, usage: gateway.MessageUsage | null): void =>
-  void (call.provider === "openai" && gateway.chargeResponse(call.ownerId, call.req.model, usage, call.bound));
 const report = (call: Call, code: Parameters<typeof gateway.reportGatewayFailure>[1], detail: string): void =>
   gateway.reportGatewayFailure(call.ownerId, code, detail, secretsOf(call));
 
@@ -88,12 +87,35 @@ async function failure(call: Call, upstream: Response): Promise<Response> {
 const STREAM_END_CODE = { empty_response: "provider_unavailable", stream_incomplete: "provider_unreachable", truncated_tool_call: "unknown" } as const;
 const errorFrame = (message: string): string => gateway.sse("error", { error: { type: "api_error", message } });
 
+/** A cut stream (Stop, a dropped socket) never reaches flush: settle on cancel and on error too. */
+function settledOnEnd(stream: ReadableStream<Uint8Array>, settle: () => void): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { value, done } = await reader.read();
+        if (!done) return controller.enqueue(value);
+        settle();
+        controller.close();
+      } catch (err) {
+        settle();
+        controller.error(err);
+      }
+    },
+    async cancel(reason) {
+      settle();
+      await reader.cancel(reason);
+    },
+  });
+}
+
 function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
   const writer = new gateway.AnthropicStreamWriter(call.req.model, call.names);
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let buffered = "";
   let sawDone = false;
+  const settle = (): void => call.settle(writer.billedUsage());
   let failed = false;
   const line = (text: string, out: TransformStreamDefaultController<Uint8Array>): void => {
     const data = text.startsWith("data:") ? text.slice(5).trim() : "";
@@ -109,7 +131,7 @@ function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): Read
     const chunk = gateway.parseChatChunk(raw);
     if (chunk) for (const frame of writer.push(chunk)) out.enqueue(encoder.encode(frame));
   };
-  return upstream.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+  return settledOnEnd(upstream.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
     transform(bytes, out) {
       buffered += decoder.decode(bytes, { stream: true });
       const lines = buffered.split("\n");
@@ -118,25 +140,25 @@ function translateStream(call: Call, upstream: ReadableStream<Uint8Array>): Read
     },
     flush(out) {
       if (buffered) line(buffered, out);
-      charge(call, writer.billedUsage());
+      settle();
       if (failed) return;
       const end = writer.end(sawDone);
       if (end.ok) return end.frames.forEach((f) => out.enqueue(encoder.encode(f)));
       report(call, STREAM_END_CODE[end.reason], end.reason);
       out.enqueue(encoder.encode(errorFrame(end.reason)));
     },
-  }));
+  })), settle);
 }
 
 async function complete(call: Call, upstream: Response): Promise<Response> {
   const raw = jsonOf((await gateway.readCapped(upstream)).text);
   const inBand = gateway.inBandError(raw);
+  call.settle(inBand ? gateway.NO_USAGE : gateway.completionUsage(raw));
   if (inBand) {
     report(call, "unknown", `upstream error: ${inBand}`);
     return gatewayError(400, "invalid_request_error", "upstream rejected the request");
   }
   const message = gateway.fromChatCompletion(raw, call.req.model, call.names);
-  charge(call, gateway.completionUsage(raw));
   if (message) return Response.json(message);
   report(call, "provider_unavailable", "empty_response");
   return gatewayError(400, "invalid_request_error", "empty_response");
@@ -152,15 +174,17 @@ export async function proxyChat(
     gateway.reportGatewayFailure(owner.ownerId, target.code, target.detail);
     return gatewayError(target.status, target.type, target.detail);
   }
-  const refusal = owner.provider === "openai" ? gateway.budgetRefusal(owner.ownerId) : null;
-  if (refusal) {
-    gateway.reportGatewayFailure(owner.ownerId, "unknown", refusal);
-    return gatewayError(400, "invalid_request_error", refusal);
+  const bound = { requestBytes: Buffer.byteLength(body), maxTokens: parsed.data.max_tokens };
+  const charge = owner.provider === "openai" ? gateway.openCharge(owner.ownerId, parsed.data.model, bound) : { settle: () => {} };
+  if ("refusal" in charge) {
+    gateway.reportGatewayFailure(owner.ownerId, "budget_exceeded", charge.refusal);
+    return gatewayError(400, "invalid_request_error", charge.refusal);
   }
   const names = gateway.reverseAliases(gateway.toolAliases(parsed.data));
-  const bound = { requestBytes: Buffer.byteLength(body), maxTokens: parsed.data.max_tokens };
-  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal, opts, names, bound };
+  const call: Call = { ...owner, url: target.url, key: target.key, req: parsed.data, signal: request.signal, opts, names, bound, settle: charge.settle };
   const upstream = await send(call);
+  // An error status or no response at all is not billed.
+  if (typeof upstream === "string" || !upstream.ok) call.settle(gateway.NO_USAGE);
   if (typeof upstream === "string") {
     // Stop and a closed client abort the fetch too: that is not the provider failing.
     if (upstream !== "aborted") report(call, "provider_unreachable", upstream);

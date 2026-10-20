@@ -3,7 +3,8 @@
 // field this code does not understand is left out, so its price is unknown rather than wrong.
 import type { ModelPrice } from "../../../types/index";
 
-export type PriceTable = Map<string, ModelPrice>;
+/** `null`: the catalog lists the model but this code cannot price it, so any older price is dropped too. */
+export type PriceTable = Map<string, ModelPrice | null>;
 type Rate = "input" | "output" | "cacheRead" | "cacheWrite";
 
 const PER_MTOK = 1_000_000;
@@ -61,7 +62,7 @@ export function parseLiteLlm(raw: unknown): PriceTable {
     if (entry.mode !== undefined && entry.mode !== "chat") continue;
     const rates = litellmRates(entry);
     const price = rates && toPrice(provider, rates);
-    if (price) table.set(model, price);
+    table.set(model, price || null);
   }
   return table;
 }
@@ -105,7 +106,7 @@ export function parseOpenRouter(raw: unknown): PriceTable {
     const model = provider === "anthropic" ? match[2]!.replace(/\./g, "-") : match[2]!;
     const rates = openRouterRates(pricing);
     const price = rates && toPrice(provider, rates);
-    if (price) table.set(model, price);
+    table.set(model, price || null);
   }
   return table;
 }

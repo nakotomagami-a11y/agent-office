@@ -28,9 +28,10 @@ async function fetchOne(fetchFn: FetchFn, url: string, parse: (raw: unknown) => 
     const { text, complete } = await readCapped(res, MAX_CATALOG_BYTES);
     if (!complete) return "too_large_or_cut";
     const table = parse(JSON.parse(text));
-    return table.size > 0 ? table : "no_prices";
+    return [...table.values()].some(Boolean) ? table : "no_prices";
   } catch (err) {
-    return err instanceof SyntaxError ? "not_json" : (err as Error).name || "fetch_failed";
+    if (err instanceof SyntaxError) return "not_json";
+    return err instanceof Error ? err.name : "fetch_failed";
   }
 }
 

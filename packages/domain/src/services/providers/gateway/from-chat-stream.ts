@@ -17,9 +17,9 @@ const chunkSchema = z.object({
     finish_reason: z.string().nullish(),
   })).default([]),
   usage: z.object({
-    prompt_tokens: z.number().optional(),
-    completion_tokens: z.number().optional(),
-    prompt_tokens_details: z.object({ cached_tokens: z.number().optional() }).nullish(),
+    prompt_tokens: z.number().nonnegative().optional(),
+    completion_tokens: z.number().nonnegative().optional(),
+    prompt_tokens_details: z.object({ cached_tokens: z.number().nonnegative().optional() }).nullish(),
   }).nullish(),
 });
 export type ChatChunk = z.infer<typeof chunkSchema>;

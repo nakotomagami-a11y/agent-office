@@ -11,6 +11,7 @@ import { parseLiteLlm, parseOpenRouter, perMTok } from "./parse";
 
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`./${name}.fixture.json`, import.meta.url), "utf8"));
 const litellm = fixture("litellm") as Record<string, Record<string, unknown>>;
+const priced = (t: Map<string, unknown>): number => [...t.values()].filter(Boolean).length;
 
 test("per-token prices become per-million in one place, without float noise", () => {
   assert.equal(perMTok(0.00000125), 1.25);
@@ -35,9 +36,9 @@ test("LiteLLM: a tiered model is priced at its highest tier; service tiers are i
 });
 
 test("LiteLLM: a pricing field this code does not understand makes the model unknown, not cheaper", () => {
-  assert.equal(parseLiteLlm(litellm).has("gpt-6-luna"), false);
+  assert.equal(parseLiteLlm(litellm).get("gpt-6-luna"), null, "listed, so an older price is dropped");
   const odd = { "x-1": { litellm_provider: "openai", mode: "chat", input_cost_per_token: 1e-6, output_cost_per_token: 2e-6, output_cost_per_thought: 1 } };
-  assert.equal(parseLiteLlm(odd).size, 0);
+  assert.equal(priced(parseLiteLlm(odd)), 0);
 });
 
 test("LiteLLM: one malformed entry drops only itself", () => {
@@ -49,14 +50,14 @@ test("LiteLLM: one malformed entry drops only itself", () => {
     "gpt-zero": { litellm_provider: "openai", input_cost_per_token: 0, output_cost_per_token: 1e-6 },
   });
   assert.ok(table.has("gpt-5"));
-  for (const bad of ["broken", "gpt-neg", "gpt-nan", "gpt-zero"]) assert.equal(table.has(bad), false, bad);
+  for (const bad of ["broken", "gpt-neg", "gpt-nan", "gpt-zero"]) assert.equal(table.get(bad) ?? null, null, bad);
   assert.equal(parseLiteLlm(null).size, 0);
   assert.equal(parseLiteLlm([1, 2]).size, 0);
 });
 
 test("OpenRouter: provider/model ids map to the bare ids, at the highest override tier", () => {
   const table = parseOpenRouter(fixture("openrouter"));
-  assert.deepStrictEqual([...table.keys()].sort(), ["claude-haiku-5-5", "claude-sonnet-4-5", "gpt-5"]);
+  assert.deepStrictEqual([...table.keys()].filter((k) => table.get(k)).sort(), ["claude-haiku-5-5", "claude-sonnet-4-5", "gpt-5"]);
   assert.deepStrictEqual(table.get("claude-sonnet-4-5"), {
     provider: "anthropic", inputPerMTok: 6, outputPerMTok: 22.5, cacheReadPerMTok: 0.6, cacheWritePerMTok: 7.5,
   });
@@ -64,7 +65,7 @@ test("OpenRouter: provider/model ids map to the bare ids, at the highest overrid
 });
 
 test("OpenRouter: an unknown field, a bad tier or a bad number makes the model unknown", () => {
-  const entry = (pricing: unknown) => parseOpenRouter({ data: [{ id: "openai/x", pricing }] }).size;
+  const entry = (pricing: unknown) => priced(parseOpenRouter({ data: [{ id: "openai/x", pricing }] }));
   assert.equal(entry({ prompt: "0.000001", completion: "0.000002" }), 1);
   assert.equal(entry({ prompt: "0.000001", completion: "0.000002", per_thought: "1" }), 0);
   assert.equal(entry({ prompt: "0.000001", completion: "0.000002", overrides: ["x"] }), 0);

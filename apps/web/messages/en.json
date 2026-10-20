@@ -943,6 +943,10 @@
         "body": "The agent signed in some other way than the chosen AI provider, so the run was stopped.",
         "action": "Open AI provider settings"
       },
+      "budget_exceeded": {
+        "title": "Budget cap reached",
+        "body": "The run spent its cap at the price catalog's rates, so it was stopped. Raise the cap to continue."
+      },
       "unknown": {
         "title": "Run error",
         "body": "The agent hit an error."

@@ -57,10 +57,15 @@ test("gateway providers: a Claude model id becomes its tier alias, fable runs as
     assert.deepStrictEqual(plan.args.slice(2), ["-p", "--model", tier, "--", "--model"], model);
     releaseProviderSpawn(`tier-${model}`, plan.pinFile);
   }
-  store.setSelection("subscription", "chosen");
-  const sub = spawn("tier-sub", ["-p", "--model", "claude-fable-5"]);
-  assert.ok(sub.ok && sub.args.includes("claude-fable-5"), "subscription keeps the exact id");
-  releaseProviderSpawn("tier-sub", sub.pinFile);
+  store.saveProviderConfig("anthropic_api", { apiKey: "sk-ant-api03-spawn-test-00000000" });
+  for (const provider of ["subscription", "anthropic_api"] as const) {
+    store.setSelection(provider, "chosen");
+    const plan = spawn(`claude-${provider}`, ["-p", "--model", "claude-fable-5", "--max-budget-usd", "1"]);
+    assert.ok(plan.ok, provider);
+    assert.deepStrictEqual(plan.args.slice(2), ["-p", "--model", "claude-fable-5", "--max-budget-usd", "1"], `${provider}: the CLI keeps the exact id and enforces the cap itself`);
+    assert.equal(gatewaySpend(`claude-${provider}`)?.budgetUsd, undefined);
+    releaseProviderSpawn(`claude-${provider}`, plan.pinFile);
+  }
   store.setSelection("openai", "chosen");
 });
 

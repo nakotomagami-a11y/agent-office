@@ -196,7 +196,8 @@ skips seats; only the agent's own text (not a sub-agent's) is read as its outbox
 **Caps per AI provider.** On the subscription and an Anthropic API key the CLI enforces
 `--max-budget-usd` itself. On OpenAI the CLI cannot price the model, so the gateway enforces the
 cap from the price catalog: every response is charged from its real usage (cached and reasoning
-tokens included, each rate at its highest tier) and the request after the cap is refused. A seat
+tokens included, each rate at its highest tier) and the request after the cap is refused, ending
+the turn as `budget_exceeded`. A seat
 whose mapped models are not all priced, or with price fetching off, cannot start a turn
 (`provider_unavailable: budget_unenforceable`). A local server is free: the flag is dropped and
 the seat spends nothing.

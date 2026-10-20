@@ -41,7 +41,7 @@ export function readCatalogFile(file = PRICE_CATALOG_FILE): CatalogFile | null {
     const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
     const raw = record(parsed);
     if (!raw || (raw.source !== "litellm" && raw.source !== "openrouter") || !positive(raw.fetchedAt)) return null;
-    const entries: Record<string, ModelPrice> = {};
+    const entries: Record<string, ModelPrice> = Object.create(null);
     for (const [model, value] of Object.entries(record(raw.entries) ?? {})) {
       const price = asPrice(value);
       if (price) entries[model] = price;
@@ -65,11 +65,15 @@ function wildChange(prev: ModelPrice, next: ModelPrice): boolean {
   });
 }
 
-/** A rejected entry keeps its last good value; a model the new table lacks keeps its old one. */
+/** A 100x jump keeps the last good value, as does a model the new table lacks; one it cannot price is dropped. */
 export function mergePrices(prev: Record<string, ModelPrice>, next: PriceTable): Record<string, ModelPrice> {
-  const merged = { ...prev };
+  const merged: Record<string, ModelPrice> = Object.assign(Object.create(null), prev);
   for (const [model, price] of next) {
-    const old = prev[model];
+    const old = Object.hasOwn(prev, model) ? prev[model] : undefined;
+    if (!price) {
+      delete merged[model];
+      continue;
+    }
     if (old && wildChange(old, price)) {
       log.warn("prices.rejected", { model, reason: "change_over_100x" });
       continue;

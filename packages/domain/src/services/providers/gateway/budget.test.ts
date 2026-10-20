@@ -1,6 +1,6 @@
 /**
  * The openai budget math: real usage at the catalog price (cached and reasoning tokens counted), the
- * worst case when no usage came back, and the refusal once the cap is reached or the price is lost.
+ * worst case when no usage came back, holds for calls in flight, and the refusal at the cap.
  *
  *   pnpm --filter @agent-office/domain test src/services/providers/gateway/budget.test.ts
  */
@@ -14,7 +14,7 @@ const sandbox = mkdtempSync(join(tmpdir(), "ao-gateway-budget-"));
 process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 
-const { budgetRefusal, chargeResponse, usageCostUsd } = await import("./budget");
+const { openCharge, usageCostUsd } = await import("./budget");
 const { completionUsage } = await import("./from-chat");
 const { AnthropicStreamWriter, parseChatChunk } = await import("./from-chat-stream");
 const { gatewaySpend, issueGatewayToken } = await import("../gateway-tokens");
@@ -41,23 +41,43 @@ test("both translators report what OpenAI billed: cached split out, reasoning in
   assert.equal(completionUsage({ choices: [{ message: { content: "x" } }] }), null);
 });
 
-test("charges add up per run; no usage is charged the worst case; an unpriced model marks the run", () => {
+const ZERO = { requestBytes: 0, maxTokens: 0 };
+type Opened = ReturnType<typeof openCharge>;
+const settled = (o: Opened) => {
+  assert.ok("settle" in o, JSON.stringify(o));
+  return o.settle;
+};
+
+test("each call settles once: real usage, or the worst case when none came; an unpriced model marks the run", () => {
   issueGatewayToken("b1", "openai", 1);
-  chargeResponse("b1", "gpt-5", { input_tokens: 800, output_tokens: 500, cache_read_input_tokens: 200 }, { requestBytes: 0, maxTokens: 0 });
-  chargeResponse("b1", "gpt-5", null, { requestBytes: 4000, maxTokens: 1000 });
+  const first = settled(openCharge("b1", "gpt-5", ZERO));
+  first({ input_tokens: 800, output_tokens: 500, cache_read_input_tokens: 200 });
+  first({ input_tokens: 1e9, output_tokens: 1e9 });
+  settled(openCharge("b1", "gpt-5", { requestBytes: 4000, maxTokens: 1000 }))(null);
   assert.equal(gatewaySpend("b1")?.spentUsd, EXPECTED + (4000 * 1.25 + 1000 * 10) / 1e6);
-  assert.equal(budgetRefusal("b1"), null);
-  chargeResponse("b1", "gpt-mystery", null, { requestBytes: 1, maxTokens: 1 });
-  assert.match(budgetRefusal("b1") ?? "", /price became unknown/);
+  assert.equal(gatewaySpend("b1")?.reservedUsd, 0);
+  assert.deepStrictEqual(openCharge("b1", "gpt-mystery", ZERO), { refusal: "budget_exceeded: the price is unknown" });
+  issueGatewayToken("b4", "openai");
+  settled(openCharge("b4", "gpt-mystery", ZERO))(null);
+  assert.equal(gatewaySpend("b4")?.unpriced, true, "uncapped: runs on, but its cost becomes unknown");
 });
 
-test("a capped run is refused once its spend reaches the cap; an uncapped one never is", () => {
+test("a capped run is refused once spent plus calls in flight reach the cap; the crossing call still runs", () => {
   issueGatewayToken("b2", "openai", 0.01);
-  chargeResponse("b2", "gpt-5", { input_tokens: 0, output_tokens: 999 }, { requestBytes: 0, maxTokens: 0 });
-  assert.equal(budgetRefusal("b2"), null);
-  chargeResponse("b2", "gpt-5", { input_tokens: 0, output_tokens: 1 }, { requestBytes: 0, maxTokens: 0 });
-  assert.match(budgetRefusal("b2") ?? "", /^budget_exceeded: spent \$0\.0100 of \$0\.01$/);
+  settled(openCharge("b2", "gpt-5", ZERO))({ input_tokens: 0, output_tokens: 999 });
+  const crossing = settled(openCharge("b2", "gpt-5", ZERO));
+  crossing({ input_tokens: 0, output_tokens: 1 });
+  assert.deepStrictEqual(openCharge("b2", "gpt-5", ZERO), { refusal: "budget_exceeded: spent $0.0100 of $0.01" });
   issueGatewayToken("b3", "openai");
-  chargeResponse("b3", "gpt-5", { input_tokens: 1e9, output_tokens: 1e9 }, { requestBytes: 0, maxTokens: 0 });
-  assert.equal(budgetRefusal("b3"), null);
+  settled(openCharge("b3", "gpt-5", ZERO))({ input_tokens: 1e9, output_tokens: 1e9 });
+  assert.ok("settle" in openCharge("b3", "gpt-5", ZERO), "uncapped: never refused");
+});
+
+test("parallel calls: the worst case of the ones in flight counts against the cap until they settle", () => {
+  issueGatewayToken("p", "openai", 0.05);
+  const a = settled(openCharge("p", "gpt-5", { requestBytes: 0, maxTokens: 5000 }));
+  const refused = openCharge("p", "gpt-5", { requestBytes: 0, maxTokens: 10 });
+  assert.deepStrictEqual(refused, { refusal: "budget_exceeded: spent $0.0000 (+$0.0500 in flight) of $0.05" });
+  a({ input_tokens: 0, output_tokens: 100 });
+  assert.ok("settle" in openCharge("p", "gpt-5", ZERO), "the hold is released when the call settles");
 });

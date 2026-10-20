@@ -324,7 +324,8 @@ with a per-run bearer token, so no provider key ever enters a child process.
   kept, per million tokens, each rate at its **highest** tier; a model with a pricing field the
   parser does not know is unknown. A fetch is merged into the last good cache
   (`~/.claude/agent-office/price-catalog.json`, atomic): a rate more than 100× off its old value
-  keeps the old one. Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
+  keeps the old one, and a model the catalog lists but this code cannot price loses any old one
+  (unknown, never cheaper). Older than 7 days is `stale` (still used, labelled). The `_price_fetch_enabled`
   ui_settings key (`PUT /api/model-prices/settings`) turns every fetch off; then every price is
   unknown. `POST /api/model-prices/refresh` makes at most one upstream attempt a minute (429).
 - **Cost:** `runCost` (`runs/provider-spawn.ts`) sets `cost_usd` and `cost_basis` when a run ends.
@@ -336,11 +337,15 @@ with a per-run bearer token, so no provider key ever enters a child process.
   A `local` run is `free`. A local server that reports usage only on request shows 0 tokens: the
   gateway asks for streamed usage (`stream_options`) only from OpenAI.
 - **Caps:** on openai the CLI's own `--max-budget-usd` would price the wrong model, so the flag is
-  removed and the cap rides on the run token: the gateway refuses the request after the cap is
-  spent (or once a price turns unknown) with an Anthropic-shaped 400 and ends the run. A cap whose
-  mapped models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops
-  the flag. On the gateway providers a Claude model id in `--model` becomes its tier alias (fable
-  runs as opus), since the CLI maps only the aliases to the provider's models.
+  removed and the cap rides on the run token. Each call holds its worst case until it settles
+  (finished, cut by Stop or a dropped socket, or failed: an error status is not billed), so
+  parallel sub-agents cannot all pass the check at once. Once spent plus held reaches the cap (or a
+  price turns unknown) the next request gets an Anthropic-shaped 400 and the run ends as
+  `budget_exceeded`; as with the CLI's cap, the call that crosses it still runs. A cap whose mapped
+  models are not all priced is refused before spawn (`budget_unenforceable`). `local` drops the
+  flag. On openai and local a Claude model id in `--model` becomes its tier alias (fable runs as
+  opus), since the CLI maps only the aliases to their models; `anthropic_api` keeps the exact id
+  and the CLI's own cap.
 
 ## SSE events
 

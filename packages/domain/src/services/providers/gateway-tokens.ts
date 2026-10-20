@@ -12,6 +12,8 @@ interface TokenEntry {
   /** The run's `--max-budget-usd`, enforced here because the CLI prices only Claude models. */
   budgetUsd?: number;
   spentUsd: number;
+  /** The worst case of calls still in flight. */
+  reservedUsd: number;
   /** A response whose model had no catalog price: the run's cost is unknown. */
   unpriced: boolean;
 }
@@ -28,7 +30,7 @@ const digestOf = (token: string): Buffer => createHash("sha256").update(token).d
 export function issueGatewayToken(ownerId: string, provider: Provider, budgetUsd?: number): string {
   const token = randomBytes(32).toString("base64url");
   const digest = digestOf(token);
-  tokens.set(digest.toString("hex"), { digest, ownerId, provider, budgetUsd, spentUsd: 0, unpriced: false });
+  tokens.set(digest.toString("hex"), { digest, ownerId, provider, budgetUsd, spentUsd: 0, reservedUsd: 0, unpriced: false });
   return token;
 }
 
@@ -53,7 +55,12 @@ export function chargeGatewayRun(ownerId: string, usd: number | null): void {
   else entry.spentUsd += usd;
 }
 
-export function gatewaySpend(ownerId: string): { spentUsd: number; unpriced: boolean; budgetUsd?: number } | null {
+export function reserveGatewayRun(ownerId: string, usd: number): void {
   const entry = entryOf(ownerId);
-  return entry ? { spentUsd: entry.spentUsd, unpriced: entry.unpriced, budgetUsd: entry.budgetUsd } : null;
+  if (entry) entry.reservedUsd = Math.max(0, entry.reservedUsd + usd);
+}
+
+export function gatewaySpend(ownerId: string): { spentUsd: number; reservedUsd: number; unpriced: boolean; budgetUsd?: number } | null {
+  const entry = entryOf(ownerId);
+  return entry ? { spentUsd: entry.spentUsd, reservedUsd: entry.reservedUsd, unpriced: entry.unpriced, budgetUsd: entry.budgetUsd } : null;
 }
