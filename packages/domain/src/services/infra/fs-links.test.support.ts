@@ -16,13 +16,16 @@ export function linkTo(target: string, path: string): void {
 
 /**
  * A second name for an existing file, for tests that check a write never goes
- * through to the original. A POSIX symlink is the real attack; a junction cannot
- * point at a file, and a Windows file symlink needs privilege, so there it is a
- * hard link: both names share the content, which is exactly what an in-place
- * write would corrupt.
+ * through to the original. The real attack is a symlink, so that is tried first
+ * everywhere; only where the OS refuses it (Windows without Developer Mode,
+ * EPERM) does it become a hard link. Both names then share the content, which is
+ * exactly what an in-place write would corrupt, so the assertion still bites.
  */
 export function aliasFile(target: string, path: string): void {
-  if (ON_WINDOWS) linkSync(target, path);
-  else symlinkSync(target, path);
+  try {
+    symlinkSync(target, path);
+  } catch (err) {
+    if (!ON_WINDOWS || (err as NodeJS.ErrnoException).code !== "EPERM") throw err;
+    linkSync(target, path);
+  }
 }
-
