@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/format-date";
 import { cn } from "@/lib/cn";
 import { requestBody } from "../format/provider-draft";
 import { useProviderSetup } from "../hooks/use-provider-setup";
+import { PriceSourceLine } from "./price-source";
 import { ProviderSetupPanel } from "./provider-setup-panel";
 
 function StatusPill({ view }: { view: ProviderView | undefined }) {
@@ -71,6 +72,11 @@ export function ProviderSettingsTab() {
             </Button>
           ) : null}
         </div>
+      </div>
+      <div className="flex flex-col gap-[8px] rounded-[22px] surface-sheen px-[22px] py-[16px] shadow-[var(--lift)]">
+        <div className="text-[14.5px] font-bold">{t("prices_title")}</div>
+        <p className="m-0 text-[11.5px] leading-[1.55] text-txt-3 text-pretty">{t("prices_hint")}</p>
+        <PriceSourceLine withRefresh />
       </div>
     </>
   );

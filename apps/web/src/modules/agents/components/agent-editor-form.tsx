@@ -26,6 +26,7 @@ import { DocsRender } from "@/modules/docs/docs-render";
 import { EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { MODEL_CATALOG } from "@agent-office/domain/config/models";
 import { useModelChoices } from "@/modules/providers/hooks/use-model-choices";
+import { PriceSourceLine } from "@/modules/providers/components/price-source";
 import {
   UNIT_FACTIONS,
   UNIT_KINDS,
@@ -706,6 +707,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
                     );
                   })}
                 </div>
+                <PriceSourceLine />
               </div>
 
               {/* Effort: only where the provider honours it */}
