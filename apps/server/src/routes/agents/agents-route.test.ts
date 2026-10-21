@@ -79,3 +79,14 @@ test("the body route only reads: its PUT, which wiped CRLF frontmatter, is gone"
   assert.equal("PUT" in bodyRoute, false);
   assert.equal(typeof bodyRoute.GET, "function");
 });
+
+test("PUT with only a name and a model keeps the prompt, tools, skills and permission mode", async () => {
+  const file = join(paths.AGENTS_DIR, "route-partial.md");
+  writeFileSync(file, "---\nname: route-partial\ndescription: d\ntools: [Read, Bash]\nskills: [alpha]\npermission-mode: plan\n---\n\nmy prompt\n");
+  const res = await putAgent("route-partial", { name: "route-partial", model: "opus" });
+  assert.equal(res.status, 200);
+  const saved = readFileSync(file, "utf8");
+  for (const kept of ["tools: [Read, Bash]", "skills: [alpha]", "permission-mode: plan", "my prompt", "default-model: opus"]) {
+    assert.ok(saved.includes(kept), `lost: ${kept}`);
+  }
+});

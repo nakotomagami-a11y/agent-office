@@ -27,6 +27,23 @@ export const agentBodySchema = z.object({
 
 export const agentBodyListSchema = z.array(agentBodySchema);
 
+/** PUT /api/agents/:id: only the keys sent change. With create's defaults, `{ name, model }`
+ *  became an empty prompt with no tools. The path names the file, so a body `id` is ignored. */
+export const agentUpdateSchema = z.object({
+  name: z.string().min(1),
+  desc: z.string(),
+  skills: z.array(z.string()),
+  tools: z.array(z.string()),
+  pm: z.string().trim().pipe(z.enum(PERMISSION_MODE_OPTS)),
+  model: z.string(),
+  effort: z.string(),
+  body: z.string(),
+  room: z.string(),
+  unit: z.string(),
+  panel: z.array(z.object({ agent: z.string(), seat: z.string().default("") })),
+  addDirs: z.array(z.string().min(1)),
+}).partial();
+
 export const settingsPatchSchema = z.object({
   projectsRoot: z.string().min(1),
   excluded: z.array(z.string()).default([]),

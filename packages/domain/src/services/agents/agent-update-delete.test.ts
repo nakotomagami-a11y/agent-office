@@ -5,16 +5,19 @@
  *   pnpm --filter @agent-office/domain test src/services/agents/agent-update-delete.test.ts
  */
 import assert from "node:assert";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
-import type { AgentBody } from "../../types";
+import { after, test } from "node:test";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR } from "../infra/paths";
-import { deleteAgent, listAgentBodyHistory, readAgent, updateAgent } from "./agents";
+import { deleteAgent, listAgentBodyHistory, readAgent, updateAgent, type AgentPatch } from "./agents";
 
-const edit = (id: string, patch: Partial<AgentBody> = {}): AgentBody => ({
-  id, name: id, desc: "d", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high", body: "prompt", ...patch,
+const before = new Set(existsSync(AGENTS_DIR) ? readdirSync(AGENTS_DIR) : []);
+after(() => {
+  for (const f of readdirSync(AGENTS_DIR)) if (!before.has(f)) rmSync(join(AGENTS_DIR, f), { force: true });
 });
+
+const edit = (id: string, patch: AgentPatch = {}) =>
+  updateAgent(id, { name: id, desc: "d", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high", body: "prompt", ...patch });
 
 function agentFile(id: string, content = `---\nname: ${id}\ndescription: d\n---\n\nprompt\n`): string {
   mkdirSync(AGENTS_DIR, { recursive: true });
@@ -24,19 +27,19 @@ function agentFile(id: string, content = `---\nname: ${id}\ndescription: d\n---\
 }
 
 test("updating an id with no file is a 404 and creates nothing", () => {
-  assert.deepEqual(updateAgent(edit("nobody-here")), { ok: false, error: "not_found", status: 404 });
+  assert.deepEqual(edit("nobody-here"), { ok: false, error: "not_found", status: 404 });
   assert.equal(existsSync(join(AGENTS_DIR, "nobody-here.md")), false);
 });
 
 test("a save that leaves the body alone takes no snapshot, so it cannot evict a real one", () => {
   agentFile("steady");
-  for (const model of ["opus", "haiku", "sonnet"]) assert.ok(updateAgent(edit("steady", { model })).ok);
+  for (const model of ["opus", "haiku", "sonnet"]) assert.ok(edit("steady", { model }).ok);
   assert.deepEqual(listAgentBodyHistory("steady"), []);
 });
 
 test("a changed body snapshots the previous one", () => {
   agentFile("changing");
-  assert.ok(updateAgent(edit("changing", { body: "new prompt" })).ok);
+  assert.ok(edit("changing", { body: "new prompt" }).ok);
   const [snap] = listAgentBodyHistory("changing");
   assert.ok(snap);
   assert.equal(readFileSync(join(AGENTS_DIR, snap.filename), "utf8"), "prompt");
@@ -45,13 +48,35 @@ test("a changed body snapshots the previous one", () => {
 
 test("a refused write takes no snapshot", () => {
   agentFile("unclosed", "---\nname: unclosed\ndescription: d\n\nprompt\n");
-  assert.equal(updateAgent(edit("unclosed", { body: "other" })).ok, false);
+  assert.equal(edit("unclosed", { body: "other" }).ok, false);
   assert.deepEqual(listAgentBodyHistory("unclosed"), []);
+});
+
+test("a partial update changes only the keys it carries", () => {
+  // The schema's defaults turned `{ name, model }` into an empty prompt, no tools and default permissions.
+  const path = agentFile("partial", "---\nname: partial\ndescription: keep me\ntools: [Read, Bash]\nskills: [alpha]\npermission-mode: plan\nroom: Lab\n---\n\nmy prompt\n");
+  assert.ok(updateAgent("partial", { name: "partial", model: "opus" }).ok);
+  const info = readAgent("partial")!;
+  assert.equal(info.body, "my prompt");
+  assert.deepEqual(info.info.tools, ["Read", "Bash"]);
+  assert.deepEqual(info.info.skills, ["alpha"]);
+  assert.equal(info.info.permissionMode, "plan");
+  assert.equal(info.info.room, "Lab");
+  assert.equal(info.info.description, "keep me");
+  assert.match(readFileSync(path, "utf8"), /^default-model: opus$/m);
+  assert.deepEqual(listAgentBodyHistory("partial"), []);
+});
+
+test("an empty room or unit clears it", () => {
+  agentFile("roomy", "---\nname: roomy\ndescription: d\nroom: Lab\nunit: elf/mage\n---\n\np\n");
+  assert.ok(updateAgent("roomy", { room: "", unit: "" }).ok);
+  assert.equal(readAgent("roomy")!.info.room, undefined);
+  assert.equal(readAgent("roomy")!.info.unit, undefined);
 });
 
 test("a save keeps the frontmatter name the CLI knows the agent by", () => {
   const path = agentFile("qa_bot", "---\nname: Reviewer\ndescription: d\n---\n\nprompt\n");
-  assert.ok(updateAgent(edit("qa_bot", { name: "Reviewer", model: "opus" })).ok);
+  assert.ok(edit("qa_bot", { name: "Reviewer", model: "opus" }).ok);
   const saved = readFileSync(path, "utf8");
   assert.match(saved, /^name: Reviewer$/m);
   assert.doesNotMatch(saved, /display-name/);

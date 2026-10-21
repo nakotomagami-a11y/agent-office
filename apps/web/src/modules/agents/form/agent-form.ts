@@ -83,8 +83,8 @@ export function toBody(values: AgentFormValues): AgentBody {
     model: values.model,
     effort: values.effort,
     body: values.body,
-    room: values.room.trim() || undefined,
-    unit: values.unit.trim() || undefined,
+    room: values.room.trim(),
+    unit: values.unit.trim(),
     panel: values.panel,
   };
 }

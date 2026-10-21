@@ -34,3 +34,9 @@ test("saving an edit goes to the agent's own file, whatever its frontmatter name
 test("a new agent's id is still slugged from what was typed", () => {
   assert.equal(toBody({ ...fromApi(agent(), "b"), fileId: undefined, id: "", name: "My Agent" }).id, "my-agent");
 });
+
+test("a cleared room or unit is sent as empty, which clears it; absent would keep the old one", () => {
+  const body = toBody({ ...fromApi(agent({ room: "Lab", unit: "elf/mage" }), "b"), room: "", unit: " " });
+  assert.equal(body.room, "");
+  assert.equal(body.unit, "");
+});

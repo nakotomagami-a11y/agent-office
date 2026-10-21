@@ -6,12 +6,20 @@
  *   pnpm --filter @agent-office/domain test src/services/agents/agent-save.test.ts
  */
 import assert from "node:assert";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import type { AgentBody } from "../../types";
 import { AGENTS_DIR } from "../infra/paths";
 import { createAgent, readAgent, writeAgent } from "./agents";
+
+const save = (b: AgentBody) => writeAgent(b.id, b);
+
+// The test home is shared with every other file in the run: agent-surface.test reads what is left here.
+const before = new Set(existsSync(AGENTS_DIR) ? readdirSync(AGENTS_DIR) : []);
+after(() => {
+  for (const f of readdirSync(AGENTS_DIR)) if (!before.has(f)) rmSync(join(AGENTS_DIR, f), { force: true });
+});
 
 const FILE = [
   "---",
@@ -56,7 +64,7 @@ test("a save that changes only the model keeps add-dirs, unknown keys, comments 
   const path = join(AGENTS_DIR, "keeper.md");
   writeFileSync(path, FILE);
 
-  writeAgent(bodyFor("keeper", { model: "opus" }));
+  save(bodyFor("keeper", { model: "opus" }));
 
   const saved = readFileSync(path, "utf8");
   assert.match(saved, /^default-model: opus$/m);
@@ -72,7 +80,7 @@ test("a save that changes only the model keeps add-dirs, unknown keys, comments 
 
 test("a key the form clears is removed, and so is our alias of it", () => {
   writeFileSync(join(AGENTS_DIR, "aliased.md"), "---\nname: aliased\ndescription: d\ndisplayName: Old\nroom: Lab\nextra: 1\n---\n\nb\n");
-  writeAgent(bodyFor("aliased", { room: undefined }));
+  save(bodyFor("aliased", { room: undefined }));
   const saved = readFileSync(join(AGENTS_DIR, "aliased.md"), "utf8");
   assert.doesNotMatch(saved, /displayName/, "a stale alias would resurface once display-name is gone");
   assert.doesNotMatch(saved, /^room:/m);
@@ -81,11 +89,11 @@ test("a key the form clears is removed, and so is our alias of it", () => {
 
 test("the CLI's own model: key is kept and follows the form", () => {
   writeFileSync(join(AGENTS_DIR, "native.md"), "---\nname: native\ndescription: d\nmodel: opus\n---\n\nb\n");
-  writeAgent(bodyFor("native", { model: "haiku" }));
+  save(bodyFor("native", { model: "haiku" }));
   const saved = readFileSync(join(AGENTS_DIR, "native.md"), "utf8");
   assert.match(saved, /^model: haiku$/m);
   assert.doesNotMatch(saved, /default-model/);
-  writeAgent(bodyFor("native", { model: "default" }));
+  save(bodyFor("native", { model: "default" }));
   const cleared = readFileSync(join(AGENTS_DIR, "native.md"), "utf8");
   assert.doesNotMatch(cleared, /^model:/m, "`model: default` is not a value the CLI takes");
   assert.equal(readAgent("native")!.info.defaultModel, "default");
@@ -93,7 +101,7 @@ test("the CLI's own model: key is kept and follows the form", () => {
 
 test("addDirs sent by a client replaces the file's add-dirs", () => {
   writeFileSync(join(AGENTS_DIR, "dirs.md"), "---\nname: dirs\ndescription: d\naddDirs: [~/old]\n---\n\nb\n");
-  writeAgent(bodyFor("dirs", { addDirs: ["~/new"] }));
+  save(bodyFor("dirs", { addDirs: ["~/new"] }));
   assert.deepEqual(readAgent("dirs")!.info.addDirs, ["~/new"]);
   assert.doesNotMatch(readFileSync(join(AGENTS_DIR, "dirs.md"), "utf8"), /addDirs/);
 });
@@ -128,7 +136,7 @@ for (const [label, content] of [
   test(`a file with ${label} is read and saved without losing keys`, () => {
     writeFileSync(join(AGENTS_DIR, "bom.md"), content);
     assert.deepEqual(readAgent("bom")!.info.addDirs, ["/x"]);
-    const result = writeAgent({ id: "bom", name: "bom", desc: "d", body: "body", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high" });
+    const result = save({ id: "bom", name: "bom", desc: "d", body: "body", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high" });
     assert.ok(result.ok);
     const saved = readFileSync(join(AGENTS_DIR, "bom.md"), "utf8");
     assert.match(saved, /^add-dirs: \[\/x\]$/m);
@@ -139,7 +147,7 @@ for (const [label, content] of [
 test("a frontmatter block that never closes is refused, not overwritten", () => {
   const path = join(AGENTS_DIR, "open.md");
   writeFileSync(path, "---\nname: open\ncustom: keep\n\nbody without a closing fence\n");
-  const result = writeAgent({ id: "open", name: "open", desc: "d", body: "b", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high" });
+  const result = save({ id: "open", name: "open", desc: "d", body: "b", skills: [], tools: [], pm: "default", model: "sonnet", effort: "high" });
   assert.deepEqual(result, { ok: false, error: "frontmatter_unparseable", status: 422 });
   assert.match(readFileSync(path, "utf8"), /custom: keep/);
 });
@@ -147,7 +155,7 @@ test("a frontmatter block that never closes is refused, not overwritten", () => 
 // Second review: escapes inside quotes ended the quote early, so a value Agent Office wrote itself was cut at its `#`.
 test('a description with quotes and a # survives a save and a read: Say "hi" #2 fan', () => {
   writeFileSync(join(AGENTS_DIR, "quoted.md"), "---\nname: quoted\ndescription: d\n---\n\nb\n");
-  writeAgent(bodyFor("quoted", { desc: 'Say "hi" #2 fan' }));
+  save(bodyFor("quoted", { desc: 'Say "hi" #2 fan' }));
   assert.equal(readAgent("quoted")!.info.description, 'Say "hi" #2 fan');
 });
 
@@ -156,7 +164,7 @@ test('a description with quotes and a # survives a save and a read: Say "hi" #2 
 for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]]) {
   test(`a flow list with escaped quotes round-trips: ${JSON.stringify(tools)}`, () => {
     writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
-    writeAgent(bodyFor("flow", { tools }));
+    save(bodyFor("flow", { tools }));
     assert.deepEqual(readAgent("flow")!.info.tools, tools);
   });
 }
@@ -164,7 +172,7 @@ for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]])
 test("Windows paths round-trip: a backslash before n or t is not a newline or a tab", () => {
   writeFileSync(join(AGENTS_DIR, "winpath.md"), "---\nname: winpath\ndescription: d\n---\n\nb\n");
   const dirs = ["C:\\Users\\MeiLi\\notes", "D:\\tmp\\new"];
-  writeAgent(bodyFor("winpath", { desc: "Reads C:\\notes\\todo", addDirs: dirs }));
+  save(bodyFor("winpath", { desc: "Reads C:\\notes\\todo", addDirs: dirs }));
   const info = readAgent("winpath")!.info;
   assert.deepEqual(info.addDirs, dirs);
   assert.equal(info.description, "Reads C:\\notes\\todo");
@@ -172,9 +180,9 @@ test("Windows paths round-trip: a backslash before n or t is not a newline or a 
 
 test("a save that doesn't change the model leaves a differing CLI model: alone", () => {
   writeFileSync(join(AGENTS_DIR, "both.md"), "---\nname: both\ndescription: d\ndefault-model: sonnet\nmodel: opus\n---\n\nb\n");
-  writeAgent(bodyFor("both", { desc: "changed" }));
+  save(bodyFor("both", { desc: "changed" }));
   assert.match(readFileSync(join(AGENTS_DIR, "both.md"), "utf8"), /^model: opus$/m);
-  writeAgent(bodyFor("both", { model: "haiku" }));
+  save(bodyFor("both", { model: "haiku" }));
   const saved = readFileSync(join(AGENTS_DIR, "both.md"), "utf8");
   assert.match(saved, /^default-model: haiku$/m);
   assert.match(saved, /^model: haiku$/m, "a change the user made reaches the key the CLI reads");
@@ -183,7 +191,7 @@ test("a save that doesn't change the model leaves a differing CLI model: alone",
 test("an empty frontmatter block is a frontmatter block, even with a rule further down", () => {
   writeFileSync(join(AGENTS_DIR, "empty-fm.md"), "---\n---\n\nprompt\n\n---\n\nmore\n");
   assert.equal(readAgent("empty-fm")!.body, "prompt\n\n---\n\nmore");
-  assert.ok(writeAgent(bodyFor("empty-fm")).ok);
+  assert.ok(save(bodyFor("empty-fm")).ok);
 });
 
 test("an unknown escape keeps its backslash, and \\u / \\x escapes decode", () => {
@@ -191,7 +199,7 @@ test("an unknown escape keeps its backslash, and \\u / \\x escapes decode", () =
   const info = readAgent("escapes")!.info;
   assert.deepEqual(info.addDirs, ["C:\\Users\\me"], "hand-written C:\\Users\\me lost its backslashes");
   assert.equal(info.description, "caf\u00e9 A");
-  writeAgent(bodyFor("escapes"));
+  save(bodyFor("escapes"));
   assert.deepEqual(readAgent("escapes")!.info.addDirs, ["C:\\Users\\me"], "a save must not make the loss permanent");
   assert.equal(readAgent("escapes")!.info.description, "caf\u00e9 A");
 });

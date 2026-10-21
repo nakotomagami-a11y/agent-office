@@ -130,10 +130,12 @@ export function listAgents(): ApiAgent[] {
 
 export type WriteAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
 
-export function writeAgent(b: AgentBody): WriteAgentResult {
-  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
+/** The fields a client sends; an absent one keeps the file's value. */
+export type AgentPatch = Partial<Omit<AgentBody, "id">>;
+
+export function writeAgent(id: string, b: AgentPatch): WriteAgentResult {
+  if (!isValidIdSegment(id)) return { ok: false, error: "invalid_id", status: 400 };
   ensureDir(AGENTS_DIR);
-  const id = b.id;
   const file = join(AGENTS_DIR, `${id}.md`);
   const current = existsSync(file) ? readFileSync(file, "utf8") : "";
   const split = splitAgentFile(current);
@@ -141,26 +143,25 @@ export function writeAgent(b: AgentBody): WriteAgentResult {
   if (!split && opensFrontmatter(current)) return { ok: false, error: "frontmatter_unparseable", status: 422 };
   // Renaming the agent the CLI sees is not an edit the form can make.
   const name = (split && asString(parseAgentFrontmatter(split.yaml).name)) || id;
+  const owned: Record<string, YamlValue | undefined> = { name };
   // Human display name. Only persisted when it adds information over the name,
   // so trivial "name == id" agents keep a clean frontmatter and fall back to
   // slug-prettifying in the UI.
   const label = b.name?.trim();
-  const owned: Record<string, YamlValue | undefined> = {
-    name,
-    description: b.desc.replace(/\n/g, " "),
-    "default-model": b.model,
-    "default-effort": b.effort,
-    skills: b.skills,
-    tools: b.tools,
-    "permission-mode": b.pm,
-    "display-name": label && label !== name ? label : undefined,
-    room: b.room || undefined,
-    unit: b.unit?.trim() || undefined,
-  };
-  // Absent = the client doesn't edit it (the editor has no field for either), so the file's value stays.
+  if (b.name !== undefined) owned["display-name"] = label && label !== name ? label : undefined;
+  if (b.desc !== undefined) owned.description = b.desc.replace(/\n/g, " ");
+  if (b.model !== undefined) owned["default-model"] = b.model;
+  if (b.effort !== undefined) owned["default-effort"] = b.effort;
+  if (b.skills) owned.skills = b.skills;
+  if (b.tools) owned.tools = b.tools;
+  if (b.pm !== undefined) owned["permission-mode"] = b.pm;
+  // Present but empty clears; the editor sends "" for a cleared field.
+  if ("room" in b) owned.room = b.room || undefined;
+  if ("unit" in b) owned.unit = b.unit?.trim() || undefined;
   if (b.panel) owned.panel = b.panel.length ? (b.panel as unknown as YamlValue) : undefined;
   if (b.addDirs) owned["add-dirs"] = b.addDirs.length ? b.addDirs : undefined;
-  writeFileAtomic(file, `---\n${mergeFrontmatter(split?.yaml ?? "", owned)}\n---\n\n${b.body}\n`);
+  const body = b.body ?? split?.body.trim() ?? "";
+  writeFileAtomic(file, `---\n${mergeFrontmatter(split?.yaml ?? "", owned)}\n---\n\n${body}\n`);
   return { ok: true, value: id };
 }
 
@@ -168,16 +169,20 @@ export function writeAgent(b: AgentBody): WriteAgentResult {
 export function createAgent(b: AgentBody): WriteAgentResult {
   if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
   if (existsSync(join(AGENTS_DIR, `${b.id}.md`))) return { ok: false, error: "agent_exists", status: 409 };
-  return writeAgent(b);
+  const { id, ...fields } = b;
+  return writeAgent(id, fields);
 }
 
-export function updateAgent(b: AgentBody): WriteAgentResult {
-  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
-  const before = readAgent(b.id);
+export function updateAgent(id: string, patch: AgentPatch): WriteAgentResult {
+  if (!isValidIdSegment(id)) return { ok: false, error: "invalid_id", status: 400 };
+  const before = readAgent(id);
   if (!before) return { ok: false, error: "not_found", status: 404 };
-  const result = writeAgent(b);
   // Only a real change: a model switch snapshotted identical bodies and evicted real ones.
-  if (result.ok && before.body && before.body !== b.body.trim()) backupAgentBody(b.id, before.body);
+  const changed = patch.body !== undefined && before.body !== "" && before.body !== patch.body.trim();
+  const snapshot = changed ? snapshotAgentBody(id, before.body) : null;
+  const result = writeAgent(id, patch);
+  if (result.ok) pruneAgentBodyHistory(id);
+  else if (snapshot) rmSync(snapshot, { force: true });
   return result;
 }
 
@@ -225,17 +230,28 @@ export function listAgentBodyHistory(id: string): AgentBodyHistoryEntry[] {
     .sort((a, b) => b.ts - a.ts);
 }
 
-/** Snapshot the given body text to a timestamped file, pruning to the newest
- *  MAX_BODY_HISTORY. Best-effort — never throws (a failed backup must not block a save). */
-export function backupAgentBody(id: string, bodyText: string): void {
+/** Taken before the write it guards, so a failed write still leaves the old body on disk.
+ *  A failed snapshot is logged and does not block the save. */
+export function snapshotAgentBody(id: string, bodyText: string): string | null {
   try {
     ensureDir(AGENTS_DIR);
-    writeFileAtomic(join(AGENTS_DIR, `${bodyHistoryPrefix(id)}${Date.now()}.md`), bodyText);
-    for (const { filename } of listAgentBodyHistory(id).slice(MAX_BODY_HISTORY)) {
-      try { unlinkSync(join(AGENTS_DIR, filename)); } catch { /* best-effort */ }
+    const path = join(AGENTS_DIR, `${bodyHistoryPrefix(id)}${Date.now()}.md`);
+    writeFileAtomic(path, bodyText);
+    return path;
+  } catch (err) {
+    log.warn("agents.body_snapshot_failed", { id, err: String(err) });
+    return null;
+  }
+}
+
+/** Keeps the newest MAX_BODY_HISTORY; only after a write succeeded, so a refused one evicts nothing. */
+export function pruneAgentBodyHistory(id: string): void {
+  for (const { filename } of listAgentBodyHistory(id).slice(MAX_BODY_HISTORY)) {
+    try {
+      unlinkSync(join(AGENTS_DIR, filename));
+    } catch (err) {
+      log.warn("agents.body_prune_failed", { id, filename, err: String(err) });
     }
-  } catch {
-    // backup failure must never block the save
   }
 }
 

@@ -82,8 +82,8 @@ const API: DocsExport["api"] = [
   {
     method: "PUT",
     path: "/api/agents/[id]",
-    description: "Update an existing agent (404 if missing); a changed body is snapshotted after the write",
-    request_type: "agentBodySchema",
+    description: "Update an existing agent (404 if missing): only the keys sent change; a changed body is snapshotted",
+    request_type: "agentUpdateSchema (partial)",
     response_type: "{ id: string }",
   },
   {
