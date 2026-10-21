@@ -545,7 +545,7 @@
     "keep": "Keep work",
     "discard": "Discard work",
     "remove": "Remove",
-    "agent_delete_confirm": "Delete agent \"{id}\"? Its sessions in every project are removed too; their conversations stay archived. A copy of its definition, memory and identity files is kept in ~/.claude/agent-office/backups/agents/.",
+    "agent_delete_confirm": "Delete agent \"{id}\"? Its sessions in every project are removed too: their worktrees and branches are deleted and cannot be restored (you are asked first if they hold work on no other branch), and files git ignores in them (.env, local config) go with them. Their conversations stay archived. A copy of the agent's definition, memory and identity files is kept in ~/.claude/agent-office/backups/agents/.",
     "agent_delete_has_work": "{count, plural, one {One of its sessions has} other {# of its sessions have}} work that is on no other branch ({names}). OK deletes the agent but keeps that work: worktree folders with changes and branches with commits stay on disk. Cancel deletes nothing."
   },
   "project_activity": {
