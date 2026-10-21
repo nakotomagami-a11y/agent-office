@@ -8,7 +8,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, win32 } from "node:path";
 import { expandTilde, isInside, pathKey, samePath } from "./paths";
@@ -72,4 +72,6 @@ test("on disk, a path is judged by where it leads: a link out of the root is not
   assert.equal(samePath(join(root, "link"), outside), true);
   assert.equal(isInside(join(root, "not-yet", "child"), root), true, "a missing path still sits inside its parent");
   assert.equal(pathKey(join(root, "not-yet")), join(pathKey(root), "not-yet"));
+  assert.equal(isInside(join(root, "link"), root, undefined, "lexical"), true, "lexical judges the spelling only");
+  rmSync(base, { recursive: true, force: true });
 });

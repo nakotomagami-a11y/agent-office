@@ -19,10 +19,12 @@ const nativePath: PathApi = sep === "\\" ? win32 : posix;
  * A path that does not exist resolves through its deepest existing ancestor, so a missing child
  * still sits inside its resolved parent. Windows compares case-insensitively. `pathApi` is a
  * parameter so tests can pin `path.win32`; only the native one reads the disk.
+ * `"lexical"` skips the disk, for a bound that only limits what is READ: a Documents folder
+ * moved to another drive by a junction is still the user's Documents.
  */
-export function pathKey(p: string, pathApi: PathApi = nativePath): string {
+export function pathKey(p: string, pathApi: PathApi = nativePath, links: Links = "follow"): string {
   const abs = pathApi.resolve(p);
-  const real = pathApi === nativePath ? realpathOfDeepest(abs) : abs;
+  const real = pathApi === nativePath && links === "follow" ? realpathOfDeepest(abs) : abs;
   return pathApi.sep === "\\" ? real.toLowerCase() : real;
 }
 
@@ -40,14 +42,16 @@ function realpathOfDeepest(abs: string): string {
   }
 }
 
-export function samePath(a: string, b: string, pathApi: PathApi = nativePath): boolean {
-  return pathKey(a, pathApi) === pathKey(b, pathApi);
+type Links = "follow" | "lexical";
+
+export function samePath(a: string, b: string, pathApi: PathApi = nativePath, links: Links = "follow"): boolean {
+  return pathKey(a, pathApi, links) === pathKey(b, pathApi, links);
 }
 
 /** `child` is strictly below `parent`. Never `startsWith(parent + "/")`: that refused every
  *  Windows path and every mixed-separator one, so guarded deletes silently did nothing. */
-export function isInside(child: string, parent: string, pathApi: PathApi = nativePath): boolean {
-  const rel = pathApi.relative(pathKey(parent, pathApi), pathKey(child, pathApi));
+export function isInside(child: string, parent: string, pathApi: PathApi = nativePath, links: Links = "follow"): boolean {
+  const rel = pathApi.relative(pathKey(parent, pathApi, links), pathKey(child, pathApi, links));
   return rel !== "" && rel !== ".." && !rel.startsWith(".." + pathApi.sep) && !pathApi.isAbsolute(rel);
 }
 

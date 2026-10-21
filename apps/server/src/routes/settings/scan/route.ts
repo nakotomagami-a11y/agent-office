@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   // Expand ~ before resolving — path.resolve treats ~ as a literal directory
   // name relative to cwd, producing a nonsense path like /cwd/~/Documents.
   const root = resolve(q.root ? expandTilde(q.root) : HOME);
-  if (!samePath(root, HOME) && !isInside(root, HOME)) {
+  if (!samePath(root, HOME, undefined, "lexical") && !isInside(root, HOME, undefined, "lexical")) {
     return badRequest("root_outside_home");
   }
 

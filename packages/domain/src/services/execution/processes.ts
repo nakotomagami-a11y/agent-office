@@ -2,24 +2,19 @@
 // owning PID, and match it to a project by cwd. The per-OS probing (Linux,
 // macOS, Windows) lives in ./process-scan. Backs GET /api/processes.
 import { execFileSync } from "node:child_process";
-import { normalize, sep } from "node:path";
+import { sep } from "node:path";
 import type { ProcessInfo } from "../../types/index";
 import type { BackgroundShellRow } from "../db/background-shells";
 import * as projects from "../projects/projects";
 import * as db from "../db";
 import { log } from "../infra/log";
+import { pathKey } from "../infra/paths";
 import { readProcUid, scanner, type ProcDetails } from "./process-scan";
 
 type SortedProject = { id: string; name: string; cwd: string };
 type ProjectMatch = { projectId: string; projectName: string } | undefined;
 
-const caseInsensitivePaths = process.platform === "win32" || process.platform === "darwin";
 const CMD_MAX = 120;
-
-function pathKey(p: string): string {
-  const n = normalize(p);
-  return caseInsensitivePaths ? n.toLowerCase() : n;
-}
 
 function buildSortedProjectList(): SortedProject[] {
   return projects
