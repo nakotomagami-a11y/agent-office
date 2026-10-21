@@ -10,7 +10,6 @@ import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useCompareStore } from "@/lib/compare-store";
 import { useProcessesStore } from "@/lib/processes-store";
 import { useClaudeLimitsStore } from "@/lib/claude-limits-store";
-import { useFlutterStore } from "@/lib/flutter-store";
 import { useDevServerStore } from "@/lib/dev-server-store";
 
 type Readable = { getState: () => unknown };
@@ -29,7 +28,6 @@ const STORES: Record<string, Readable> = {
   compare: useCompareStore,
   processes: useProcessesStore,
   claudeLimits: useClaudeLimitsStore,
-  flutter: useFlutterStore,
   devServer: useDevServerStore,
 };
 

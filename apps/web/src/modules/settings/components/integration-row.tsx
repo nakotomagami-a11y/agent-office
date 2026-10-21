@@ -5,9 +5,7 @@ import { cn } from "@/lib/cn";
 
 const INTEGRATION_IMAGE: Record<string, string> = {
   github: "/icons/github.png",
-  flutter: "/icons/pigeon.png",
   "iso-view": "/icons/isomap.png",
-  "about-you": "/icons/aboutyou.png",
 };
 
 /** One integration row: icon, label (+ status badge), description, and a toggle.

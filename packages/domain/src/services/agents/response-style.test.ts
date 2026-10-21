@@ -5,17 +5,12 @@ import { withProjectsConfig } from "../settings";
 import { RESPONSE_STYLE } from "../../config/response-style";
 import type { AppSettings } from "../../types/index";
 
-test("every other agent gets the response style, with no setting to turn it on", () => {
+test("every agent gets the response style, with no setting to turn it on", () => {
   for (const agent of ["developer", "qa-code-review", "an-agent-that-does-not-exist"]) {
     const seg = composeAppendedPrompt(agent, null).find((s) => s.key === "response-style");
     assert.equal(seg?.body, RESPONSE_STYLE, agent);
     assert.ok(buildAppendedPrompt(agent, null).includes(RESPONSE_STYLE), agent);
   }
-});
-
-test("user-analyst profiles the user, so it is not handed the style's premise about them", () => {
-  assert.equal(composeAppendedPrompt("user-analyst", null).find((s) => s.key === "response-style"), undefined);
-  assert.ok(!buildAppendedPrompt("user-analyst", null).includes(RESPONSE_STYLE));
 });
 
 test("the response style is built in, so Context & Cost shows it as not trimmable", () => {
@@ -30,7 +25,7 @@ test("saving the projects root keeps integrations and feature flags", () => {
     excluded: ["a"],
     firstRunComplete: false,
     features: { multiInstance: true },
-    integrations: { flutter: true },
+    integrations: { "iso-view": true },
   };
   const next = withProjectsConfig(current, { projectsRoot: " /new ", excluded: [] });
   assert.deepEqual(next, { ...current, projectsRoot: "/new", excluded: [], firstRunComplete: true });

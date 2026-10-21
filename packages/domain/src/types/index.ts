@@ -323,15 +323,6 @@ export interface DocsIndex {
   tabs: DocsTabConfig[];
 }
 
-/** An adb/flutter device — GET /api/flutter/devices. */
-export interface FlutterDevice {
-  id: string;
-  name: string;
-  model: string;
-  status: "device" | "offline" | "unauthorized" | "no permissions";
-  transportType: "usb" | "tcp";
-}
-
 /** A tracked dev/build server process — GET /api/processes. */
 export interface ProcessInfo {
   pid: number;
@@ -821,12 +812,6 @@ export interface AccountStats {
   runs7d: number;
   runsAllTime: number;
   cost7dUsd: number;
-}
-
-export interface UserAnalysis {
-  markdown: string | null;
-  updatedAt: string | null;
-  wordCount: number | null;
 }
 export * from "./thread";
 export * from "./review";

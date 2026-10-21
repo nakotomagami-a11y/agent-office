@@ -7,7 +7,6 @@ export * as projects from "./projects/projects";
 export * as projectBootstrap from "./projects/project-bootstrap";
 export * as projectMapFile from "./projects/project-map-file";
 export * as skills from "./skills/skills";
-export * as userAnalysis from "./analytics/user-analysis";
 export * as runs from "./execution/runs";
 export * as summon from "./execution/summon";
 export * as summonRun from "./execution/summon-run";

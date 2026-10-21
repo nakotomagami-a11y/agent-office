@@ -184,8 +184,6 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 | `GET` | `/api/processes` | List user's listening ports (Linux, macOS, Windows) and agent background shells |
 | `GET` | `/api/processes/:pid` | Check process liveness |
 | `DELETE` | `/api/processes/:pid` | SIGKILL process the user owns (on Windows/macOS checked first; `503 ownership_unverified` if the check cannot run) |
-| `GET` | `/api/processes/:pid/logs` | Captured stdout/stderr |
-| `POST` | `/api/processes/:pid/stdin` | Inject stdin (`{text}`) |
 
 ### Settings
 
@@ -240,13 +238,11 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 | `PUT` | `/api/drafts` | Write / update a draft |
 | `DELETE` | `/api/drafts` | Clear a draft |
 
-### Transcripts & analysis
+### Transcripts
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/transcripts` | Direct transcript listing (bypasses run scoping) |
-| `GET` | `/api/user-analysis` | Latest About You analysis + version history |
-| `POST` | `/api/user-analysis` | Regenerate About You analysis (dispatches `user-analyst`) |
 
 ### Save / import / starter
 
@@ -267,15 +263,6 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 | `GET` | `/api/docs/content` | Docs tab config (from `_index.json`) |
 | `GET` | `/api/docs/content?file=<f>` | Raw markdown body of one docs file |
 | `GET` | `/api/docs/export` | Bundle all docs pages as a single export |
-
-### Flutter integration
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/flutter/devices` | Enumerate connected Flutter devices |
-| `GET` | `/api/flutter/mirror` | Live-stream a device screen (MJPEG) |
-| `POST` | `/api/flutter/run` | Spawn `flutter run` in a terminal |
-| `POST` | `/api/flutter/screenshot` | Capture the current device screen |
 
 ### Account & clipboard
 
@@ -389,7 +376,7 @@ A separate SSE stream, one per browser tab, for coarse domain events unrelated t
 | `conversations:changed` | A conversation transitioned state (queued a message, started a run, hit `needs_attention`, etc.) |
 | `schedules:changed` | The scheduler created, fired, or updated a job |
 
-The client maps each event type to a React Query `invalidateQueries` call by key prefix (`app/app-events.tsx`), replacing most `refetchInterval` polling for runs/spend/conversations/schedules with instant, push-driven refresh. Polling still runs on those queries as a slow (60s, `NEXT_PUBLIC_POLL_SAFETY_NET`) reconnect safety net. External-world state (OAuth login, credential-file appearance, OS process liveness, connected hardware) is **not** on this channel — those still poll on their own short, purpose-specific intervals, since the server can only learn about them by polling too.
+The client maps each event type to a React Query `invalidateQueries` call by key prefix (`app/app-events.tsx`), replacing most `refetchInterval` polling for runs/spend/conversations/schedules with instant, push-driven refresh. Polling still runs on those queries as a slow (60s, `NEXT_PUBLIC_POLL_SAFETY_NET`) reconnect safety net. External-world state (OAuth login, credential-file appearance, OS process liveness) is **not** on this channel — those still poll on their own short, purpose-specific intervals, since the server can only learn about them by polling too.
 
 ### Wire format examples
 
@@ -516,7 +503,7 @@ sqlite3 -header -column ~/.claude/agent-office/db.sqlite "
 - **Backend** — Next.js API routes, embedded in Tauri via `next start`
 - **Desktop shell** — Tauri v2 (Rust + WebView)
 - **Data** — SQLite (better-sqlite3), plain Markdown files under `~/.claude/`
-- **Streaming** — Server-Sent Events for run output, WebSocket-adjacent for Flutter mirror
+- **Streaming** — Server-Sent Events for run output
 
 ### Run lifecycle
 
@@ -635,9 +622,7 @@ Client-only state stores (persisted where noted):
 | `performance-store` | server via `ui_settings.performance-mode` | `full` \| `lite` \| `off` |
 | `claude-limits-store` | server via `ui_settings.claude-limits` | Spend-cap config |
 | `compare-store` | localStorage | Runs selected for compare across route transitions |
-| `flutter-store` | in-memory | Flutter mirror connection |
 | `dev-server-store` | in-memory | Dev server states per project |
-| `server-process-store` | in-memory | General process tracking |
 | `branch-store` | in-memory | Cached git branch per project |
 | `draft-store` | server via `/api/drafts` | Composer drafts (per agent + instance) |
 | `transcript-store` | in-memory | Current transcript playback state |

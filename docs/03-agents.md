@@ -94,7 +94,7 @@ When you summon an agent, Agent Office builds an appended prompt passed to Claud
 
 1. **Skills** — bodies of all installed skills in the agent's `skills` list, concatenated in order.
 2. **Identity** — contents of `~/.claude/agents/<id>.identity.md`, if present. Foundational, ships-with-the-agent knowledge (distinct from memory, which accumulates locally) — sits right after skills, before any memory tier.
-3. **Response style** — built-in writing rules for a reader with ADHD (`packages/domain/src/config/response-style.ts`): lead with the next action, numbered steps, no filler. Every agent except `user-analyst` (it profiles you, so it must not be handed a premise about you), every turn. Say "stop adhd mode" or "normal mode" to drop it for the rest of a conversation.
+3. **Response style** — built-in writing rules for a reader with ADHD (`packages/domain/src/config/response-style.ts`): lead with the next action, numbered steps, no filler. Every agent, every turn. Say "stop adhd mode" or "normal mode" to drop it for the rest of a conversation.
 4. **Global memory** — contents of `~/.claude/agents/_global.memory.md` — applies to every agent.
 5. **Active project** — active project name, working directory, and description.
 6. **Project environment** — non-secret manifest of which Claude account, GitHub identity, and named secrets (never values) are available in this run's environment, so the agent knows rather than guesses. Only present when a project is active and has at least one of these configured.
@@ -147,7 +147,7 @@ Do not write `claude-opus-4-7` or any pinned version string in a `.md` frontmatt
 
 ## Starter roster — the bundled agent army
 
-A fresh clone ships 32 agents grouped by role. All use aliased models. All ship with matching skills, tool sets, and explicit refuse lists. Import them from the first-run wizard or via `POST /api/starter/agents`.
+A fresh clone ships 33 agents grouped by role. All use aliased models. All ship with matching skills, tool sets, and explicit refuse lists. Import them from the first-run wizard or via `POST /api/starter/agents`.
 
 ### Development tiers
 
@@ -203,7 +203,6 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 | `product-manager` | PRDs, story decomposition, RICE/ICE prioritization |
 | `tech-writer` | READMEs, ADRs, API references, changelog prose |
 | `data-analyst` | SQL over SQLite/Postgres — read-only, shows the query |
-| `user-analyst` | Person-portrait from local data (About You tab) |
 | `explore` | Read-only code / documentation research, returns briefing |
 | `web-researcher` | External web fetch with citations for other agents to reason on |
 | `assistant` | General-purpose escape hatch when no specialist fits |

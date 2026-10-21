@@ -59,7 +59,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 - **Project tabs** — hold multiple projects open Chrome-style; each tab's chat, stream, and draft are preserved. See [Interface → Project tabs](#/interface).
 - **Multi-account** — connect several Claude accounts, see per-account usage in Analytics, and register GitHub identities per project. See [Interface → Settings](#/interface).
 - **Missions, drafts, attachments** — coordinate agents on several devices through a GitHub draft PR, autosave composer text, drop or paste files and images. See [Interface → Chat features](#/interface).
-- **Processes panel** — every dev server and build the app spawns, with live logs and stdin. See [Usage → Processes panel](#/usage).
+- **Processes panel** — every dev server and build the app spawns, with live status. See [Usage → Processes panel](#/usage).
 - **Project actions** — dev / build / install / clear-cache / open-folder, plus a git status widget and template bootstrapping. See [Projects → Actions](#/projects).
 - **Office view** — an isometric office (or a flat card grid) with a desk per agent and live status LEDs; one of several ways to see your team, not the point of the app. See [Usage → Office floor](#/usage).
 

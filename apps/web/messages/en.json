@@ -7,7 +7,7 @@
   },
   "nav": {
     "office": "Office",
-    "activity": "Activity",
+    "analytics": "Analytics",
     "templates": "Templates",
     "projects": "Projects",
     "skills": "Skills",
@@ -396,9 +396,6 @@
   "projects_page": {
     "sub": "· scanned from your projects root"
   },
-  "activity_page": {
-    "sub": "· run history across all agents"
-  },
   "settings_page": {
     "sub": "· local-only configuration"
   },
@@ -611,19 +608,16 @@
     "delete_folder_aria": "Delete folder {name}",
     "unsaved_root_hint": "Save the projects root to shelve or delete these folders.",
     "tab_projects": "Projects",
-    "tab_about_you": "About You",
     "tabs_aria": "Settings tabs"
   },
   "settings_nav": {
     "group_workspace_label": "Workspace",
     "group_credentials_label": "Credentials",
-    "group_you_label": "You",
     "group_system_label": "System",
     "nav_projects_label": "Projects",
     "nav_bundled_agents_label": "Bundled agents",
     "nav_integrations_label": "Integrations",
     "nav_secrets_label": "Secrets",
-    "nav_about_you_label": "About You",
     "nav_performance_label": "Performance",
     "nav_cleanup_label": "Cleanup",
     "nav_provider_label": "AI provider"
@@ -670,8 +664,6 @@
     "row_orphaned_runs_desc": "Deletes runs left interrupted by an app crash or forced kill. Chat turns are kept.",
     "row_agent_memory_label": "Agent memory files",
     "row_agent_memory_desc": "Removes per-agent memory. The global memory file is preserved.",
-    "row_user_analysis_label": "User analysis file",
-    "row_user_analysis_desc": "Deletes the About You dossier. Regenerates on the next analyst run.",
     "row_skill_cache_label": "Downloaded and bundled skills",
     "row_skill_cache_desc": "Deletes skills installed from the registry (reinstall them from Skills) and unedited bundled starter skills (restored at the next server start). Skills you created or imported, and any you edited in Agent Office, are kept.",
     "row_ui_settings_label": "App UI settings",

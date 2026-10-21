@@ -156,24 +156,16 @@ Where to see spend:
 
 ## Processes panel
 
-Every dev server, build, and background process spawned by Agent Office is captured. Open the Processes panel to see live status and stream stdio.
+Every dev server, build, and background process spawned by Agent Office is captured. Open the Processes panel to see live status.
 
 ### Accessing the panel
 
 Toolbar → Processes icon (or `Cmd+Shift+P`).
 
-### Log tailing
-
-`GET /api/processes/:pid/logs?since=<offset>` returns captured stdout/stderr from `since` onwards. The panel polls this to render live logs.
-
 ### Process lifecycle
 
 - Foreground processes started by an agent (`nohup dev &`) are NOT captured unless started via `POST /api/projects/:id/dev`.
-- Processes started outside Agent Office (e.g. in a separate terminal) are listed for visibility only. Their stdio is not captured, so log tailing returns `found: false`.
-
-### Send stdin
-
-For processes that accept stdin (interactive shells), `POST /api/processes/:pid/stdin` with `{text}` sends the input.
+- Processes started outside Agent Office (e.g. in a separate terminal) are listed for visibility only.
 
 ## Roster migration — applying bundled agent updates
 

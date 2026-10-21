@@ -283,7 +283,7 @@ Segment order:
 
 1. Skills (most stable — each skill's SKILL.md body, inlined or referenced by path depending on size)
 2. Identity (`~/.claude/agents/<id>.identity.md`) — foundational, ships with the agent
-3. Response style (`config/response-style.ts`) — built in, every agent except `user-analyst`, every turn
+3. Response style (`config/response-style.ts`) — built in, every agent, every turn
 4. Global memory (`~/.claude/agents/_global.memory.md`)
 5. Active project (name, cwd, description)
 6. Project environment — account/GitHub identity/secret **names** (never values), from `buildProjectEnvironmentBlock`
@@ -388,7 +388,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 
 A second, separate SSE stream broadcasts coarse **domain** events unrelated to any one run's output: `runs:changed`, `spend:changed`, `conversations:changed`, `schedules:changed` (see `services/infra/events.ts`'s `emitAppEvent`/`onAppEvent`). One `EventSource` per browser tab (`app/app-events.tsx`, mounted once in `providers.tsx`) maps each event type to a React Query `invalidateQueries` call by key prefix, replacing most of what used to be `refetchInterval` polling for runs lists, office agent statuses, spend, conversations, and schedules. Polling still exists on those queries as a slow (60s) reconnect safety net, not the primary freshness mechanism.
 
-**Not converted to this channel** (deliberately still polling, on their own short intervals): anything watching *external* state the server only learns by polling itself — OAuth login completion, credential-file appearance after a terminal `claude login`/`gh auth login`, OS process liveness, connected hardware (Flutter devices). Routing those through `/api/events` would just relocate the poll server-side for no gain in a single-user app.
+**Not converted to this channel** (deliberately still polling, on their own short intervals): anything watching *external* state the server only learns by polling itself — OAuth login completion, credential-file appearance after a terminal `claude login`/`gh auth login`, OS process liveness. Routing those through `/api/events` would just relocate the poll server-side for no gain in a single-user app.
 
 ---
 
@@ -487,7 +487,6 @@ Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |
-| `NEXT_PUBLIC_POLL_RUNS` | `5000` | Legacy runs-list poll interval (ms) — still read by a couple of non-SSE call sites; most run/spend/conversation freshness now comes from `/api/events` (see SSE section above) |
 | `NEXT_PUBLIC_POLL_SAFETY_NET` | `60000` | Reconnect safety net (ms) for queries driven by `/api/events` — SSE delivers changes instantly; this only re-fetches if an event was missed mid-reconnect |
 | `NEXT_PUBLIC_POLL_HEALTH` | `30000` | Health check polling interval (ms) |
 | `NEXT_PUBLIC_POLL_SKILLS_UPDATES` | `60000` | Skills update check interval (ms) |

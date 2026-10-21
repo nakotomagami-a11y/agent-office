@@ -33,17 +33,15 @@ export type {
 export interface UseAnalyticsPageOpts {
   start: number;
   end: number;
-  projectId?: string;
 }
 
-export function useAnalyticsPage({ start, end, projectId }: UseAnalyticsPageOpts) {
+export function useAnalyticsPage({ start, end }: UseAnalyticsPageOpts) {
   const params = new URLSearchParams({ start: String(start) });
   // Infinity can't survive a query string — omitting `end` means "no bound".
   if (Number.isFinite(end)) params.set("end", String(end));
-  if (projectId) params.set("project", projectId);
 
   return useQuery({
-    queryKey: queryKeys.analytics.page({ start, end, projectId }),
+    queryKey: queryKeys.analytics.page({ start, end }),
     queryFn: () => apiFetch<AnalyticsPageData>(`${API_ROUTES.analyticsPage}?${params.toString()}`),
     staleTime: 30_000,
   });

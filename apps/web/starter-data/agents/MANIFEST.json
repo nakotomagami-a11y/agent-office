@@ -190,12 +190,6 @@
       "hash": "7d71b03e7a894691"
     },
     {
-      "file": "user-analyst.md",
-      "name": "user-analyst",
-      "description": "Generates a candid, evidence-cited portrait of the user as a PERSON. Reads their message history, stated rules, and workflow signals to characterize HOW they work and WHO they are — never a project status report. Output is 8 short scannable H2 sections, each with one-line bullets and a verbatim quote when the section allows one.",
-      "hash": "f3c800cdc320cd78"
-    },
-    {
       "file": "web-qa.md",
       "name": "web-qa",
       "description": "Browser-based QA for websites and web apps. Drives a real Chromium via Playwright to hunt for visual defects (gaps, overlaps, alignment, responsive breakpoints), broken interactions, console errors, network failures, and accessibility regressions. Read-only — returns a structured defect list, never edits code or commits.",

@@ -21,13 +21,13 @@ function exportRuns(runs: PersistedRun[]) {
   URL.revokeObjectURL(url);
 }
 
-export function useActivityFeed(agentId?: string, projectId?: string) {
+export function useActivityFeed(agentId: string) {
   const [scope, setScope] = useState<ActivityScope>("week");
   const [filters, setFilters] = useState<Filters>({ query: "", statuses: [] });
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
-  const { data: allRuns = [], isLoading } = useRuns({ agentId, projectId, limit: 500 });
+  const { data: allRuns = [], isLoading } = useRuns({ agentId, limit: 500 });
 
   const scopedRuns = useMemo(() => scopeRuns(allRuns, scope), [allRuns, scope]);
   const liveRuns = useMemo(

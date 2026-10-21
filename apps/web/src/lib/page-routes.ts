@@ -13,7 +13,6 @@ export const PAGE_ROUTES = {
   settings: "/settings",
   /** Settings opened on the AI provider tab, for error cards that say how to fix a provider. */
   settingsProvider: "/settings?tab=provider",
-  activity: "/activity",
   analytics: "/analytics",
   schedules: "/schedules",
   docs: "/docs",

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
-import { useIntegrationEnabled } from "../hooks/use-settings";
 
 /**
  * Grouped left navigation for the Settings surface.
@@ -21,7 +20,6 @@ export type SettingsTabValue =
   | "integrations"
   | "provider"
   | "secrets"
-  | "about-you"
   | "performance"
   | "cleanup";
 
@@ -45,10 +43,6 @@ const GROUPS: NavGroup[] = [
       { value: "provider", icon: "bot-ao" },
       { value: "secrets", icon: "lock" },
     ],
-  },
-  {
-    key: "you",
-    items: [{ value: "about-you", icon: "identity" }],
   },
   {
     key: "system",
@@ -75,13 +69,6 @@ export function SettingsNav({
   useEffect(() => {
     navRef.current?.querySelector<HTMLElement>("[aria-current='page']")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [value]);
-  // Some nav items belong to an optional integration and are hidden when it's off.
-  const navEnabled: Partial<Record<SettingsTabValue, boolean>> = {
-    "about-you": useIntegrationEnabled("about-you"),
-  };
-  const groups = GROUPS
-    .map((g) => ({ ...g, items: g.items.filter((it) => navEnabled[it.value] ?? true) }))
-    .filter((g) => g.items.length > 0);
 
   return (
     <nav
@@ -98,7 +85,7 @@ export function SettingsNav({
         "max-[640px]:py-[8px] max-[640px]:px-[10px]",
       )}
     >
-      {groups.map((group) => (
+      {GROUPS.map((group) => (
         <div
           key={group.key}
           className={cn(

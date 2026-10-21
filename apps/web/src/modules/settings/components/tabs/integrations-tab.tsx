@@ -47,7 +47,7 @@ interface CardDef {
   name: string;
   tagline: string;
   icon: IconName;
-  /** Optional PNG override for the icon glyph (e.g. flutter/iso-view get custom art). */
+  /** Optional PNG override for the icon glyph (e.g. iso-view gets custom art). */
   image?: string;
   category: Category;
   kind: Kind;
@@ -56,9 +56,7 @@ interface CardDef {
 }
 
 const CARD_IMAGE: Record<string, string> = {
-  flutter: "/icons/pigeon.png",
   "iso-view": "/icons/isomap.png",
-  "about-you": "/icons/aboutyou.png",
 };
 
 const CLAUDE_DEF: CardDef = {

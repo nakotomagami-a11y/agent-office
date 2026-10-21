@@ -286,7 +286,6 @@ const PAGES = [
   ["/projects", "projects"],
   [`/projects/${PROJECT_ID}`, "project"],
   ["/agents", "agents"],
-  ["/activity?tab=insights", "activity"],
   ["/analytics", "analytics"],
   ["/memory", "memory"],
   ["/skills", "skills"],

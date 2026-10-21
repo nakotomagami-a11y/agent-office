@@ -10,7 +10,6 @@ import { AgentMigrationTrigger } from "@/modules/agents/components/agent-migrati
 import { CompareModal } from "@/modules/runs/components/compare-modal";
 import { ModalUrlSync } from "@/components/modal-url-sync";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
-import { FlutterModal } from "@/modules/flutter/components/flutter-modal";
 import { ResizeHandles } from "@/components/layout/resize-handles";
 import { AgentCapModalMount } from "@/modules/office/components/agent-cap-modal-mount";
 import { RootSignInModal } from "@/modules/accounts/components/root-sign-in-modal";
@@ -39,7 +38,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AgentMigrationTrigger />
       <Suspense><ModalUrlSync /></Suspense>
       <MobileBottomNav />
-      <FlutterModal />
       <AgentCapModalMount />
       <RootSignInModal />
     </GnomeWindow>

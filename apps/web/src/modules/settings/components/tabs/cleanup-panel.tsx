@@ -26,7 +26,6 @@ const ROWS: CleanupRow[] = [
   { kind: "drafts", key: "drafts", icon: "pen" },
   { kind: "orphaned-runs", key: "orphaned_runs", icon: "refresh" },
   { kind: "agent-memory", key: "agent_memory", icon: "memory" },
-  { kind: "user-analysis", key: "user_analysis", icon: "identity" },
   { kind: "skill-cache", key: "skill_cache", icon: "sparkle" },
   { kind: "ui-settings", key: "ui_settings", icon: "settings" },
 ];

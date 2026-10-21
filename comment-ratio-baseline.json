@@ -14,20 +14,10 @@
     "code": 43,
     "comment": 42
   },
-  "apps/server/src/lib/flutter.ts": {
-    "ratio": 0.0699,
-    "code": 186,
-    "comment": 13
-  },
   "apps/server/src/lib/project-runtime.ts": {
     "ratio": 0.2424,
     "code": 33,
     "comment": 8
-  },
-  "apps/server/src/lib/server-process-store.ts": {
-    "ratio": 0,
-    "code": 62,
-    "comment": 0
   },
   "apps/server/src/lib/sse.ts": {
     "ratio": 0.0208,
@@ -269,26 +259,6 @@
     "code": 21,
     "comment": 6
   },
-  "apps/server/src/routes/flutter/devices/route.ts": {
-    "ratio": 0.25,
-    "code": 8,
-    "comment": 2
-  },
-  "apps/server/src/routes/flutter/mirror/route.ts": {
-    "ratio": 0.125,
-    "code": 16,
-    "comment": 2
-  },
-  "apps/server/src/routes/flutter/run/route.ts": {
-    "ratio": 0.069,
-    "code": 29,
-    "comment": 2
-  },
-  "apps/server/src/routes/flutter/screenshot/route.ts": {
-    "ratio": 0.1538,
-    "code": 13,
-    "comment": 2
-  },
   "apps/server/src/routes/github-accounts/[id]/route.ts": {
     "ratio": 0.0556,
     "code": 36,
@@ -319,17 +289,7 @@
     "code": 39,
     "comment": 9
   },
-  "apps/server/src/routes/processes/[pid]/logs/route.ts": {
-    "ratio": 0.0667,
-    "code": 15,
-    "comment": 1
-  },
   "apps/server/src/routes/processes/[pid]/route.ts": {
-    "ratio": 0.0556,
-    "code": 18,
-    "comment": 1
-  },
-  "apps/server/src/routes/processes/[pid]/stdin/route.ts": {
     "ratio": 0.0556,
     "code": 18,
     "comment": 1
@@ -624,11 +584,6 @@
     "code": 53,
     "comment": 10
   },
-  "apps/server/src/routes/user-analysis/route.ts": {
-    "ratio": 0.2059,
-    "code": 68,
-    "comment": 14
-  },
   "apps/server/src/routes/workflows/[id]/route.ts": {
     "ratio": 0.0909,
     "code": 11,
@@ -648,11 +603,6 @@
     "ratio": 0.0588,
     "code": 17,
     "comment": 1
-  },
-  "apps/web/src/app/(app)/activity/page.tsx": {
-    "ratio": 0,
-    "code": 10,
-    "comment": 0
   },
   "apps/web/src/app/(app)/agents/[id]/edit/page.tsx": {
     "ratio": 0,
@@ -1024,11 +974,6 @@
     "code": 11,
     "comment": 0
   },
-  "apps/web/src/components/ui/prose-view.tsx": {
-    "ratio": 0,
-    "code": 81,
-    "comment": 0
-  },
   "apps/web/src/components/ui/query-state.tsx": {
     "ratio": 0.5918,
     "code": 49,
@@ -1189,11 +1134,6 @@
     "code": 69,
     "comment": 9
   },
-  "apps/web/src/lib/api/flutter.ts": {
-    "ratio": 0.1923,
-    "code": 26,
-    "comment": 5
-  },
   "apps/web/src/lib/api/processes.ts": {
     "ratio": 0.1481,
     "code": 27,
@@ -1268,11 +1208,6 @@
     "ratio": 0.08,
     "code": 25,
     "comment": 2
-  },
-  "apps/web/src/lib/flutter-store.ts": {
-    "ratio": 0,
-    "code": 13,
-    "comment": 0
   },
   "apps/web/src/lib/format-date.ts": {
     "ratio": 0.2826,
@@ -1498,16 +1433,6 @@
     "ratio": 0.1322,
     "code": 242,
     "comment": 32
-  },
-  "apps/web/src/modules/flutter/components/flutter-modal.tsx": {
-    "ratio": 0.0402,
-    "code": 547,
-    "comment": 22
-  },
-  "apps/web/src/modules/flutter/hooks/use-flutter-devices.ts": {
-    "ratio": 0,
-    "code": 17,
-    "comment": 0
   },
   "apps/web/src/modules/github-accounts/components/add-github-account-modal.tsx": {
     "ratio": 0.0244,
@@ -2104,11 +2029,6 @@
     "code": 28,
     "comment": 0
   },
-  "apps/web/src/modules/runs/components/activity-scope-pill.tsx": {
-    "ratio": 0.0769,
-    "code": 26,
-    "comment": 2
-  },
   "apps/web/src/modules/runs/components/activity-scope-tabs.tsx": {
     "ratio": 0,
     "code": 31,
@@ -2304,16 +2224,6 @@
     "code": 351,
     "comment": 16
   },
-  "apps/web/src/modules/settings/components/tabs/about-you-renderer.tsx": {
-    "ratio": 0.1901,
-    "code": 121,
-    "comment": 23
-  },
-  "apps/web/src/modules/settings/components/tabs/about-you-tab.tsx": {
-    "ratio": 0.0734,
-    "code": 218,
-    "comment": 16
-  },
   "apps/web/src/modules/settings/components/tabs/bundled-agents-tab.tsx": {
     "ratio": 0.0537,
     "code": 205,
@@ -2342,11 +2252,6 @@
   "apps/web/src/modules/settings/hooks/use-settings.ts": {
     "ratio": 0.0385,
     "code": 52,
-    "comment": 2
-  },
-  "apps/web/src/modules/settings/hooks/use-user-analysis.ts": {
-    "ratio": 0.0667,
-    "code": 30,
     "comment": 2
   },
   "apps/web/src/modules/skills/components/import-skill-modal.tsx": {
@@ -2819,11 +2724,6 @@
     "code": 35,
     "comment": 7
   },
-  "packages/domain/src/services/analytics/user-analysis.ts": {
-    "ratio": 0.7143,
-    "code": 21,
-    "comment": 15
-  },
   "packages/domain/src/services/db/agent-context-measurements.ts": {
     "ratio": 0.0652,
     "code": 46,
@@ -3110,9 +3010,9 @@
     "comment": 119
   },
   "packages/domain/src/types/index.ts": {
-    "ratio": 0.1616,
-    "code": 594,
-    "comment": 96
+    "ratio": 0.1722,
+    "code": 627,
+    "comment": 108
   },
   "packages/domain/src/types/thread.ts": {
     "ratio": 0.2941,

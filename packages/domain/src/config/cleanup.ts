@@ -5,7 +5,6 @@ export const CLEANUP_KINDS = [
   "drafts",
   "orphaned-runs",
   "agent-memory",
-  "user-analysis",
   "skill-cache",
   "ui-settings",
   "everything",

@@ -370,12 +370,6 @@ const API: DocsExport["api"] = [
   },
   {
     method: "GET",
-    path: "/api/processes/[pid]/logs",
-    description: "Get captured stdout/stderr for a process",
-    response_type: "{ lines: string[]; exitCode: number | null; signal: string | null; found: boolean }",
-  },
-  {
-    method: "GET",
     path: "/api/settings",
     description: "Read app settings (projectsRoot, excluded dirs)",
     response_type: "AppSettings",
@@ -715,11 +709,6 @@ const ENV_VARS: DocsExport["env_vars"] = [
     default: "<cwd>/starter-data",
     effect:
       "Override path to the bundled starter-data directory containing starter agents and skills",
-  },
-  {
-    name: "NEXT_PUBLIC_POLL_RUNS",
-    default: "5000",
-    effect: "Polling interval in ms for the run list",
   },
   {
     name: "NEXT_PUBLIC_POLL_HEALTH",

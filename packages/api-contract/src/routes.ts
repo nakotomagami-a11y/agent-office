@@ -62,13 +62,6 @@ export const API_ROUTES = {
 
   processes: "/api/processes",
   process: (pid: number) => `/api/processes/${pid}`,
-  processLogs: (pid: number) => `/api/processes/${pid}/logs`,
-  processStdin: (pid: number) => `/api/processes/${pid}/stdin`,
-
-  flutterRun: "/api/flutter/run",
-  flutterMirror: "/api/flutter/mirror",
-  flutterDevices: "/api/flutter/devices",
-  flutterScreenshot: "/api/flutter/screenshot",
 
   saveExport: "/api/save/export",
   saveImport: "/api/save/import",
@@ -136,7 +129,6 @@ export const API_ROUTES = {
 
   settings: "/api/settings",
   settingsScan: "/api/settings/scan",
-  userAnalysis: "/api/user-analysis",
 
   agentDocs: "/api/agent-docs",
   agentDoc: (owner: string, slug: string) =>

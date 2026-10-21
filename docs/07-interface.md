@@ -9,8 +9,8 @@ This page is long. Here's the lay of the land — every section below, grouped:
 - **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface)
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
 - **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
-- **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface) · [Activity](#/interface)
-- **Modals & panels** — [Compare runs](#/interface) · [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Flutter](#/interface) · [Bootstrap project](#/interface)
+- **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface)
+- **Modals & panels** — [Compare runs](#/interface) · [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
 
 ## Layout — the app window shell
@@ -229,16 +229,6 @@ Connect one or more Claude accounts. Each row shows live auth/usage status (`/ap
 
 Register GitHub identities (`/api/github-accounts`) so worktree/PR work can be attributed to the right account; assigned per project.
 
-**You**
-
-### About You
-
-Runs the `user-analyst` agent against your local data (message history, run patterns, project inventory) and produces a candid person-portrait. No calls home; everything stays local.
-
-- **Refresh** button — re-runs the analysis (`POST /api/user-analysis`)
-- **View history** — every past analysis is saved with a timestamp
-- **Export** — download the current analysis as Markdown
-
 **System**
 
 ### Performance
@@ -250,7 +240,7 @@ Sets the rendering / animation budget — `full` · `lite` · `off` — persiste
 Sweep stored data by kind (e.g. reaped error runs) via `POST /api/cleanup/:kind`, reclaiming space without touching live runs.
 
 > [!NOTE]
-> Global Memory, Skills, Analytics, Search, and Activity are top-level routes (`/memory`, `/skills`, `/analytics`, `/search`, `/activity`) reached from the sidebar — NOT sub-tabs of Settings.
+> Global Memory, Skills, Analytics, and Search are top-level routes (`/memory`, `/skills`, `/analytics`, `/search`) reached from the sidebar — NOT sub-tabs of Settings.
 
 ### Multi-instance feature flag
 
@@ -308,24 +298,9 @@ All data pulled from the `runs` table (`/api/analytics/*`). No cloud call.
 
 Finds a past run by its prompt or output, among your most recent 500 runs.
 
-## Activity page (top-level route `/activity`)
-
-Feed of recent activity across all projects: new instances added, runs completed, spend cap alerts, migration events. Useful as a "what happened while I was away" timeline.
-
 ## Processes panel (Cmd+Shift+P)
 
-Every dev server, build, and background process spawned by the app. Live status, stream stdio via `GET /api/processes/:pid/logs?since=<offset>`. Send stdin via `POST /api/processes/:pid/stdin`. Kill via `DELETE /api/processes/:pid`.
-
-## Flutter modal (Tools → Flutter)
-
-If the active project is a Flutter app, the Flutter modal exposes:
-
-- **Devices** — enumerated Flutter/Dart devices
-- **Mirror** — live-stream a device's screen into the modal
-- **Run** — spawn `flutter run` in a terminal
-- **Screenshot** — capture the current device screen
-
-Endpoints: `/api/flutter/{devices,mirror,run,screenshot}`.
+Every dev server, build, and background process spawned by the app. Live status via `GET /api/processes/:pid`. Kill via `DELETE /api/processes/:pid`.
 
 ## Keyboard shortcuts summary
 
@@ -371,7 +346,7 @@ Global setting persisted to `ui_settings.performance-mode`. Three levels:
 | `lite` | Office view forced to `cards`. Non-essential CSS animations off. Framer-motion transitions set to 0 ms. Backdrop-blur removed. Planet icons render as flat color fallback. Status LEDs still animate (essential feedback). |
 | `off` | Everything from `lite` PLUS: no hover transitions, no shimmer, no chat message-in animations, no auto-scroll smoothing. Utilitarian rendering. |
 
-Auto-detect: on first launch, if the browser reports `prefers-reduced-motion: reduce`, the default flips to `lite` and a small notice surfaces on the About You tab (not blocking).
+Auto-detect: on first launch, if the browser reports `prefers-reduced-motion: reduce`, the default flips to `lite` and a small notice surfaces on the Performance tab (not blocking).
 
 Change from Settings → Performance. Takes effect immediately (no reload needed) via the `[data-perf]` attribute on `<html>` gating CSS rules.
 

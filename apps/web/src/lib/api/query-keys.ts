@@ -85,7 +85,6 @@ export const queryKeys = {
     detail: () => [...queryKeys.settings.all, "detail"] as const,
     scan: (root: string, excluded: string[]) =>
       [...queryKeys.settings.all, "scan", root, excluded] as const,
-    userAnalysis: () => [...queryKeys.settings.all, "user-analysis"] as const,
   },
 
   providers: {
@@ -120,7 +119,7 @@ export const queryKeys = {
     perAccount: () => [...queryKeys.analytics.all, "per-account"] as const,
     summary: (opts: { start: number; end: number; days?: number; projectId?: string }) =>
       [...queryKeys.analytics.all, "summary", opts] as const,
-    page: (opts: { start: number; end: number; projectId?: string }) =>
+    page: (opts: { start: number; end: number }) =>
       [...queryKeys.analytics.all, "page", opts] as const,
   },
 

@@ -56,7 +56,7 @@ type PerformanceState = {
   /**
    * True when we auto-detected the initial mode from
    * `prefers-reduced-motion: reduce`. Used to surface a one-time notice on
-   * the About You page so the user knows why animations are muted.
+   * the Performance tab so the user knows why animations are muted.
    */
   autoDetected: boolean;
   /** Follow the power source automatically (quality on AC, perf on battery). */
@@ -122,8 +122,8 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => ({
   powerState: null,
   autoSwitched: false,
   setMode: (next) => {
-    // Manual set always clears the auto-detected flag so the About You
-    // hint stops showing once the user has made an explicit choice. We keep
+    // Manual set always clears the auto-detected flag so the Performance
+    // tab hint stops showing once the user has made an explicit choice. We keep
     // `auto` on: the switch is edge-triggered, so this manual choice sticks
     // until the next plug/unplug — respecting the user without disabling the
     // feature outright.

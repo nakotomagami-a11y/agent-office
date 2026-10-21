@@ -14,7 +14,6 @@ import { getDb, deleteRunsWhere, isPidAlive } from "../db";
 import { STALLED_START_MS } from "../execution/conversation";
 import { emitAppEvent } from "../infra/events";
 import { writeFileAtomic } from "../infra/fs-atomic";
-import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 import { liveRuns } from "../execution/runs/registry";
 
@@ -114,16 +113,6 @@ export function resetAgentMemoryFiles(dir: string = AGENTS_DIR): CleanupResult {
     cleared++;
   }
   return { cleared };
-}
-
-// ─── User Analysis file ──────────────────────────────────────────────────────
-
-export function resetUserAnalysis(): CleanupResult {
-  if (existsSync(USER_ANALYSIS_PATH)) {
-    rmSync(USER_ANALYSIS_PATH);
-    return { cleared: 1 };
-  }
-  return { cleared: 0 };
 }
 
 // ─── Downloaded and bundled skills ───────────────────────────────────────────
@@ -256,7 +245,6 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
 
   // Filesystem last: it cannot be rolled back if the db half fails.
   detail.agentMemory = resetAgentMemoryFiles().cleared;
-  detail.userAnalysis = resetUserAnalysis().cleared;
   detail.skillCache = clearSkillInstallCache(SKILLS_DIR, opts.bundledSkillsDir ?? null).cleared;
 
   const total = Object.values(detail).reduce((a, b) => a + b, 0);
@@ -275,8 +263,6 @@ export function runCleanup(kind: CleanupKind, opts: CleanupOptions = {}): Cleanu
       return wipeOrphanedRuns();
     case "agent-memory":
       return resetAgentMemoryFiles();
-    case "user-analysis":
-      return resetUserAnalysis();
     case "skill-cache":
       return clearSkillInstallCache(SKILLS_DIR, opts.bundledSkillsDir ?? null);
     case "ui-settings":

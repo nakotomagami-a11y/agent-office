@@ -1,6 +1,5 @@
 // GET/DELETE /api/processes/<pid> — inspect or kill one tracked process.
 import { processes } from "@agent-office/domain/services";
-import { deleteProcess } from "../../../lib/server-process-store";
 import { isLaunchedShell, forgetLaunchedShell, hasShellCommandExited } from "../../../lib/terminal";
 import { badRequest } from "../../../lib/api-helpers";
 
@@ -22,6 +21,5 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 
   forgetLaunchedShell(pid);
-  deleteProcess(pid);
   return Response.json({ ok: true });
 }

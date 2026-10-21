@@ -14,20 +14,13 @@ import { ActivityHeatmap } from "./activity-heatmap";
 import { ActivityLeaderboard } from "./activity-leaderboard";
 import { ActivityFilterBar } from "./activity-filter-bar";
 import { ActivityScopeTabs } from "./activity-scope-tabs";
-import { ActivityScopePill } from "./activity-scope-pill";
 import { ActivityViewTabs, type ActivityView } from "./activity-view-tabs";
 import { ActivityGroupsList } from "./activity-groups-list";
 
-export type ActivityFeedProps = {
-  agentId?: string;
-  projectId?: string;
-  initialView?: ActivityView;
-};
-
-export function ActivityFeed({ agentId, projectId, initialView = "log" }: ActivityFeedProps) {
-  const [view, setView] = useState<ActivityView>(initialView);
+export function ActivityFeed({ agentId }: { agentId: string }) {
+  const [view, setView] = useState<ActivityView>("log");
   const unitByAgent = useAgentUnits();
-  const feed = useActivityFeed(agentId, projectId);
+  const feed = useActivityFeed(agentId);
 
   return (
     <>
@@ -37,7 +30,6 @@ export function ActivityFeed({ agentId, projectId, initialView = "log" }: Activi
         actions={
           <>
             <ActivityViewTabs view={view} setView={setView} />
-            <ActivityScopePill projectId={projectId} />
             {view === "log" && <ActivityScopeTabs scope={feed.scope} setScope={feed.setScope} />}
             {view === "log" && (
               <Button size="sm" variant="ghost" onClick={feed.handleExport} disabled={feed.filtered.length === 0}>
@@ -51,7 +43,7 @@ export function ActivityFeed({ agentId, projectId, initialView = "log" }: Activi
 
       <div className="flex flex-col overflow-y-auto flex-1 min-h-0 px-[24px] pt-[20px] pb-[32px] gap-[16px] [&>*]:shrink-0">
         {view === "insights" ? (
-          <AnalyticsPage embedded projectId={projectId} />
+          <AnalyticsPage embedded />
         ) : (
           <>
             <ActivityLiveStrip runs={feed.liveRuns} unitByAgent={unitByAgent} />

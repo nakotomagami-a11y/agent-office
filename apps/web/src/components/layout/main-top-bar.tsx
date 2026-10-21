@@ -49,14 +49,14 @@ import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
  */
 
 const NAV_ITEMS: ReadonlyArray<{
-  key: "office" | "project" | "activity" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings" | "docs";
+  key: "office" | "project" | "analytics" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings" | "docs";
   icon: IconName;
   href: string;
   exact?: boolean;
 }> = [
   { key: "office", icon: "home", href: PAGE_ROUTES.office, exact: true },
   { key: "project", icon: "settings", href: PAGE_ROUTES.projects },
-  { key: "activity", icon: "activity", href: PAGE_ROUTES.activity },
+  { key: "analytics", icon: "gauge", href: PAGE_ROUTES.analytics },
   { key: "agents", icon: "templates", href: PAGE_ROUTES.agents },
   { key: "memory", icon: "memory", href: PAGE_ROUTES.memory },
   { key: "skills", icon: "sparkle", href: PAGE_ROUTES.skills },
@@ -77,13 +77,13 @@ export function MainTopBar() {
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggle);
 
-  const { spendToday, agents, runs } = useOfficeAgents();
+  const { agents, runs } = useOfficeAgents();
   // The office page is iso-only now; hide its nav entry unless the Isometric
   // view integration is enabled (matches OfficeView's gate).
   const isoEnabled = useIntegrationEnabled("iso-view");
 
   // Per-tab "live agents" badge — reuses the same runs `useOfficeAgents()`
-  // already fetched for the header's spend/agent-count (no extra request)
+  // already fetched for the header's agent count (no extra request)
   // and the same `runningRuns` helper the project dashboard's "Live runs"
   // panel uses, just grouped by `projectId` instead of filtered to one.
   const liveCountByProject = useMemo(() => {
@@ -279,11 +279,10 @@ export function MainTopBar() {
 
   const navBadge = useCallback(
     (key: (typeof NAV_ITEMS)[number]["key"]): string | undefined => {
-      if (key === "activity") return spendToday > 0 ? `$${spendToday.toFixed(2)}` : undefined;
       if (key === "agents") return agents.length > 0 ? String(agents.length) : undefined;
       return undefined;
     },
-    [spendToday, agents.length],
+    [agents.length],
   );
 
   return (

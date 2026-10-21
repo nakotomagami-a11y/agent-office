@@ -7,7 +7,6 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { useScanProjects, useSettings, useWriteSettings } from "../hooks/use-settings";
-import { AboutYouTab } from "./tabs/about-you-tab";
 import { PerformanceTab } from "./tabs/performance-tab";
 import { CleanupPanel } from "./tabs/cleanup-panel";
 import { BundledAgentsTab } from "./tabs/bundled-agents-tab";
@@ -53,7 +52,6 @@ export function SettingsPage() {
       {tab === "integrations" && <SettingsSection><IntegrationsTab onNavigate={setTab} /></SettingsSection>}
       {tab === "provider" && <SettingsSection><ProviderSettingsTab /></SettingsSection>}
       {tab === "secrets" && <SettingsSection><SecretsTab /></SettingsSection>}
-      {tab === "about-you" && <SettingsSection><AboutYouTab /></SettingsSection>}
       {tab === "performance" && <SettingsSection><PerformanceTab /></SettingsSection>}
       {tab === "cleanup" && <SettingsSection><CleanupPanel /></SettingsSection>}
     </div>

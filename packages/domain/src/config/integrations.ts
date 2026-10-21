@@ -27,28 +27,12 @@ export const INTEGRATIONS = [
     icon: "branch",
   },
   {
-    id: "flutter",
-    label: "Flutter",
-    description: "Run, mirror, and screenshot Flutter apps on connected devices and emulators from a project.",
-    status: "stable",
-    defaultEnabled: false,
-    icon: "smartphone",
-  },
-  {
     id: "iso-view",
     label: "Isometric view",
     description: "Render the office as a 3D isometric floor (PixiJS). Early development — expect rough edges.",
     status: "experimental",
     defaultEnabled: false,
     icon: "layers",
-  },
-  {
-    id: "about-you",
-    label: "About You",
-    description: "A candid, evidence-based profile of how you work, generated locally from your usage by the user-analyst agent.",
-    status: "experimental",
-    defaultEnabled: false,
-    icon: "identity",
   },
 ] as const satisfies readonly IntegrationDef[];
 

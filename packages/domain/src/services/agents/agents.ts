@@ -30,8 +30,6 @@ import { tierBody } from "./context-tier";
 import { log } from "../infra/log";
 import { PERMISSION_MODE_OPTS, PERMISSION_MODE_ALIASES } from "../../config/agent-opts";
 
-const NO_RESPONSE_STYLE = new Set(["user-analyst"]);
-
 function lineCount(text: string): number {
   return text ? text.split("\n").length : 0;
 }
@@ -448,15 +446,12 @@ export function composeAppendedPrompt(
     });
   }
 
-  // The style opens with a claim about the reader; a profiler would report it as evidence.
-  if (!NO_RESPONSE_STYLE.has(agentName)) {
-    segments.push({
-      key: "response-style", name: "Response style",
-      text: "## Response style (how to write every reply to the user)\n\n" + RESPONSE_STYLE, body: RESPONSE_STYLE,
-      sub: `built in · ${lineCount(RESPONSE_STYLE)} lines`,
-      locked: true, phase: "always",
-    });
-  }
+  segments.push({
+    key: "response-style", name: "Response style",
+    text: "## Response style (how to write every reply to the user)\n\n" + RESPONSE_STYLE, body: RESPONSE_STYLE,
+    sub: `built in · ${lineCount(RESPONSE_STYLE)} lines`,
+    locked: true, phase: "always",
+  });
 
   if (global) {
     const t_global = tierBody({ body: global, path: GLOBAL_MEMORY_PATH, label: "Global memory", why: "a machine-wide convention or preference might apply" });

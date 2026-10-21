@@ -669,15 +669,6 @@ const ICON_PATHS = {
       </>
     ),
   },
-  smartphone: {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <rect x="5" y="2" width="14" height="20" rx="2" />
-        <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none" />
-      </>
-    ),
-  },
   monitor: {
     ...STROKE_BASE,
     body: (

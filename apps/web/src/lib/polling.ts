@@ -6,7 +6,6 @@ function envInt(key: string, fallback: number): number {
 }
 
 export const POLL = {
-  RUNS: envInt("NEXT_PUBLIC_POLL_RUNS", 5_000),
   // Slow fallback for queries now driven primarily by the app-wide SSE event
   // channel (see app-events.tsx). SSE delivers changes instantly; this only
   // catches an event missed during a reconnect, so it can be lazy.

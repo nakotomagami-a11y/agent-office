@@ -56,18 +56,16 @@ function periodLabel(p: Period): string {
 
 export function AnalyticsPage({
   embedded = false,
-  projectId,
 }: {
-  /** Rendered inside Activity's "Insights" tab — skip the own page header and
-   * outer scroll container (the parent already owns both). See §D5. */
+  /** Rendered inside an agent's "Recent runs" Insights tab — skip the own page
+   * header and outer scroll container (the parent already owns both). */
   embedded?: boolean;
-  projectId?: string;
 }) {
   const [period, setPeriod] = useState<Period>("month");
   const [metric, setMetric] = useState<TrendMetric>("cost");
 
   const { start, end } = useMemo(() => rangeFor(period), [period]);
-  const q = useAnalyticsPage({ start, end, projectId });
+  const q = useAnalyticsPage({ start, end });
   const d = q.data;
 
   const periodControl = (
