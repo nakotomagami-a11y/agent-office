@@ -36,8 +36,9 @@ export async function DELETE(request: Request, { params }: Params) {
   if (query.error) return query.error;
   if (!agents.readAgent(id)) return notFound();
   return tryService(() => {
+    const files = agents.backupAgentFiles(id);
     projects.removeAgentSessions(id, query.data.work);
-    agents.deleteAgent(id);
+    agents.removeAgentFiles(files);
     return { deleted: id };
   });
 }

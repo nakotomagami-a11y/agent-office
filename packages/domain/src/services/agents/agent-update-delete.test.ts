@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR } from "../infra/paths";
-import { deleteAgent, listAgentBodyHistory, readAgent, updateAgent, type AgentPatch } from "./agents";
+import { backupAgentFiles, listAgentBodyHistory, removeAgentFiles, readAgent, updateAgent, type AgentPatch } from "./agents";
 
 const before = new Set(existsSync(AGENTS_DIR) ? readdirSync(AGENTS_DIR) : []);
 after(() => {
@@ -89,7 +89,7 @@ test("deleting an agent copies its file, memory and identity to the backups fold
   writeFileSync(join(AGENTS_DIR, "leaving.memory.md"), "learned things");
   writeFileSync(join(AGENTS_DIR, "leaving.identity.md"), "who I am");
 
-  assert.equal(deleteAgent("leaving"), true);
+  removeAgentFiles(backupAgentFiles("leaving"));
 
   for (const f of ["leaving.md", "leaving.memory.md", "leaving.identity.md"]) assert.equal(existsSync(join(AGENTS_DIR, f)), false, f);
   const backups = readdirSync(AGENT_BACKUPS_DIR).filter((f) => f.startsWith("leaving.deleted-"));

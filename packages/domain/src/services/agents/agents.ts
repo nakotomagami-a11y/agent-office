@@ -186,10 +186,10 @@ export function updateAgent(id: string, patch: AgentPatch): WriteAgentResult {
   return result;
 }
 
-/** Copies go to AGENT_BACKUPS_DIR first; a failed copy throws before anything is removed. */
-export function deleteAgent(id: string): boolean {
+/** Copies the agent's files to AGENT_BACKUPS_DIR and returns them, for `removeAgentFiles`.
+ *  Separate so a failed copy throws before the agent's sessions are touched. */
+export function backupAgentFiles(id: string): string[] {
   const mdPath = join(AGENTS_DIR, `${id}.md`);
-  if (!existsSync(mdPath)) return false;
   const at = new Date().toISOString().replace(/[:.]/g, "-");
   const files = [
     [mdPath, "md"],
@@ -199,8 +199,11 @@ export function deleteAgent(id: string): boolean {
   const present = files.filter(([path]) => existsSync(path));
   ensureDir(AGENT_BACKUPS_DIR);
   for (const [path, ext] of present) copyFileSync(path, join(AGENT_BACKUPS_DIR, `${id}.deleted-${at}.${ext}`));
-  for (const [path] of present) rmSync(path);
-  return true;
+  return present.map(([path]) => path);
+}
+
+export function removeAgentFiles(files: string[]): void {
+  for (const path of files) rmSync(path, { force: true });
 }
 
 // ─── Body history (backup snapshots on every body overwrite) ────────────

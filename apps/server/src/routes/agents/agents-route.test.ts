@@ -5,13 +5,13 @@
  *   pnpm --filter @agent-office/server test src/routes/agents/agents-route.test.ts
  */
 import assert from "node:assert";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { paths } from "@agent-office/domain/services";
 import { POST } from "./route";
 import { POST as bulkPost } from "./bulk/route";
-import { PUT as put } from "./[id]/route";
+import { DELETE as del, PUT as put } from "./[id]/route";
 import * as bodyRoute from "./[id]/body/route";
 
 /** Each test that needs the id taken takes it itself, so any one of them can run alone. */
@@ -88,5 +88,21 @@ test("PUT with only a name and a model keeps the prompt, tools, skills and permi
   const saved = readFileSync(file, "utf8");
   for (const kept of ["tools: [Read, Bash]", "skills: [alpha]", "permission-mode: plan", "my prompt", "default-model: opus"]) {
     assert.ok(saved.includes(kept), `lost: ${kept}`);
+  }
+});
+
+test("a delete whose backup fails removes nothing", async () => {
+  const file = join(paths.AGENTS_DIR, "route-undeletable.md");
+  writeFileSync(file, "---\nname: route-undeletable\ndescription: d\n---\n\nmine\n");
+  // A file where the backups folder should be: the copy throws.
+  rmSync(paths.AGENT_BACKUPS_DIR, { recursive: true, force: true });
+  mkdirSync(dirname(paths.AGENT_BACKUPS_DIR), { recursive: true });
+  writeFileSync(paths.AGENT_BACKUPS_DIR, "");
+  try {
+    const res = await del(new Request("http://localhost/api/agents/route-undeletable", { method: "DELETE" }), { params: Promise.resolve({ id: "route-undeletable" }) });
+    assert.notEqual(res.status, 200);
+    assert.equal(existsSync(file), true);
+  } finally {
+    rmSync(paths.AGENT_BACKUPS_DIR, { force: true });
   }
 });
