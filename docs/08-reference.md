@@ -95,10 +95,9 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `POST` | `/api/agents` | Create agent (body: `agentBodySchema`) |
 | `POST` | `/api/agents/bulk` | Bulk-create agents |
 | `GET` | `/api/agents/:id` | Get agent frontmatter |
-| `PUT` | `/api/agents/:id` | Update agent (backs up body first) |
-| `DELETE` | `/api/agents/:id` | Delete agent file + memory sidecar |
+| `PUT` | `/api/agents/:id` | Update an existing agent (404 if missing); only the keys sent change; a changed body is snapshotted |
+| `DELETE` | `/api/agents/:id` | Delete agent and its sessions (`?work=keep` or `discard`); its files are copied to `backups/agents/` first |
 | `GET` | `/api/agents/:id/body` | Raw markdown body (text/plain) |
-| `PUT` | `/api/agents/:id/body` | Replace body; backs up to `<id>.body.<ISO>.md` |
 | `GET` | `/api/agents/:id/body/history` | List body backup snapshots |
 | `GET` | `/api/agents/:id/body/history/:filename` | Read one snapshot |
 | `GET` | `/api/agents/:id/memory` | Per-agent memory file |
