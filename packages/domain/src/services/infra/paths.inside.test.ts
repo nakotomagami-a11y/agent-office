@@ -8,8 +8,10 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { posix, win32 } from "node:path";
-import { expandTilde, isInside, samePath } from "./paths";
+import { mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, posix, win32 } from "node:path";
+import { expandTilde, isInside, pathKey, samePath } from "./paths";
 
 test("win32: a child is inside its parent whatever the separators and case", () => {
   const root = "C:\\Users\\me\\Documents";
@@ -54,4 +56,20 @@ test("expandTilde on POSIX: `~/` only; a backslash is part of a file name there"
   assert.equal(expandTilde("~/Documents", "/home/me", posix), "/home/me/Documents");
   assert.equal(expandTilde("~", "/home/me", posix), "/home/me");
   assert.equal(expandTilde("~\\x", "/home/me", posix), "~\\x");
+});
+
+// A junction needs no admin rights on Windows; elsewhere the type is ignored and it is a plain symlink.
+test("on disk, a path is judged by where it leads: a link out of the root is not inside it", () => {
+  const base = mkdtempSync(join(tmpdir(), "ao-pathkey-"));
+  const root = join(base, "root");
+  const outside = join(base, "outside");
+  mkdirSync(root);
+  mkdirSync(outside);
+  symlinkSync(outside, join(root, "link"), "junction");
+
+  assert.equal(isInside(join(root, "link"), root), false, "a guarded delete would follow it out of the root");
+  assert.equal(isInside(join(root, "link", "deeper"), root), false);
+  assert.equal(samePath(join(root, "link"), outside), true);
+  assert.equal(isInside(join(root, "not-yet", "child"), root), true, "a missing path still sits inside its parent");
+  assert.equal(pathKey(join(root, "not-yet")), join(pathKey(root), "not-yet"));
 });

@@ -37,7 +37,9 @@ export interface SkillUpdate {
 }
 
 export interface ApiAgent {
-  /** Stable slug id (kebab-case). */
+  /** The file it lives in, `~/.claude/agents/<id>.md`: the id every per-agent route takes. */
+  id: string;
+  /** The frontmatter `name` the CLI knows it by; the file id when unset. */
   name: string;
   /** Human-readable name; falls back to the slug if unset. */
   displayName?: string;
@@ -389,7 +391,7 @@ export interface Project {
 /**
  * Only PRESENT keys apply; `null` clears. `accountId: x ?? undefined` broke
  * exactly this by making the key present-but-undefined. No `roster`: those
- * changes go per-instance, or through `replaceRoster` for import.
+ * changes go per-instance, or through `addToRoster` for import.
  */
 export interface ProjectMetaPatch {
   name?: string;

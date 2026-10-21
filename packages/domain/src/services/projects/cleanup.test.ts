@@ -35,8 +35,9 @@ const { createSchema } = await import("../db/migrations");
 const { deleteRunsByAgent, deleteRunsForInstance } = await import("../db/runs");
 const {
   everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache, resetUiSettings,
-  RUN_FK_REFS, PIPELINE_CHILD_TABLES,
+  RUN_FK_REFS, PIPELINE_CHILD_TABLES, RunsLiveError,
 } = await import("./cleanup");
+const { liveRuns } = await import("../execution/runs/registry");
 
 const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
 
@@ -240,9 +241,9 @@ test("everything() does not leave a conversation wedged on a deleted run", () =>
   // later message queues behind a run that can never finish. The recovery
   // button would have manufactured the state it exists to clear.
   const db = freshDb();
-  seedRun(db, "r1", "running", null);
+  seedRun(db, "r1", "error", -1);
   db.prepare(
-    "INSERT INTO conversations (id, agent_id, instance_id, status, active_run_id, created_at, updated_at) VALUES ('c1','dev','default','running','r1',1,1)",
+    "INSERT INTO conversations (id, agent_id, instance_id, status, active_run_id, created_at, updated_at) VALUES ('c1','dev','default','needs_attention','r1',1,1)",
   ).run();
   db.prepare("INSERT INTO queued_messages (id, conversation_id, text, position, created_at) VALUES ('q1','c1','hi',0,1)").run();
   // loop-runner.ts has the identical `if (!run) return` reconciler, AND
@@ -259,6 +260,33 @@ test("everything() does not leave a conversation wedged on a deleted run", () =>
   assert.equal(count(db, "conversations"), 0, "a conversation pointing at a deleted run is unusable");
   assert.equal(count(db, "queued_messages"), 0);
   assert.equal(count(db, "loops"), 0, "a loop pointing at a deleted run can never advance");
+});
+
+test("everything() refuses while a run is running anywhere, and deletes nothing", () => {
+  // It deleted the running run's rows and the chat waiting on it: the run kept
+  // streaming into rows that were gone, and its finish reached no conversation.
+  const db = freshDb();
+  seedRun(db, "live", "running", null);
+  seedConversation(db, "c1", "running", "live");
+  db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[]', 1)").run();
+
+  assert.throws(() => everything(), (e: unknown) => e instanceof RunsLiveError && e.count === 1);
+
+  assert.equal(count(db, "runs"), 1);
+  assert.equal(count(db, "conversations"), 1);
+  assert.equal(count(db, "transcripts"), 1);
+});
+
+test("everything() refuses while this server holds a live run its row doesn't show yet", () => {
+  const db = freshDb();
+  seedRun(db, "r1");
+  liveRuns.set("spawning", { status: "running" } as unknown as Parameters<typeof liveRuns.set>[1]);
+  try {
+    assert.throws(() => everything(), RunsLiveError);
+    assert.equal(count(db, "runs"), 1);
+  } finally {
+    liveRuns.delete("spawning");
+  }
 });
 
 test("everything() clears pipeline steps and ui settings, keeping the migration sentinel", () => {

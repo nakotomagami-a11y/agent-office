@@ -5,12 +5,14 @@
  *   pnpm --filter @agent-office/server test src/routes/agents/agents-route.test.ts
  */
 import assert from "node:assert";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { paths } from "@agent-office/domain/services";
 import { POST } from "./route";
 import { POST as bulkPost } from "./bulk/route";
+import { PUT as put } from "./[id]/route";
+import * as bodyRoute from "./[id]/body/route";
 
 /** Each test that needs the id taken takes it itself, so any one of them can run alone. */
 function takeId(): string {
@@ -56,4 +58,24 @@ test("bulk create where every id is taken is a 409, not a server error", async (
     body: JSON.stringify([{ id: "route-taken", name: "x", desc: "theirs", body: "theirs" }]),
   }));
   assert.equal(res.status, 409);
+});
+
+const putAgent = (id: string, body: unknown) =>
+  put(new Request(`http://localhost/api/agents/${id}`, { method: "PUT", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
+
+test("PUT edits an existing agent and never creates one", async () => {
+  const missing = await putAgent("route-nobody", { id: "route-nobody", name: "x", desc: "d", body: "b" });
+  assert.equal(missing.status, 404);
+  assert.equal(existsSync(join(paths.AGENTS_DIR, "route-nobody.md")), false);
+
+  takeId();
+  const res = await putAgent("route-taken", { id: "route-taken", name: "Route Taken", desc: "edited", body: "mine" });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { id: "route-taken" });
+  assert.match(readFileSync(join(paths.AGENTS_DIR, "route-taken.md"), "utf8"), /description: edited/);
+});
+
+test("the body route only reads: its PUT, which wiped CRLF frontmatter, is gone", () => {
+  assert.equal("PUT" in bodyRoute, false);
+  assert.equal(typeof bodyRoute.GET, "function");
 });

@@ -164,7 +164,20 @@ Per wave: what changed, the test that covers it, and a manual check for a human 
 | S2-14 | Deleting runs never leaves a chat stuck "running" (pointer cleared, chat parked with its queue); never deletes a live run; the orphan cleanup never deletes chat turns | `cleanup.test.ts` | Delete an agent's run history while idle, send a message: a turn starts |
 | S5-13, S7-13 | No secret values in `shell-env.sh`; on Windows the file isn't written and an old copy is deleted; the `source` hint is quoted; the Secrets tab says truthfully how values are stored | `shell-env.test.ts` | On Windows switch project tabs: `~/.claude/agent-office/shell-env.sh` is gone |
 
-Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being removed (D7). Import still targets the project id inside the file; export with history still reads the retired table (Wave 9); `<id>.body.<ts>.md` snapshots and old `_archive` files (Wave 1); the Minecraft mod has no Keep/Discard choice for session removal.
+Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being removed (D7). Import still targets the project id inside the file; export with history still reads the retired table (Wave 9); `<id>.body.<ts>.md` snapshots and old `_archive` files (Wave 1); the Minecraft mod has no Keep/Discard choice for session removal (it explains the refusal instead).
+
+### Wave 0 follow-up · review SHOULD-FIX items
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| Body PUT | `PUT /api/agents/:id/body` (no client; wiped CRLF frontmatter) is gone; GET stays | `agents-route.test.ts` | `curl -X PUT .../api/agents/developer/body`: 405, file unchanged |
+| Agent delete | Deleting an agent copies `<id>.md`, `.memory.md`, `.identity.md` to `~/.claude/agent-office/backups/agents/<id>.deleted-<ts>.*` first; the confirm says so | `agent-update-delete.test.ts` | Delete an agent with memory: three files in the backups folder |
+| Erase everything | Refused (409 `runs_live`, nothing erased) while any run is running here or in the DB; the panel says how many. Dev "Clear ALL runs" keeps live runs and unsticks chats | `cleanup.test.ts`, `seed-route.test.ts` | Start a run, type ERASE: refusal shown, chats intact |
+| Body history | A save snapshots the old body only when the body changed and the write succeeded | `agent-update-delete.test.ts` | Change the model in the chat header 11 times: body history unchanged |
+| Edit target | The editor saves to the agent's own file (`ApiAgent.id`), never one named after `name:`; PUT on a missing id is 404, not a create; a save keeps the frontmatter `name` | `agent-form.test.ts`, `agents-route.test.ts`, `agent-update-delete.test.ts` | `qa_bot.md` with `name: Reviewer`: edit and save, `reviewer.md` not created |
+| Paths | One `pathKey` in `paths.ts` (symlinks resolved, Windows case-folded) behind `samePath`, `isInside` and the worktree clean-up; a link out of a root is not inside it | `paths.inside.test.ts`, `worktrees.test.ts` | Junction inside the projects root to another folder: Delete folder refuses it |
+| Mod | Remove-seat confirm tells the truth (work is never lost; `.env` goes with the folder) and a 409 says why: running, N changes / M commits, or git kept the worktree | contract test, `ArchitectureTest` | Remove a seat with an edited file from the tablet: status line lists the work |
+| Import | Roster seats are merged inside the metadata write, against the roster at that moment | `projects.write-integrity.test.ts` | — |
 
 ## Overlap with PR #212 (AI providers mission)
 

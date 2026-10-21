@@ -450,7 +450,7 @@ export function updateProject(
   }, patch.expectedRev);
 }
 
-/** The only bulk roster path (bundle import); everything else is per-instance. */
+/** Bulk replace (dev seeding); import adds through `addToRoster`, everything else is per-instance. */
 export function replaceRoster(id: string, roster: unknown, reason = "replaceRoster"): Project {
   // Coercing to [] would turn "no roster data" into "delete every instance".
   if (!Array.isArray(roster)) {
@@ -459,6 +459,20 @@ export function replaceRoster(id: string, roster: unknown, reason = "replaceRost
   return mutateMetadata(id, reason, (cur) => ({
     meta: { ...cur.meta, roster: normalizeRoster(roster) },
   }));
+}
+
+/** Bundle import: seats whose instanceId is new are appended, inside the write, so a seat added
+ *  meanwhile is neither lost nor duplicated. Returns the instanceIds it added. */
+export function addToRoster(id: string, seats: unknown[], reason = "addToRoster"): Set<string> {
+  const added = new Set<string>();
+  mutateMetadata(id, reason, (cur) => {
+    added.clear();
+    const taken = new Set(cur.meta.roster.map((r) => r.instanceId));
+    const fresh = normalizeRoster(seats).filter((s) => !taken.has(s.instanceId));
+    for (const s of fresh) added.add(s.instanceId);
+    return { meta: { ...cur.meta, roster: [...cur.meta.roster, ...fresh] } };
+  });
+  return added;
 }
 
 export function deleteProject(id: string): boolean {

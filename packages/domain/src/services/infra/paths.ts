@@ -1,9 +1,9 @@
 // Centralised on-disk paths. Keep these identical to the legacy server's
 // values so existing user data still loads.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { homedir, platform, userInfo } from "node:os";
-import { delimiter, dirname, join, posix, sep, win32 } from "node:path";
+import { basename, delimiter, dirname, join, posix, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { absoluteSearchPath } from "./search-path";
 
@@ -12,20 +12,42 @@ export const HOME = homedir();
 type PathApi = typeof posix;
 const nativePath: PathApi = sep === "\\" ? win32 : posix;
 
-/** Windows compares case-insensitively. `pathApi` is a parameter so tests can pin `path.win32`. */
-function comparable(p: string, pathApi: PathApi): string {
+/**
+ * The one spelling of a path that every comparison uses. Symlinks are resolved: git prints a
+ * worktree's real path (`C:/x` for `C:\x`, macOS `/var` as `/private/var`, Windows 8.3 short
+ * names expanded), and a delete guard must judge where a path really leads, not how it is spelled.
+ * A path that does not exist resolves through its deepest existing ancestor, so a missing child
+ * still sits inside its resolved parent. Windows compares case-insensitively. `pathApi` is a
+ * parameter so tests can pin `path.win32`; only the native one reads the disk.
+ */
+export function pathKey(p: string, pathApi: PathApi = nativePath): string {
   const abs = pathApi.resolve(p);
-  return pathApi.sep === "\\" ? abs.toLowerCase() : abs;
+  const real = pathApi === nativePath ? realpathOfDeepest(abs) : abs;
+  return pathApi.sep === "\\" ? real.toLowerCase() : real;
+}
+
+function realpathOfDeepest(abs: string): string {
+  const missing: string[] = [];
+  for (let cur = abs; ; ) {
+    try {
+      return join(realpathSync.native(cur), ...missing.reverse());
+    } catch {
+      const parent = dirname(cur);
+      if (parent === cur) return abs;
+      missing.push(basename(cur));
+      cur = parent;
+    }
+  }
 }
 
 export function samePath(a: string, b: string, pathApi: PathApi = nativePath): boolean {
-  return comparable(a, pathApi) === comparable(b, pathApi);
+  return pathKey(a, pathApi) === pathKey(b, pathApi);
 }
 
 /** `child` is strictly below `parent`. Never `startsWith(parent + "/")`: that refused every
  *  Windows path and every mixed-separator one, so guarded deletes silently did nothing. */
 export function isInside(child: string, parent: string, pathApi: PathApi = nativePath): boolean {
-  const rel = pathApi.relative(comparable(parent, pathApi), comparable(child, pathApi));
+  const rel = pathApi.relative(pathKey(parent, pathApi), pathKey(child, pathApi));
   return rel !== "" && rel !== ".." && !rel.startsWith(".." + pathApi.sep) && !pathApi.isAbsolute(rel);
 }
 

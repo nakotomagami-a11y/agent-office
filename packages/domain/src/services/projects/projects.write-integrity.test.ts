@@ -111,6 +111,19 @@ test("replaceRoster is the sanctioned bulk path and does not disturb other field
   assert.equal(p.meta.accountId, "acc_keepme");
 });
 
+test("addToRoster appends only new seats, against the roster as it is at write time", () => {
+  reseed();
+  const added = projects.addToRoster(id, [
+    { instanceId: "developer-aaa", agentId: "other", label: "theirs" },
+    { instanceId: "developer-new", agentId: "developer" },
+  ]);
+  assert.deepEqual([...added], ["developer-new"]);
+  const p = projects.readProject(id)!;
+  assert.deepEqual(p.meta.roster.map((i) => i.instanceId), ["developer-aaa", "developer-bbb", "developer-new"]);
+  assert.equal(p.meta.roster[0]!.agentId, "developer", "an existing seat is never replaced");
+  assert.equal(p.meta.accountId, "acc_keepme");
+});
+
 // --- per-instance mutation operates on current state -------------------------
 
 test("removeInstance drops only its target and keeps accountId", () => {

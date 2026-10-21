@@ -1,5 +1,5 @@
-// GET/PUT/DELETE /api/agents/<id> — read, update, or delete one agent and its sessions (?work=). PUT keeps
-// frontmatter keys the body doesn't carry, and snapshots the current body to a history file (max 10) first.
+// GET/PUT/DELETE /api/agents/<id> — read, update, or delete one agent and its sessions (?work=). PUT edits an
+// existing <id>.md only (404 otherwise), keeps frontmatter keys the body doesn't carry, and snapshots a changed body.
 import { agents, projects } from "@agent-office/domain/services";
 import { validateBody, validateQuery } from "../../../lib/validation";
 import { agentBodySchema, sessionRemovalQuerySchema } from "@agent-office/api-contract";
@@ -22,15 +22,11 @@ export async function PUT(request: Request, { params }: Params) {
   const { data: body, error } = validateBody(agentBodySchema, raw);
   if (error) return error;
 
-  // Back up current body text before overwriting
-  const current = agents.readAgent(id);
-  if (current?.body) {
-    agents.backupAgentBody(id, current.body);
-  }
-
-  const result = agents.writeAgent({ ...body, id });
-  if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
-  return Response.json({ id: result.value });
+  return tryService(() => {
+    const result = agents.updateAgent({ ...body, id });
+    if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+    return { id: result.value };
+  });
 }
 
 export async function DELETE(request: Request, { params }: Params) {

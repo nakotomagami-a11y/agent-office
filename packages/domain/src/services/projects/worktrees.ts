@@ -2,11 +2,12 @@
 // All git commands use execFileSync with an args array — never shell interpolation.
 
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { MISSION_GIT_TIMEOUT_MS } from "../../config/missions";
 import { log } from "../infra/log";
+import { pathKey } from "../infra/paths";
 
 // Sync git on the request thread: a hung one must not freeze the server. Generous for `worktree remove`.
 const GIT_TIMEOUT_MS = 120_000;
@@ -201,21 +202,6 @@ export class WorktreeRemoveError extends Error {
     super(`git worktree remove failed for '${basePath}': ${detail}`);
     this.name = "WorktreeRemoveError";
   }
-}
-
-/**
- * One spelling per directory. git prints `C:/x/y` where `join` builds `C:\x\y`,
- * Windows paths ignore case, and macOS tmp dirs sit behind `/var` → `/private/var`;
- * comparing raw strings matched nothing on Windows.
- */
-export function pathKey(p: string): string {
-  let abs = resolve(p);
-  try {
-    abs = realpathSync.native(abs);
-  } catch {
-    /* missing: the resolved form is the best key */
-  }
-  return process.platform === "win32" ? abs.toLowerCase() : abs;
 }
 
 /** Branch names Agent Office gives a session: `agent/<id>-<ts>`, or a mission seat's `mission/<m>--<id>`. */

@@ -6,6 +6,7 @@ import { EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/a
 import { MODEL_IDS } from "@agent-office/domain/config/models";
 import { PR_LINK_SOURCES, REVIEW_ERROR_CODES } from "@agent-office/domain/config/review";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
+import { SESSION_REMOVAL_CODES } from "@agent-office/domain/config/sessions";
 import { MAX_UPLOAD_BYTES } from "@agent-office/domain/services/infra/paths";
 import { z } from "zod";
 
@@ -84,6 +85,7 @@ test("Protocol.java uses only words the server sends", () => {
     Event: [.../export type SseEvent =([\s\S]*?)\n\n/.exec(runs)![1]!.matchAll(/name: "([^"]+)"/g)].map((m) => m[1]!),
     ReviewError: [...REVIEW_ERROR_CODES],
     PrLink: [...PR_LINK_SOURCES],
+    SessionRemoval: [...SESSION_REMOVAL_CODES],
     ApiError: [
       ...union(read("apps/server/src/lib/api-helpers.ts"), /export function notFound\(message = ("[^"]+")\)/),
       ...union(read("packages/domain/src/services/projects/projects.ts"), /readonly code = ("[^"]+") as const/),

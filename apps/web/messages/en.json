@@ -533,7 +533,7 @@
   },
   "session_removal": {
     "title": "Remove session",
-    "confirm": "Remove {name} from {project}? Its conversation stays archived so you can still read it. If it has its own worktree, the worktree folder and its branch are deleted; you are asked first if they hold work that is on no other branch.",
+    "confirm": "Remove {name} from {project}? Its conversation stays archived so you can still read it. If it has its own worktree, the worktree folder and its branch are deleted; you are asked first if they hold work that is on no other branch. Files git ignores in that folder (.env, local config, node_modules) are not counted as work and are deleted with it.",
     "running": "{count, plural, one {This session is} other {# sessions are}} still running. Stop {count, plural, one {it} other {them}} first, then try again.",
     "has_work": "{count, plural, one {This session has} other {# sessions have}} work that is on no other branch:",
     "uncommitted": "{count, plural, one {# uncommitted change} other {# uncommitted changes}}",
@@ -545,7 +545,7 @@
     "keep": "Keep work",
     "discard": "Discard work",
     "remove": "Remove",
-    "agent_delete_confirm": "Delete agent \"{id}\"? Its sessions in every project are removed too; their conversations stay archived. This cannot be undone.",
+    "agent_delete_confirm": "Delete agent \"{id}\"? Its sessions in every project are removed too; their conversations stay archived. A copy of its definition, memory and identity files is kept in ~/.claude/agent-office/backups/agents/.",
     "agent_delete_has_work": "{count, plural, one {One of its sessions has} other {# of its sessions have}} work that is on no other branch ({names}). OK deletes the agent but keeps that work: worktree folders with changes and branches with commits stay on disk. Cancel deletes nothing."
   },
   "project_activity": {
@@ -691,10 +691,12 @@
     "run": "Run",
     "working": "Working…",
     "erase_title": "Erase everything",
-    "erase_desc": "Every row above plus runs, messages and tool calls. Analytics is destroyed. Files in your projects are untouched.",
+    "erase_desc": "Every row above plus runs, messages and tool calls. Analytics is destroyed. Files in your projects are untouched. Refused while any agent is running.",
     "erased": "Erased",
     "erase_placeholder": "type ERASE to confirm",
-    "erase_button": "Erase"
+    "erase_button": "Erase",
+    "erase_runs_live": "{count, plural, one {A run is} other {# runs are}} still going. Stop {count, plural, one {it} other {them}} first; nothing was erased.",
+    "erase_failed": "Erase failed: {detail}"
   },
   "performance_tab": {
     "title": "Rendering budget",

@@ -66,6 +66,9 @@ public final class Api {
     /** One server-sent event from /api/runs/:id/stream; data is raw JSON. */
     public record Event(String name, String data) {}
 
+    /** A session a removal was refused for (SessionAtRisk in packages/domain/src/services/projects/projects.ts). */
+    public record SessionAtRisk(long uncommitted, long unmerged, boolean unknown) {}
+
     public static final class ApiException extends java.io.IOException {
         public final int status;
         public final String code;
@@ -75,18 +78,21 @@ public final class Api {
         public final String hint;
         /** Short raw context (gh's own message for gh_failed); null otherwise. */
         public final String detail;
+        /** A refused session removal (Protocol.SessionRemoval): the sessions concerned; empty otherwise. */
+        public final List<SessionAtRisk> sessions;
 
         public ApiException(int status, String code) {
-            this(status, code, false, null, null);
+            this(status, code, false, null, null, List.of());
         }
 
-        public ApiException(int status, String code, boolean softCap, String hint, String detail) {
+        public ApiException(int status, String code, boolean softCap, String hint, String detail, List<SessionAtRisk> sessions) {
             super("agent_office_" + status + (code == null ? "" : ": " + code));
             this.status = status;
             this.code = code;
             this.softCap = softCap;
             this.hint = hint;
             this.detail = detail;
+            this.sessions = sessions;
         }
     }
 }

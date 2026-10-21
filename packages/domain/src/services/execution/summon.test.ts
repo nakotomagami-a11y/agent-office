@@ -6,7 +6,7 @@ import { test } from "node:test";
 import type { AgentInstance, ApiAgent } from "../../types/index";
 import { buildClaudeArgs, disabledMcpArgs } from "./summon";
 
-const agent: ApiAgent = { name: "developer", description: "", skills: [], tools: [], permissionMode: "bypassPermissions" };
+const agent: ApiAgent = { id: "developer", name: "developer", description: "", skills: [], tools: [], permissionMode: "bypassPermissions" };
 const instance = (branch: string): AgentInstance => ({
   instanceId: "developer-abc", agentId: "developer", worktree: { branch, basePath: "/p/.worktrees/developer-abc", createdAt: 1 },
 });

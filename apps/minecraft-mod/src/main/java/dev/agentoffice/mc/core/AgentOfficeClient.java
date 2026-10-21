@@ -194,7 +194,8 @@ public final class AgentOfficeClient {
         call(send("PATCH", rosterPath(slot), patch));
     }
 
-    /** Removes the seat and its git worktree (uncommitted work in it is lost). Transcripts are archived. */
+    /** Removes the seat and its git worktree; transcripts are archived. A seat that is running, or whose worktree
+     *  holds work no other branch has, is refused (409, Protocol.SessionRemoval) and nothing is touched. */
     public void removeInstance(Api.Slot slot) throws IOException {
         writable();
         call(HttpRequest.newBuilder(base.resolve(rosterPath(slot))).timeout(TIMEOUT).DELETE().build());
@@ -435,7 +436,16 @@ public final class AgentOfficeClient {
             JsonElement el = JsonParser.parseString(body);
             if (!el.isJsonObject()) return new Api.ApiException(status, null);
             JsonObject o = el.getAsJsonObject();
-            return new Api.ApiException(status, str(o, "error"), bool(o, "softCap"), str(o, "hint"), str(o, "detail"));
+            List<Api.SessionAtRisk> sessions = new ArrayList<>();
+            if (o.get("sessions") instanceof JsonArray arr) {
+                for (JsonElement s : arr) {
+                    if (s.isJsonObject()) {
+                        JsonObject so = s.getAsJsonObject();
+                        sessions.add(new Api.SessionAtRisk(num(so, "uncommitted"), num(so, "unmerged"), bool(so, "unknown")));
+                    }
+                }
+            }
+            return new Api.ApiException(status, str(o, "error"), bool(o, "softCap"), str(o, "hint"), str(o, "detail"), sessions);
         } catch (RuntimeException e) {
             return new Api.ApiException(status, null);
         }

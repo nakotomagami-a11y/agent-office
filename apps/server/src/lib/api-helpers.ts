@@ -92,10 +92,11 @@ export async function readBoundedText(request: Request, maxBytes: number): Promi
 
 // Map service exceptions to typed error responses. ENOENT / "not found"
 // → 404, anything else → 500 (was 400 - that masked real internal errors).
+/** `fn` may return a Response for an expected refusal; anything else is sent as JSON. */
 export async function tryService<T>(fn: () => Promise<T> | T): Promise<Response> {
   try {
     const result = await fn();
-    return Response.json(result);
+    return result instanceof Response ? result : Response.json(result);
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     const msg = err.message;

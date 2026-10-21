@@ -11,10 +11,10 @@
 // right after skills because it's static and never edited by the user, while
 // memory (all three flavors) is treated as accumulated state.
 
-import { readdirSync, readFileSync, existsSync, rmSync, statSync, unlinkSync } from "node:fs";
+import { copyFileSync, readdirSync, readFileSync, existsSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { ApiAgent, AgentBody, AgentBodyHistoryEntry, PanelSeat, Project, PromptSegment, PromptSegmentChild } from "../../types/index";
-import { AGENTS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
+import { AGENTS_DIR, AGENT_BACKUPS_DIR, GLOBAL_MEMORY_PATH, PROJECTS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { isYamlMapping, type YamlValue } from "../infra/yaml";
 import { hasAgentFrontmatter, mergeFrontmatter, opensFrontmatter, parseAgentFrontmatter, splitAgentFile } from "./frontmatter";
@@ -94,6 +94,7 @@ export function readAgent(name: string): { info: ApiAgent; body: string } | null
   const fm = split ? parseAgentFrontmatter(split.yaml) : {};
   const body = split ? split.body : content;
   const info: ApiAgent = {
+    id: name,
     name: asString(fm.name) ?? name,
     displayName: asString(fm["display-name"] ?? fm["displayName"]),
     description: asString(fm.description) ?? "",
@@ -138,19 +139,21 @@ export function writeAgent(b: AgentBody): WriteAgentResult {
   const split = splitAgentFile(current);
   // An opening fence with no block we can find: writing would replace keys we never read.
   if (!split && opensFrontmatter(current)) return { ok: false, error: "frontmatter_unparseable", status: 422 };
-  // Human display name. Only persisted when it adds information over the slug,
+  // Renaming the agent the CLI sees is not an edit the form can make.
+  const name = (split && asString(parseAgentFrontmatter(split.yaml).name)) || id;
+  // Human display name. Only persisted when it adds information over the name,
   // so trivial "name == id" agents keep a clean frontmatter and fall back to
   // slug-prettifying in the UI.
   const label = b.name?.trim();
   const owned: Record<string, YamlValue | undefined> = {
-    name: id,
+    name,
     description: b.desc.replace(/\n/g, " "),
     "default-model": b.model,
     "default-effort": b.effort,
     skills: b.skills,
     tools: b.tools,
     "permission-mode": b.pm,
-    "display-name": label && label !== id ? label : undefined,
+    "display-name": label && label !== name ? label : undefined,
     room: b.room || undefined,
     unit: b.unit?.trim() || undefined,
   };
@@ -168,14 +171,30 @@ export function createAgent(b: AgentBody): WriteAgentResult {
   return writeAgent(b);
 }
 
+export function updateAgent(b: AgentBody): WriteAgentResult {
+  if (!isValidIdSegment(b.id)) return { ok: false, error: "invalid_id", status: 400 };
+  const before = readAgent(b.id);
+  if (!before) return { ok: false, error: "not_found", status: 404 };
+  const result = writeAgent(b);
+  // Only a real change: a model switch snapshotted identical bodies and evicted real ones.
+  if (result.ok && before.body && before.body !== b.body.trim()) backupAgentBody(b.id, before.body);
+  return result;
+}
+
+/** Copies go to AGENT_BACKUPS_DIR first; a failed copy throws before anything is removed. */
 export function deleteAgent(id: string): boolean {
   const mdPath = join(AGENTS_DIR, `${id}.md`);
   if (!existsSync(mdPath)) return false;
-  rmSync(mdPath);
-  const memPath = memoryPathFor(id);
-  if (existsSync(memPath)) rmSync(memPath);
-  const identityPath = identityPathFor(id);
-  if (existsSync(identityPath)) rmSync(identityPath);
+  const at = new Date().toISOString().replace(/[:.]/g, "-");
+  const files = [
+    [mdPath, "md"],
+    [memoryPathFor(id), "memory.md"],
+    [identityPathFor(id), "identity.md"],
+  ] as const;
+  const present = files.filter(([path]) => existsSync(path));
+  ensureDir(AGENT_BACKUPS_DIR);
+  for (const [path, ext] of present) copyFileSync(path, join(AGENT_BACKUPS_DIR, `${id}.deleted-${at}.${ext}`));
+  for (const [path] of present) rmSync(path);
   return true;
 }
 

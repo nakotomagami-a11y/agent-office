@@ -19,6 +19,7 @@ export interface AgentFormValues {
   body: string;
   /** Not editable here. Held so a save does not drop a council's seats. */
   panel?: PanelSeat[];
+  fileId?: string;
 }
 
 export const EMPTY_FORM: AgentFormValues = {
@@ -55,7 +56,8 @@ export function parseCsv(value: string): string[] {
 
 export function fromApi(agent: ApiAgent, body: string): AgentFormValues {
   return {
-    id: agent.name,
+    id: agent.id,
+    fileId: agent.id,
     name: agent.displayName ?? agent.name,
     desc: agent.description,
     skills: toCsv(agent.skills),
@@ -72,7 +74,7 @@ export function fromApi(agent: ApiAgent, body: string): AgentFormValues {
 
 export function toBody(values: AgentFormValues): AgentBody {
   return {
-    id: slugifyId(values.id || values.name),
+    id: values.fileId ?? slugifyId(values.id || values.name),
     name: values.name.trim(),
     desc: values.desc.trim(),
     skills: parseCsv(values.skills),

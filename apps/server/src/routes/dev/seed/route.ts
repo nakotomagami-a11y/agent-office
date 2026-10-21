@@ -21,11 +21,8 @@ export async function POST(request: Request) {
       return Response.json({ ok: true, message: "Showcase data cleared." });
     }
     case "clear-all-runs": {
-      const rawDb = db.getDb();
-      rawDb.prepare("DELETE FROM tool_calls").run();
-      rawDb.prepare("DELETE FROM messages").run();
-      rawDb.prepare("DELETE FROM runs").run();
-      return Response.json({ ok: true, message: "All runs, messages, and tool calls deleted." });
+      const n = db.deleteRunsWhere("1 = 1");
+      return Response.json({ ok: true, message: `${n} finished run(s) deleted with their messages and tool calls; live runs kept.` });
     }
     case "fix-orphans": {
       const rawDb = db.getDb();

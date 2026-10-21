@@ -17,6 +17,7 @@ process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 
 const wt = await import("./worktrees");
+const { pathKey } = await import("../infra/paths");
 
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
@@ -46,8 +47,8 @@ const hasBranch = (dir: string, branch: string) => git(dir, "branch", "--list", 
 test("pathKey matches git's forward-slash spelling of the same directory", () => {
   const dir = repo();
   const fromGit = git(dir, "rev-parse", "--show-toplevel");
-  assert.equal(wt.pathKey(fromGit), wt.pathKey(dir));
-  if (process.platform === "win32") assert.equal(wt.pathKey(dir.toUpperCase()), wt.pathKey(dir));
+  assert.equal(pathKey(fromGit), pathKey(dir));
+  if (process.platform === "win32") assert.equal(pathKey(dir.toUpperCase()), pathKey(dir));
 });
 
 test("isSessionBranch accepts only the session naming for that instance", () => {

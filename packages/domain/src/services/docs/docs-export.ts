@@ -82,28 +82,21 @@ const API: DocsExport["api"] = [
   {
     method: "PUT",
     path: "/api/agents/[id]",
-    description: "Update agent definition (backs up body first)",
+    description: "Update an existing agent (404 if missing); a changed body is snapshotted after the write",
     request_type: "agentBodySchema",
     response_type: "{ id: string }",
   },
   {
     method: "DELETE",
     path: "/api/agents/[id]",
-    description: "Delete agent file and memory sidecar",
-    response_type: "{ deleted: boolean }",
+    description: "Delete agent file, memory and identity sidecars (backed up first)",
+    response_type: "{ deleted: string }",
   },
   {
     method: "GET",
     path: "/api/agents/[id]/body",
     description: "Raw markdown body (no frontmatter)",
     response_type: "text/plain",
-  },
-  {
-    method: "PUT",
-    path: "/api/agents/[id]/body",
-    description: "Replace body; backs up to <id>.body.<ISO>.md",
-    request_type: "text/plain",
-    response_type: "204",
   },
   {
     method: "GET",

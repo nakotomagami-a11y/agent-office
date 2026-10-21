@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
+import { ApiError } from "@/lib/api/fetch";
 import { useCleanup, type CleanupKind } from "../../hooks/use-cleanup";
 
 interface CleanupRow {
@@ -109,6 +110,11 @@ function EraseEverything() {
   const [done, setDone] = useState(false);
   const canErase = text.trim() === "ERASE";
 
+  const err = cleanup.error;
+  const refusal = err instanceof ApiError && err.status === 409
+    ? t("erase_runs_live", { count: typeof err.data?.count === "number" ? err.data.count : 1 })
+    : err ? t("erase_failed", { detail: err.message }) : null;
+
   const run = () => {
     if (!canErase) return;
     cleanup.mutate("everything", {
@@ -130,6 +136,7 @@ function EraseEverything() {
         <div className="text-[11px] leading-[1.5] text-txt-3 mt-[3px] text-pretty">
           {t("erase_desc")}
         </div>
+        {refusal && <div role="alert" className="text-[11px] leading-[1.5] text-red font-semibold mt-[5px] text-pretty">{refusal}</div>}
       </div>
       {done ? (
         <span className="flex items-center gap-[7px] py-[7px] px-[13px] rounded-[11px] bg-green-soft text-green text-[11.5px] font-bold whitespace-nowrap shrink-0">

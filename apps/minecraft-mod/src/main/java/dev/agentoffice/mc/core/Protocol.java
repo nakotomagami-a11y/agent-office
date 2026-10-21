@@ -81,6 +81,15 @@ public final class Protocol {
         private ApiError() {}
     }
 
+    /** SESSION_REMOVAL_CODES (packages/domain/src/config/sessions.ts): why removing a seat was refused. */
+    public static final class SessionRemoval {
+        public static final String RUNNING = "session_running";
+        public static final String HAS_WORK = "session_has_work";
+        public static final String REMOVE_FAILED = "worktree_remove_failed";
+
+        private SessionRemoval() {}
+    }
+
     /** What a conversation can be told to do: each is its own route (API_ROUTES.conversationRetry, ...). */
     public enum Action {
         RETRY, RESUME, SKIP, NEW;

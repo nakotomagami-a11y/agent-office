@@ -15,6 +15,7 @@ import { emitAppEvent } from "../infra/events";
 import { writeFileAtomic } from "../infra/fs-atomic";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
+import { liveRuns } from "../execution/runs/registry";
 
 /** An unreadable entry is "not this kind", not fatal to the whole sweep. */
 export function isKind(path: string, kind: "file" | "dir"): boolean {
@@ -196,12 +197,33 @@ export interface CleanupOptions {
   bundledSkillsDir?: string | null;
 }
 
+/** Refused rather than wiping around them: a live run keeps writing its rows and expects its
+ *  chat and loop to hear it finish. Boot reaps `running` rows whose server is gone, so a
+ *  refusal clears once the runs stop or the server restarts. */
+export class RunsLiveError extends Error {
+  readonly code = "runs_live";
+  constructor(readonly count: number) {
+    super(`runs_live: ${count}`);
+    this.name = "RunsLiveError";
+  }
+}
+
+function liveRunIds(): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, run] of liveRuns) if (run.status === "running") ids.add(id);
+  const rows = getDb().prepare("SELECT id FROM runs WHERE status = 'running'").all() as Array<{ id: string }>;
+  for (const { id } of rows) ids.add(id);
+  return ids;
+}
+
 export function everything(opts: CleanupOptions = {}): CleanupResult {
   const detail: Record<string, number> = {};
   const db = getDb();
 
   // EVERY db write in one transaction, or a rollback leaves a partial wipe.
   db.transaction(() => {
+    const live = liveRunIds();
+    if (live.size > 0) throw new RunsLiveError(live.size);
     detail.transcripts = resetAllTranscripts().cleared;
     detail.drafts = clearComposerDrafts().cleared;
     detail.uiSettings = resetUiSettings().cleared;

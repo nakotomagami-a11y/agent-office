@@ -130,11 +130,7 @@ function portableSeat(seat: unknown): unknown {
   return Object.fromEntries(Object.entries(seat).filter(([k]) => !MACHINE_KEYS.has(k)));
 }
 
-function seatId(seat: unknown): unknown {
-  return typeof seat === "object" && seat !== null && "instanceId" in seat ? seat.instanceId : undefined;
-}
-
-function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<unknown> {
+function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<string> {
   const meta = p.meta;
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
@@ -159,11 +155,7 @@ function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<unkn
   // Unconditional would let a roster-less bundle delete every instance.
   if (!Array.isArray(meta.roster)) return new Set();
   // Added to, never replaced: replacing orphaned the existing seats' worktrees and chats.
-  const current: unknown[] = existing?.meta.roster ?? [];
-  const taken = new Set(current.map(seatId));
-  const added = meta.roster.map(portableSeat).filter((s) => !taken.has(seatId(s)));
-  projects.replaceRoster(p.id, [...current, ...added], "importBundle");
-  return new Set(added.map(seatId));
+  return projects.addToRoster(p.id, meta.roster.map(portableSeat), "importBundle");
 }
 
 function restoreOffice(office: OfficeSnapshot): void {
@@ -174,7 +166,7 @@ function restoreOffice(office: OfficeSnapshot): void {
 }
 
 /** Only into seats this import added: an existing seat's transcript and session are the user's. */
-function restoreHistory(history: SaveHistoryEntry[] | undefined, added: Set<unknown>): void {
+function restoreHistory(history: SaveHistoryEntry[] | undefined, added: Set<string>): void {
   if (!history) return;
   for (const entry of history) {
     if (!isValidIdSegment(entry.agentId) || !isValidIdSegment(entry.instanceId)) continue;

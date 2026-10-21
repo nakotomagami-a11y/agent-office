@@ -11,6 +11,7 @@ import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.Async;
+import dev.agentoffice.mc.core.Protocol;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -175,12 +176,38 @@ public final class OfficeScreen extends TabletScreen {
                 status = "Removed " + removed.displayName() + ".";
                 load();
             }, e -> {
-                if (!closed) status = "Couldn't remove: " + Async.message(e);
+                if (!closed) status = refusal(e);
             });
         }, Component.literal("Remove " + slot.displayName() + " from " + slot.projectName() + "?"),
-                Component.literal("Its git worktree is deleted — uncommitted work in it is lost. "
-                        + "The chat history is archived, not deleted."),
+                Component.literal("The chat history is archived, not deleted. Its git worktree and branch are deleted, "
+                        + "but only if they hold no work: with uncommitted changes or unmerged commits it is not removed "
+                        + "and nothing is lost. Files git ignores (.env) go with the folder."),
                 Component.literal("Remove"), Component.literal("Cancel")));
+    }
+
+    /** Starts with "Couldn't": the header then shows it alone. */
+    private static String refusal(Exception e) {
+        if (!(e instanceof Api.ApiException a) || a.status != 409) return "Couldn't remove: " + Async.message(e);
+        if (Protocol.SessionRemoval.RUNNING.equals(a.code)) return "Couldn't remove: it is still working. Stop it first.";
+        if (Protocol.SessionRemoval.REMOVE_FAILED.equals(a.code)) {
+            return "Couldn't remove: git kept its worktree. Close anything open inside it, then try again.";
+        }
+        if (!Protocol.SessionRemoval.HAS_WORK.equals(a.code)) return "Couldn't remove: " + Async.message(e);
+        long uncommitted = 0, unmerged = 0;
+        boolean unknown = false;
+        for (Api.SessionAtRisk s : a.sessions) {
+            uncommitted += s.uncommitted();
+            unmerged += s.unmerged();
+            unknown |= s.unknown();
+        }
+        String work = unknown && uncommitted == 0 && unmerged == 0 ? "git couldn't check its worktree"
+                : "its worktree has " + plural(uncommitted, "uncommitted change") + " and "
+                        + plural(unmerged, "commit") + " on no other branch";
+        return "Couldn't remove: " + work + ". Nothing was lost; to keep or discard it, remove it in the Agent Office app.";
+    }
+
+    private static String plural(long n, String noun) {
+        return n + " " + noun + (n == 1 ? "" : "s");
     }
 
     @Override
