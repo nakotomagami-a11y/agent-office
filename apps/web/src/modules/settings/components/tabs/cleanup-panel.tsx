@@ -111,7 +111,7 @@ function EraseEverything() {
   const canErase = text.trim() === "ERASE";
 
   const err = cleanup.error;
-  const refusal = err instanceof ApiError && err.status === 409
+  const refusal = err instanceof ApiError && err.data?.error === "runs_live"
     ? t("erase_runs_live", { count: typeof err.data?.count === "number" ? err.data.count : 1 })
     : err ? t("erase_failed", { detail: err.message }) : null;
 

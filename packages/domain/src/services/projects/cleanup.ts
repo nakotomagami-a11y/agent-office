@@ -10,7 +10,8 @@
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import type { CleanupKind } from "../../config/cleanup";
 import { join } from "node:path";
-import { getDb, deleteRunsWhere } from "../db";
+import { getDb, deleteRunsWhere, isPidAlive } from "../db";
+import { STALLED_START_MS } from "../execution/conversation";
 import { emitAppEvent } from "../infra/events";
 import { writeFileAtomic } from "../infra/fs-atomic";
 import { USER_ANALYSIS_PATH } from "../analytics/user-analysis";
@@ -198,8 +199,7 @@ export interface CleanupOptions {
 }
 
 /** Refused rather than wiping around them: a live run keeps writing its rows and expects its
- *  chat and loop to hear it finish. Boot reaps `running` rows whose server is gone, so a
- *  refusal clears once the runs stop or the server restarts. */
+ *  chat and loop to hear it finish. `count` is runs plus chats and loops still starting one. */
 export class RunsLiveError extends Error {
   readonly code = "runs_live";
   constructor(readonly count: number) {
@@ -208,12 +208,23 @@ export class RunsLiveError extends Error {
   }
 }
 
-function liveRunIds(): Set<string> {
+/** A `running` row counts only while its server lives, and for this server only while it holds
+ *  the run: a ghost row (crash, killed run) would otherwise refuse every erase until a restart. */
+function liveWork(): number {
+  const db = getDb();
   const ids = new Set<string>();
   for (const [id, run] of liveRuns) if (run.status === "running") ids.add(id);
-  const rows = getDb().prepare("SELECT id FROM runs WHERE status = 'running'").all() as Array<{ id: string }>;
-  for (const { id } of rows) ids.add(id);
-  return ids;
+  const rows = db.prepare("SELECT id, owner_pid FROM runs WHERE status = 'running'").all() as Array<{ id: string; owner_pid: number | null }>;
+  for (const r of rows) {
+    if (r.owner_pid === process.pid ? liveRuns.has(r.id) : isPidAlive(r.owner_pid)) ids.add(r.id);
+  }
+  // A chat or loop between "starting" and its run's row: wiping it there loses the run's finish.
+  const since = Date.now() - STALLED_START_MS;
+  const starting = db.prepare(
+    `SELECT (SELECT COUNT(*) FROM conversations WHERE status = 'running' AND active_run_id IS NULL AND updated_at >= ?)
+          + (SELECT COUNT(*) FROM loops WHERE phase IN ('authoring', 'reviewing', 'fixing') AND active_run_id IS NULL AND updated_at >= ?) AS n`,
+  ).get(since, since) as { n: number };
+  return ids.size + starting.n;
 }
 
 export function everything(opts: CleanupOptions = {}): CleanupResult {
@@ -221,9 +232,10 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
   const db = getDb();
 
   // EVERY db write in one transaction, or a rollback leaves a partial wipe.
+  // IMMEDIATE: the write lock is taken before the check, so no run can start between the two.
   db.transaction(() => {
-    const live = liveRunIds();
-    if (live.size > 0) throw new RunsLiveError(live.size);
+    const live = liveWork();
+    if (live > 0) throw new RunsLiveError(live);
     detail.transcripts = resetAllTranscripts().cleared;
     detail.drafts = clearComposerDrafts().cleared;
     detail.uiSettings = resetUiSettings().cleared;
@@ -240,7 +252,7 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
     detail.runs = db.prepare("DELETE FROM runs").run().changes;
     detail.pipeline_steps = db.prepare("DELETE FROM pipeline_steps").run().changes;
     detail.pipelines = db.prepare("DELETE FROM pipelines").run().changes;
-  })();
+  }).immediate();
 
   // Filesystem last: it cannot be rolled back if the db half fails.
   detail.agentMemory = resetAgentMemoryFiles().cleared;

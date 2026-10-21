@@ -38,6 +38,7 @@ const {
   RUN_FK_REFS, PIPELINE_CHILD_TABLES, RunsLiveError,
 } = await import("./cleanup");
 const { liveRuns } = await import("../execution/runs/registry");
+const { STALLED_START_MS } = await import("../execution/conversation");
 
 const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
 
@@ -267,6 +268,8 @@ test("everything() refuses while a run is running anywhere, and deletes nothing"
   // streaming into rows that were gone, and its finish reached no conversation.
   const db = freshDb();
   seedRun(db, "live", "running", null);
+  // Another server (desktop app and `pnpm server` side by side): its pid is alive.
+  db.prepare("UPDATE runs SET owner_pid = ? WHERE id = 'live'").run(process.ppid);
   seedConversation(db, "c1", "running", "live");
   db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[]', 1)").run();
 
@@ -275,6 +278,34 @@ test("everything() refuses while a run is running anywhere, and deletes nothing"
   assert.equal(count(db, "runs"), 1);
   assert.equal(count(db, "conversations"), 1);
   assert.equal(count(db, "transcripts"), 1);
+});
+
+test("a ghost running row does not block erase: its server is dead, or it is ours and not live", () => {
+  const db = freshDb();
+  seedRun(db, "ghost-ours", "running", null);
+  seedRun(db, "ghost-dead", "running", null);
+  db.prepare("UPDATE runs SET owner_pid = ? WHERE id = 'ghost-ours'").run(process.pid);
+  everything();
+  assert.equal(count(db, "runs"), 0);
+});
+
+test("everything() refuses while a chat or loop is starting a run whose row is not written yet", () => {
+  const db = freshDb();
+  const now = Date.now();
+  db.prepare(
+    "INSERT INTO conversations (id, agent_id, instance_id, status, active_run_id, created_at, updated_at) VALUES ('c1','dev','default','running',NULL,?,?)",
+  ).run(now, now);
+  assert.throws(() => everything(), RunsLiveError);
+  assert.equal(count(db, "conversations"), 1);
+
+  db.prepare("UPDATE conversations SET updated_at = ?").run(now - STALLED_START_MS - 1000);
+  seedLoop(db, "l1", null);
+  db.prepare("UPDATE loops SET phase = 'authoring', updated_at = ?").run(now);
+  assert.throws(() => everything(), RunsLiveError);
+
+  db.prepare("UPDATE loops SET updated_at = ?").run(now - STALLED_START_MS - 1000);
+  everything();
+  assert.equal(count(db, "conversations"), 0, "a start that stalled long ago is not live");
 });
 
 test("everything() refuses while this server holds a live run its row doesn't show yet", () => {
@@ -464,7 +495,7 @@ function seedConversation(db: Database.Database, id: string, status: string, act
   ).run(id, status, activeRunId);
 }
 
-function seedLoop(db: Database.Database, id: string, activeRunId: string): void {
+function seedLoop(db: Database.Database, id: string, activeRunId: string | null): void {
   db.prepare(
     `INSERT INTO loops (id, conversation_id, agent_id, instance_id, reviewer_agent_id, goal, phase, round,
        spent_usd, started_at, config_json, created_at, updated_at, active_run_id)

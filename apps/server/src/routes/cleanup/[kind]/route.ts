@@ -17,7 +17,7 @@ export async function POST(_request: Request, { params }: Params) {
     return Response.json(cleanup.runCleanup(kind, { bundledSkillsDir: starter && join(starter, "skills") }));
   } catch (err) {
     // On `code` too: a module instantiated twice in the server graph fails instanceof.
-    if (err instanceof cleanup.RunsLiveError || (err as { code?: unknown }).code === "runs_live") {
+    if (err instanceof cleanup.RunsLiveError || (err as { code?: unknown } | null)?.code === "runs_live") {
       return conflict("runs_live", { count: (err as Partial<cleanup.RunsLiveError>).count });
     }
     // An opaque 500 the panel discarded made a FAILED wipe look like a misclick.

@@ -102,7 +102,7 @@ async function reconcileIfStale(convId: string, runner: ConversationRunner, adop
 
 /** A start window (`running`, no run yet) lasts seconds; one this old means the
  *  server died mid-start. Parked rather than left blocking every send and adoption. */
-const STALLED_START_MS = 2 * 60_000;
+export const STALLED_START_MS = 2 * 60_000;
 
 function healStalledStart(conv: db.ConversationRow, adoptingRunId?: string): void {
   if (conv.status !== "running" || Date.now() - conv.updatedAt < STALLED_START_MS) return;
