@@ -6,6 +6,7 @@
 import assert from "node:assert";
 import type { PersistedRun } from "@agent-office/domain/types";
 import { turnToThreadItems, turnsToThreadItems } from "./conversation-to-thread";
+import { groupRows, groupTurns } from "./thread-rows";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -134,6 +135,12 @@ check("a sub-run left running under a finished turn settles with the turn, as li
   assert.ok(card.kind === "agent-subagent");
   assert.equal(card.status, "error");
   assert.equal(card.durationMs, undefined);
+});
+
+// B1/B2: the thread labels a turn's ask "YOU", and offers Rerun, unless its origin is "system".
+check("an app-sent turn (mission digest, QA fix round) reaches the thread's turn as origin system", () => {
+  const [turn] = groupTurns(groupRows(turnToThreadItems({ ...baseTurn, origin: "system", output: "ok" })));
+  assert.equal(turn!.ask?.origin, "system");
 });
 
 console.log(`\n${passed} passed`);
