@@ -179,7 +179,6 @@ export function reassignJob(id: string, target: { agentId?: string; projectId?: 
   const retargeted = (target.agentId !== undefined && target.agentId !== job.summonRequest.agentId)
     || (target.projectId !== undefined && (target.projectId || null) !== (job.summonRequest.projectId || null))
     || (target.instanceId !== undefined && (target.instanceId || "default") !== (job.summonRequest.instanceId || "default"));
-  // Another seat's conversation and session are not this one's to resume.
   const summonRequest: SummonRequest = {
     ...(retargeted ? rest : { ...rest, conversationId, resumeSessionId }),
     ...(target.agentId ? { agentId: target.agentId } : {}),

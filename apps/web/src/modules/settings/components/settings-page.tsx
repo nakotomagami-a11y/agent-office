@@ -342,7 +342,6 @@ function ScanProjectRow({
   open: boolean;
   shelved: boolean;
   busy: boolean;
-  /** Root has unsaved edits: the server would resolve this row under another folder. */
   locked: boolean;
   excludedLabel: string;
   onToggleShelve: () => void;
