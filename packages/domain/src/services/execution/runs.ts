@@ -8,11 +8,6 @@
 // stream handling, sub-agent record-keeping, finalize). Pure helpers live
 // alongside in `./runs/`: types, error classification, and sub-agent parsing.
 
-// `node:child_process` cannot spawn `claude` on Windows: it is a `claude.cmd`
-// shim, which recent Node refuses without `shell: true` — and `shell: true`
-// concatenates the args array unescaped, corrupting args and reopening the
-// injection hole that restriction closes. cross-spawn escapes for cmd.exe.
-import spawn from "cross-spawn";
 import { execFileSync, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
@@ -40,10 +35,14 @@ import {
   type TaskStarted,
 } from "./runs/subagent-parse";
 import { liveRuns, runFinishedListeners } from "./runs/registry";
-import { resolveSpawnEnv } from "./runs/spawn-env";
 import { isBackgroundBashInput, isBackgroundedBashResult, noteEarlierChildren, trackBackgroundShell } from "./runs/background-shell";
+import { prepareProviderSpawn, releaseProviderSpawn, runCost, settleRunCost, type ProviderRefusal } from "./runs/provider-spawn";
+import { spawnClaude } from "../infra/claude-bin";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
+import { classifyProviderResult, failFastOnEvent, initModel, type ProviderFailure } from "./runs/provider-stream";
+import { onGatewayFailure } from "../providers/gateway/failures";
+import { usesGateway } from "../../config/providers";
 
 // Re-export the public surface so `@agent-office/domain/services/runs` and the
 // services barrel keep resolving these names after the split.
@@ -68,6 +67,7 @@ declare global {
   // handler stays bound to the old one and our new finalize-on-kill logic
   // never runs until the dev server is fully restarted.
   var __agentOfficeKillAllRuns: (() => void) | undefined;
+  var __agentOfficeGatewayFailureOff: (() => void) | undefined;
 }
 
 const RUN_RETENTION_MS = 4 * 60 * 60_000;
@@ -130,14 +130,13 @@ if (!globalThis.__agentOfficeRunsInstalled) {
   globalThis.__agentOfficeRunsInstalled = true;
 }
 
-function spawnClaude(
+function spawnRunProcess(
   args: string[],
   cwd: string | undefined,
   env: NodeJS.ProcessEnv,
   stdin: string | undefined,
 ): ChildProcessByStdio<Writable | null, Readable, Readable> {
-  // AO_CLAUDE_BIN is for tests: an absolute stub path no install on PATH can shadow.
-  const proc = spawn(process.env.AO_CLAUDE_BIN ?? "claude", args, {
+  const proc = spawnClaude(args, {
     stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     cwd,
     env,
@@ -150,14 +149,53 @@ function spawnClaude(
   return proc;
 }
 
+/** The provider cannot run: a failed run row, and no process. Listeners fire on the next tick, after
+ *  the caller has adopted the run id, exactly as for a run that failed at once. */
+function refuseRun(runId: string, opts: StartRunOpts, refusal: ProviderRefusal): { runId: string } {
+  const ts = Date.now();
+  const origin = opts.origin ?? "user";
+  db.insertRun({
+    id: runId, agentId: opts.agentId, agentName: opts.agentName, instanceId: opts.instanceId,
+    instanceLabel: opts.instanceLabel, projectId: opts.projectId, status: "running", prompt: opts.prompt, origin,
+    model: opts.model, effort: opts.effort, cwd: opts.cwd, startedAt: ts, parentRunId: opts.parentRunId,
+    conversationId: opts.conversationId, accountId: opts.accountId, provider: refusal.provider ?? undefined,
+  });
+  pushRun({
+    id: runId, agentId: opts.agentId, agentName: opts.agentName, ts, origin, prompt: opts.prompt, status: "error",
+    exitCode: 1, output: "", tokensIn: 0, tokensOut: 0, cost: 0, durMs: 0, model: opts.model, effort: opts.effort,
+    errorCode: "provider_unavailable", errorDetail: refusal.reason,
+  });
+  log.warn("run.refused", { runId, provider: refusal.provider, reason: refusal.reason, detail: refusal.detail });
+  emitAppEvent("runs:changed");
+  setImmediate(() => {
+    for (const listener of runFinishedListeners) {
+      try {
+        listener(runId, false, null);
+      } catch (err) {
+        log.warn("run.finished_listener_failed", { runId, err: String(err) });
+      }
+    }
+  });
+  return { runId };
+}
+
 export function startRun(opts: StartRunOpts): { runId: string } {
   const runId = randomUUID();
-  const { env, accountId, secretValues } = resolveSpawnEnv(opts);
+  const plan = prepareProviderSpawn(runId, opts);
+  if (!plan.ok) return refuseRun(runId, opts, plan);
+  const { env, accountId, secretValues } = plan;
   // The MCP permission bridge is spawned by the CLI and inherits this env; it
   // has no other way to know which run it is answering for.
   env.AO_RUN_ID = runId;
   env.AO_BASE_URL = appBaseUrl();
-  const proc = spawnClaude(opts.args, opts.cwd, env, opts.stdin);
+  let proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
+  try {
+    proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
+  } catch (err) {
+    // A synchronous throw (a NUL byte in an argument) must not leave a live token or pin behind.
+    releaseProviderSpawn(runId, plan.pinFile);
+    throw err;
+  }
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,
@@ -182,7 +220,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     parseFailures: 0,
     sawStreamDelta: false,
     toolSinceText: false,
-    args: opts.args,
+    args: plan.args,
     stderrBuf: "",
     secretValues,
     lastActivityAt: Date.now(),
@@ -194,6 +232,8 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     pendingBackgroundBash: new Map(),
     pendingPrCreate: new Set(),
     origin: opts.origin ?? "user",
+    provider: plan.provider,
+    pinFile: plan.pinFile,
   };
   liveRuns.set(runId, run);
   acquireInhibit();
@@ -216,9 +256,11 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     parentRunId: opts.parentRunId,
     conversationId: opts.conversationId,
     accountId,
+    provider: plan.provider,
+    costBasis: plan.costBasis,
   });
 
-  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId });
+  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId, provider: plan.provider });
   // A new run appeared — refresh runs lists / office agent statuses / trees.
   emitAppEvent("runs:changed");
 
@@ -238,7 +280,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
         ...run.args.slice(resumeIdx + 2), // drop "--resume" and the session ID value after it
       ];
       log.warn("run.retry_no_resume", { runId: run.id, accountId });
-      const retryProc = spawnClaude(retryArgs, run.cwd, env, opts.stdin);
+      const retryProc = spawnRunProcess(retryArgs, run.cwd, env, opts.stdin);
       run.proc = retryProc;
       run.stderrBuf = "";
       run.error = undefined;
@@ -484,6 +526,21 @@ function pumpStderr(run: LiveRun): void {
   });
 }
 
+/** A provider failure seen early: end the run with its code instead of riding out the CLI's retries. */
+function failRun(run: LiveRun, failure: ProviderFailure): void {
+  // Stop closes the CLI's gateway connection, which fails the upstream fetch: that is not an outage.
+  if (run.aborted || run.status !== "running" || run.error) return;
+  broadcast(run, { name: "error", data: { runId: run.id, code: failure.code, detail: failure.detail } });
+  killRunProc(run.proc);
+}
+
+// Re-registered on every HMR reload, so the listener always calls this module's failRun.
+globalThis.__agentOfficeGatewayFailureOff?.();
+globalThis.__agentOfficeGatewayFailureOff = onGatewayFailure((ownerId, code, detail) => {
+  const run = liveRuns.get(ownerId);
+  if (run) failRun(run, { code, detail });
+});
+
 function handleStreamLine(run: LiveRun, line: string): void {
   let evt: StreamEvent;
   try {
@@ -494,6 +551,13 @@ function handleStreamLine(run: LiveRun, line: string): void {
       log.warn("run.unparseable_line", { runId: run.id, line: line.slice(0, 200) });
     }
     return;
+  }
+  const failure = failFastOnEvent(run.provider, evt);
+  if (failure) return failRun(run, failure);
+  const model = usesGateway(run.provider) ? initModel(evt) : undefined;
+  if (model) {
+    run.model = model;
+    db.setRunModel(run.id, model);
   }
 
   if (evt.type === "stream_event" && evt.event) {
@@ -666,7 +730,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
       run.cacheCreationTokens = evt.usage.cache_creation_input_tokens ?? run.cacheCreationTokens;
       run.cacheReadTokens = evt.usage.cache_read_input_tokens ?? run.cacheReadTokens;
     }
-    if (typeof evt.total_cost_usd === "number") run.cost = evt.total_cost_usd;
+    if (typeof evt.total_cost_usd === "number") run.cost = runCost(run.id, run.provider, evt.total_cost_usd).cost;
     if (typeof evt.session_id === "string") run.sessionId = evt.session_id;
     broadcast(run, {
       name: "usage",
@@ -683,8 +747,11 @@ function handleStreamLine(run: LiveRun, line: string): void {
       // A user-initiated abort makes the CLI exit with is_error too. Surface it
       // as a neutral "interrupted" card, not a red failure with the whole
       // transcript dumped in as the error message.
+      const providerFailure = classifyProviderResult(run.provider, evt);
       if (run.aborted) {
         broadcast(run, { name: "error", data: { runId: run.id, code: "stopped", interrupted: true } });
+      } else if (providerFailure) {
+        broadcast(run, { name: "error", data: { runId: run.id, ...providerFailure } });
       } else {
         // A hit session/usage limit often arrives as a plain is_error result
         // (no structured rate_limit_event). Surface it as a rate-limit card with
@@ -701,7 +768,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
             // The retry without --resume follows; this attempt's error is not the outcome.
             run.missingSession = true;
           } else {
-            broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(raw, run.output) } });
+            broadcast(run, { name: "error", data: { runId: run.id, ...classifyResultError(raw, run.output, run.provider) } });
           }
         }
       }
@@ -949,6 +1016,10 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
+  const settled = settleRunCost(run.id, run.provider, run.cost);
+  run.cost = settled.cost;
+  run.costBasis = settled.costBasis;
+  releaseProviderSpawn(run.id, run.pinFile);
 
   // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
   // stream-json result event, so nothing has said why. Its stderr is the only
@@ -965,7 +1036,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
       name: "error",
       data: {
         runId: run.id,
-        ...classifyExitFailure(stderr, exitCode, { signal, lastTool: run.currentTool, output: run.output }),
+        ...classifyExitFailure(stderr, exitCode, { signal, lastTool: run.currentTool, output: run.output, provider: run.provider }),
       },
     });
   }
@@ -1009,6 +1080,7 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
     conversationId: run.conversationId,
     errorCode: run.error?.code,
     errorDetail: run.error?.detail,
+    costBasis: settled.costBasis,
   };
 
   // Persist best-effort - a DB failure must never swallow the broadcast below.

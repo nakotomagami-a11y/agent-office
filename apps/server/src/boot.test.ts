@@ -104,3 +104,14 @@ test("a skill whose copy fails is left unmarked and unstaged, the rest still lan
     rmSync(f.root, { recursive: true, force: true });
   }
 });
+
+test("embedded in Next, an AO_BASE_URL inherited from an agent's shell is dropped, so PORT (the bound port) wins", async () => {
+  const { forgetInheritedBaseUrl } = await import("./boot");
+  const { appBaseUrl } = await import("@agent-office/domain/services/infra/discovery");
+  const embedded: NodeJS.ProcessEnv = { AO_BASE_URL: "http://127.0.0.1:3000", PORT: "3100" };
+  forgetInheritedBaseUrl(embedded, false);
+  assert.equal(appBaseUrl(embedded), "http://127.0.0.1:3100");
+  const standalone: NodeJS.ProcessEnv = { AO_BASE_URL: "http://127.0.0.1:4321", PORT: "4321" };
+  forgetInheritedBaseUrl(standalone, true);
+  assert.equal(appBaseUrl(standalone), "http://127.0.0.1:4321");
+});

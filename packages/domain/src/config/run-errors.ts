@@ -23,6 +23,12 @@ export const RUN_ERROR_CODES = [
   "no_output",          // run ended with error and no usable output
   "server_restart",     // run lost because the server restarted mid-flight
   "start_failed",       // summon request itself failed before a run started
+  "provider_unavailable", // the chosen AI provider cannot run; `detail` is its status reason
+  "provider_auth_failed", // the provider rejected the stored key
+  "provider_unreachable", // the provider, local server or gateway upstream is down
+  "provider_model_not_found", // the mapped model does not exist on the provider
+  "provider_mismatch",  // the CLI authenticated another way than the chosen provider
+  "budget_exceeded",    // the gateway stopped a capped openai run at its cap
   "unknown",            // catch-all — `detail` carries the raw context
 ] as const;
 
@@ -52,6 +58,12 @@ export const RUN_ERROR_REMEDIATION: Record<RunErrorCode, string> = {
   no_output: "The run ended with an error and produced nothing usable. Check stderr; do not report partial success.",
   server_restart: "The server restarted mid-run, so this run was lost. It is safe to retry.",
   start_failed: "The summon request itself failed before a run existed. Validate the request before retrying.",
+  provider_unavailable: "The chosen AI provider cannot run (`detail` says why). The user fixes it in Settings → AI provider; never switch providers yourself.",
+  provider_auth_failed: "The AI provider rejected its key. The user replaces the key in Settings → AI provider; signing in to Claude will not help.",
+  provider_unreachable: "The AI provider could not be reached. Check that the local server or the network is up before retrying.",
+  provider_model_not_found: "The model this agent maps to does not exist on the provider. The user fixes the model map in Settings → AI provider.",
+  provider_mismatch: "The CLI used a different credential than the chosen provider, so the run was stopped. Report it; do not retry.",
+  budget_exceeded: "The run spent its budget cap (or its model lost its price), so the gateway stopped it. Report what is done; the user raises the cap before more work.",
   unknown: "Unclassified failure — read `detail` for raw context before deciding anything.",
 };
 

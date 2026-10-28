@@ -1,7 +1,9 @@
 // Single source of truth for Claude model facts: aliases, versioned id,
-// display info, and pricing. Was 6 hand-typed tables scattered across the
-// app that drifted from each other — everything now derives from
-// `MODEL_CATALOG`.
+// display info. Was 6 hand-typed tables scattered across the app that drifted
+// from each other — everything now derives from `MODEL_CATALOG`. Prices are not
+// here: they come from the auto-refreshed catalog (services/providers/prices).
+
+import type { ModelTier } from "./providers";
 
 export interface ModelInfo {
   /** The versioned model id this alias currently resolves to. */
@@ -20,10 +22,6 @@ export interface ModelInfo {
   fillClass: string;
   icon: string;
   description: string;
-  /** Published USD price per MILLION input tokens. Cache write/read rates
-   *  derive from this (see `cacheRatesFor`). `null` when there's no public
-   *  price (an internal A/B variant) — falls back to Sonnet's rate. */
-  inputPricePerMillionUsd: number | null;
 }
 
 // No `id` field per entry — the object's own key is the id, and `ModelId`/
@@ -34,21 +32,18 @@ export const MODEL_CATALOG = {
     tier: "fast", tierColorVar: "var(--green)", swatchColor: "var(--working)",
     gradient: "linear-gradient(90deg, #80e1c5, #2e8f73)", fillClass: "an-fill-haiku",
     icon: "/icons/model-haiku.png", description: "Light tasks, snappy. Good for orchestration.",
-    inputPricePerMillionUsd: 0.80,
   },
   sonnet: {
     fullId: "claude-sonnet-4-6", label: "Sonnet", genericSub: "claude-sonnet-4",
     tier: "smart", tierColorVar: "var(--acc)", swatchColor: "#c792ea",
     gradient: "linear-gradient(90deg, #b6b3ff, #7a76e0)", fillClass: "an-fill-sonnet",
     icon: "/icons/model-sonnet.png", description: "Balanced — the default for most agents.",
-    inputPricePerMillionUsd: 3.00,
   },
   opus: {
     fullId: "claude-opus-4-8", label: "Opus", genericSub: "claude-opus-4",
     tier: "deep", tierColorVar: "var(--amber)", swatchColor: "#ffcb6b",
     gradient: "linear-gradient(90deg, #ffd591, #f0a548)", fillClass: "an-fill-opus",
     icon: "/icons/model-opus.png", description: "Hardest reasoning. Slow. Use sparingly.",
-    inputPricePerMillionUsd: 15.00,
   },
   fable: {
     fullId: "claude-fable-5", label: "Fable", genericSub: "claude-fable-5",
@@ -56,7 +51,6 @@ export const MODEL_CATALOG = {
     gradient: "linear-gradient(90deg, color-mix(in oklab, var(--ao-accent) 80%, white), var(--ao-accent))",
     fillClass: "an-fill-fable",
     icon: "/icons/model-fable.png", description: "Fable-5 — A/B test variant. Compare against Opus/Sonnet on the same task.",
-    inputPricePerMillionUsd: null,
   },
 } satisfies Record<string, ModelInfo>;
 
@@ -108,7 +102,7 @@ export function resolveModel(raw: string | undefined | null): ModelMatch | null 
 
 /** Classify any model string — bare alias, full id, or historical versioned
  *  id — into a family by substring. Null on no match; each caller picks its
- *  own fallback (see `cacheRatesFor`, `modelBarGradient`, `modelFamily`). */
+ *  own fallback (see `tierOf`, `modelBarGradient`, `modelFamily`). */
 export function familyOf(raw: string | undefined | null): ModelMatch | null {
   const exact = resolveModel(raw);
   if (exact) return exact;
@@ -120,20 +114,8 @@ export function familyOf(raw: string | undefined | null): ModelMatch | null {
   return null;
 }
 
-/** Prompt-cache write/read USD-per-token rates, for estimating system-prompt
- *  cost (see context-cost.ts). Anthropic's real multipliers: write = 1.25x
- *  base input price, read = 0.1x. Unrecognized models and Fable (no public
- *  price) fall back to Sonnet's rate — deliberate, not a bug. */
-export function cacheRatesFor(raw: string): { write: number; read: number } {
-  const info = familyOf(raw);
-  const base = (info?.inputPricePerMillionUsd ?? MODEL_CATALOG.sonnet.inputPricePerMillionUsd!) / 1_000_000;
-  return { write: base * 1.25, read: base * 0.1 };
-}
-
-/** `$15/Mt` / `$3.00/Mt` / `$0.80/Mt` / `—` (no public price) — the short
- *  "per million input tokens" badge shown in the model picker. */
-export function formatModelPrice(info: ModelInfo): string {
-  const p = info.inputPricePerMillionUsd;
-  if (p === null) return "—";
-  return p >= 10 ? `$${p}/Mt` : `$${p.toFixed(2)}/Mt`;
+/** The provider tier a model runs as. Fable has no third-party counterpart, so it runs as opus. */
+export function tierOf(raw: string | undefined | null): ModelTier | null {
+  const id = familyOf(raw)?.id;
+  return id === "fable" ? "opus" : (id ?? null);
 }

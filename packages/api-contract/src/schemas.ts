@@ -3,6 +3,7 @@ import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
 import { SESSION_REMOVAL_CODES, WORK_CHOICES } from "@agent-office/domain/config/sessions";
+import { providerBaseUrlSchema, providerIdSchema, providerModelsSchema } from "./providers";
 
 export const agentBodySchema = z.object({
   name: z.string().min(1),
@@ -444,6 +445,10 @@ export const wizardDraftSchema = z.object({
   selectedAgents: z.array(z.string()).default([]),
   chosenFolderIds: z.array(z.string()).default([]),
   projectName: z.string().default(""),
+  // Never a key: drafts are plain JSON in ui_settings.
+  provider: providerIdSchema.nullable().default(null),
+  baseUrl: z.union([providerBaseUrlSchema, z.literal("")]).default(""),
+  models: providerModelsSchema.default({}),
 });
 
 export const dragRefSchema = z.object({

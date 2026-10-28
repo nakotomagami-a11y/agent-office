@@ -27,7 +27,9 @@ import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { DocsRender } from "@/modules/docs/docs-render";
 import { EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
-import { MODEL_CATALOG, MODEL_IDS, formatModelPrice } from "@agent-office/domain/config/models";
+import { MODEL_CATALOG } from "@agent-office/domain/config/models";
+import { useModelChoices } from "@/modules/providers/hooks/use-model-choices";
+import { PriceSourceLine } from "@/modules/providers/components/price-source";
 import {
   UNIT_FACTIONS,
   UNIT_KINDS,
@@ -73,18 +75,6 @@ const TOOL_SUGGESTIONS = [
   { id: "TodoWrite", desc: "Task list" },
   { id: "Task",      desc: "Spawn agents" },
 ];
-
-// Model picker data (id, name, full versioned id, tier badge, icon, price,
-// description) all come from the one shared MODEL_CATALOG (config/models.ts)
-// — this used to be its own hand-typed table that could (and did: Haiku's
-// price here was stale) drift from the pricing used elsewhere in the app.
-const MODELS = MODEL_IDS.map((id) => {
-  const info = MODEL_CATALOG[id];
-  return {
-    id, name: id, full: info.fullId, badge: info.tier,
-    icon: info.icon, price: formatModelPrice(info), desc: info.description,
-  };
-});
 
 const CLASS_OPTIONS = ["Council", "Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
 
@@ -361,6 +351,7 @@ export type AgentEditorFormProps = {
 export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, embedded = false }: AgentEditorFormProps) {
   const router = useRouter();
   const t = useTranslations();
+  const { models: MODELS, effort: showEffort } = useModelChoices();
   const pmLabel = (pm: (typeof PERMISSION_MODE_OPTS)[number]) => t(`agent_editor.permission_${PM_MSG_KEY[pm]}_label`);
   const pmSubtitle = (pm: (typeof PERMISSION_MODE_OPTS)[number]) => t(`agent_editor.permission_${PM_MSG_KEY[pm]}_subtitle`);
   const createMut = useCreateAgent();
@@ -743,9 +734,11 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
                     );
                   })}
                 </div>
+                <PriceSourceLine />
               </div>
 
-              {/* Effort */}
+              {/* Effort: only where the provider honours it */}
+              {showEffort ? (
               <div className="flex flex-col gap-[5px]">
                 <div className="flex items-center mb-[1px]">
                   <label className="uppercase flex items-center text-txt-3 font-semibold text-[11px] tracking-[0.06em] gap-[5px]">Effort — power level</label>
@@ -799,6 +792,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
                   })()}
                 </div>
               </div>
+              ) : null}
 
               {/* Permission */}
               <div className="flex flex-col gap-[9px]">

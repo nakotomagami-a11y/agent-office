@@ -5,6 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { COORDINATOR_SEAT, MISSION_LIMITS } from "@agent-office/domain/config/missions";
 import { cn } from "@/lib/cn";
 import { useAgents } from "@/modules/agents/hooks/use-agents";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { missionFailure } from "../format/mission-errors";
 import { parseUsd, usdOk } from "../format/money";
 import { defaultAgent, deviceTypes, missingBits } from "../format/start-form";
@@ -50,6 +51,8 @@ export function MissionStartForm({ projectId, onStarted }: { projectId: string; 
   const t = useTranslations("missions.start");
   const format = useFormatter();
   const moneyNote = useMoneyNote();
+  const tp = useTranslations("providers");
+  const { id: providerId, capabilities } = useActiveProvider();
   const template = useCrossDevice();
   const { data: agentList } = useAgents();
   const installed = agentList?.map((a) => a.id);
@@ -98,6 +101,11 @@ export function MissionStartForm({ projectId, onStarted }: { projectId: string; 
           <MoneyField label={t("budget_label")} value={budget} onChange={edit(setBudget)} note={moneyNote(budget, t("budget_note"))} invalid={!usdOk(budgetUsd)} />
           <MoneyField label={t("cap_label")} value={cap} onChange={edit(setCap)} invalid={capOver || !usdOk(capUsd)} note={capNote} />
         </div>
+        {capabilities.costKnown ? null : (
+          <p role="note" className="m-0 text-[11.5px] leading-[1.55] text-amber text-pretty">
+            {tp("caps_need_price", { provider: tp(`option_${providerId}_name`) })}
+          </p>
+        )}
         <SeatList seats={seats} setSeats={(f) => { flow.clear(); setSeats(f); }} agentOf={agentOf} installed={installed} />
         {flow.publicAsk && (
           <PublicRepoConfirm action="start" busy={flow.pending} onCancel={flow.clear}

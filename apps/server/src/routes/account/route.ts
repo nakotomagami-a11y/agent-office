@@ -1,50 +1,7 @@
-// GET /api/account — the active Claude plan, read from ~/.claude/.credentials.json,
-// so the UI can render the correct billing/limits badges. Cached 5m to avoid
-// re-reading the file on every poll.
-import { readFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
-import { z } from "zod";
-import type { ClaudePlan } from "@agent-office/domain/types";
-
-// Only the one field we read — the file is external, so validate rather than cast.
-const credentialsSchema = z.object({
-  claudeAiOauth: z.object({ subscriptionType: z.string().optional() }).optional(),
-});
-
-// Local to this cache by design: a TTL is an implementation detail of the thing
-// it caches, not a shared constant. Other caches (e.g. server-process-store) keep
-// their own. Promote only when a second reader actually needs this exact value.
-const PLAN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-let planCache: { plan: ClaudePlan; expiresAt: number } | null = null;
-
-/** Maps a raw `subscriptionType` string from the credentials file to our plan tier. */
-function detectPlan(sub: string): ClaudePlan {
-  if (sub.startsWith("max")) return "max";
-  if (sub === "pro") return "pro";
-  if (sub === "api" || sub === "api_key") return "api";
-  return "free";
-}
-
-function readPlan(): ClaudePlan {
-  const now = Date.now();
-  if (planCache && now < planCache.expiresAt) return planCache.plan;
-
-  let sub = "";
-  try {
-    const raw = readFileSync(join(homedir(), ".claude", ".credentials.json"), "utf-8");
-    const creds = credentialsSchema.safeParse(JSON.parse(raw));
-    if (creds.success) sub = (creds.data.claudeAiOauth?.subscriptionType ?? "").toLowerCase();
-  } catch {
-    // file missing or unreadable — leave sub empty so we fall through to "free"
-  }
-
-  const plan = detectPlan(sub);
-
-  planCache = { plan, expiresAt: now + PLAN_CACHE_TTL_MS };
-  return plan;
-}
+// GET /api/account — the plan badge for the AI provider in force. A subscription's plan comes from
+// `claude auth status` in the account dir; an unreadable one is `unknown`, never "free". Cached 5 min.
+import { providers } from "@agent-office/domain/services";
 
 export async function GET() {
-  return Response.json({ plan: readPlan() });
+  return Response.json(await providers.accountPlan());
 }

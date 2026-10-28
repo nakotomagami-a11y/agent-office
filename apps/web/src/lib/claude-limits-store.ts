@@ -9,7 +9,7 @@ import { parseJson, asRecord } from "@agent-office/api-contract";
 export type { LimitsPeriod, HardCap };
 export { periodStart, periodEnd };
 
-export type ClaudePlan = "free" | "pro" | "max" | "api" | "custom";
+export type ClaudePlan = "free" | "pro" | "max" | "api" | "custom" | "unknown";
 
 export interface StoredClaudeLimits {
   plan: ClaudePlan;
@@ -19,7 +19,7 @@ export interface StoredClaudeLimits {
   hardCap: HardCap;
 }
 
-const DEFAULTS: StoredClaudeLimits = { plan: "free", quotaUsd: 0, period: "week", hardCap: "warn" };
+const DEFAULTS: StoredClaudeLimits = { plan: "unknown", quotaUsd: 0, period: "week", hardCap: "warn" };
 
 type LimitsState = StoredClaudeLimits & {
   open: boolean;
@@ -94,6 +94,7 @@ export function planLabel(plan: ClaudePlan): string {
     case "max": return "Max";
     case "api": return "API";
     case "custom": return "Custom";
+    case "unknown": return "Unknown";
     default: return assertNever(plan);
   }
 }

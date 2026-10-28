@@ -32,6 +32,17 @@ export interface BootOptions {
   /** False during `next build`: a build is not a server, so it neither advertises itself
    *  nor runs the loops (they would fire jobs whose `claude` dies with the build). */
   serve: boolean;
+  /** main.ts set AO_BASE_URL to the port it bound. Embedded in Next it is never ours. */
+  ownBaseUrl?: boolean;
+}
+
+/**
+ * A server started from an agent's shell inherits that agent's AO_BASE_URL, the PARENT server.
+ * It outranks PORT, so every gateway run would send its requests and run token there, and every
+ * permission callback too. Next sets PORT to the port it really bound.
+ */
+export function forgetInheritedBaseUrl(env: NodeJS.ProcessEnv, ownBaseUrl: boolean): void {
+  if (!ownBaseUrl) delete env.AO_BASE_URL;
 }
 
 const SKILLS_DIR = join(homedir(), ".claude", "agents", "_skills");
@@ -140,7 +151,8 @@ export function seedStarterSkills(skillsDir: string = SKILLS_DIR, starterDirOver
   }
 }
 
-export async function boot({ serve }: BootOptions): Promise<void> {
+export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<void> {
+  forgetInheritedBaseUrl(process.env, ownBaseUrl);
   // Env validation runs on module import (throws on malformed config).
   // This call surfaces missing-but-not-fatal warnings in the boot log.
   logEnvDiagnostics();
@@ -157,7 +169,18 @@ export async function boot({ serve }: BootOptions): Promise<void> {
     console.warn("[domain-services] failed to load:", err);
     return;
   }
-  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions } = domainServices;
+  const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions, providers } = domainServices;
+
+  // Before any run reads the selection: an install from before providers keeps its subscription.
+  // Pins older than the 6 h prompt-file prune belong to dead runs; the run cap is 4 h, and another
+  // server sharing tmp-prompts may still hold younger ones.
+  providers.migrateAtBoot();
+  try {
+    providers.sweepPinFiles(6 * 60 * 60_000);
+  } catch (err) {
+    console.warn("[providers] pin sweep failed:", err);
+  }
+  providers.startPriceRefresh();
 
   // Out-of-process clients (the Minecraft mod) find this server's random port here.
   try {

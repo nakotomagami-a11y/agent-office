@@ -1,5 +1,5 @@
 // Spawn environment resolution — turns a run's options into the concrete
-// `env` the `claude` child process inherits: which Claude account config dir,
+// `env` the `claude` child process inherits: the chosen AI provider, which Claude account config dir,
 // which GitHub identity (with git credential-helper plumbing), and the
 // project's linked secrets. Pure: no dependency on the live-run registry or
 // stream handling, so it's independently testable (env plumbing is the whole
@@ -13,6 +13,7 @@ import { readProject } from "../../projects/projects";
 import * as accounts from "../../accounts/accounts";
 import * as githubAccounts from "../../accounts/github-accounts";
 import * as secrets from "../../accounts/secrets";
+import { applyProviderEnv, scrubBackendEnv, type ProviderEnvInput } from "../../providers/env";
 
 /**
  * Force a spawned git process to authenticate github.com as the account whose
@@ -33,13 +34,7 @@ export function applyGitCredentialHelper(env: NodeJS.ProcessEnv): void {
   env.GIT_CONFIG_COUNT = String(start + 2);
 }
 
-/** `AO_*` is the app's own namespace, set by `startRun` and the Tauri launcher.
- *  Defense-in-depth: `AO_RUN_ID`/`AO_BASE_URL` are overwritten downstream
- *  anyway, so this closes no live hole — it keeps the namespace ours.
- *  Case-insensitive because Windows env lookup is. */
-export function isReservedEnvName(name: string): boolean {
-  return name.toUpperCase().startsWith("AO_");
-}
+export { isReservedEnvName } from "../../accounts/secrets";
 
 /**
  * Resolve the effective account for a run and return the spawn env. Explicit
@@ -49,13 +44,18 @@ export function isReservedEnvName(name: string): boolean {
  * Exported for unit testing (env plumbing is the entire multi-account
  * spawn contract). `startRun` is the sole production caller.
  */
-export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; accountId: string | undefined; secretValues: string[] } {
+export function resolveSpawnEnv(
+  opts: StartRunOpts,
+  provider: ProviderEnvInput,
+): { env: NodeJS.ProcessEnv; accountId: string | undefined; secretValues: string[] } {
   const explicit = opts.accountId;
   // Read the project once — both accountId and githubAccountId come off it.
   const project = opts.projectId ? readProject(opts.projectId) : undefined;
   const fromProject = !explicit ? project?.meta.accountId : undefined;
   const resolvedId = explicit ?? fromProject;
   const env: NodeJS.ProcessEnv = { ...process.env, PATH: buildAugmentedPath() };
+  // An inherited ANTHROPIC_BASE_URL once sent a subscription run's OAuth token to that URL.
+  scrubBackendEnv(env);
   if (resolvedId && resolvedId !== DEFAULT_ACCOUNT_ID) {
     const account = accounts.get(resolvedId);
     if (account) {
@@ -104,7 +104,7 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
   const secretValues: string[] = [];
   if (opts.projectId) {
     for (const secret of secrets.listRawForProject(opts.projectId)) {
-      if (isReservedEnvName(secret.name)) {
+      if (secrets.isReservedEnvName(secret.name)) {
         log.warn("run.secret_reserved_prefix", { projectId: opts.projectId, name: secret.name });
         continue;
       }
@@ -113,5 +113,7 @@ export function resolveSpawnEnv(opts: StartRunOpts): { env: NodeJS.ProcessEnv; a
     }
   }
 
+  // Last, so neither a secret nor anything above can change the backend.
+  applyProviderEnv(env, provider);
   return { env, accountId: resolvedId, secretValues };
 }

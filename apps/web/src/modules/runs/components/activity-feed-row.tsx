@@ -3,7 +3,9 @@ import type { PersistedRun } from "@agent-office/domain/types";
 import type { UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { formatAgentDisplayName } from "@/lib/agent-display-name";
 import { cn } from "@/lib/cn";
-import { formatCost, formatDuration, formatRelative } from "../format/format-run-meta";
+import { formatDuration, formatRelative } from "../format/format-run-meta";
+import { formatRunCost } from "@/modules/providers/format/run-cost";
+import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import { fmtTok, xpForRun } from "../format/activity-formatters";
 import { ActivityFeedRowAvatar } from "./activity-feed-row-avatar";
 import { ActivityFeedRowCost } from "./activity-feed-row-cost";
@@ -29,6 +31,7 @@ export function ActivityFeedRow({
   maxCost: number;
   unitByAgent: Map<string, UnitSelection>;
 }) {
+  const costWords = useCostWords();
   const tokens = run.tokensIn + run.tokensOut;
   const badge = STATUS_BADGE[run.status];
 
@@ -69,7 +72,7 @@ export function ActivityFeedRow({
           <div className="flex items-center gap-[14px] font-mono text-[10px]">
             <span className="flex items-center gap-[5px] text-amber whitespace-nowrap shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/coin.png" alt="" width={14} height={14} className="shrink-0 object-contain" /> {formatCost(run.cost)}
+              <img src="/icons/coin.png" alt="" width={14} height={14} className="shrink-0 object-contain" /> {formatRunCost(run.cost, run.costBasis, costWords)}
             </span>
             <span className="flex items-center gap-[5px] text-cyan whitespace-nowrap shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}

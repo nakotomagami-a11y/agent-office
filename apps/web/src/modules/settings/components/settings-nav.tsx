@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
@@ -18,6 +19,7 @@ export type SettingsTabValue =
   | "projects"
   | "bundled-agents"
   | "integrations"
+  | "provider"
   | "secrets"
   | "about-you"
   | "performance"
@@ -40,6 +42,7 @@ const GROUPS: NavGroup[] = [
   {
     key: "credentials",
     items: [
+      { value: "provider", icon: "bot-ao" },
       { value: "secrets", icon: "lock" },
     ],
   },
@@ -66,6 +69,12 @@ export function SettingsNav({
   ariaLabel: string;
 }) {
   const t = useTranslations("settings_nav");
+  const navRef = useRef<HTMLElement>(null);
+
+  // On a phone the tabs are a horizontal strip; the active one can start off-screen.
+  useEffect(() => {
+    navRef.current?.querySelector<HTMLElement>("[aria-current='page']")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [value]);
   // Some nav items belong to an optional integration and are hidden when it's off.
   const navEnabled: Partial<Record<SettingsTabValue, boolean>> = {
     "about-you": useIntegrationEnabled("about-you"),
@@ -76,6 +85,7 @@ export function SettingsNav({
 
   return (
     <nav
+      ref={navRef}
       aria-label={ariaLabel}
       className={cn(
         // Desktop: vertical rail — surface-sheen card, not a bordered pane.

@@ -13,7 +13,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AgentInstance, ContextCostBreakdown, ContextCostRow, ContextProfile, PersistedRun, Project } from "../../types/index";
-import { cacheRatesFor } from "../../config/models";
+import { contextCacheRates } from "../providers/prices/rates";
 import { estimateTokens, estimateTokensFromChars } from "../infra/token-estimate";
 import { formatPriorContext, getContextMessages } from "../projects/history";
 import { findInstance } from "../projects/projects";
@@ -364,7 +364,7 @@ export function buildContextCostBreakdown(opts: {
 
   const avgTurnsPerSession = averageTurnsPerSession(history);
   const runsPerWeek = runsInLastDays(history, 7);
-  const rates = cacheRatesFor(model);
+  const rates = contextCacheRates(model);
   const perTokenAllIn = rates.write + rates.read * Math.max(1, avgTurnsPerSession);
   const costPerRunEst = totalTokensEst * perTokenAllIn;
 
@@ -381,6 +381,7 @@ export function buildContextCostBreakdown(opts: {
     avgTurnsPerSession,
     writeRatePerTokUsd: rates.write,
     readRatePerTokUsd: rates.read,
+    priceKnown: rates.known,
     contextWindowTokens: CONTEXT_WINDOW_TOKENS,
     windowPct: (totalTokensEst / CONTEXT_WINDOW_TOKENS) * 100,
     conditionalFiles,

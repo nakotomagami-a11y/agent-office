@@ -32,6 +32,24 @@ export function readSettings(): AppSettings | null {
   }
 }
 
+export type SettingsFileState =
+  | { state: "absent" }
+  | { state: "readable"; firstRunComplete: boolean }
+  | { state: "unreadable" };
+
+/** Unlike `readSettings`, tells a missing file from one that exists but cannot be read: a sync
+ *  client's lock must never look like a fresh install (docs/architecture.md, "AI providers"). */
+export function settingsFileState(): SettingsFileState {
+  if (!existsSync(SETTINGS_FILE)) return { state: "absent" };
+  try {
+    const raw: unknown = JSON.parse(readFileSync(SETTINGS_FILE, "utf8"));
+    if (!raw || typeof raw !== "object") return { state: "unreadable" };
+    return { state: "readable", firstRunComplete: "firstRunComplete" in raw && raw.firstRunComplete === true };
+  } catch {
+    return { state: "unreadable" };
+  }
+}
+
 /** Replaces the projects config only: integrations and feature flags survive. */
 export function withProjectsConfig(
   current: AppSettings | null,

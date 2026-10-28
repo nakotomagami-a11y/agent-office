@@ -19,6 +19,8 @@ import { useProcesses } from "@/modules/processes/hooks/use-processes";
 import { computeRunStats, runningRuns, runsAwaitingReply } from "@/modules/projects/format/run-stats";
 import { relativeTime } from "@/modules/projects/format/format";
 import { formatDuration, formatMoney, lastLineOf, truncate } from "./quick-view-format";
+import { formatRunCost } from "@/modules/providers/format/run-cost";
+import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 
 /**
  * The project tab strip's hover card — same `HoverCard` fundamentals as the
@@ -257,6 +259,7 @@ function ProjectCard({ tab, isActive, projectName, projectPlanet, onDone, maxHei
 }
 
 function ProjectAgentRow({ run, needsReply, onOpen }: { run: PersistedRun; needsReply: boolean; onOpen: () => void }) {
+  const costWords = useCostWords();
   const elapsedMs = needsReply ? Date.now() - (run.ts + run.durMs) : Date.now() - run.ts;
   return (
     <button
@@ -280,7 +283,7 @@ function ProjectAgentRow({ run, needsReply, onOpen }: { run: PersistedRun; needs
       </div>
       <div className="text-right shrink-0">
         <div className="font-[var(--font-mono)] text-[11px] text-txt-2 whitespace-nowrap">{formatDuration(elapsedMs)}</div>
-        <div className="font-[var(--font-mono)] text-[10px] text-txt-4 mt-[1px] whitespace-nowrap">{formatMoney(run.cost)}</div>
+        <div className="font-[var(--font-mono)] text-[10px] text-txt-4 mt-[1px] whitespace-nowrap">{run.costBasis === "unknown" || run.costBasis === "free" ? formatRunCost(run.cost, run.costBasis, costWords) : formatMoney(run.cost)}</div>
       </div>
     </button>
   );

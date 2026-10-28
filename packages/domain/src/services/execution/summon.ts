@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { AgentInstance, ApiAgent, SummonRequest } from "../../types/index";
 import * as db from "../db";
-import { APP_STATE_DIR, REPO_SCRIPTS_DIR } from "../infra/paths";
+import { REPO_SCRIPTS_DIR, TMP_PROMPTS_DIR } from "../infra/paths";
 
 export interface BuiltCommand {
   args: string[];
@@ -27,7 +27,6 @@ export interface BuiltCommand {
 // kernel-enforced regardless of ulimit) as `spawn E2BIG`, and a heavy skill
 // loadout blows past it. `--append-system-prompt-file` hands the CLI a path
 // instead of the payload.
-const TMP_PROMPTS_DIR = join(APP_STATE_DIR, "tmp-prompts");
 const TMP_PROMPT_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6h — generous vs. realistic run duration
 
 /** Best-effort sweep of stale prompt files. Never throws — cleanup is opportunistic. */

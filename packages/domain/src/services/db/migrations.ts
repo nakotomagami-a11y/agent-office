@@ -534,6 +534,27 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       CREATE INDEX IF NOT EXISTS idx_mission_posts_comment ON mission_posts(mission_id, comment_id);
     `);
   },
+  // v27 → v28: AI providers. The legacy install's `subscription` row is written by
+  // ensureProviderMigrated at boot, not here: it depends on the settings file, which SQL cannot read.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS provider_configs (
+        provider TEXT PRIMARY KEY,
+        config TEXT NOT NULL DEFAULT '{}',
+        secret TEXT,
+        secret_base_url TEXT,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS provider_selection (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        provider TEXT NOT NULL,
+        source TEXT NOT NULL,
+        changed_at INTEGER NOT NULL
+      );
+      ALTER TABLE runs ADD COLUMN provider TEXT;
+      ALTER TABLE runs ADD COLUMN cost_basis TEXT;
+    `);
+  },
 ];
 
 /** The rows v27 drops, as JSON in the backups folder; null when there were none. Throws rather than
@@ -639,5 +660,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 25) { MIGRATIONS[24]!(db); v = 25; db.pragma("user_version = 25"); }
     if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
     if (v < 27) { MIGRATIONS[26]!(db); v = 27; db.pragma("user_version = 27"); }
+    if (v < 28) { MIGRATIONS[27]!(db); v = 28; db.pragma("user_version = 28"); }
   })();
 }

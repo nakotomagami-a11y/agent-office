@@ -21,16 +21,16 @@ const authCases = [
   "credentials expired",
 ];
 for (const text of authCases) {
-  const { code } = classifyResultError(text, "");
+  const { code } = classifyResultError(text, "", "subscription");
   assert.strictEqual(code, "auth_expired", `expected auth_expired for: ${JSON.stringify(text)} — got ${code}`);
 }
 
 // stderr-in-context (how finalizeRun passes it): full stderr blob, empty output.
 const blob = `Some banner line\n${REAL}\n`;
-assert.strictEqual(classifyResultError(blob, "").code, "auth_expired", "multi-line stderr blob must still classify");
+assert.strictEqual(classifyResultError(blob, "", "subscription").code, "auth_expired", "multi-line stderr blob must still classify");
 
 // A non-auth failure must NOT be misclassified as auth.
-assert.strictEqual(classifyResultError("Error: ENOENT no such file", "").code, "unknown", "non-auth stays unknown");
-assert.strictEqual(classifyResultError("", "some output").code, "unknown", "empty stderr stays unknown");
+assert.strictEqual(classifyResultError("Error: ENOENT no such file", "", "subscription").code, "unknown", "non-auth stays unknown");
+assert.strictEqual(classifyResultError("", "some output", "subscription").code, "unknown", "empty stderr stays unknown");
 
 console.log("✓ auth-error classification: all", authCases.length + 3, "cases passed");

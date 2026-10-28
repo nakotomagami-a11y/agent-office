@@ -73,11 +73,13 @@ async function fireDue(job: ScheduledJob, now: number, bypassStale = false): Pro
   });
 }
 
-/** A fired job's run has an outcome — mark done, or reschedule if re-limited. */
-function reconcileFiring(job: ScheduledJob): void {
+/** A fired job's run has an outcome — mark done, or reschedule if re-limited. Exported for tests. */
+export function reconcileFiring(job: ScheduledJob): void {
   if (!job.firedRunId) return void updateJob(job.id, { status: "done" });
   const outcome = db.getRunOutcome(job.firedRunId);
   if (!outcome || outcome.status === "running") return; // still running or gone
+  // Retrying cannot help until the user fixes the provider, and "done" would hide that it never ran.
+  if (db.getRun(job.firedRunId)?.errorCode === "provider_unavailable") return markAttention(job, "provider-unavailable");
 
   const resetsAt = outcome.rateLimitedResetsAt; // unix seconds, set only on a hard limit
   if (resetsAt) {

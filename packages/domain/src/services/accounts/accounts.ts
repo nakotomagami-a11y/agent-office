@@ -378,7 +378,15 @@ export function isReady(id: string): boolean {
   return true;
 }
 
+/** The default account maps to ~/.claude and always exists, row or not: a fresh machine signs in to it. */
+export function ensureDefaultAccountRow(): void {
+  getDb()
+    .prepare("INSERT OR IGNORE INTO accounts (id, label, config_dir, created_at) VALUES (?, ?, ?, ?)")
+    .run(DEFAULT_ACCOUNT_ID, "Default", CLAUDE_DIR, Date.now());
+}
+
 export function getStatus(id: string): AccountWithStatus | null {
+  if (id === DEFAULT_ACCOUNT_ID) ensureDefaultAccountRow();
   const account = get(id);
   if (!account) return null;
   const ready = isReady(id);

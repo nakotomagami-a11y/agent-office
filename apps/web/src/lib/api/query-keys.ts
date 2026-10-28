@@ -88,6 +88,12 @@ export const queryKeys = {
     userAnalysis: () => [...queryKeys.settings.all, "user-analysis"] as const,
   },
 
+  providers: {
+    all: ["providers"] as const,
+    state: () => [...queryKeys.providers.all, "state"] as const,
+    prices: () => [...queryKeys.providers.all, "prices"] as const,
+  },
+
   accounts: {
     all: ["accounts"] as const,
     list: () => [...queryKeys.accounts.all, "list"] as const,

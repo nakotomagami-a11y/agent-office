@@ -111,6 +111,9 @@ export interface PersistedRun {
   cacheReadTokens?: number;
   errorCode?: RunErrorCode;
   errorDetail?: string;
+  /** Rows from before providers existed read as `subscription` / `notional`. */
+  provider?: Provider;
+  costBasis?: CostBasis;
   /** Set from the run's own tool_calls when it started a `run_in_background`
    *  Bash shell — see ProcessInfo.runId for whether it's still alive. */
   backgroundTaskCommand?: string;
@@ -285,6 +288,8 @@ export type SecretWithStatus = Omit<Secret, "value"> & {
   /** True when past expiresAt. */
   expired: boolean;
   projectCount: number;
+  /** Agents never get it: an `AO_*` or AI-provider env name. */
+  reserved: boolean;
 };
 
 export interface AppSettings {
@@ -442,7 +447,7 @@ export interface SummonRequest {
 export type ContextProfile = "tight" | "balanced" | "deep";
 
 export type ScheduledJobStatus = "pending" | "firing" | "done" | "cancelled" | "needs-attention";
-export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded" | "bridge-missing";
+export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded" | "bridge-missing" | "provider-unavailable";
 
 /** A unit of scheduled work: a serialized summon plus the time to fire it. */
 export interface ScheduledJob {
@@ -490,6 +495,8 @@ export interface SseUsageEvent {
 export interface SseDoneEvent { runId: string; exitCode: number; sessionId?: string; durationMs?: number; tokensIn?: number; tokensOut?: number; cost?: number }
 export type { RunErrorCode } from "../config/run-errors";
 import type { RunErrorCode } from "../config/run-errors";
+export type * from "./providers";
+import type { CostBasis, Provider } from "./providers";
 export type { DocCategory } from "../config/doc-categories";
 export type { SkillIconClass } from "../config/skill-icons";
 export type { CleanupKind } from "../config/cleanup";
@@ -643,6 +650,7 @@ export interface ContextCostBreakdown {
   avgTurnsPerSession: number;
   writeRatePerTokUsd: number;
   readRatePerTokUsd: number;
+  priceKnown: boolean;
   contextWindowTokens: number;
   windowPct: number;
   /** Other CLAUDE.md/AGENTS.md in the project, informational only. */
@@ -712,6 +720,7 @@ export interface AnalyticsTotals {
   tokensIn: number;
   tokensOut: number;
   cost: number;
+  unknownCostRuns: number;
   runtimeMs: number;
   done: number;
   errors: number;
@@ -791,6 +800,7 @@ export interface AnalyticsSummary {
   totalRuns: number;
   totalTokens: number;
   totalCost: number;
+  unknownCostRuns: number;
   byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
   byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
   dailySpend?: Array<{ day: string; spend: number }>;

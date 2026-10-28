@@ -1,7 +1,9 @@
 import { getDb } from "./connection";
+import { KNOWN_COST_USD } from "./cost-sql";
 import type { MessageOrigin, PersistedRun, RunErrorCode } from "../../types/index";
 import { isRunErrorCode } from "../../config/run-errors";
 import { emitAppEvent } from "../infra/events";
+import { isCostBasis, isProvider, type CostBasis, type Provider } from "../../config/providers";
 
 /** Parse, don't cast: the column is TEXT and old rows predate it. */
 export const asOrigin = (v: unknown): MessageOrigin => (v === "system" ? "system" : "user");
@@ -14,13 +16,15 @@ export interface RunInsert {
   parentRunId?: string;
   conversationId?: string;
   accountId?: string;
+  provider?: Provider;
+  costBasis?: CostBasis;
 }
 
 export function insertRun(r: RunInsert): void {
   getDb().prepare(`
-    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, origin, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid)
-    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, @origin, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid)
-  `).run({ ...r, origin: r.origin ?? "user", instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid });
+    INSERT OR IGNORE INTO runs (id, agent_id, agent_name, instance_id, instance_label, project_id, session_id, status, prompt, origin, output, model, effort, cwd, started_at, parent_run_id, conversation_id, account_id, owner_pid, provider, cost_basis)
+    VALUES (@id, @agentId, @agentName, @instanceId, @instanceLabel, @projectId, @sessionId, @status, @prompt, @origin, '', @model, @effort, @cwd, @startedAt, @parentRunId, @conversationId, @accountId, @ownerPid, @provider, @costBasis)
+  `).run({ ...r, origin: r.origin ?? "user", instanceId: r.instanceId ?? "default", instanceLabel: r.instanceLabel ?? null, projectId: r.projectId ?? null, sessionId: r.sessionId ?? null, cwd: r.cwd ?? null, parentRunId: r.parentRunId ?? null, conversationId: r.conversationId ?? null, accountId: r.accountId ?? null, ownerPid: process.pid, provider: r.provider ?? null, costBasis: r.costBasis ?? null });
 }
 
 export interface RunUpdate {
@@ -29,6 +33,7 @@ export interface RunUpdate {
   cacheCreationTokens?: number; cacheReadTokens?: number;
   durMs: number; sessionId?: string; endedAt: number;
   errorCode?: RunErrorCode; errorDetail?: string;
+  costBasis?: CostBasis;
 }
 
 export function updateRun(id: string, u: RunUpdate): void {
@@ -37,12 +42,12 @@ export function updateRun(id: string, u: RunUpdate): void {
       tokens_in=@tokensIn, tokens_out=@tokensOut, cost_usd=@costUsd,
       cache_creation_tokens=@cacheCreationTokens, cache_read_tokens=@cacheReadTokens,
       dur_ms=@durMs, session_id=@sessionId, ended_at=@endedAt,
-      error_code=@errorCode, error_detail=@errorDetail
+      error_code=@errorCode, error_detail=@errorDetail, cost_basis=COALESCE(@costBasis, cost_basis)
     WHERE id=@id
   `).run({
     id, ...u, exitCode: u.exitCode ?? null, sessionId: u.sessionId ?? null,
     cacheCreationTokens: u.cacheCreationTokens ?? 0, cacheReadTokens: u.cacheReadTokens ?? 0,
-    errorCode: u.errorCode ?? null, errorDetail: u.errorDetail ?? null,
+    errorCode: u.errorCode ?? null, errorDetail: u.errorDetail ?? null, costBasis: u.costBasis ?? null,
   });
 }
 
@@ -62,6 +67,7 @@ export interface RunRow {
   model: string; effort: string; cwd: string | null; started_at: number; ended_at: number | null;
   parent_run_id: string | null; account_id: string | null; conversation_id: string | null;
   error_code: string | null; error_detail: string | null;
+  provider: string | null; cost_basis: string | null;
 }
 
 export function rowToRun(row: RunRow): PersistedRun {
@@ -82,6 +88,8 @@ export function rowToRun(row: RunRow): PersistedRun {
     conversationId: row.conversation_id ?? undefined,
     errorCode: isRunErrorCode(row.error_code) ? row.error_code : undefined,
     errorDetail: row.error_detail ?? undefined,
+    provider: isProvider(row.provider) ? row.provider : "subscription",
+    costBasis: isCostBasis(row.cost_basis) ? row.cost_basis : "notional",
   };
 }
 
@@ -103,14 +111,14 @@ export function listRuns(opts: ListRunsOpts = {}): PersistedRun[] {
 
 export function getSpendForInstance(agentId: string, instanceId: string): number {
   const row = getDb().prepare(
-    "SELECT COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE agent_id = ? AND instance_id = ?"
+    `SELECT COALESCE(SUM(${KNOWN_COST_USD}), 0) as total FROM runs WHERE agent_id = ? AND instance_id = ?`
   ).get(agentId, instanceId) as { total: number };
   return row.total;
 }
 
 export function getSpendByInstanceForProject(projectId: string): Record<string, number> {
   const rows = getDb().prepare(
-    "SELECT agent_id, instance_id, COALESCE(SUM(cost_usd), 0) as total FROM runs WHERE project_id = ? GROUP BY agent_id, instance_id"
+    `SELECT agent_id, instance_id, COALESCE(SUM(${KNOWN_COST_USD}), 0) as total FROM runs WHERE project_id = ? GROUP BY agent_id, instance_id`
   ).all(projectId) as Array<{ agent_id: string; instance_id: string; total: number }>;
   const out: Record<string, number> = {};
   for (const row of rows) {
@@ -144,6 +152,10 @@ export function runningOwnerPidsOnInstance(instanceId: string): number[] {
 }
 
 // ─── Rate-limit outcome (used by the scheduler to detect a repeat limit) ──────
+
+export function setRunModel(id: string, model: string): void {
+  getDb().prepare("UPDATE runs SET model = @model WHERE id = @id").run({ id, model });
+}
 
 export function setRunRateLimitResetsAt(id: string, resetsAt: number): void {
   getDb().prepare("UPDATE runs SET rate_limited_resets_at = @resetsAt WHERE id = @id").run({ id, resetsAt });

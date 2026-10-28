@@ -38,6 +38,8 @@ function getKey(): Buffer {
   return cachedKey;
 }
 
+export const isEncryptedSecret = (stored: string): boolean => stored.startsWith(PREFIX);
+
 /** Encrypt a secret value → `aes1:<base64(iv | ciphertext | tag)>`. */
 export function encryptSecret(plaintext: string): string {
   const iv = randomBytes(12);

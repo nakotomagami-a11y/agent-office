@@ -6,7 +6,7 @@
  * (rows logged before slice 2 landed the column).
  */
 
-import { getDb } from "../db";
+import { getDb, KNOWN_COST_USD } from "../db";
 
 import type { AccountStats } from "../../types/index";
 export type { AccountStats } from "../../types/index";
@@ -33,7 +33,7 @@ export function listPerAccountStats(): AccountStats[] {
         SUM(CASE WHEN started_at >= @c24 THEN 1 ELSE 0 END) AS runs_24h,
         SUM(CASE WHEN started_at >= @c7d THEN 1 ELSE 0 END) AS runs_7d,
         COUNT(*) AS runs_all_time,
-        COALESCE(SUM(CASE WHEN started_at >= @c7d THEN cost_usd ELSE 0 END), 0) AS cost_7d
+        COALESCE(SUM(CASE WHEN started_at >= @c7d THEN ${KNOWN_COST_USD} ELSE 0 END), 0) AS cost_7d
       FROM runs
       GROUP BY account_id
     `)

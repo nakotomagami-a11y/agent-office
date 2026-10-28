@@ -13,8 +13,9 @@
 // turn-diff unreliably reads ~0. The server's own tools/list is
 // deterministic; real runs do pay this (developer agents call
 // mcp__playwright__* thousands of times).
-// cross-spawn: `claude` and the MCP command (usually `npx`) are `.cmd` shims on Windows.
+// cross-spawn: the MCP command (usually `npx`) is a `.cmd` shim on Windows.
 import spawn from "cross-spawn";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,7 +24,8 @@ import { log } from "../infra/log";
 import * as db from "../db";
 import { findInstance } from "../projects/projects";
 import { estimateTokens } from "../infra/token-estimate";
-import { resolveSpawnEnv } from "../execution/runs";
+import { prepareProviderSpawn, ProviderUnavailableError, releaseProviderSpawn } from "../execution/runs/provider-spawn";
+import { spawnClaude } from "../infra/claude-bin";
 import { buildAppendedPrompt, readAgent } from "./agents";
 import { nonNativeKnownTokens, resolveReadonlyCwd } from "./context-cost";
 
@@ -53,7 +55,7 @@ interface ProbeUsage {
  *  usage out of its stream-json output. */
 function runProbeTurn(args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<ProbeUsage> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("claude", args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawnClaude(args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let stderr = "";
     const timer = setTimeout(() => {
@@ -176,25 +178,23 @@ export async function measureAgentContextCost(
   const resolved = resolveReadonlyCwd(project, instance);
   const cwd = resolved && existsSync(resolved) ? resolved : process.cwd();
 
-  const { env } = resolveSpawnEnv({
-    agentId, agentName: agent.info.name, prompt: "", model, effort: "default", args: [],
-    projectId: project?.id,
+  const probeId = `probe-${randomUUID()}`;
+  const addDirArgs = (agent.info.addDirs ?? []).flatMap((d) => ["--add-dir", d.replace(/^~/, homedir())]);
+  const spawnPlan = prepareProviderSpawn(probeId, {
+    agentId, agentName: agent.info.name, prompt: "", model, effort: "default", cwd, projectId: project?.id,
+    args: ["-p", "--output-format", "stream-json", "--verbose",
+      "--agent", agentId, "--model", model, "--permission-mode", "bypassPermissions", ...addDirArgs],
   });
+  if (!spawnPlan.ok) throw new ProviderUnavailableError(spawnPlan.reason);
 
   const appendedPrompt = buildAppendedPrompt(agentId, project, undefined, false);
   const tmpDir = mkdtempSync(join(tmpdir(), "ao-context-cost-probe-"));
   const promptFile = join(tmpDir, "system-prompt.md");
   writeFileSync(promptFile, appendedPrompt, "utf8");
 
-  // Same --add-dir flags as buildClaudeArgs, for the same reason.
-  const addDirArgs = (agent.info.addDirs ?? []).flatMap((d) => ["--add-dir", d.replace(/^~/, homedir())]);
-
   try {
     const probe = await runProbeTurn(
-      ["-p", "--output-format", "stream-json", "--verbose",
-       "--agent", agentId, "--model", model, "--permission-mode", "bypassPermissions",
-       ...addDirArgs, "--append-system-prompt-file", promptFile, "--", PROBE_PROMPT],
-      cwd, env,
+      [...spawnPlan.args, "--append-system-prompt-file", promptFile, "--", PROBE_PROMPT], cwd, spawnPlan.env,
     );
 
     // Subtract the same accurate non-native total the estimate path uses,
@@ -212,6 +212,7 @@ export async function measureAgentContextCost(
     db.saveAgentContextMeasurement(measurement);
     return measurement;
   } finally {
+    releaseProviderSpawn(probeId, spawnPlan.pinFile);
     rmSync(tmpDir, { recursive: true, force: true });
   }
 }

@@ -292,11 +292,28 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 | `POST` | `/api/accounts` | Register a new account |
 | `PATCH` | `/api/accounts/:id` | Update account (label, active flag) |
 | `DELETE` | `/api/accounts/:id` | Remove an account |
-| `GET` | `/api/accounts/:id/status` | Live auth/usage status for one account |
+| `GET` | `/api/accounts/:id/status` | Live auth/usage status for one account. For `default` it first inserts the account's row if missing (idempotent), so a fresh machine can sign in to it |
 | `GET` | `/api/accounts/:id/login` | Poll an in-progress login |
 | `POST` | `/api/accounts/:id/login` | Start the OAuth login flow |
 | `DELETE` | `/api/accounts/:id/login` | Cancel an in-progress login |
 | `POST` | `/api/accounts/:id/login/code` | Submit the OAuth authorization code |
+
+### AI providers
+
+Agents run on the one provider chosen here: `subscription`, `anthropic_api`, `openai` or `local`. No route ever returns a key, only its last four characters (`keyHint`).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/providers` | The choice, whether setup is needed, the CLI's state, and every provider's config, status and capabilities. No network call: status is the last probe, kept 60 s |
+| `PUT` | `/api/providers/selected` | Choose the provider `{provider, acceptUnavailable?}`. 409 `provider_not_ready` with the reason when it cannot run |
+| `PUT` | `/api/providers/:id` | Save `{baseUrl?, apiKey?, models?}`. A new base URL clears the stored key unless the same request carries one |
+| `DELETE` | `/api/providers/:id/key` | Forget the stored key |
+| `POST` | `/api/providers/:id/test` | Probe the provider (stored config, or a `draft`) |
+| `GET` | `/api/model-prices` | `{source, fetchedAt, stale, fetchEnabled, entries}`: per-model USD per million tokens from the auto-updated catalog |
+| `POST` | `/api/model-prices/refresh` | Re-fetch the catalog now. 429 within a minute of the last attempt, 409 `price_fetch_disabled` when fetching is off, 502 when both sources failed |
+| `PUT` | `/api/model-prices/settings` | `{fetchEnabled}`: turn outbound price fetches off or on. Off: every price is unknown |
+| `POST` | `/api/gateway/v1/messages` | The agents' gateway for every provider but `subscription`. Accepts only a running agent's per-run token; no UI calls it |
+| `POST` | `/api/gateway/v1/messages/count_tokens` | Always 404, so the CLI counts locally |
 
 ### GitHub accounts
 
@@ -312,8 +329,8 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/analytics/summary` | Aggregate spend / runs / runtime for a period |
-| `GET` | `/api/analytics/page` | Full analytics-page payload (trend, rankings, tools, heatmap) |
+| `GET` | `/api/analytics/summary` | Aggregate spend / runs / runtime for a period; `unknownCostRuns` counts runs whose cost is unknown and left out of the spend |
+| `GET` | `/api/analytics/page` | Full analytics-page payload (trend, rankings, tools, heatmap); `totals.unknownCostRuns` as above |
 | `GET` | `/api/analytics/per-account` | Usage split by connected Claude account |
 
 ### Agent docs
@@ -419,7 +436,9 @@ Every summon creates one row. Never mutated except at `done` (append output, set
 | `prompt` | TEXT | Original prompt |
 | `output` | TEXT | Streamed assistant output |
 | `tokens_in`, `tokens_out` | INT | Cumulative |
-| `cost_usd` | REAL | Cumulative |
+| `cost_usd` | REAL | Cumulative. What it means is `cost_basis` |
+| `provider` | TEXT | The AI provider the run used. NULL (older rows): `subscription` |
+| `cost_basis` | TEXT | `notional` (subscription: the list price of the tokens, not a bill), `billed` (Anthropic API key), `estimated` (OpenAI: usage × the price catalog), `unknown` (an OpenAI model with no price; `cost_usd` is 0 and totals count the run in `unknownCostRuns` instead) or `free` (local). NULL (older rows): `notional` |
 | `dur_ms` | INT | Wall-clock duration |
 | `model`, `effort` | TEXT | At run time |
 | `cwd` | TEXT | Working directory |
@@ -545,7 +564,7 @@ Subprocess exit
 |---|---|
 | `AGENT_OFFICE_STARTER_DATA` | Override the starter-data directory path (default: `apps/web/starter-data`) |
 | `AGENT_OFFICE_DOCS_DIR` | Override the docs source directory (default: the repo's `docs/`) |
-| `ANTHROPIC_API_KEY` | Optional: `claude` uses it instead of its own sign-in |
+| `ANTHROPIC_API_KEY` | Not used. Every `ANTHROPIC_*` and `CLAUDE_CODE_OAUTH_*` variable (a `claude setup-token` login included) is removed from agent runs; save an API key in Settings → AI provider instead |
 | `AO_DEBUG_TOOLS` | When set (any value), enables verbose tool-call logging in the summon subprocess wrapper. Dev-only. |
 | `DEFAULT_LOCALE` | Override the i18n default locale (defaults to `en`). Used by `next-intl`. |
 | `NODE_ENV` | Standard Node env — `development` / `production`. |

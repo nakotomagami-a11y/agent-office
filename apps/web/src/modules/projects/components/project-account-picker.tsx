@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useAccounts } from "@/modules/accounts/hooks/use-accounts";
 import { PlanBadge } from "@/modules/accounts/components/plan-badge";
+import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { useUpdateProject } from "../hooks/use-projects";
 import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
 
@@ -33,6 +35,11 @@ export function ProjectAccountPicker({
   const accountsQ = useAccounts();
   const update = useUpdateProject();
   const router = useRouter();
+  const t = useTranslations("providers");
+  // The config dir holds sessions for every provider, so the picker stays; the plan is subscription-only.
+  const { id: providerId } = useActiveProvider();
+  const subscription = providerId === "subscription";
+  const pickerLabel = subscription ? "Claude account" : t("account_label_sessions");
 
   const activeId = currentAccountId ?? "default";
   const activeAccount = accountsQ.data?.find((a) => a.id === activeId);
@@ -43,19 +50,19 @@ export function ProjectAccountPicker({
     update.mutate({ id: projectId, patch: { meta: { accountId } } });
   };
 
-  const accessory = activeAccount ? (
+  const accessory = activeAccount && subscription ? (
     <PlanBadge plan={activeAccount.plan} className="h-[15px] text-[9px] px-[5px] shrink-0" />
   ) : undefined;
 
   const trigger = (
-    <EnvControlTrigger icon={CLAUDE_ICON} label="Claude account" value={activeLabel} accessory={accessory} />
+    <EnvControlTrigger icon={CLAUDE_ICON} label={pickerLabel} value={activeLabel} accessory={accessory} />
   );
 
   // Still loading — render the same shell so the bar doesn't jump.
   if (!accountsQ.data) {
     return (
       <div className={`flex items-center ${ENV_CONTROL_TRIGGER} opacity-70`}>
-        <EnvControlTrigger icon={CLAUDE_ICON} label="Claude account" value="…" />
+        <EnvControlTrigger icon={CLAUDE_ICON} label={pickerLabel} value="…" />
       </div>
     );
   }
@@ -67,7 +74,7 @@ export function ProjectAccountPicker({
     label: (
       <span className="flex items-center gap-[8px]">
         <span>{a.label}</span>
-        <PlanBadge plan={a.plan} className="h-[14px] text-[9px] px-[4px]" />
+        {subscription ? <PlanBadge plan={a.plan} className="h-[14px] text-[9px] px-[4px]" /> : null}
       </span>
     ),
     onSelect: () => handleChange(a.id),

@@ -116,7 +116,10 @@ export const BACKUPS_DIR = join(APP_STATE_DIR, "backups");
 export const AGENT_BACKUPS_DIR = join(BACKUPS_DIR, "agents");
 /** A project's state as it was before a save file was imported over it. */
 export const IMPORT_BACKUPS_DIR = join(BACKUPS_DIR, "imports");
+/** Per-run files handed to the CLI by path: appended system prompts and `--settings` pins. */
+export const TMP_PROMPTS_DIR = join(APP_STATE_DIR, "tmp-prompts");
 export const DOCS_DIR = join(APP_STATE_DIR, "docs");
+export const PRICE_CATALOG_FILE = join(APP_STATE_DIR, "price-catalog.json");
 export const DOCS_GLOBAL_OWNER = "_global";
 // Where local clients (the Minecraft mod) find running servers: one <pid>.json each (random ports).
 export const DISCOVERY_DIR = join(APP_STATE_DIR, "servers");
@@ -201,7 +204,7 @@ export function expandTilde(p: string, home: string = HOME, pathApi: PathApi = n
 
 /**
  * Return an augmented PATH string that includes NVM node bin dirs and other
- * common locations so that `spawn("claude", ...)` works when the server
+ * common locations so that spawning `claude` works when the server
  * process inherits a minimal desktop-session environment (no .bashrc sourced).
  * POSIX only: splitting a Windows PATH on `:` mangles every drive letter.
  */
