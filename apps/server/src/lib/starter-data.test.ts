@@ -137,6 +137,7 @@ test("skips hold for the version they were made for", () => {
   assert.ok(later.ok);
   assert.ok(!existsSync(VERSION_FILE), "remind me later must not mark the version done");
   assert.deepEqual(diff().skipped, ["sd-alpha"]);
+  assert.equal(diff().newAgents.find((e) => e.id === "sd-alpha")?.declined, undefined, "later is not a decline");
 
   const again = applyAgentMigration([], [], false);
   assert.ok(again.ok);
@@ -145,6 +146,15 @@ test("skips hold for the version they were made for", () => {
   applyAgentMigration([], ["sd-alpha"], false);
   bundle("2026-10-20-1", { "sd-alpha": "a", "sd-beta": "b" });
   assert.deepEqual(diff().skipped, []);
+});
+
+test("an update that failed leaves the version unstamped, so it is offered again", () => {
+  bundle("2026-10-11-1", { "sd-alpha": "a", "sd-beta": "b" });
+  rmSync(join(process.env["AGENT_OFFICE_STARTER_DATA"]!, "agents", "sd-alpha.md"));
+  const out = applyAgentMigration(["sd-alpha", "sd-beta"], [], true);
+  assert.ok(out.ok);
+  assert.deepEqual(out.result.errors, [{ id: "sd-alpha", reason: "bundle_file_missing" }]);
+  assert.ok(!existsSync(VERSION_FILE));
 });
 
 test("the wizard can finish with nothing picked on a build without starter data", () => {

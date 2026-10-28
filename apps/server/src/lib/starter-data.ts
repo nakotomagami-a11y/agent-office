@@ -419,13 +419,15 @@ export function applyAgentMigration(accept: unknown, skip: unknown, markComplete
   const installed = listInstalledAgents();
   for (const a of installed) if (bundleHash.get(a.id) === a.hash) record.agents[a.id] = a.hash;
   const installedIds = new Set(installed.map((a) => a.id));
-  record.declined = [...new Set([...record.declined, ...skips.filter((id) => !installedIds.has(id))])]
-    .filter((id) => !installedIds.has(id));
+  // "Remind me later" skips for this version only; declining for good is finishing without them.
+  const declines = markComplete === false ? [] : skips;
+  record.declined = [...new Set([...record.declined, ...declines])].filter((id) => !installedIds.has(id));
   writeInstallRecord(record);
 
   // Replaced, not merged: a slug un-skipped this time must not stay skipped.
   writeSkipState({ version: manifest.version, slugs: skips });
-  if (markComplete !== false) writeInstalledVersion(manifest.version);
+  // A failed update is offered again: a stamped version never reopens the dialog for this bundle.
+  if (markComplete !== false && errors.length === 0) writeInstalledVersion(manifest.version);
 
   return { ok: true, result: { applied, backedUp, skipped: skips, errors, bundleVersion: manifest.version } };
 }
