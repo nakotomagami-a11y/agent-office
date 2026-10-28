@@ -157,7 +157,12 @@ export function AgentDetailsModal() {
   const applyRuntime = async (patch: { model?: string; effort?: string }) => {
     // Only the changed key: writing back the cached agent reverted edits made to the file since.
     if (!selectedId) return;
-    await writeAgentMut.mutateAsync({ id: selectedId, ...patch });
+    try {
+      await writeAgentMut.mutateAsync({ id: selectedId, ...patch });
+    } catch (err) {
+      toast(`Couldn't change ${patch.model ? "model" : "effort"}: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
     toast(
       patch.model
         ? `Model set to ${patch.model} — applies on next task`
