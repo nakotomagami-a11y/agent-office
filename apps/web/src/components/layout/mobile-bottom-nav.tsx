@@ -34,6 +34,18 @@ export function MobileBottomNav() {
         </Link>
       )}
 
+      <Link
+        href={PAGE_ROUTES.analytics}
+        aria-current={isActiveRoute(pathname, PAGE_ROUTES.analytics) ? "page" : undefined}
+        className={cn(
+          "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
+          isActiveRoute(pathname, PAGE_ROUTES.analytics) && "text-acc",
+        )}
+      >
+        <Icon name="gauge" size={20} />
+        <span>{t("nav.analytics")}</span>
+      </Link>
+
       <div className="flex items-center justify-center h-16">
         <Link
           href={PAGE_ROUTES.agentNew}
