@@ -127,7 +127,8 @@ export function listAgents(): ApiAgent[] {
         if (!hasAgentFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8"))) return [];
         const agent = readAgent(f.replace(/\.md$/, ""));
         return agent ? [agent.info] : [];
-      } catch {
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") log.warn("agents.list_read_failed", { file: f, err: String(err) });
         return [];
       }
     });

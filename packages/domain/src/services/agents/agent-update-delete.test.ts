@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR } from "../infra/paths";
-import { backupAgentFiles, listAgentBodyHistory, removeAgentFiles, readAgent, updateAgent, type AgentPatch } from "./agents";
+import { backupAgentFiles, listAgentBodyHistory, listAgents, removeAgentFiles, readAgent, updateAgent, type AgentPatch } from "./agents";
 
 const before = new Set(existsSync(AGENTS_DIR) ? readdirSync(AGENTS_DIR) : []);
 after(() => {
@@ -102,4 +102,17 @@ test("deleting an agent copies its file, memory and identity to the backups fold
   assert.match(read("md"), /^---\nname: leaving/);
   assert.equal(read("memory\\.md"), "learned things");
   assert.equal(read("identity\\.md"), "who I am");
+});
+
+// A file deleted or unreadable between the listing and the read threw from every listAgents caller.
+test("an agent file that can't be read is skipped, not fatal to the list", () => {
+  mkdirSync(AGENTS_DIR, { recursive: true });
+  writeFileSync(join(AGENTS_DIR, "readable.md"), "---\nname: readable\ndescription: d\n---\n\nb\n");
+  const ghost = join(AGENTS_DIR, "ghost.md");
+  mkdirSync(ghost);
+  try {
+    assert.ok(listAgents().some((a) => a.id === "readable"));
+  } finally {
+    rmSync(ghost, { recursive: true, force: true });
+  }
 });
