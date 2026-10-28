@@ -52,7 +52,7 @@ export function MissionStartForm({ projectId, onStarted }: { projectId: string; 
   const moneyNote = useMoneyNote();
   const template = useCrossDevice();
   const { data: agentList } = useAgents();
-  const installed = agentList?.map((a) => a.name);
+  const installed = agentList?.map((a) => a.id);
   const [title, setTitle] = useState("");
   const [goal, setGoal] = useState("");
   const [budget, setBudget] = useState("20");

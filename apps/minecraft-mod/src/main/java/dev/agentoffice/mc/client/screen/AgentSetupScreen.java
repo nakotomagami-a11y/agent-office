@@ -108,10 +108,10 @@ public final class AgentSetupScreen extends TabletScreen {
         switch (step) {
             case AGENT -> {
                 for (Api.Agent a : agents) {
-                    if (!q.isEmpty() && !a.name().toLowerCase(Locale.ROOT).contains(q) && !AgentNames.of(a.name()).toLowerCase(Locale.ROOT).contains(q)
+                    if (!q.isEmpty() && !a.id().toLowerCase(Locale.ROOT).contains(q) && !AgentNames.of(a.id()).toLowerCase(Locale.ROOT).contains(q)
                             && (a.description() == null || !a.description().toLowerCase(Locale.ROOT).contains(q))) continue;
                     String meta = (a.defaultModel() == null ? "" : a.defaultModel()) + (a.defaultEffort() == null ? "" : " · " + a.defaultEffort());
-                    out.add(new Row(AgentNames.of(a.name()), meta, a.description(), "Choose", () -> chooseAgent(a)));
+                    out.add(new Row(AgentNames.of(a.id()), meta, a.description(), "Choose", () -> chooseAgent(a)));
                 }
             }
             case PROJECT -> {
@@ -141,7 +141,7 @@ public final class AgentSetupScreen extends TabletScreen {
         status = "Checking " + p.name() + "…";
         rebuildWidgets();
         Api.Agent chosen = agent;
-        AgentOffice.call(client, () -> true, c -> SeatAdder.seats(c, p, chosen.name()), seats -> {
+        AgentOffice.call(client, () -> true, c -> SeatAdder.seats(c, p, chosen.id()), seats -> {
             // Left, went back or picked something else meanwhile: never act on a stale choice.
             if (minecraft.screen != this || step != Step.PROJECT || project != p || agent != chosen) {
                 busy = false;
@@ -155,9 +155,9 @@ public final class AgentSetupScreen extends TabletScreen {
                         .findFirst().orElse(seats.get(0)));
                 return;
             }
-            status = "Adding " + AgentNames.of(chosen.name()) + " to " + p.name() + "… (making a git worktree can take a while)";
+            status = "Adding " + AgentNames.of(chosen.id()) + " to " + p.name() + "… (making a git worktree can take a while)";
             rebuildWidgets();
-            SeatAdder.add(this, client, p, chosen.name(), this::finish, this::fail);
+            SeatAdder.add(this, client, p, chosen.id(), this::finish, this::fail);
         }, e -> fail("Couldn't read " + p.name() + ": " + Async.message(e)));
     }
 
@@ -233,7 +233,7 @@ public final class AgentSetupScreen extends TabletScreen {
         int x1 = right - PAD;
         String title = switch (step) {
             case AGENT -> "Set up this agent · which agent is it?";
-            case PROJECT -> AgentNames.of(agent.name()) + " · which project does it work on?";
+            case PROJECT -> AgentNames.of(agent.id()) + " · which project does it work on?";
         };
         g.drawString(font, bold(title, x1 - x0 - 160),
                 x0, top + 7, Theme.TXT, false);

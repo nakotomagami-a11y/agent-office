@@ -160,8 +160,11 @@ public final class AgentOfficeClient {
             List<Api.Agent> out = new ArrayList<>();
             for (JsonElement el : call(get(Routes.agents())).getAsJsonArray()) {
                 JsonObject a = el.getAsJsonObject();
-                out.add(new Api.Agent(str(a, "name"), str(a, "description"), str(a, "defaultModel"), str(a, "defaultEffort")));
-                AgentNames.remember(str(a, "name"), str(a, "displayName"));
+                // Before ApiAgent.id, `name` was the id.
+                String id = str(a, "id");
+                if (id == null) id = str(a, "name");
+                out.add(new Api.Agent(id, str(a, "description"), str(a, "defaultModel"), str(a, "defaultEffort")));
+                AgentNames.remember(id, str(a, "displayName"));
             }
             return out;
         });

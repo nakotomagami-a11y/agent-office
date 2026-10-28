@@ -18,7 +18,8 @@ public final class Api {
     /** A seat with its own overrides; null = falls back to the agent definition. */
     public record Instance(Slot slot, String model, String effort, String permissionMode) {}
 
-    public record Agent(String name, String description, String defaultModel, String defaultEffort) {}
+    /** {@code id} is the agent's file, {@code ~/.claude/agents/<id>.md}: what seats, spawns and routes name it by. */
+    public record Agent(String id, String description, String defaultModel, String defaultEffort) {}
 
     /** {@code input} is the raw tool input (a JSON string as persisted). */
     public record ToolCall(String id, String name, String input) {}

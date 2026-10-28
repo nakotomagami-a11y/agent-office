@@ -73,7 +73,7 @@ export function AgentList() {
     return agents.filter((a) => {
       if (activeCats.size > 0 && !activeCats.has(categorize(a))) return false;
       if (!q) return true;
-      if (a.name.toLowerCase().includes(q)) return true;
+      if (a.id.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)) return true;
       // Also match against the human-readable form so "CEO" finds "cs-ceo",
       // "backend" finds "backend-builder", etc.
       if (agentDisplayName(a).toLowerCase().includes(q)) return true;
@@ -126,11 +126,11 @@ export function AgentList() {
         <div className="flex flex-wrap gap-[12px] [&>*]:[flex:1_1_150px] [&>*]:max-w-[220px] max-[900px]:[&>*]:[flex:1_1_calc(33%-8px)] max-[600px]:[&>*]:[flex:1_1_calc(50%-6px)]">
           {visible.map((a) => (
             <AgentCard
-              key={a.name}
+              key={a.id}
               agent={a}
-              uses={usesByAgent[a.name] ?? 0}
-              onOpen={() => { void openAgentAsNewInstance(a.name); }}
-              onEdit={() => select(a.name, { tab: "customization" })}
+              uses={usesByAgent[a.id] ?? 0}
+              onOpen={() => { void openAgentAsNewInstance(a.id); }}
+              onEdit={() => select(a.id, { tab: "customization" })}
             />
           ))}
         </div>
@@ -266,7 +266,7 @@ function AgentCard({
   onEdit: () => void;
 }) {
   const t = useTranslations();
-  const unit = unitForAgent(agent.name, agent.unit);
+  const unit = unitForAgent(agent.id, agent.unit);
   const category = categorize(agent);
   const catColor = categoryColor(category);
   const stateDot = uses > 0 ? "var(--green)" : "var(--txt-4)";
@@ -315,7 +315,7 @@ function AgentCard({
 
       <div className="text-center leading-[1.3] w-full min-w-0">
         <div className="text-[13px] font-bold whitespace-nowrap overflow-hidden text-ellipsis">{agentDisplayName(agent)}</div>
-        <div className="font-[var(--font-mono)] text-[9.5px] text-txt-4 mt-[3px] whitespace-nowrap overflow-hidden text-ellipsis">{agent.name}</div>
+        <div className="font-[var(--font-mono)] text-[9.5px] text-txt-4 mt-[3px] whitespace-nowrap overflow-hidden text-ellipsis">{agent.id}</div>
       </div>
 
       <div className="flex items-center gap-[5px]">

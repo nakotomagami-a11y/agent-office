@@ -10,7 +10,7 @@ export const COUNCIL_ROOM = "Council";
 export function categorize(agent: ApiAgent): string {
   if (agent.room && agent.room.trim()) return agent.room.trim();
 
-  const id = agent.name.toLowerCase();
+  const id = agent.id.toLowerCase();
   const skills = agent.skills.map((s) => s.toLowerCase());
   const has = (...words: string[]) => words.some((w) => id.includes(w) || skills.includes(w));
 

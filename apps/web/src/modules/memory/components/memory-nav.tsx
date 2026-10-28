@@ -49,7 +49,7 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
     [projectsQ.data, q],
   );
   const agents = useMemo(
-    () => (agentsQ.data ?? []).filter((a) => !q || a.name.toLowerCase().includes(q)),
+    () => (agentsQ.data ?? []).filter((a) => !q || a.id.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)),
     [agentsQ.data, q],
   );
 
@@ -116,26 +116,26 @@ export function MemoryNav({ selected, onSelect, contentMap }: MemoryNavProps) {
             <div className="px-[9px] py-[6px] font-mono text-[11px] text-txt-4">{t("no_agents")}</div>
           ) : (
             agents.map((a) => {
-              const scope: MemoryScope = { kind: "agent", id: a.name, name: a.name };
+              const scope: MemoryScope = { kind: "agent", id: a.id, name: a.name };
               const skills = a.skills ?? [];
-              const isOpen = openAgentId === a.name && skills.length > 0;
+              const isOpen = openAgentId === a.id && skills.length > 0;
               return (
-                <div key={a.name}>
+                <div key={a.id}>
                   <NavRow
                     icon="cpu"
-                    avatarUnit={unitForAgent(a.name, a.unit)}
+                    avatarUnit={unitForAgent(a.id, a.unit)}
                     name={a.name}
                     selected={isSel(scope)}
                     hasNote={contentMap.get(scopeKey(scope)) ?? false}
                     onClick={() => onSelect(scope)}
                     hasChildren={skills.length > 0}
                     expanded={isOpen}
-                    onToggle={() => setExpandedAgent((cur) => (cur === a.name ? null : a.name))}
+                    onToggle={() => setExpandedAgent((cur) => (cur === a.id ? null : a.id))}
                   />
                   {isOpen ? (
                     <div className="mt-[2px] mb-[4px] ml-[20px] pl-[11px] border-l border-edge flex flex-col gap-[1px]">
                       {skills.map((slug) => {
-                        const sk: MemoryScope = { kind: "agent-skill", agentId: a.name, skillSlug: slug };
+                        const sk: MemoryScope = { kind: "agent-skill", agentId: a.id, skillSlug: slug };
                         const active = isSel(sk);
                         const source = skillByName.get(slug)?.source ?? "local";
                         const config = skillIconConfig(skillIconsQ.data, skillIconKey({ source, name: slug }));

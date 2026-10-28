@@ -49,12 +49,12 @@ export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
     const rawAgents = agentsQuery.data ?? [];
     const rawRuns = runsQuery.data ?? [];
     const agents = rawAgents.map<OfficeAgent>((a) => {
-      const status = statusFromRuns(a.name, rawRuns);
+      const status = statusFromRuns(a.id, rawRuns);
       return {
         ...a,
-        id: a.name,
+        id: a.id,
         short: shortName(a.name),
-        unitChoice: unitForAgent(a.name, a.unit),
+        unitChoice: unitForAgent(a.id, a.unit),
         status: status.status,
         task: status.task,
         taskKind: status.taskKind,

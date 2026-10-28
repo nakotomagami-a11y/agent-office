@@ -77,7 +77,7 @@ final class AddAgentScreen extends TabletScreen {
     private List<Api.Agent> shown() {
         String q = filter == null ? "" : filter.getValue().trim().toLowerCase(Locale.ROOT);
         if (q.isEmpty()) return agents;
-        return agents.stream().filter(a -> a.name().toLowerCase(Locale.ROOT).contains(q) || AgentNames.of(a.name()).toLowerCase(Locale.ROOT).contains(q)
+        return agents.stream().filter(a -> a.id().toLowerCase(Locale.ROOT).contains(q) || AgentNames.of(a.id()).toLowerCase(Locale.ROOT).contains(q)
                 || (a.description() != null && a.description().toLowerCase(Locale.ROOT).contains(q))).toList();
     }
 
@@ -85,9 +85,9 @@ final class AddAgentScreen extends TabletScreen {
     private void add(Api.Agent agent) {
         if (adding) return;
         adding = true;
-        status = "Adding " + AgentNames.of(agent.name()) + "…";
+        status = "Adding " + AgentNames.of(agent.id()) + "…";
         rebuildWidgets();
-        SeatAdder.add(this, client, project, agent.name(), slot -> {
+        SeatAdder.add(this, client, project, agent.id(), slot -> {
             // Only if the player is still here: never pull them out of the game.
             if (minecraft.screen == this) minecraft.setScreen(parent);
             parent.load();
@@ -133,8 +133,8 @@ final class AddAgentScreen extends TabletScreen {
             Api.Agent a = shown.get(i);
             int y = listTop + (i - scroll) * ROW;
             String meta = (a.defaultModel() == null ? "" : "  ·  " + a.defaultModel()) + (a.defaultEffort() == null ? "" : " · " + a.defaultEffort());
-            g.drawString(font, Component.literal(AgentNames.of(a.name())).withStyle(s -> s.withBold(true)), x0 + 6, y + 3, Theme.TXT, false);
-            g.drawString(font, meta, x0 + 6 + font.width(Component.literal(AgentNames.of(a.name())).withStyle(s -> s.withBold(true))), y + 3, Theme.TXT_4, false);
+            g.drawString(font, Component.literal(AgentNames.of(a.id())).withStyle(s -> s.withBold(true)), x0 + 6, y + 3, Theme.TXT, false);
+            g.drawString(font, meta, x0 + 6 + font.width(Component.literal(AgentNames.of(a.id())).withStyle(s -> s.withBold(true))), y + 3, Theme.TXT_4, false);
             String desc = a.description() == null ? "" : a.description();
             g.drawString(font, font.plainSubstrByWidth(desc, textW), x0 + 6, y + 14, Theme.TXT_3, false);
         }

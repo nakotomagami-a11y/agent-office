@@ -10,7 +10,7 @@ export function useAgentUnits(): Map<string, UnitSelection> {
   const { data: agents } = useAgents();
   return useMemo(() => {
     const m = new Map<string, UnitSelection>();
-    for (const a of agents ?? []) m.set(a.name, unitForAgent(a.name, a.unit));
+    for (const a of agents ?? []) m.set(a.id, unitForAgent(a.id, a.unit));
     return m;
   }, [agents]);
 }

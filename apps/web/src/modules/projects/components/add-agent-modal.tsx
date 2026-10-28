@@ -214,18 +214,18 @@ function AgentPickerStep({
     const ql = q.trim().toLowerCase();
     return agents.filter((a) => {
       if (catFilter !== "all" && categorize(a) !== catFilter) return false;
-      if (view === "available" && rosterCounts[a.name]) return false;
+      if (view === "available" && rosterCounts[a.id]) return false;
       if (!ql) return true;
-      const blob = `${a.name} ${a.description ?? ""} ${(a.skills ?? []).join(" ")} ${(a.tools ?? []).join(" ")}`.toLowerCase();
+      const blob = `${a.id} ${a.name} ${a.description ?? ""} ${(a.skills ?? []).join(" ")} ${(a.tools ?? []).join(" ")}`.toLowerCase();
       return blob.includes(ql);
     });
   }, [agents, q, catFilter, view, rosterCounts]);
 
-  const inRoster = filtered.filter((a) => rosterCounts[a.name]);
-  const notInRoster = filtered.filter((a) => !rosterCounts[a.name]);
+  const inRoster = filtered.filter((a) => rosterCounts[a.id]);
+  const notInRoster = filtered.filter((a) => !rosterCounts[a.id]);
 
   const totalStaged = Object.values(staged).reduce((s, n) => s + n, 0);
-  const stagedEntries = Object.entries(staged).map(([id, n]) => ({ agent: agents.find((a) => a.name === id), n })).filter((x) => x.agent);
+  const stagedEntries = Object.entries(staged).map(([id, n]) => ({ agent: agents.find((a) => a.id === id), n })).filter((x) => x.agent);
 
   const handleSummon = useCallback(async () => {
     if (totalStaged === 0) { onClose(); return; }
@@ -330,18 +330,18 @@ function AgentPickerStep({
                 </div>
                 {notInRoster.map((a) => (
                   <AgentRow
-                    key={a.name}
-                    name={a.name}
+                    key={a.id}
+                    name={a.id}
                     displayName={a.displayName}
                     description={a.description}
                     defaultModel={a.defaultModel}
                     unit={a.unit}
                     category={categorize(a)}
-                    rosterCount={rosterCounts[a.name] ?? 0}
-                    stagedCount={staged[a.name] ?? 0}
-                    onAdd={() => setStaged((prev) => ({ ...prev, [a.name]: (prev[a.name] ?? 0) + 1 }))}
-                    onRemove={() => setStaged((prev) => { const n = (prev[a.name] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.name]; return next; } return { ...prev, [a.name]: n }; })}
-                    onDetails={() => openDetails(a.name)}
+                    rosterCount={rosterCounts[a.id] ?? 0}
+                    stagedCount={staged[a.id] ?? 0}
+                    onAdd={() => setStaged((prev) => ({ ...prev, [a.id]: (prev[a.id] ?? 0) + 1 }))}
+                    onRemove={() => setStaged((prev) => { const n = (prev[a.id] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.id]; return next; } return { ...prev, [a.id]: n }; })}
+                    onDetails={() => openDetails(a.id)}
                   />
                 ))}
               </>
@@ -355,36 +355,36 @@ function AgentPickerStep({
                 </div>
                 {inRoster.map((a) => (
                   <AgentRow
-                    key={a.name}
-                    name={a.name}
+                    key={a.id}
+                    name={a.id}
                     displayName={a.displayName}
                     description={a.description}
                     defaultModel={a.defaultModel}
                     unit={a.unit}
                     category={categorize(a)}
-                    rosterCount={rosterCounts[a.name] ?? 0}
-                    stagedCount={staged[a.name] ?? 0}
-                    onAdd={() => setStaged((prev) => ({ ...prev, [a.name]: (prev[a.name] ?? 0) + 1 }))}
-                    onRemove={() => setStaged((prev) => { const n = (prev[a.name] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.name]; return next; } return { ...prev, [a.name]: n }; })}
-                    onDetails={() => openDetails(a.name)}
+                    rosterCount={rosterCounts[a.id] ?? 0}
+                    stagedCount={staged[a.id] ?? 0}
+                    onAdd={() => setStaged((prev) => ({ ...prev, [a.id]: (prev[a.id] ?? 0) + 1 }))}
+                    onRemove={() => setStaged((prev) => { const n = (prev[a.id] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.id]; return next; } return { ...prev, [a.id]: n }; })}
+                    onDetails={() => openDetails(a.id)}
                   />
                 ))}
               </>
             )}
             {view === "available" && notInRoster.map((a) => (
               <AgentRow
-                key={a.name}
-                name={a.name}
+                key={a.id}
+                name={a.id}
                 displayName={a.displayName}
                 description={a.description}
                 defaultModel={a.defaultModel}
                 unit={a.unit}
                 category={categorize(a)}
                 rosterCount={0}
-                stagedCount={staged[a.name] ?? 0}
-                onAdd={() => setStaged((prev) => ({ ...prev, [a.name]: (prev[a.name] ?? 0) + 1 }))}
-                onRemove={() => setStaged((prev) => { const n = (prev[a.name] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.name]; return next; } return { ...prev, [a.name]: n }; })}
-                onDetails={() => openDetails(a.name)}
+                stagedCount={staged[a.id] ?? 0}
+                onAdd={() => setStaged((prev) => ({ ...prev, [a.id]: (prev[a.id] ?? 0) + 1 }))}
+                onRemove={() => setStaged((prev) => { const n = (prev[a.id] ?? 0) - 1; if (n <= 0) { const next = { ...prev }; delete next[a.id]; return next; } return { ...prev, [a.id]: n }; })}
+                onDetails={() => openDetails(a.id)}
               />
             ))}
           </>
@@ -399,8 +399,8 @@ function AgentPickerStep({
             <>
               <div className="flex">
                 {stagedEntries.slice(0, 5).map(({ agent }) => (
-                  <div key={agent!.name} className="flex items-center justify-center bg-bg-3 border border-line overflow-hidden w-[26px] h-[26px] rounded-[7px] -ml-[6px] first:ml-0 [box-shadow:0_0_0_2px_var(--bg-2)]" title={agent!.name}>
-                    <AgentAvatar unit={unitForAgent(agent!.name, agent!.unit)} size={22} />
+                  <div key={agent!.id} className="flex items-center justify-center bg-bg-3 border border-line overflow-hidden w-[26px] h-[26px] rounded-[7px] -ml-[6px] first:ml-0 [box-shadow:0_0_0_2px_var(--bg-2)]" title={agent!.id}>
+                    <AgentAvatar unit={unitForAgent(agent!.id, agent!.unit)} size={22} />
                   </div>
                 ))}
                 {stagedEntries.length > 5 && <div className="flex items-center justify-center bg-bg-1 border border-line text-txt-3 -ml-[6px] [box-shadow:0_0_0_2px_var(--bg-2)] w-[26px] h-[26px] rounded-[7px] font-[var(--font-mono)] text-[11px]">+{stagedEntries.length - 5}</div>}

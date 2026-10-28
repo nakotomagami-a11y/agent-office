@@ -125,7 +125,7 @@ public final class OfficeScreen extends TabletScreen {
             client = r.client();
             projects = r.projects();
             agents.clear();
-            for (Api.Agent a : r.agents()) agents.put(a.name(), a);
+            for (Api.Agent a : r.agents()) agents.put(a.id(), a);
             if (selected() == null) {
                 selectedId = projects.stream().filter(p -> p.instanceCount() > 0).map(Api.Project::id).findFirst()
                         .orElse(projects.isEmpty() ? null : projects.get(0).id());

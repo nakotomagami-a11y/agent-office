@@ -235,7 +235,7 @@ public final class ChatSession {
             }
             Api.Agent def = null;
             for (Api.Agent a : c.agents()) {
-                if (a.name().equals(slot.agentId())) def = a;
+                if (a.id().equals(slot.agentId())) def = a;
             }
             return new SeatRead(found, def);
         }, read -> {
