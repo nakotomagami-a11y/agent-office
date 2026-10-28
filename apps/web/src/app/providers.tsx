@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { MotionConfig } from "framer-motion";
 import { useState } from "react";
 import { AppEvents } from "./app-events";
+import { FileDropGuard } from "./file-drop-guard";
 import { PowerSync } from "./power-sync";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {/* Auto performance-mode switching from the AC/battery power source.
           Renders nothing. See performance-store.ts's `applyPowerState`. */}
       <PowerSync />
+      <FileDropGuard />
       {/* `reducedMotion="user"` makes every `motion.*`/`AnimatePresence` in the
           tree respect the OS-level prefers-reduced-motion setting automatically
           (collapsing transforms/opacity transitions to instant) — CSS's own
