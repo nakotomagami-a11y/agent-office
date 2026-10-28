@@ -142,10 +142,19 @@ export function parseChildren(raw: string): ChildProc[] | null {
 export async function children(pid: number): Promise<ChildProc[] | null> {
   if (!Number.isSafeInteger(pid) || pid <= 0) return [];
   // 'Stop': a failed query prints nothing, so it can't read as "no children".
+  // A cmd.exe is cross-spawn's shim for an npm `claude.cmd`: the CLI is its child, and the CLI's
+  // children are the ones asked for, so the search starts one level down.
   const script = `$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$procs = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}" | ForEach-Object {
-  [pscustomobject]@{ pid = [int]$_.ProcessId; startedAt = ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() }
+$parents = @(${pid})
+$self = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"
+if ($self -and $self.Name -ieq 'cmd.exe') {
+  $parents = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}" | ForEach-Object { [int]$_.ProcessId })
+}
+$procs = @(if ($parents.Count -gt 0) {
+  Get-CimInstance Win32_Process -Filter (($parents | ForEach-Object { "ParentProcessId=$_" }) -join ' OR ') | ForEach-Object {
+    [pscustomobject]@{ pid = [int]$_.ProcessId; startedAt = ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() }
+  }
 })
 ConvertTo-Json -Compress -Depth 3 @{ procs = $procs }`;
   const powershell = system32("WindowsPowerShell", "v1.0", "powershell.exe");

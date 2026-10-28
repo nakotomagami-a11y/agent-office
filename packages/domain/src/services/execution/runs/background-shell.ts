@@ -86,7 +86,7 @@ async function trackOne(run: LiveRun, pending: PendingBackgroundBash, scan: Proc
       ...db.listBackgroundShells().filter((r) => r.runId === run.id).map((r) => r.pid),
     ]);
     const shell = pickShell(children, pending.requestedAt, taken);
-    if (!shell) return log.debug("background_shell.not_found", { runId: run.id, pid: parent, children: children.length });
+    if (!shell) return log.warn("background_shell.not_found", { runId: run.id, pid: parent, children: children.length });
     db.insertBackgroundShell({
       runId: run.id,
       agentId: run.agentId,

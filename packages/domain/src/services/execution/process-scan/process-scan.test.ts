@@ -1,6 +1,9 @@
 import assert from "node:assert";
-import { spawn } from "node:child_process";
-import { realpathSync } from "node:fs";
+import crossSpawn from "cross-spawn";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createServer, type AddressInfo } from "node:net";
 import { test } from "node:test";
 import { parseEtime, parseLsofCwds, parseLsofListeners, parsePs } from "./darwin";
@@ -22,6 +25,28 @@ test("live: children lists a child this process just spawned, with its start tim
     assert.ok(mine.startedAt >= before - 2000 && mine.startedAt <= Date.now() + 1000, String(mine.startedAt));
   } finally {
     child.kill();
+  }
+});
+
+// An npm `claude` runs through cross-spawn's cmd.exe shim: the run's pid is cmd.exe, and its shells are the CLI's children.
+test("live windows: children of a cmd.exe shim are the children of the program it launched", { skip: process.platform !== "win32" }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ao-shim-"));
+  const pidFile = join(dir, "shell.pid");
+  writeFileSync(join(dir, "cli.js"), [
+    "const c = require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });",
+    `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(c.pid));`,
+    "setTimeout(() => {}, 30000);",
+  ].join("\n"));
+  writeFileSync(join(dir, "fake-cli.cmd"), `@"${process.execPath}" "%~dp0cli.js" %*\r\n`);
+  const shim = crossSpawn(join(dir, "fake-cli.cmd"), [], { stdio: "ignore" });
+  try {
+    for (let i = 0; i < 50 && !existsSync(pidFile); i++) await new Promise((resolve) => setTimeout(resolve, 100));
+    const kids = await scanner!.children(shim.pid!);
+    assert.ok(kids, "the probe must run");
+    assert.deepStrictEqual(kids.map((k) => k.pid), [Number(readFileSync(pidFile, "utf8"))]);
+  } finally {
+    spawnSync("taskkill", ["/pid", String(shim.pid), "/t", "/f"], { stdio: "ignore" });
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
