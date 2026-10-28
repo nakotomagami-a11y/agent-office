@@ -18,7 +18,7 @@ import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useRegisterModal } from "@/lib/modal-manager";
 import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
 import { useProject, useAddInstance, useUpdateInstance } from "@/modules/projects/hooks/use-projects";
-import { RemoveSessionModal } from "@/modules/projects/components/remove-session-modal";
+import { RemoveSessionModal, type RemoveSessionTarget } from "@/modules/projects/components/remove-session-modal";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi, toBody } from "@/modules/agents/form/agent-form";
 import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain";
@@ -87,12 +87,17 @@ export function AgentDetailsModal() {
 
   const addMut = useAddInstance();
   const updateInstanceMut = useUpdateInstance();
-  const [confirmDeleteInstance, setConfirmDeleteInstance] = useState(false);
-
-  // Cancel any pending delete confirm when switching instance/agent
-  useEffect(() => {
-    setConfirmDeleteInstance(false);
-  }, [selectedId, selectedInstanceId]);
+  // Rendered outside the inspector, which closes first: only one modal is open at a time, so a
+  // dialog opened inside it closed the inspector and was unmounted with it.
+  const [removeTarget, setRemoveTarget] = useState<RemoveSessionTarget | null>(null);
+  const removeModal = (
+    <RemoveSessionModal
+      projectId={activeProjectId}
+      projectName={projectQ.data?.meta.name ?? ""}
+      target={removeTarget}
+      onClose={() => setRemoveTarget(null)}
+    />
+  );
 
   const [tab, setTab] = useState<Tab>("conversation");
   const changeTab = (t: Tab) => { setTab(t); setActiveTab(t); };
@@ -237,7 +242,7 @@ export function AgentDetailsModal() {
     tab,
   ]);
 
-  if (!inspectorOpen || !agent) return null;
+  if (!inspectorOpen || !agent) return removeModal;
 
   const isStreamActive =
     stream.phase === "starting" ||
@@ -288,6 +293,8 @@ export function AgentDetailsModal() {
   const branchLabel = currentInstance?.worktree?.branch;
 
   return (
+    <>
+    {removeModal}
     <Portal>
       <div
         className={cn(
@@ -523,21 +530,17 @@ export function AgentDetailsModal() {
                       type="button"
                       aria-label="Delete this agent instance"
                       className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
-                      onClick={() => setConfirmDeleteInstance(true)}
+                      onClick={() => {
+                        setRemoveTarget({
+                          instanceId: selectedInstanceId,
+                          name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
+                        });
+                        closeInspector();
+                      }}
                     >
                       <Icon name="trash" size={15} />
                     </button>
                   </Tooltip>
-                  <RemoveSessionModal
-                    projectId={activeProjectId}
-                    projectName={projectQ.data?.meta.name ?? ""}
-                    target={confirmDeleteInstance ? {
-                      instanceId: selectedInstanceId,
-                      name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
-                    } : null}
-                    onClose={() => setConfirmDeleteInstance(false)}
-                    onRemoved={closeInspector}
-                  />
                 </>
               )}
             </div>
@@ -585,5 +588,6 @@ export function AgentDetailsModal() {
         </div>
       </div>
     </Portal>
+    </>
   );
 }
