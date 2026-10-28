@@ -87,7 +87,8 @@ export function useAgentMemory(id: string | null) {
 export function useWriteAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: AgentBody) =>
+    // PUT changes only the keys sent.
+    mutationFn: (body: Pick<AgentBody, "id"> & Partial<AgentBody>) =>
       apiFetch<{ id: string }>(API_ROUTES.agent(body.id), {
         method: "PUT",
         body,

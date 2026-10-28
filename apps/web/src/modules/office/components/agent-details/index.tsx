@@ -20,7 +20,7 @@ import { CHROME_TOP, CHROME_LEFT_CLASS } from "@/lib/chrome";
 import { useProject, useAddInstance, useUpdateInstance } from "@/modules/projects/hooks/use-projects";
 import { RemoveSessionModal, type RemoveSessionTarget } from "@/modules/projects/components/remove-session-modal";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
-import { fromApi, toBody } from "@/modules/agents/form/agent-form";
+import { fromApi } from "@/modules/agents/form/agent-form";
 import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
@@ -149,10 +149,9 @@ export function AgentDetailsModal() {
       ? fromApi(agentDetailQ.data, agentBodyQ.data)
       : null;
   const applyRuntime = async (patch: { model?: string; effort?: string }) => {
-    // Guard against clobbering the body before it has loaded.
-    if (!agentDetailQ.data || agentBodyQ.data === undefined) return;
-    const values = fromApi(agentDetailQ.data, agentBodyQ.data);
-    await writeAgentMut.mutateAsync(toBody({ ...values, ...patch }));
+    // Only the changed key: writing back the cached agent reverted edits made to the file since.
+    if (!selectedId) return;
+    await writeAgentMut.mutateAsync({ id: selectedId, ...patch });
     toast(
       patch.model
         ? `Model set to ${patch.model} — applies on next task`
