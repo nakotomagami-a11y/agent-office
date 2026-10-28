@@ -7,7 +7,7 @@ import { useAgentPrompts } from "../hooks/use-agent-prompts";
 import { clearDraft, saveDraft } from "../format/draft-store";
 import { MissionDialog } from "@/modules/missions/components/mission-dialog";
 import type { ContextProfile } from "@agent-office/domain/types";
-import { SLASH_COMMANDS } from "../format/composer-config";
+import { SLASH_COMMANDS, slashEnterRuns } from "../format/composer-config";
 import { autosizeTextarea } from "../format/textarea-autosize";
 import { buildComposedText } from "../format/build-composed-text";
 import { useComposerAttachments } from "../hooks/use-composer-attachments";
@@ -111,8 +111,7 @@ export function Composer(props: ComposerProps) {
     onRunSlash: () => {
       const picked = menus.filteredSlash[menus.slashIdx];
       if (!picked) return;
-      // A bare `/` matches /clear: Enter on a partial command completes it instead of clearing the thread.
-      if (value.trim() !== picked.cmd) return insertSlash(picked.cmd);
+      if (!slashEnterRuns(value, picked.cmd)) return insertSlash(picked.cmd);
       cancelDraftSave();
       if (!handleSlashSend(picked.cmd, props.onCommand, props.draftKey, () => { setValue(""); menus.closeAll(); })) insertSlash(picked.cmd);
     },

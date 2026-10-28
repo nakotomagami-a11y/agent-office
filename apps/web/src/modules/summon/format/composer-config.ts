@@ -10,6 +10,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { cmd: "/clear", descKey: "composer.command_clear_desc" },
 ];
 
+export function slashEnterRuns(typed: string, cmd: string): boolean {
+  return typed === cmd;
+}
+
 /** Rotation order for the context-profile toggle button. */
 export const PROFILE_CYCLE: ContextProfile[] = ["tight", "balanced", "deep"];
 
