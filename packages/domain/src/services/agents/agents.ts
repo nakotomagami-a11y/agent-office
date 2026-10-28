@@ -119,11 +119,18 @@ export function listAgents(): ApiAgent[] {
         !f.endsWith(".memory.md") &&
         !f.endsWith(".identity.md") &&
         !f.startsWith("_") &&
-        !f.includes(".body.") &&
-        hasAgentFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8")),
+        !f.includes(".body."),
     )
-    .map((f) => readAgent(f.replace(/\.md$/, ""))?.info)
-    .filter((a): a is ApiAgent => a !== undefined);
+    .flatMap((f) => {
+      // Deleted or locked between the listing and the read: skipped, not fatal to every caller.
+      try {
+        if (!hasAgentFrontmatter(readFileSync(join(AGENTS_DIR, f), "utf8"))) return [];
+        const agent = readAgent(f.replace(/\.md$/, ""));
+        return agent ? [agent.info] : [];
+      } catch {
+        return [];
+      }
+    });
 }
 
 /** A sub-agent's `subagent_type` is the CLI's name for it; unclaimed names (project agents) stay as they are. */
