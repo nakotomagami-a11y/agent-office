@@ -70,7 +70,8 @@ export type LaunchResult = { ok: true } | { ok: false; detail: string };
 export function launchDetached({ cmd, args, checkExit }: OpenCommand): Promise<LaunchResult> {
   return new Promise((resolve) => {
     let settled = false;
-    const settle = (r: LaunchResult) => { if (!settled) { settled = true; resolve(r); } };
+    let wait: NodeJS.Timeout | undefined;
+    const settle = (r: LaunchResult) => { if (!settled) { settled = true; clearTimeout(wait); resolve(r); } };
     let child;
     try {
       // Inherited from a VS Code extension host, it makes Code.exe run the folder as a script.
@@ -85,7 +86,8 @@ export function launchDetached({ cmd, args, checkExit }: OpenCommand): Promise<L
     });
     child.once("spawn", () => {
       if (!checkExit) return settle({ ok: true });
-      setTimeout(() => settle({ ok: true }), EXIT_WAIT_MS).unref();
+      // Ref'd while waiting: with the child unref'd, nothing else may keep the process up to hear its exit.
+      wait = setTimeout(() => settle({ ok: true }), EXIT_WAIT_MS);
     });
     child.unref();
   });
