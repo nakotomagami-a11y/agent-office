@@ -111,6 +111,8 @@ export function Composer(props: ComposerProps) {
     onRunSlash: () => {
       const picked = menus.filteredSlash[menus.slashIdx];
       if (!picked) return;
+      // A bare `/` matches /clear: Enter on a partial command completes it instead of clearing the thread.
+      if (value.trim() !== picked.cmd) return insertSlash(picked.cmd);
       cancelDraftSave();
       if (!handleSlashSend(picked.cmd, props.onCommand, props.draftKey, () => { setValue(""); menus.closeAll(); })) insertSlash(picked.cmd);
     },
