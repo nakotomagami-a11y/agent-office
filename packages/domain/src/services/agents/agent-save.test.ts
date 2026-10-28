@@ -214,4 +214,6 @@ test("the CLI's name for an agent maps back to its file id", () => {
   writeFileSync(join(AGENTS_DIR, "qa_bot.md"), "---\nname: Reviewer\ndescription: d\n---\n\nb\n");
   assert.equal(agentIdForCliName("Reviewer"), "qa_bot");
   assert.equal(agentIdForCliName("not-installed-here"), "not-installed-here");
+  writeFileSync(join(AGENTS_DIR, "auditor.md"), "---\nname: Auditor\ndescription: d\n---\n\nb\n");
+  assert.equal(agentIdForCliName("Auditor"), "auditor", "a case-insensitive disk opens auditor.md for Auditor too");
 });

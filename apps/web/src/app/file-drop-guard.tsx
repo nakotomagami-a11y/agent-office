@@ -8,10 +8,13 @@ import { useEffect } from "react";
 export function FileDropGuard() {
   useEffect(() => {
     const refuse = (e: DragEvent) => {
-      const types = e.dataTransfer?.types;
-      if (e.defaultPrevented || !types || !(types.includes("Files") || types.includes("text/uri-list"))) return;
+      const dt = e.dataTransfer;
+      if (e.defaultPrevented || !dt) return;
+      const files = dt.types.includes("Files");
+      const editable = e.target instanceof Element && e.target.closest("input, textarea, [contenteditable='true']");
+      if (!files && (!dt.types.includes("text/uri-list") || editable)) return;
       e.preventDefault();
-      e.dataTransfer!.dropEffect = "none";
+      dt.dropEffect = "none";
     };
     window.addEventListener("dragover", refuse);
     window.addEventListener("drop", refuse);

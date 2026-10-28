@@ -839,7 +839,12 @@ function spawnSubAgentRecord(
 ): void {
   const subRunId = randomUUID();
   const { prompt } = spawn;
-  const childAgentId = agentIdForCliName(spawn.agentId);
+  let childAgentId = spawn.agentId;
+  try {
+    childAgentId = agentIdForCliName(spawn.agentId);
+  } catch (err) {
+    log.warn("subagent.id_lookup_failed", { name: spawn.agentId, err: String(err) });
+  }
   const startTs = Date.now();
 
   parentRun.childRunIds.push(subRunId);
