@@ -382,7 +382,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
   const errFor = (field: keyof AgentFormValues) => errors.find((e) => e.field === field)?.message;
 
   const slug = mode === "edit" ? values.id : slugifyId(values.id || values.name);
-  const unit = unitForAgent(values.name, values.unit || null);
+  const unit = unitForAgent(slug, values.unit || null);
   const skillSuggestions = (installedSkills ?? []).map((s) => ({ id: s.name }));
   const iconForSkill = (name: string): IconConfig => {
     const source = (installedSkills ?? []).find((s) => s.name === name)?.provenance?.source ?? "local";

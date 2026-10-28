@@ -29,6 +29,14 @@ test("another agent borrowing a seat's worktree is isolated too", () => {
   assert.ok(a.includes("--setting-sources") && a.includes("--strict-mcp-config"));
 });
 
+// CLI 2.1.296: `--agent qa_bot` is "not found" when qa_bot.md says `name: Reviewer`; `--agent Reviewer` loads it.
+test("the CLI is asked for the agent by its frontmatter name, not its file id", () => {
+  const a = buildClaudeArgs({
+    request: { agentId: "qa_bot", prompt: "hi" }, agent: { ...agent, id: "qa_bot", name: "Reviewer" }, instance: null, appendedSystemPrompt: "",
+  }).args;
+  assert.equal(a[a.indexOf("--agent") + 1], "Reviewer");
+});
+
 // Product decision: Playwright is opt-in per seat, and its toggle touches no other MCP server.
 // Excluding it once forced --strict-mcp-config, which drops local-scope, project .mcp.json,
 // plugin and claude.ai servers; so did every prompting permission mode.

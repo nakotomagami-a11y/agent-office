@@ -71,7 +71,7 @@ function AgentList({ starter, selected, onToggle, onToggleAll }: {
 }
 
 function AgentRow({ agent, checked, onToggle }: { agent: StarterAgent; checked: boolean; onToggle: () => void }) {
-  const unit = unitForAgent(agent.name, agent.unit);
+  const unit = unitForAgent(agent.id, agent.unit);
   const displayName = formatAgentDisplayName(agent.id);
   const category = agent.room?.trim();
   const catColor = category ? categoryColor(category) : null;

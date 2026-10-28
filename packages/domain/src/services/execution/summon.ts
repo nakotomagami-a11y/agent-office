@@ -127,7 +127,7 @@ export function buildClaudeArgs(opts: {
   const args = [
     "-p",
     "--agent",
-    request.agentId,
+    agent.name,
     "--output-format",
     "stream-json",
     "--include-partial-messages",

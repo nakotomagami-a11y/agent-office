@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import type { AgentBody } from "../../types";
 import { AGENTS_DIR } from "../infra/paths";
-import { createAgent, readAgent, writeAgent } from "./agents";
+import { agentIdForCliName, createAgent, readAgent, writeAgent } from "./agents";
 
 const save = (b: AgentBody) => writeAgent(b.id, b);
 
@@ -164,8 +164,13 @@ test('a description with quotes and a # survives a save and a read: Say "hi" #2 
 for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]]) {
   test(`a flow list with escaped quotes round-trips: ${JSON.stringify(tools)}`, () => {
     writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
-    save(bodyFor("flow", { tools }));
-    assert.deepEqual(readAgent("flow")!.info.tools, tools);
+    try {
+      save(bodyFor("flow", { tools }));
+      assert.deepEqual(readAgent("flow")!.info.tools, tools);
+    } finally {
+      // Gone at once, not after the file: agent-surface.test, running in parallel, rejects these tool names.
+      rmSync(join(AGENTS_DIR, "flow.md"), { force: true });
+    }
   });
 }
 
@@ -202,4 +207,11 @@ test("an unknown escape keeps its backslash, and \\u / \\x escapes decode", () =
   save(bodyFor("escapes"));
   assert.deepEqual(readAgent("escapes")!.info.addDirs, ["C:\\Users\\me"], "a save must not make the loss permanent");
   assert.equal(readAgent("escapes")!.info.description, "caf\u00e9 A");
+});
+
+// A sub-agent's subagent_type is the CLI's name for it; cards and run status key on the file id.
+test("the CLI's name for an agent maps back to its file id", () => {
+  writeFileSync(join(AGENTS_DIR, "qa_bot.md"), "---\nname: Reviewer\ndescription: d\n---\n\nb\n");
+  assert.equal(agentIdForCliName("Reviewer"), "qa_bot");
+  assert.equal(agentIdForCliName("not-installed-here"), "not-installed-here");
 });

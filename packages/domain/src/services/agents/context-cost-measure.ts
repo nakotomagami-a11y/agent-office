@@ -183,7 +183,7 @@ export async function measureAgentContextCost(
   const spawnPlan = prepareProviderSpawn(probeId, {
     agentId, agentName: agent.info.name, prompt: "", model, effort: "default", cwd, projectId: project?.id,
     args: ["-p", "--output-format", "stream-json", "--verbose",
-      "--agent", agentId, "--model", model, "--permission-mode", "bypassPermissions", ...addDirArgs],
+      "--agent", agent.info.name, "--model", model, "--permission-mode", "bypassPermissions", ...addDirArgs],
   });
   if (!spawnPlan.ok) throw new ProviderUnavailableError(spawnPlan.reason);
 

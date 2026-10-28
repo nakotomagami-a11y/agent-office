@@ -38,6 +38,7 @@ import { liveRuns, runFinishedListeners } from "./runs/registry";
 import { isBackgroundBashInput, isBackgroundedBashResult, noteEarlierChildren, trackBackgroundShell } from "./runs/background-shell";
 import { prepareProviderSpawn, releaseProviderSpawn, runCost, settleRunCost, type ProviderRefusal } from "./runs/provider-spawn";
 import { spawnClaude } from "../infra/claude-bin";
+import { agentIdForCliName } from "../agents/agents";
 import { notePrCreate, settlePrCreate } from "./runs/pr-create";
 import { isOwnText, noteToolCall, startTextBlock } from "./runs/text-blocks";
 import { classifyProviderResult, failFastOnEvent, initModel, type ProviderFailure } from "./runs/provider-stream";
@@ -837,7 +838,8 @@ function spawnSubAgentRecord(
   spawn: { agentId: string; prompt: string },
 ): void {
   const subRunId = randomUUID();
-  const { agentId: childAgentId, prompt } = spawn;
+  const { prompt } = spawn;
+  const childAgentId = agentIdForCliName(spawn.agentId);
   const startTs = Date.now();
 
   parentRun.childRunIds.push(subRunId);
@@ -850,7 +852,7 @@ function spawnSubAgentRecord(
     db.insertRun({
       id: subRunId,
       agentId: childAgentId,
-      agentName: childAgentId,
+      agentName: spawn.agentId,
       instanceId: parentRun.instanceId,
       instanceLabel: parentRun.instanceLabel,
       projectId: parentRun.projectId,

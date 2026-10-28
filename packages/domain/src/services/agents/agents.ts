@@ -128,6 +128,13 @@ export function listAgents(): ApiAgent[] {
     .filter((a): a is ApiAgent => a !== undefined);
 }
 
+/** The file id of the agent the CLI calls `name` (a sub-agent's `subagent_type`); the name itself
+ *  when no installed file claims it, e.g. a project's own `.claude/agents`. */
+export function agentIdForCliName(name: string): string {
+  if (isValidIdSegment(name) && readAgent(name)?.info.name === name) return name;
+  return listAgents().find((a) => a.name === name)?.id ?? name;
+}
+
 export type WriteAgentResult = { ok: true; value: string } | { ok: false; error: string; status: number };
 
 /** The fields a client sends; an absent one keeps the file's value. */
