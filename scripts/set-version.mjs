@@ -50,7 +50,8 @@ function bumpCargoToml(relPath) {
 function bumpCargoLock(relPath) {
   const file = join(root, relPath);
   const src = readFileSync(file, "utf8");
-  const next = src.replace(/(name = "app"\nversion = ")[^"]*(")/, `$1${version}$2`);
+  // \r?: Windows checks Cargo.lock out with CRLF (core.autocrlf), and the stanza was "not found".
+  const next = src.replace(/(name = "app"\r?\nversion = ")[^"]*(")/, `$1${version}$2`);
   if (next === src) throw new Error(`set-version: no "app" crate entry found in ${relPath}`);
   writeFileSync(file, next);
   console.log(`    ${relPath} → ${version}`);

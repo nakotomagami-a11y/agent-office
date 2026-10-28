@@ -11,7 +11,7 @@
 # to reinstall an identical pkgver-pkgrel without --overwrite.
 
 pkgname=agent-office
-pkgver=0.1.3
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Agent Office - a desktop cockpit for Claude Code agents"
 arch=('x86_64')
