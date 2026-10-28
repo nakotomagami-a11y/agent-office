@@ -14,7 +14,7 @@ import { getDb, deleteRunsWhere, isPidAlive } from "../db";
 import { STALLED_START_MS } from "../execution/conversation";
 import { emitAppEvent } from "../infra/events";
 import { writeFileAtomic } from "../infra/fs-atomic";
-import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
+import { AGENTS_DIR, APP_STATE_DIR, SKILLS_DIR } from "../infra/paths";
 import { liveRuns } from "../execution/runs/registry";
 
 /** An unreadable entry is "not this kind", not fatal to the whole sweep. */
@@ -245,6 +245,9 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
 
   // Filesystem last: it cannot be rolled back if the db half fails.
   detail.agentMemory = resetAgentMemoryFiles().cleared;
+  // About You is gone (D7), but a profile it wrote quotes the user's own messages.
+  const profile = join(APP_STATE_DIR, "user_analysis.md");
+  detail.userAnalysis = existsSync(profile) ? (rmSync(profile, { force: true }), 1) : 0;
   detail.skillCache = clearSkillInstallCache(SKILLS_DIR, opts.bundledSkillsDir ?? null).cleared;
 
   const total = Object.values(detail).reduce((a, b) => a + b, 0);

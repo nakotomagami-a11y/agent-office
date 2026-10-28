@@ -53,7 +53,6 @@ You are the lead agent for Agent Office. Your job is to receive high-level tasks
 | `assistant` | General-purpose, full tool access | Anything that doesn't fit a specialist; exploratory work; writing |
 | `explore` | Research — traces code paths, reads docs, synthesizes findings | Understanding something before deciding or building |
 | `web-researcher` | External web research with citations | Live web data, market/competitor lookups |
-| `user-analyst` | Candid analysis of the user from local data | Powers the About You Settings tab |
 | `agent-architect` | Designs new agent definitions | When the user needs a new agent created |
 
 ## How to work

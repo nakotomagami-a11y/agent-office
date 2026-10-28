@@ -21,7 +21,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import Database from "better-sqlite3";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { linkTo } from "../infra/fs-links.test.support";
@@ -33,6 +33,7 @@ process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HOME
 
 const { createSchema } = await import("../db/migrations");
+const { APP_STATE_DIR } = await import("../infra/paths");
 const { deleteRunsByAgent, deleteRunsForInstance } = await import("../db/runs");
 const {
   everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache, resetUiSettings,
@@ -165,6 +166,14 @@ test("everything() wipes the db even when a background shell is tracked", () => 
   assert.equal(count(db, "runs"), 0);
   for (const t of RUN_CHILD_TABLES) assert.equal(count(db, t), 0);
   assert.ok(r.cleared > 0);
+});
+
+test("everything() removes the retired About You profile", () => {
+  freshDb();
+  mkdirSync(APP_STATE_DIR, { recursive: true });
+  writeFileSync(join(APP_STATE_DIR, "user_analysis.md"), "# you");
+  assert.equal(everything().detail?.userAnalysis, 1);
+  assert.ok(!existsSync(join(APP_STATE_DIR, "user_analysis.md")));
 });
 
 test("everything() leaves nothing behind when the db half fails", () => {
