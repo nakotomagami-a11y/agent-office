@@ -185,16 +185,9 @@ export function safeFilename(name: string): string {
   return name.replace(/[/\\\0]+/g, "_").replace(/^\.+/, "").slice(0, 200) || "file";
 }
 
-// Strict validator for URL :id / :name segments that flow into path.join.
-// Rejects path separators, traversal, leading dots, and oversized names -
-// the route should respond 400 instead of silently transforming the value.
-export function isValidIdSegment(name: string): boolean {
-  if (typeof name !== "string") return false;
-  if (name.length === 0 || name.length > 128) return false;
-  if (name === "." || name === "..") return false;
-  if (name.startsWith(".")) return false;
-  return /^[A-Za-z0-9._-]+$/.test(name);
-}
+// Re-exported so the ~40 existing call sites keep importing it from here; the
+// definition moved to config/ so api-contract can share it (see that file).
+export { isValidIdSegment } from "../../config/id-segment";
 
 /** `~`, `~/x` and, on Windows, `~\x`; the result uses the platform's separators throughout. */
 export function expandTilde(p: string, home: string = HOME, pathApi: PathApi = nativePath): string {

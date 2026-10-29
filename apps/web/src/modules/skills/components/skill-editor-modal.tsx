@@ -79,13 +79,13 @@ export function SkillEditorModal({ open, mode, skill, forceFork, onClose }: Skil
     if (!open) return;
     createMut.reset();
     setTagDraft("");
-    if (mode === "edit" && skill) {
+    if (mode === "edit" && skill && installedQ.isSuccess) {
       // Real content, when this skill is actually on disk — never the
       // starter placeholder for something the user is about to overwrite.
       const real = installedQ.data?.find((s) => s.name === skill.name);
       setName(isFork ? `${skill.name}-fork` : skill.name);
       setDescription(real?.description ?? skill.description);
-      setTags(skill.tags);
+      setTags(real?.tags ?? skill.tags);
       setBody(real?.body ?? STARTER_BODY.replace("my-skill", skill.name));
       setIcon({ seed: `${skill.source}/${skill.name}`, iconClass: "any" });
     } else {
@@ -96,10 +96,15 @@ export function SkillEditorModal({ open, mode, skill, forceFork, onClose }: Skil
       setIcon({ seed: createRandomSeed(), iconClass: "any" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, skill, forceFork, installedQ.data]);
+  }, [open, mode, skill, forceFork, installedQ.data, installedQ.isSuccess]);
 
   const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && body.trim().length > 0 && !createMut.isPending;
+  const canSubmit =
+    trimmedName.length > 0 &&
+    body.trim().length > 0 &&
+    !createMut.isPending &&
+    // An edit submits overwrite:true, so never from the unseeded pre-load state.
+    (!isEdit || installedQ.isSuccess);
 
   const addTag = (raw: string) => {
     const t = raw.trim().replace(/,+$/, "").trim();

@@ -4,15 +4,24 @@
 # This existed only as ad-hoc shell history until now, so every reinstall had
 # to rediscover it. Deps mirror the .deb's Depends line.
 #
-#   cd apps/web && pnpm tauri build --bundles deb
-#   cd packaging/arch && makepkg -f && pkexec pacman -U --noconfirm agent-office-*.pkg.tar.zst
+# Normally you want the whole thing, which drives this file:
 #
-# pkgrel is bumped by hand per rebuild of the same version; `pacman -U` refuses
-# to reinstall an identical pkgver-pkgrel without --overwrite.
+#   bash scripts/install-local-arch.sh        # or: pnpm install:local:arch
+#
+# By hand, if you already have a .deb (note the ABSOLUTE path — pkexec resets
+# the working directory and cannot see a relative one):
+#
+#   cd packaging/arch && makepkg -f
+#   pkexec pacman -U --noconfirm "$PWD"/agent-office-*.pkg.tar.zst
+#
+# `pacman -U` refuses an identical pkgver-pkgrel, which is what a second build
+# of one version produces — hence AO_PKGREL, which the script sets to a
+# timestamp. pkgver stays literal: set-version.mjs writes it and
+# check-version-sync.mjs asserts it matches apps/web/package.json.
 
 pkgname=agent-office
 pkgver=0.2.0
-pkgrel=1
+pkgrel=${AO_PKGREL:-1}
 pkgdesc="Agent Office - a desktop cockpit for Claude Code agents"
 arch=('x86_64')
 url="https://github.com/nakotomagami-a11y/agent-office"
