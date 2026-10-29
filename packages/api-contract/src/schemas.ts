@@ -3,6 +3,7 @@ import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
 import { SESSION_REMOVAL_CODES, WORK_CHOICES } from "@agent-office/domain/config/sessions";
+import { isValidIdSegment } from "@agent-office/domain/config/id-segment";
 import { providerBaseUrlSchema, providerIdSchema, providerModelsSchema } from "./providers";
 
 export const agentBodySchema = z.object({
@@ -207,15 +208,18 @@ export const sessionConflictSchema = z.object({
   detail: z.string().optional(),
 });
 
+// Shares the service's predicate: the copy that lived here accepted `..`.
+const skillNameSchema = z.string().refine(isValidIdSegment, "invalid_skill_name");
+
 export const skillInstallSchema = z.object({
   source: z.string().min(1),
   ref: z.string().min(1),
   path: z.string().min(1),
-  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  name: skillNameSchema,
 });
 
 export const skillCreateSchema = z.object({
-  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  name: skillNameSchema,
   description: z.string().default(""),
   tags: z.array(z.string()).default([]),
   body: z.string().min(1),

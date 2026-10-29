@@ -25,6 +25,10 @@ export interface InstalledSkill {
   name: string;
   description: string;
   body: string;
+  /** From this skill's own frontmatter, unlike RegistrySkill.tags, which the
+   *  registry infers from the description. The editor saves what it was given.
+   *  Always present: an empty list means the file declares none. */
+  tags: string[];
   provenance?: SkillProvenance;
 }
 
