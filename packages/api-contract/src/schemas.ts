@@ -315,7 +315,8 @@ export const createScheduleSchema = z.object({
   summonRequest: summonRequestSchema,
   reason: z.enum(["manual", "rate-limit"]).optional(),
   label: z.string().max(200).optional(),
-});
+  repeat: z.enum(["hourly", "daily", "weekdays", "weekly"]).optional(),
+}).refine((b) => !(b.repeat && b.reason === "rate-limit"), { message: "repeat_with_rate_limit" });
 
 export const reassignScheduleSchema = z.object({
   agentId: z.string().min(1).optional(),

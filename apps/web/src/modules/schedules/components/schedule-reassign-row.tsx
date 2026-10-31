@@ -10,7 +10,7 @@ import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useReassignSchedule } from "../hooks/use-schedules";
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-[6px] min-w-0">
       <span className="text-[10.5px] font-mono tracking-[0.06em] text-txt-4 uppercase">{label}</span>
@@ -21,7 +21,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 /** Custom dropdown styled as a form field — replaces the native `<select>`
  * (whose OS popup clashed with the app). */
-export function PickerField({
+function PickerField({
   display,
   placeholder,
   items,
@@ -71,7 +71,7 @@ export function agentItems(
   }));
 }
 
-export function agentDisplay(agent: { name: string; unitChoice: UnitSelection } | undefined): ReactNode {
+function agentDisplay(agent: { name: string; unitChoice: UnitSelection } | undefined): ReactNode {
   if (!agent) return null;
   return (
     <>
@@ -88,7 +88,7 @@ export function ScheduleReassignRow({ job, onDone }: { job: ScheduledJob; onDone
   const [instanceId, setInstanceId] = useState(job.summonRequest.instanceId ?? "");
 
   return (
-    <div className="flex items-end gap-2 flex-wrap border-t border-edge pt-[12px]">
+    <div className="flex items-end gap-2 flex-wrap">
       <Field label="Agent">
         <PickerField
           ariaLabel="Choose agent"
@@ -102,8 +102,8 @@ export function ScheduleReassignRow({ job, onDone }: { job: ScheduledJob; onDone
         <TextInput value={instanceId} onChange={(e) => setInstanceId(e.target.value)} placeholder="default" className="w-[140px]" />
       </Field>
       <Button
-        size="sm"
         variant="primary"
+        className="rounded-[10px] px-[14px] text-[12.5px] font-bold"
         onClick={() => {
           reassign.mutate({ id: job.id, target: { agentId, instanceId: instanceId || undefined } });
           onDone();
@@ -111,7 +111,7 @@ export function ScheduleReassignRow({ job, onDone }: { job: ScheduledJob; onDone
       >
         Save
       </Button>
-      <Button size="sm" variant="ghost" onClick={onDone}>
+      <Button variant="ghost" className="rounded-[10px] text-[12.5px] font-semibold text-txt-3 hover:text-txt" onClick={onDone}>
         Cancel
       </Button>
     </div>

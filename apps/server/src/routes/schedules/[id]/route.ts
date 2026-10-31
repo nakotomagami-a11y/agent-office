@@ -1,6 +1,6 @@
 // PATCH/DELETE /api/schedules/<id> — update or cancel a scheduled job.
 import { scheduler } from "@agent-office/domain/services";
-import { notFound, validateIdParam } from "../../../lib/api-helpers";
+import { conflict, notFound, validateIdParam } from "../../../lib/api-helpers";
 import { validateBody } from "../../../lib/validation";
 import { reassignScheduleSchema } from "@agent-office/api-contract";
 
@@ -19,5 +19,6 @@ export async function PATCH(request: Request, { params }: Params) {
   const { data, error: bodyError } = validateBody(reassignScheduleSchema, raw);
   if (bodyError) return bodyError;
   const job = scheduler.reassignJob(id, data);
+  if (job === "not_reassignable") return conflict("schedule_not_reassignable");
   return job ? Response.json({ job }) : notFound();
 }

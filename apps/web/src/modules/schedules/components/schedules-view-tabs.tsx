@@ -25,14 +25,14 @@ export function SchedulesViewTabs({
           aria-pressed={view === t.id}
           onClick={() => setView(t.id)}
           className={cn(
-            "flex items-center gap-[6px] px-[12px] py-[6px] rounded-[10px] text-[11.5px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150",
+            "flex items-center gap-[6px] px-[12px] py-[6px] rounded-[10px] text-[11.5px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
             view === t.id
               ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white shadow-[0_8px_18px_-10px_rgba(139,123,255,0.8)]"
               : "bg-transparent text-txt-3 hover:brightness-110",
           )}
         >
           {t.label}
-          <span className={cn("font-mono text-[9.5px]", view === t.id ? "opacity-80" : "text-txt-4")}>{counts[t.id]}</span>
+          <span className="font-mono text-[9.5px] opacity-75">{counts[t.id]}</span>
         </button>
       ))}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Portal } from "./portal";
 import { Icon } from "./icon";
@@ -17,6 +17,7 @@ export type ModalShellProps = {
    *  triggers the primary action. Omit for form modals that own Enter. */
   onEnter?: () => void;
   title?: string;
+  ariaLabel?: string;
   /** Footer slot - usually action buttons. */
   footer?: ReactNode;
   /** Width preset. */
@@ -28,7 +29,10 @@ export type ModalShellProps = {
   closeLabel?: string;
   /** Drop the default 16px content padding (for tabbed/chat layouts). */
   bareContent?: boolean;
+  placement?: "center" | "top";
 };
+
+const OPEN_POPUP_SELECTOR = `${OPEN_MENU_SELECTOR}, [aria-haspopup=dialog][aria-expanded=true]`;
 
 const SIZE_PX: Record<NonNullable<ModalShellProps["size"]>, number> = {
   sm: 380,
@@ -41,6 +45,7 @@ export function ModalShell({
   onClose,
   onEnter,
   title,
+  ariaLabel,
   footer,
   size = "md",
   maxWidth,
@@ -48,16 +53,21 @@ export function ModalShell({
   className,
   closeLabel,
   bareContent = false,
+  placement = "center",
 }: ModalShellProps) {
   const t = useTranslations("common");
   const ref = useRef<HTMLDivElement>(null);
+  // A ref, so new inline callbacks don't re-run the effect (its cleanup steals focus mid-typing).
+  const handlers = useRef({ onClose, onEnter });
+  useEffect(() => {
+    handlers.current = { onClose, onEnter };
+  });
 
   // Single-active-modal: opening this closes any other open modal.
   useRegisterModal(open, onClose);
 
   useEffect(() => {
     if (!open) return;
-    const dialog = ref.current;
     const focusableSelector =
       'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -68,12 +78,16 @@ export function ModalShell({
       // row) — otherwise the same keypress also bubbles into that row's own
       // key handler underneath (see the sidebar remove-instance confirm
       // dialog, which used to open the row's conversation view on Enter).
-      if ((e.key === "Escape" || e.key === "Enter" || e.key === "Tab") && e.target instanceof Element && e.target.closest(OPEN_MENU_SELECTOR)) return;
+      const dialog = ref.current;
+      if ((e.key === "Escape" || e.key === "Enter" || e.key === "Tab") && e.target instanceof Element && e.target.closest(OPEN_POPUP_SELECTOR)) return;
+      if (e.target instanceof Element && e.target.closest("[role=dialog]") && !dialog?.contains(e.target)) return;
       if (e.key === "Escape") {
+        if (dialog?.querySelector(OPEN_POPUP_SELECTOR)) return;
         e.stopPropagation();
-        onClose();
+        handlers.current.onClose();
         return;
       }
+      const { onEnter } = handlers.current;
       if (e.key === "Enter" && onEnter) {
         const el = document.activeElement as HTMLElement | null;
         const tag = el?.tagName;
@@ -81,7 +95,8 @@ export function ModalShell({
           tag === "TEXTAREA" ||
           (tag === "INPUT" && (el as HTMLInputElement).type !== "checkbox" && (el as HTMLInputElement).type !== "radio") ||
           el?.isContentEditable === true;
-        if (!isTextEntry) {
+        // A focused button or link activates itself (Enter on "Cancel" must not confirm).
+        if (!isTextEntry && tag !== "BUTTON" && tag !== "A") {
           e.preventDefault();
           e.stopPropagation();
           onEnter();
@@ -107,12 +122,17 @@ export function ModalShell({
 
     document.addEventListener("keydown", onKey, true);
     const previousActive = document.activeElement as HTMLElement | null;
-    dialog?.focus();
     return () => {
       document.removeEventListener("keydown", onKey, true);
       previousActive?.focus?.();
     };
-  }, [open, onClose, onEnter]);
+  }, [open]);
+
+  // The Portal mounts children after the effect runs; focus on attach, unless an autoFocus child has it.
+  const attachDialog = useCallback((node: HTMLDivElement | null) => {
+    ref.current = node;
+    if (node && !node.contains(document.activeElement)) node.focus();
+  }, []);
 
   if (!open) return null;
 
@@ -122,17 +142,18 @@ export function ModalShell({
         role="presentation"
         onClick={onClose}
         className={cn(
-          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex items-center justify-center z-[200] p-2 before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
+          "app-modal-backdrop fixed top-0 right-0 bottom-0 flex justify-center z-[200] p-2 before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
+          placement === "top" ? "items-start pt-[110px]" : "items-center",
           CHROME_LEFT_CLASS,
         )}
         style={{ top: CHROME_TOP }}
       >
         <div
-          ref={ref}
+          ref={attachDialog}
           tabIndex={-1}
           role="dialog"
           aria-modal="true"
-          aria-label={title}
+          aria-label={title ?? ariaLabel}
           onClick={(e) => e.stopPropagation()}
           className={cn("relative z-[1] surface-sheen rounded-lg shadow-[var(--lift)] w-full flex flex-col outline-none", className)}
           style={{

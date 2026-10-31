@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
@@ -107,9 +107,12 @@ export type DateTimePickerProps = {
   onChange: (value: string) => void;
   ariaLabel: string;
   className?: string;
+  /** Replaces the default field look (e.g. a chip). */
+  trigger?: ReactNode;
+  triggerClassName?: string;
 };
 
-export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTimePickerProps) {
+export function DateTimePicker({ value, onChange, ariaLabel, className, trigger, triggerClassName }: DateTimePickerProps) {
   const t = useTranslations("common.date_time_picker");
   const selected = fromValue(value);
   const [open, setOpen] = useState(false);
@@ -154,9 +157,15 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
     });
   }, [open]);
 
+  // Back to the trigger, or focus falls to <body> and the next Tab leaves an enclosing modal.
+  function close() {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
@@ -178,7 +187,7 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
   const commitPreset = (d: Date) => {
     onChange(toValue(d));
     setView(d);
-    setOpen(false);
+    close();
   };
 
   const now = new Date();
@@ -197,16 +206,20 @@ export function DateTimePicker({ value, onChange, ariaLabel, className }: DateTi
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="w-full h-8 px-[10px] inline-flex items-center justify-between gap-[7px] bg-bg-1 border border-line-2 rounded-md shadow-1 text-[13px] cursor-pointer hover:border-acc focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc transition-colors"
+        className={triggerClassName ?? "w-full h-8 px-[10px] inline-flex items-center justify-between gap-[7px] bg-bg-1 border border-line-2 rounded-md shadow-1 text-[13px] cursor-pointer hover:border-acc focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc transition-colors"}
       >
-        <span className={cn("truncate", label ? "text-txt" : "text-txt-3")}>{label ?? t("placeholder")}</span>
-        <CalendarGlyph className="text-txt-3 shrink-0" />
+        {trigger ?? (
+          <>
+            <span className={cn("truncate", label ? "text-txt" : "text-txt-3")}>{label ?? t("placeholder")}</span>
+            <CalendarGlyph className="text-txt-3 shrink-0" />
+          </>
+        )}
       </button>
 
       {open && (
         <Portal>
           {/* Shade — separates the popover from the page (it blended on dark). */}
-          <div className="fixed inset-0 z-[9998] bg-[var(--ao-backdrop)]" aria-hidden onMouseDown={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998] bg-[var(--ao-backdrop)]" aria-hidden onMouseDown={(e) => { e.preventDefault(); close(); }} />
           <div
             ref={popRef}
             role="dialog"

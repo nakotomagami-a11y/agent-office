@@ -3,8 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/fetch";
 import { API_ROUTES } from "@agent-office/api-contract";
-import type { ScheduledJob, SummonRequest } from "@agent-office/domain/types";
+import type { ScheduledJob, ScheduleRepeatEvery, SummonRequest } from "@agent-office/domain/types";
 import { POLL } from "@/lib/polling";
+import { toast } from "@/lib/toast-store";
+
+import { scheduleErrorText } from "../format/schedule-format";
+
+const failed = (what: string) => (err: unknown) => toast(`Couldn't ${what}: ${scheduleErrorText(err)}`);
 
 const KEY = ["schedules"] as const;
 
@@ -23,6 +28,7 @@ export interface CreateScheduleInput {
   summonRequest: SummonRequest;
   reason?: "manual" | "rate-limit";
   label?: string;
+  repeat?: ScheduleRepeatEvery;
 }
 
 export function useCreateSchedule() {
@@ -39,6 +45,7 @@ export function useCancelSchedule() {
   return useMutation({
     mutationFn: (id: string) => apiFetch(API_ROUTES.schedule(id), { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: failed("cancel the order"),
   });
 }
 
@@ -46,7 +53,8 @@ export function useRunScheduleNow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch<{ job: ScheduledJob }>(API_ROUTES.scheduleRun(id), { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: failed("run the order"),
   });
 }
 
@@ -55,6 +63,7 @@ export function useReassignSchedule() {
   return useMutation({
     mutationFn: ({ id, target }: { id: string; target: { agentId?: string; projectId?: string; instanceId?: string } }) =>
       apiFetch<{ job: ScheduledJob }>(API_ROUTES.schedule(id), { method: "PATCH", body: JSON.stringify(target) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: failed("reassign the order"),
   });
 }

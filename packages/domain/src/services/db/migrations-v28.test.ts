@@ -18,6 +18,8 @@ function v27WithARun(): Database.Database {
     DROP TABLE provider_selection;
     ALTER TABLE runs DROP COLUMN provider;
     ALTER TABLE runs DROP COLUMN cost_basis;
+    ALTER TABLE scheduled_jobs DROP COLUMN repeat_every;
+    ALTER TABLE scheduled_jobs DROP COLUMN repeat_anchor;
   `);
   db.pragma("user_version = 27");
   db.prepare("INSERT INTO runs (id, agent_id, agent_name, prompt, started_at, cost_usd) VALUES ('r1', 'a', 'A', 'hi', 1, 0.5)").run();
@@ -27,7 +29,7 @@ function v27WithARun(): Database.Database {
 test("v28 adds the provider tables and run columns without touching old rows", () => {
   const db = v27WithARun();
   createSchema(db);
-  assert.equal(db.pragma("user_version", { simple: true }), 28);
+  assert.ok((db.pragma("user_version", { simple: true }) as number) >= 28);
   const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map((t) => t.name);
   assert.ok(tables.includes("provider_configs") && tables.includes("provider_selection"));
   const run = rowToRun(db.prepare("SELECT * FROM runs WHERE id = 'r1'").get() as RunRow);

@@ -555,6 +555,13 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       ALTER TABLE runs ADD COLUMN cost_basis TEXT;
     `);
   },
+  // v28 → v29: recurring scheduled jobs. NULL repeat_every = a one-shot job.
+  (db) => {
+    db.exec(`
+      ALTER TABLE scheduled_jobs ADD COLUMN repeat_every TEXT;
+      ALTER TABLE scheduled_jobs ADD COLUMN repeat_anchor INTEGER;
+    `);
+  },
 ];
 
 /** The rows v27 drops, as JSON in the backups folder; null when there were none. Throws rather than
@@ -661,5 +668,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 26) { MIGRATIONS[25]!(db); v = 26; db.pragma("user_version = 26"); }
     if (v < 27) { MIGRATIONS[26]!(db); v = 27; db.pragma("user_version = 27"); }
     if (v < 28) { MIGRATIONS[27]!(db); v = 28; db.pragma("user_version = 28"); }
+    if (v < 29) { MIGRATIONS[28]!(db); v = 29; db.pragma("user_version = 29"); }
   })();
 }

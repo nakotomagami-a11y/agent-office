@@ -439,6 +439,14 @@ export type ContextProfile = "tight" | "balanced" | "deep";
 
 export type ScheduledJobStatus = "pending" | "firing" | "done" | "cancelled" | "needs-attention";
 export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded" | "bridge-missing" | "provider-unavailable";
+export type ScheduleRepeatEvery = "hourly" | "daily" | "weekdays" | "weekly";
+/** A recurring job re-arms after each run instead of finishing. `anchorAt` is the
+ *  series' first slot; occurrences are computed from it, so a rate-limit retry that
+ *  moves `fireAt` does not drift the series' wall-clock time. */
+export interface ScheduleRepeat {
+  every: ScheduleRepeatEvery;
+  anchorAt: number;
+}
 
 /** A unit of scheduled work: a serialized summon plus the time to fire it. */
 export interface ScheduledJob {
@@ -454,6 +462,8 @@ export interface ScheduledJob {
   /** Consecutive rate-limit re-schedules. */
   attempts: number;
   firedRunId?: string;
+  /** Set on a recurring job; absent on a one-shot. */
+  repeat?: ScheduleRepeat;
   createdAt: number;
   updatedAt: number;
 }

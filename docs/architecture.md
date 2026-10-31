@@ -396,7 +396,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v28**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v29**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -419,7 +419,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
-| `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, created_at, updated_at | Serialized summon + fire time; drives manual scheduling and rate-limit auto-resume |
+| `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, repeat_every, repeat_anchor, created_at, updated_at | Serialized summon + fire time; drives manual scheduling, recurring orders and rate-limit auto-resume |
 | `provider_configs` | provider, config, secret, secret_base_url, updated_at | One row per AI provider: non-secret `config` JSON (`baseUrl`, tier `models`) and its key, encrypted like `secrets` and bound to the normalized URL in `secret_base_url`; it is never sent anywhere else. Not the `secrets` table, so a provider key is never project-linked or injected |
 | `provider_selection` | id, provider, source, changed_at | The single chosen provider (`id = 1`). No row: not chosen yet. `source` is `chosen` or `migrated` (an install from before providers, moved to `subscription` once, recorded by the internal `ui_settings` key `_provider_migration`) |
 | `secrets` | id, name, label, value, expires_at, test_cmd, verify_before_run, last_tested_at, last_test_ok, created_at | Named env var injected into runs. Values encrypted at rest (AES-256-GCM, machine-local key: `services/accounts/secret-crypto.ts`) |
