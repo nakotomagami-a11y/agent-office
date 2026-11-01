@@ -361,8 +361,8 @@ export interface DetectedCommand {
   key: string;
   name: string;
   argv: string[];
-  portMode: "next" | "flutter" | "env" | "device";
-  cwd?: string; // override project root (e.g. nested Flutter app)
+  portMode: "next" | "env";
+  cwd?: string; // override project root (e.g. a workspace package)
 }
 
 export interface ScannedEntry {
