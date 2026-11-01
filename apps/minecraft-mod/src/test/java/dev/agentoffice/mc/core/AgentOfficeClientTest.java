@@ -113,6 +113,21 @@ class AgentOfficeClientTest {
     }
 
     @Test
+    void rediscoveryStartsNoThreads() {
+        // Each java.net.http.HttpClient keeps a selector thread until it is collected; every instance shares one.
+        client.healthy();
+        long before = selectorThreads();
+        for (int i = 0; i < 20; i++) {
+            assertTrue(AgentOfficeClient.connect(List.of(URI.create("http://127.0.0.1:1"), client.base())).isPresent());
+        }
+        assertEquals(before, selectorThreads());
+    }
+
+    private static long selectorThreads() {
+        return Thread.getAllStackTraces().keySet().stream().filter(t -> t.getName().endsWith("SelectorManager")).count();
+    }
+
+    @Test
     void shelvedProjectsAreHidden() throws IOException {
         assertEquals(List.of(new Api.Project("p1", "Agent Office", 0)), client.projects());
     }
