@@ -122,14 +122,12 @@ class ConnectionTest {
     void theConnectionIsSettledBeforeAnyCallerHearsOfIt() throws IOException {
         Fake app = fake();
         candidates.add(app.uri());
-        List<Boolean> trustedWhenHeard = new ArrayList<>();
         CompletableFuture<AgentOfficeClient> f = connection.get();
-        f.thenAccept(c -> trustedWhenHeard.add(connection.get().isDone()));
-        AgentOfficeClient c = run(f);
-        assertEquals(List.of(true), trustedWhenHeard);
-        // So a call that fails at once, as the caller's first act, is not lost.
-        connection.failed(c, new ConnectException("refused"));
-        assertFalse(connection.get().isDone());
+        // A call that fails at once, as the caller's first act: had it come before the connection took this client
+        // on, it would be ignored and the client then trusted.
+        f.thenAccept(c -> connection.failed(c, new ConnectException("refused")));
+        run(f);
+        assertFalse(connection.get().isDone(), "a failure as the caller's first act is not lost");
     }
 
     @Test

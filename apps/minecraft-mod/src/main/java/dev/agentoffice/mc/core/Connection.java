@@ -44,7 +44,7 @@ public final class Connection {
         this.clockMs = clockMs;
     }
 
-    /** The trusted client at once; otherwise the check that is running, or a new one. */
+    /** The trusted client at once; otherwise a copy of the check that is running, or of a new one. */
     public synchronized CompletableFuture<AgentOfficeClient> get() {
         if (client != null && clockMs.getAsLong() < trustedUntil) return CompletableFuture.completedFuture(client);
         CompletableFuture<AgentOfficeClient> check = checking;
@@ -53,7 +53,12 @@ public final class Connection {
             check = checking = started;
             AgentOfficeClient current = client;
             long seen = distrusts;
-            io.execute(() -> run(started, current, seen));
+            try {
+                io.execute(() -> run(started, current, seen));
+            } catch (RuntimeException e) {
+                checking = null; // a check that never runs must not be waited on forever
+                started.completeExceptionally(e);
+            }
         }
         // A copy each: one caller cancelling its future must not fail everyone else's.
         return check.copy();

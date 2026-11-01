@@ -150,7 +150,9 @@ public final class AgentOffice {
 
     /** A lectern's pull requests; "All projects" reads every project at once on these threads. Blocking. */
     public static Review.Gathered reviews(AgentOfficeClient client, LecternStore.Binding binding) throws IOException {
-        return Review.gather(client, binding, IO);
+        Review.Gathered gathered = Review.gather(client, binding, IO);
+        if (gathered.error() != null) failed(client, gathered.error());
+        return gathered;
     }
 
     public static Executor main() {

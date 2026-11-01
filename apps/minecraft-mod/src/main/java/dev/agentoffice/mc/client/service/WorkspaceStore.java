@@ -115,6 +115,7 @@ public final class WorkspaceStore {
                 try {
                     tabs = c.openTabs();
                 } catch (IOException e) {
+                    AgentOffice.failed(c, e);
                     tabs = List.of(); // an older app without the setting: every project is a tab
                 }
             }

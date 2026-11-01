@@ -61,6 +61,7 @@ public final class SeatAdder {
         } catch (Api.ApiException e) {
             return new Outcome(null, e, null);
         } catch (IOException | RuntimeException e) {
+            if (e instanceof IOException io) AgentOffice.failed(client, io);
             // The server makes the worktree first and lists the seat after, so a timeout can come well before the
             // seat appears: wait for it rather than let a retry make a second one.
             boolean neverSent = e instanceof ConnectException || e instanceof HttpConnectTimeoutException;
