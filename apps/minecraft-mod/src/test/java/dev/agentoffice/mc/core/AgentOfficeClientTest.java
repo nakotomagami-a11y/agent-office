@@ -117,6 +117,7 @@ class AgentOfficeClientTest {
         // Each java.net.http.HttpClient keeps a selector thread until it is collected; every instance shares one.
         client.healthy();
         long before = selectorThreads();
+        assertTrue(before >= 1, "the JDK still names its selector thread so");
         for (int i = 0; i < 20; i++) {
             assertTrue(AgentOfficeClient.connect(List.of(URI.create("http://127.0.0.1:1"), client.base())).isPresent());
         }

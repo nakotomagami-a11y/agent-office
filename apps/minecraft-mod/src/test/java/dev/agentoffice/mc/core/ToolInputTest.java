@@ -35,6 +35,9 @@ class ToolInputTest {
         assertEquals("cd x\nrm -rf build", ToolInput.detail("{\"command\":\"cd x\\nrm -rf build\",\"description\":\"clean\"}"));
         assertEquals("https://example.com", ToolInput.detail("{\"url\":\"https://example.com\",\"prompt\":\"summarise\"}"));
         assertEquals("{\"n\":1}", ToolInput.detail("{\"n\":1}"));
+        // The tool row's key list: path before url, and only a string counts.
+        assertEquals("a", ToolInput.detail("{\"url\":\"u\",\"path\":\"a\"}"));
+        assertEquals("{\"command\":5}", ToolInput.detail("{\"command\":5}"));
         assertEquals("{not json", ToolInput.detail("{not json"));
         assertEquals("\"just a string\"", ToolInput.detail("\"just a string\""));
         assertEquals("", ToolInput.detail(null));
