@@ -209,11 +209,3 @@ export function deleteRunsWhere(filter: string, ...params: unknown[]): number {
   }
   return changes;
 }
-
-export function deleteRunsForInstance(projectId: string, instanceId: string): number {
-  return deleteRunsWhere("project_id = ? AND instance_id = ?", projectId, instanceId);
-}
-
-export function deleteRunsByAgent(agentId: string): number {
-  return deleteRunsWhere("agent_id = ?", agentId);
-}

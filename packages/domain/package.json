@@ -14,7 +14,6 @@
     "./config/run-errors": "./src/config/run-errors.ts",
     "./config/integrations": "./src/config/integrations.ts",
     "./config/office": "./src/config/office.ts",
-    "./config/project-templates": "./src/config/project-templates.ts",
     "./config/*": "./src/config/*.ts",
     "./services": "./src/services/index.ts",
     "./services/db": "./src/services/db/index.ts",

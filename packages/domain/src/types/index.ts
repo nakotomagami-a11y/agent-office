@@ -303,7 +303,7 @@ export interface AppSettings {
   integrations?: Record<string, boolean>;
 }
 
-/** One agent-body backup snapshot — GET /api/agents/<id>/body/history. */
+/** One agent-body backup snapshot, as listed for pruning. */
 export interface AgentBodyHistoryEntry {
   filename: string;
   ts: number;
@@ -691,13 +691,6 @@ export interface SkillManifest {
   skills: SkillManifestEntry[];
 }
 
-export interface SkillCompatibility {
-  conflicts?: unknown;
-  synergies?: unknown;
-  ab_test_pairs?: unknown;
-  [k: string]: unknown;
-}
-
 export interface SkillCustomization {
   /** Slugs of `##` sections the user has switched off. */
   disabledSections?: string[];
@@ -801,24 +794,6 @@ export interface AnalyticsPage {
 
 export interface PageRange {
   start: number;
-  end: number;
-  projectId?: string;
-}
-
-export interface AnalyticsSummary {
-  totalRuns: number;
-  totalTokens: number;
-  totalCost: number;
-  unknownCostRuns: number;
-  byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
-  byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
-  dailySpend?: Array<{ day: string; spend: number }>;
-}
-
-export interface SummaryRange {
-  /** Epoch ms, inclusive. 0 = all-time. */
-  start: number;
-  /** Epoch ms, exclusive. Number.POSITIVE_INFINITY = all-time. */
   end: number;
   projectId?: string;
 }

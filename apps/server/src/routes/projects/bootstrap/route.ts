@@ -2,8 +2,7 @@
 // bundled templates (frontend-react + optional backend-node/python), run variable
 // substitution and `git init`, then register it in the project metadata
 // (~/.claude/projects/<id>/project.md) so it shows in the list immediately.
-import { projectBootstrap, projects, settings as settingsSvc } from "@agent-office/domain/services";
-import { FRONTEND_TEMPLATES, BACKEND_TEMPLATES } from "@agent-office/domain/config/project-templates";
+import { projectBootstrap, projects } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
 import { bootstrapProjectSchema } from "@agent-office/api-contract";
 import { tryService } from "../../../lib/api-helpers";
@@ -51,15 +50,5 @@ export async function POST(request: Request) {
         warning: e instanceof Error ? e.message : String(e),
       };
     }
-  });
-}
-
-// GET returns the supported framework choices (from the project-templates config)
-// so the UI renders the picker without hardcoding, plus whether settings are ready.
-export async function GET() {
-  return Response.json({
-    frontend: FRONTEND_TEMPLATES,
-    backend: BACKEND_TEMPLATES,
-    settingsReady: settingsSvc.readSettings() !== null,
   });
 }

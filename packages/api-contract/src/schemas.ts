@@ -27,8 +27,6 @@ export const agentBodySchema = z.object({
   addDirs: z.array(z.string().min(1)).optional(),
 });
 
-export const agentBodyListSchema = z.array(agentBodySchema);
-
 /** PUT /api/agents/:id: only the keys sent change. With create's defaults, `{ name, model }`
  *  became an empty prompt with no tools. The path names the file, so a body `id` is ignored. */
 export const agentUpdateSchema = z.object({
@@ -248,10 +246,6 @@ export const starterAgentsImportSchema = z.object({
   agentIds: z.array(z.string()),
 });
 
-export const promptPostSchema = z.object({
-  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
-});
-
 export const summonRequestSchema = z.object({
   agentId: z.string().min(1),
   prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
@@ -353,14 +347,6 @@ export const healthQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "1" || v === "true"),
-});
-
-export const broadcastRequestSchema = z.object({
-  projectId: z.string().min(1),
-  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
-  model: z.string().optional(),
-  effort: z.string().optional(),
-  cwd: z.string().optional(),
 });
 
 /** Body payload for creating / updating a doc. Owner + slug live in the URL. */

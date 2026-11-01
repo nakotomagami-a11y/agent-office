@@ -1,5 +1,5 @@
 import { projects } from "@agent-office/domain/services";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { Buffer } from "node:buffer";
 import { MAX_UPLOAD_BYTES, safeFilename, isValidIdSegment } from "@agent-office/domain/services/infra/paths";
@@ -184,14 +184,6 @@ export function handleServeUpload(dir: string, filename: string): Response {
   } catch {
     return new Response("Not found", { status: 404 });
   }
-}
-
-export function handleDeleteUpload(dir: string, filename: string): Response {
-  const safe = safeFilename(filename);
-  const path = join(dir, safe);
-  if (!existsSync(path)) return notFound();
-  rmSync(path);
-  return Response.json({ deleted: safe });
 }
 
 /** For routes that run gh or git (reviews, missions). A browser marks a request another site made

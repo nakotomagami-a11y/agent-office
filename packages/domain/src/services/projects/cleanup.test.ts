@@ -34,7 +34,8 @@ process.env.USERPROFILE = sandbox; // os.homedir() reads this on Windows, not HO
 
 const { createSchema } = await import("../db/migrations");
 const { APP_STATE_DIR } = await import("../infra/paths");
-const { deleteRunsByAgent, deleteRunsForInstance } = await import("../db/runs");
+const { deleteRunsWhere } = await import("../db/runs");
+const deleteRunsByAgent = (agentId: string) => deleteRunsWhere("agent_id = ?", agentId);
 const {
   everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache, resetUiSettings,
   RUN_FK_REFS, PIPELINE_CHILD_TABLES, RunsLiveError,
@@ -459,7 +460,7 @@ test("deleting an instance's runs leaves another instance untouched", () => {
     "INSERT INTO runs (id, agent_id, agent_name, instance_id, project_id, status, exit_code, prompt, output, model, effort, started_at) VALUES ('other','dev','Dev','other','p1','done',0,'p','','m','high',1)",
   ).run();
 
-  assert.equal(deleteRunsForInstance("p1", "default"), 1);
+  assert.equal(deleteRunsWhere("project_id = ? AND instance_id = ?", "p1", "default"), 1);
   assert.deepEqual(
     (db.prepare("SELECT id FROM runs").all() as Array<{ id: string }>).map((r) => r.id),
     ["other"],

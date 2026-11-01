@@ -10,7 +10,6 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { paths } from "@agent-office/domain/services";
 import { POST } from "./route";
-import { POST as bulkPost } from "./bulk/route";
 import { DELETE as del, PUT as put } from "./[id]/route";
 import * as bodyRoute from "./[id]/body/route";
 
@@ -38,26 +37,6 @@ test("a free id is created", async () => {
   const res = await post({ id: "route-free", name: "Route Free", desc: "d", body: "b" });
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { id: "route-free" });
-});
-
-test("bulk create never overwrites either: a taken id is an item error", async () => {
-  takeId();
-  const res = await bulkPost(new Request("http://localhost/api/agents/bulk", {
-    method: "POST",
-    body: JSON.stringify([{ id: "route-taken", name: "x", desc: "theirs", body: "theirs" }, { id: "route-bulk-new", name: "y", desc: "d", body: "b" }]),
-  }));
-  assert.equal(res.status, 207);
-  assert.deepEqual(await res.json(), { written: ["route-bulk-new"], errors: [{ id: "route-taken", error: "agent_exists" }] });
-  assert.match(readFileSync(join(paths.AGENTS_DIR, "route-taken.md"), "utf8"), /mine/);
-});
-
-test("bulk create where every id is taken is a 409, not a server error", async () => {
-  takeId();
-  const res = await bulkPost(new Request("http://localhost/api/agents/bulk", {
-    method: "POST",
-    body: JSON.stringify([{ id: "route-taken", name: "x", desc: "theirs", body: "theirs" }]),
-  }));
-  assert.equal(res.status, 409);
 });
 
 const putAgent = (id: string, body: unknown) =>

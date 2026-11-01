@@ -58,8 +58,6 @@ Rooms are visual groupings on the floor. Assigned via `room:` in an agent's fron
 
 Click the ✕ button next to a running message, or `POST /api/runs/:id/abort`. SIGKILL is sent to the subprocess. Partial output is preserved.
 
-Bulk-abort: `POST /api/runs/abort-all` kills every in-flight run for the current workspace.
-
 ### Exit codes
 
 | Code | Meaning |
@@ -103,10 +101,6 @@ The **Search** page finds a past run by its prompt or output, among your recent 
 ### Run tree
 
 `GET /api/runs/:id/tree` returns the full parent → sub-agent → sub-sub-agent hierarchy. The History tab renders this as a collapsible tree so you can see which orchestrator dispatched which specialists.
-
-### Children
-
-`GET /api/runs/:id/children` is the flat single-level version — direct sub-agents only.
 
 ## Multi-instance & worktrees
 

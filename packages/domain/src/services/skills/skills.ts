@@ -21,7 +21,6 @@ import type {
   SkillProvenance,
   SkillUpdate,
   SkillManifest,
-  SkillCompatibility,
   SkillCustomization,
   SkillCustomizationMap,
   SkillSection,
@@ -31,7 +30,6 @@ import type {
 export type {
   SkillManifest,
   SkillManifestEntry,
-  SkillCompatibility,
   SkillCustomization,
   SkillCustomizationMap,
   SkillSection,
@@ -877,14 +875,12 @@ export function registrySources(): Array<{ source: string; ref: string; builtIn:
   return allSources().map((s) => ({ source: s.source, ref: s.ref, builtIn: !users.has(`${s.source}@${s.ref}`) }));
 }
 
-// ── Static skill manifest / compatibility (curated JSON in _skills/) ──────
+// ── Static skill manifest (curated JSON in _skills/) ──────
 //
-// Both files are generated/maintained externally by the user's `_install.py`
-// tool. We expose them to the frontend so the skill picker can show
-// cost/impact info and (future) warn about conflicting selections.
+// Generated/maintained externally by the user's `_install.py` tool. We expose
+// it to the frontend so the skill picker can show cost/impact info.
 
 const MANIFEST_PATH = join(SKILLS_DIR, "_manifest.json");
-const COMPATIBILITY_PATH = join(SKILLS_DIR, "_compatibility.json");
 
 export function readManifest(): SkillManifest | null {
   if (!existsSync(MANIFEST_PATH)) return null;
@@ -892,16 +888,6 @@ export function readManifest(): SkillManifest | null {
     return JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as SkillManifest;
   } catch (e) {
     log.warn("skills.manifest_parse_failed", { err: String(e) });
-    return null;
-  }
-}
-
-export function readCompatibility(): SkillCompatibility | null {
-  if (!existsSync(COMPATIBILITY_PATH)) return null;
-  try {
-    return JSON.parse(readFileSync(COMPATIBILITY_PATH, "utf8")) as SkillCompatibility;
-  } catch (e) {
-    log.warn("skills.compatibility_parse_failed", { err: String(e) });
     return null;
   }
 }

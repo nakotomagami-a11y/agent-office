@@ -253,10 +253,6 @@ Every skill installed from the registry includes a `.source.json` sidecar at `~/
 
 The registry response is cached for 1 hour in `~/.claude/agents/_skills/_registry.json`. Pass `?refresh=1` to `GET /api/skills/registry` to bypass the cache and fetch fresh data from GitHub.
 
-### Skill conflict warnings
-
-When two selected skills disagree (e.g., one says "always plan first" while another says "act immediately"), the app surfaces a warning above the Skills picker. Compat data comes from `GET /api/skills/compatibility`.
-
 ### Cost pills
 
 The Skills picker shows a colored pill next to each skill:
