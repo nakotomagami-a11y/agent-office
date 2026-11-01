@@ -6,7 +6,7 @@ import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
-import { planetTag } from "@/lib/planet-seed";
+import { planetTag } from "../format/planet-tag";
 import { ProjectRuntimeBar, ProjectShortcutsBar } from "@/modules/office/components/office-toolbar";
 
 export type ProjectHeroProps = {

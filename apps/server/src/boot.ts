@@ -155,6 +155,8 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
     return;
   }
   const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions, providers } = domainServices;
+  // Before anything can finish a run: chats, loops and mission seats act on a run's finish.
+  domainServices.runListeners.installRunListeners();
 
   // Before any run reads the selection: an install from before providers keeps its subscription.
   // Pins older than the 6 h prompt-file prune belong to dead runs; the run cap is 4 h, and another

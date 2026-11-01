@@ -1,6 +1,6 @@
 /**
- * Side-effect module: connects the run engine to the Loop dispatcher. Importing
- * it registers the listener — the ONLY place that happens. Same shape and same
+ * Connects the run engine to the Loop dispatcher: `installLoopWiring` registers
+ * the listener — the ONLY place that happens. Same shape and same
  * cycle constraints as `conversation-wiring.ts`; see that file's header.
  */
 import { registerRunFinishedListener } from "./runs";
@@ -16,7 +16,8 @@ declare global {
   var __agentOfficeLoopWiringInstalled: boolean | undefined;
 }
 
-if (!globalThis.__agentOfficeLoopWiringInstalled) {
+export function installLoopWiring(): void {
+  if (globalThis.__agentOfficeLoopWiringInstalled) return;
   registerRunFinishedListener((runId, ok) => {
     // The event is emitted by the service on each real state change, not here:
     // this fires for EVERY run, so emitting from the wiring would invalidate

@@ -13,13 +13,7 @@ export * as conversation from "./execution/conversation";
 export * as conversationRunner from "./execution/conversation-runner";
 export * as loopRunner from "./execution/loop-runner";
 export * as loopProductionRunner from "./execution/loop-production-runner";
-// Side-effect only: installs the run-finished → conversation auto-advance
-// wiring. See conversation-wiring.ts's header comment for why this can't be
-// a plain dependency of runs.ts. Must be imported somewhere every server
-// process loads; this barrel is it (every API route imports from it).
-import "./execution/conversation-wiring";
-import "./execution/loop-wiring";
-import "./missions/wiring";
+export * as runListeners from "./execution/run-listeners";
 export * as scheduler from "./execution/scheduler";
 export * as backgroundShellWatcher from "./execution/background-shell-watcher";
 export * as health from "./infra/health";
