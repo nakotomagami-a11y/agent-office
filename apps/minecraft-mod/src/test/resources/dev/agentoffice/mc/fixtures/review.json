@@ -1,0 +1,129 @@
+{
+  "number": 7,
+  "title": "Add WEEK",
+  "url": "https://github.com/Owner/Repo/pull/7",
+  "author": "Someone",
+  "headRef": "agent/developer-fx01-1716800000000",
+  "baseRef": "main",
+  "isDraft": false,
+  "additions": 3,
+  "deletions": 2,
+  "changedFiles": 1,
+  "reviewDecision": null,
+  "updatedAt": "2026-10-10T00:00:00Z",
+  "repo": "owner/repo",
+  "body": "Adds WEEK.",
+  "state": "OPEN",
+  "headRefOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN",
+  "isCrossRepository": false,
+  "checks": {
+    "total": 2,
+    "passing": 2,
+    "failing": 0,
+    "pending": 0
+  },
+  "notes": [
+    {
+      "kind": "comment",
+      "author": "me",
+      "state": null,
+      "body": "ping",
+      "at": "2026-10-10T00:01:00Z"
+    },
+    {
+      "kind": "review",
+      "author": "rowan",
+      "state": "COMMENTED",
+      "body": "looks fine",
+      "at": "2026-10-10T00:02:00Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/format.ts",
+      "oldPath": "src/format.ts",
+      "status": "modified",
+      "binary": false,
+      "additions": 3,
+      "deletions": 2,
+      "truncated": false,
+      "hunks": [
+        {
+          "header": "@@ -5,3 +5,4 @@",
+          "oldStart": 5,
+          "newStart": 5,
+          "section": "",
+          "lines": [
+            {
+              "kind": "context",
+              "text": "const HOUR = 60 * MINUTE;",
+              "oldLine": 5,
+              "newLine": 5
+            },
+            {
+              "kind": "del",
+              "text": "const DAY = 24 * HOUR;",
+              "oldLine": 6,
+              "newLine": null
+            },
+            {
+              "kind": "add",
+              "text": "const DAY = 24 * HOUR; // ms",
+              "oldLine": null,
+              "newLine": 6
+            },
+            {
+              "kind": "add",
+              "text": "const WEEK = 7 * DAY;",
+              "oldLine": null,
+              "newLine": 7
+            },
+            {
+              "kind": "context",
+              "text": "export {};",
+              "oldLine": 7,
+              "newLine": 8
+            }
+          ]
+        },
+        {
+          "header": "@@ -40,2 +41,2 @@ function later() {",
+          "oldStart": 40,
+          "newStart": 41,
+          "section": "function later() {",
+          "lines": [
+            {
+              "kind": "del",
+              "text": "  return 1;",
+              "oldLine": 40,
+              "newLine": null
+            },
+            {
+              "kind": "add",
+              "text": "  return 2;",
+              "oldLine": null,
+              "newLine": 41
+            },
+            {
+              "kind": "context",
+              "text": "}",
+              "oldLine": 41,
+              "newLine": 42
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "diffUnavailable": null,
+  "link": {
+    "repo": "owner/repo",
+    "number": 7,
+    "projectId": "alpha",
+    "agentId": "developer",
+    "instanceId": "developer-fx01",
+    "source": "branch"
+  }
+}

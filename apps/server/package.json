@@ -18,7 +18,8 @@
     "routes": "node scripts/gen-route-table.mjs",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "node ../../scripts/run-tests.mjs"
+    "test": "node ../../scripts/run-tests.mjs",
+    "mod-fixtures": "node ../../scripts/run-tests.mjs --update src/minecraft-mod-fixtures.test.ts"
   },
   "dependencies": {
     "@agent-office/api-contract": "workspace:*",

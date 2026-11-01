@@ -1,0 +1,14 @@
+[
+  {
+    "id": "developer",
+    "name": "developer",
+    "displayName": "Dev",
+    "description": "Writes code.",
+    "skills": [],
+    "tools": [],
+    "defaultModel": "opus",
+    "defaultEffort": "high",
+    "addDirs": [],
+    "panel": []
+  }
+]

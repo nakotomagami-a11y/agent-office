@@ -1,0 +1,74 @@
+{
+  "id": "conv-1",
+  "agentId": "developer",
+  "instanceId": "developer-fx01",
+  "projectId": "alpha",
+  "status": "running",
+  "activeRunId": "run-live",
+  "sessionId": null,
+  "turns": [
+    {
+      "id": "run-done",
+      "agentId": "developer",
+      "agentName": "developer",
+      "instanceId": "developer-fx01",
+      "projectId": "alpha",
+      "status": "done",
+      "exitCode": 0,
+      "prompt": "Read a.ts",
+      "origin": "user",
+      "output": "Read it.",
+      "tokensIn": 1200,
+      "tokensOut": 34,
+      "cost": 0.05,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "durMs": 4000,
+      "model": "opus",
+      "effort": "high",
+      "ts": 1767225600000,
+      "conversationId": "conv-1",
+      "provider": "subscription",
+      "costBasis": "notional",
+      "toolCalls": [
+        {
+          "id": "toolu-1",
+          "name": "Read",
+          "input": "{\"file_path\":\"a.ts\"}",
+          "ts": 1767225600000
+        }
+      ]
+    },
+    {
+      "id": "run-live",
+      "agentId": "developer",
+      "agentName": "developer",
+      "instanceId": "developer-fx01",
+      "projectId": "alpha",
+      "status": "running",
+      "prompt": "Now fix it",
+      "origin": "user",
+      "output": "",
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "cost": 0,
+      "durMs": 0,
+      "model": "opus",
+      "effort": "high",
+      "ts": 1767225600000,
+      "conversationId": "conv-1",
+      "provider": "subscription",
+      "costBasis": "notional"
+    }
+  ],
+  "queue": [
+    {
+      "id": "queued-1",
+      "text": "And test it",
+      "origin": "user",
+      "attachments": null,
+      "position": 0,
+      "createdAt": 1767225600000
+    }
+  ]
+}
