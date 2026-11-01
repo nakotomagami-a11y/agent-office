@@ -1,5 +1,9 @@
 package dev.agentoffice.mc.core;
 
+import static dev.agentoffice.mc.core.Json.isString;
+import static dev.agentoffice.mc.core.Json.num;
+import static dev.agentoffice.mc.core.Json.text;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -116,7 +120,7 @@ public final class Transcript {
                     usage(data);
                 }
                 case Protocol.Event.CHUNK -> {
-                    String text = str(data, "text");
+                    String text = text(data, "text");
                     if (text.isEmpty()) return true;
                     int last = items.size() - 1;
                     if (last >= 0 && items.get(last) instanceof AgentText a && a.streaming()) {
@@ -127,22 +131,22 @@ public final class Transcript {
                 }
                 case Protocol.Event.TOOL -> tool(data);
                 case Protocol.Event.TOOL_DONE -> {
-                    int at = toolAt(str(data, "toolUseId"));
+                    int at = toolAt(text(data, "toolUseId"));
                     if (at >= 0 && items.get(at) instanceof Tool t) items.set(at, new Tool(t.id(), t.name(), t.arg(), false));
                 }
                 case Protocol.Event.SUBAGENT -> {
                     // The spawn's tool row was suppressed; this card stands in for it (parse-sse-event.ts).
-                    SubAgent card = new SubAgent(str(data, "subRunId"), str(data, "agentId"), str(data, "status"), null, null);
-                    int at = subAgentAt(str(data, "subRunId"));
+                    SubAgent card = new SubAgent(text(data, "subRunId"), text(data, "agentId"), text(data, "status"), null, null);
+                    int at = subAgentAt(text(data, "subRunId"));
                     if (at >= 0) items.set(at, card);
                     else items.add(card);
                 }
                 case Protocol.Event.SUBAGENT_UPDATE -> {
-                    int at = subAgentAt(str(data, "subRunId"));
+                    int at = subAgentAt(text(data, "subRunId"));
                     if (at >= 0 && items.get(at) instanceof SubAgent s) {
-                        String tool = str(data, "currentTool");
-                        String line = str(data, "lastOutputLine");
-                        items.set(at, new SubAgent(s.subRunId(), s.name(), str(data, "status"),
+                        String tool = text(data, "currentTool");
+                        String line = text(data, "lastOutputLine");
+                        items.set(at, new SubAgent(s.subRunId(), s.name(), text(data, "status"),
                                 tool.isEmpty() ? null : tool, line.isEmpty() ? null : line));
                     }
                 }
@@ -157,8 +161,8 @@ public final class Transcript {
                 }
                 case Protocol.Event.ERROR -> {
                     finish(Protocol.SubAgent.ERROR);
-                    String detail = str(data, "detail");
-                    items.add(new Failure(str(data, "code"), detail.isEmpty() ? null : detail));
+                    String detail = text(data, "detail");
+                    items.add(new Failure(text(data, "code"), detail.isEmpty() ? null : detail));
                 }
                 case Protocol.Event.RATE_LIMIT -> rateLimit(data);
                 default -> {
@@ -170,8 +174,8 @@ public final class Transcript {
 
         /** applyToolEvent (tool-item.ts): dedupe by toolUseId, drop spawns, never blank an arg. */
         private void tool(JsonObject data) {
-            String id = str(data, "toolUseId");
-            String name = str(data, "name");
+            String id = text(data, "toolUseId");
+            String name = text(data, "name");
             JsonElement input = data.get("input");
             int at = id.isEmpty() ? -1 : toolAt(id);
             if (isSubAgentSpawn(name, input)) {
@@ -191,11 +195,11 @@ public final class Transcript {
 
         /** The CLI re-reports a rate limit on every tool call: one card, updated in place. */
         private void rateLimit(JsonObject data) {
-            String message = str(data, "message");
+            String message = text(data, "message");
             int last = items.size() - 1;
             if (last >= 0 && items.get(last) instanceof AgentText a && echoes(a.text(), message)) items.remove(last);
             // A missing severity means "limit", as in the web's schema default.
-            RateLimit card = new RateLimit(message, !"warning".equals(str(data, "severity")));
+            RateLimit card = new RateLimit(message, !"warning".equals(text(data, "severity")));
             int at = -1;
             for (int i = items.size() - 1; i >= 0; i--) {
                 if (items.get(i) instanceof RateLimit) {
@@ -298,17 +302,5 @@ public final class Transcript {
 
     public static String fmtCost(double cost) {
         return String.format(java.util.Locale.ROOT, "$%.2f", cost);
-    }
-
-    private static boolean isString(JsonObject o, String key) {
-        return o.has(key) && o.get(key).isJsonPrimitive() && o.get(key).getAsJsonPrimitive().isString();
-    }
-
-    private static long num(JsonObject o, String key) {
-        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsLong() : 0;
-    }
-
-    private static String str(JsonObject o, String key) {
-        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : "";
     }
 }

@@ -73,12 +73,8 @@ public final class ToolInput {
 
     private static String main(JsonObject o) {
         for (String key : MAIN_KEYS) {
-            if (isString(o, key)) return o.get(key).getAsString();
+            if (Json.isString(o, key)) return o.get(key).getAsString();
         }
         return null;
-    }
-
-    private static boolean isString(JsonObject o, String key) {
-        return o.has(key) && o.get(key).isJsonPrimitive() && o.get(key).getAsJsonPrimitive().isString();
     }
 }

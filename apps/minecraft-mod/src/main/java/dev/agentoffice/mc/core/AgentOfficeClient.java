@@ -1,5 +1,10 @@
 package dev.agentoffice.mc.core;
 
+import static dev.agentoffice.mc.core.Json.bool;
+import static dev.agentoffice.mc.core.Json.intNum;
+import static dev.agentoffice.mc.core.Json.num;
+import static dev.agentoffice.mc.core.Json.str;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -100,7 +105,7 @@ public final class AgentOfficeClient {
             for (JsonElement el : call(get(Routes.projects())).getAsJsonArray()) {
                 JsonObject p = el.getAsJsonObject();
                 if (bool(p, "shelved")) continue;
-                int count = p.has("instanceCount") && !p.get("instanceCount").isJsonNull() ? p.get("instanceCount").getAsInt() : 0;
+                int count = intNum(p, "instanceCount");
                 out.add(new Api.Project(str(p, "id"), str(p, "name"), count));
             }
             return out;
@@ -471,20 +476,5 @@ public final class AgentOfficeClient {
                 .header("content-type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
                 .build();
-    }
-
-    private static String str(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? null : el.getAsString();
-    }
-
-    private static long num(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? 0 : el.getAsLong();
-    }
-
-    private static boolean bool(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el != null && el.isJsonPrimitive() && el.getAsBoolean();
     }
 }
