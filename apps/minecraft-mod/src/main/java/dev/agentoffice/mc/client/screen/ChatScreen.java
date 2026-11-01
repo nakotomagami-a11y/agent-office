@@ -7,6 +7,7 @@ import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.ImageScreen;
 import dev.agentoffice.mc.client.ui.ShowsImages;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.client.ui.TranscriptView;
 import dev.agentoffice.mc.core.AgentNames;
@@ -139,23 +140,23 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
                 .active = conversation != null && !session.busy();
         if (seat != null) {
             // Labelled like vanilla's options ("Model: opus"); unset shows the agent's default.
-            String modelDef = def(agent == null ? null : agent.defaultModel());
-            String effortDef = def(agent == null ? null : agent.defaultEffort());
-            Function<String, String> model = v -> "Model: " + (v.isEmpty() ? modelDef : v);
-            Function<String, String> effort = v -> "Effort: " + (v.isEmpty() ? effortDef : v);
+            String modelDef = agent == null ? null : agent.defaultModel();
+            String effortDef = agent == null ? null : agent.defaultEffort();
+            Function<String, String> model = v -> "Model: " + Text.setting(v, modelDef);
+            Function<String, String> effort = v -> "Effort: " + Text.setting(v, effortDef);
             if (titleRoom(hx, cycleWidth(ServerMirror.MODELS, seat.model(), model), cycleWidth(ServerMirror.EFFORTS, seat.effort(), effort), x0) < MIN_TITLE) {
-                model = v -> v.isEmpty() ? modelDef : v;
-                effort = v -> v.isEmpty() ? effortDef : v;
+                model = v -> Text.setting(v, modelDef);
+                effort = v -> Text.setting(v, effortDef);
             }
             int ew = cycleWidth(ServerMirror.EFFORTS, seat.effort(), effort);
             int mw = cycleWidth(ServerMirror.MODELS, seat.model(), model);
             if (titleRoom(hx, ew, mw, x0) >= MIN_TITLE / 2) {
                 Tooltip hint = Tooltip.create(Component.literal("Click: next · Right-click: previous"));
                 hx -= 4 + ew;
-                addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, ServerMirror.EFFORTS, nz(seat.effort()), effort)
+                addRenderableWidget(new FlatCycle<>(hx, hy, ew, 20, ServerMirror.EFFORTS, Text.nz(seat.effort()), effort)
                         .onChange(v -> session.changeSeat("effort", v))).setTooltip(hint);
                 hx -= 4 + mw;
-                addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, ServerMirror.MODELS, nz(seat.model()), model)
+                addRenderableWidget(new FlatCycle<>(hx, hy, mw, 20, ServerMirror.MODELS, Text.nz(seat.model()), model)
                         .onChange(v -> session.changeSeat("model", v))).setTooltip(hint);
             }
         }
@@ -301,7 +302,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
 
     /** Wide enough for every value, so cycling never resizes the picker. */
     private int cycleWidth(List<String> values, String current, Function<String, String> label) {
-        int w = font.width(label.apply(nz(current)));
+        int w = font.width(label.apply(Text.nz(current)));
         for (String v : values) w = Math.max(w, font.width(label.apply(v)));
         return w + 16;
     }
@@ -410,7 +411,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             tx += font.width(which) + 6;
             String state = flashTicks > 0 && flash != null ? flash : session.status();
             if (end - tx > 24) {
-                g.drawString(font, WorkspaceScreen.cut(font, state, end - tx), tx, ty, flashTicks > 0 ? PANEL_TEXT : statusColor(), false);
+                g.drawString(font, Text.cut(font, state, end - tx), tx, ty, flashTicks > 0 ? PANEL_TEXT : statusColor(), false);
             }
         }
 
@@ -419,7 +420,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             int cx = (x0 + x1) / 2;
             int cy = (areaTop + areaBottom) / 2;
             if (conversation == null) {
-                g.drawCenteredString(font, WorkspaceScreen.cut(font, session.status(), x1 - x0 - 16), cx, cy - 4, Theme.TXT_4);
+                g.drawCenteredString(font, Text.cut(font, session.status(), x1 - x0 - 16), cx, cy - 4, Theme.TXT_4);
             } else {
                 g.drawCenteredString(font, Component.literal(slot.displayName()).withStyle(s -> s.withBold(true)), cx, cy - 16, Theme.GREEN);
                 g.drawCenteredString(font, "No messages yet", cx, cy - 2, Theme.TXT_3);
@@ -479,13 +480,5 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     private void flash(String message) {
         flash = message;
         flashTicks = 100;
-    }
-
-    private static String nz(String s) {
-        return s == null ? "" : s;
-    }
-
-    private static String def(String agentDefault) {
-        return agentDefault == null || agentDefault.isEmpty() ? "default" : agentDefault;
     }
 }

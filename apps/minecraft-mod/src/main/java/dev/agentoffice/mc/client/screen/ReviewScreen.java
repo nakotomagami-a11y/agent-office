@@ -4,6 +4,7 @@ import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
@@ -339,17 +340,17 @@ public final class ReviewScreen extends TabletScreen {
         if (detail == null) return "";
         Review.Link l = detail.link();
         if (l == null) return "No agent linked yet: you'll pick who gets the feedback.";
-        String how = switch (nz(l.source())) {
+        String how = switch (Text.nz(l.source())) {
             case Protocol.PrLink.RECORDED -> "it opened this PR";
             case Protocol.PrLink.BRANCH -> "its branch";
             default -> "picked by you";
         };
-        return "Feedback goes to " + nz(l.agentId()) + " (" + nz(l.instanceId()) + ") · " + how;
+        return "Feedback goes to " + Text.nz(l.agentId()) + " (" + Text.nz(l.instanceId()) + ") · " + how;
     }
 
     private String stateLabel(Review.Pull p) {
         if (p.draft()) return "Draft";
-        return switch (nz(p.reviewDecision())) {
+        return switch (Text.nz(p.reviewDecision())) {
             case "CHANGES_REQUESTED" -> "Changes requested";
             case "APPROVED" -> "Approved";
             default -> "Waiting for you";
@@ -358,7 +359,7 @@ public final class ReviewScreen extends TabletScreen {
 
     private int stateColor(Review.Pull p) {
         if (p.draft()) return Theme.TXT_4;
-        return switch (nz(p.reviewDecision())) {
+        return switch (Text.nz(p.reviewDecision())) {
             case "CHANGES_REQUESTED" -> Theme.AMBER;
             case "APPROVED" -> Theme.GREEN;
             default -> Theme.RED;
@@ -490,11 +491,7 @@ public final class ReviewScreen extends TabletScreen {
     }
 
     private String cut(String s, int width) {
-        return DiffView.cut(font, s, width);
-    }
-
-    private static String nz(String s) {
-        return s == null ? "" : s;
+        return Text.cut(font, s, width);
     }
 
     // ─── Input ───────────────────────────────────────────────────────────────

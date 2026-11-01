@@ -7,6 +7,7 @@ import dev.agentoffice.mc.client.service.SeatAdder;
 import dev.agentoffice.mc.client.service.WorkspaceStore;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
@@ -308,12 +309,6 @@ public abstract class WorkspaceScreen extends TabletScreen {
         }
     }
 
-    /** {@code text} cut to {@code width} with an ellipsis. */
-    static String cut(Font font, String text, int width) {
-        if (font.width(text) <= width) return text;
-        return font.plainSubstrByWidth(text, Math.max(0, width - font.width("…"))) + "…";
-    }
-
     /**
      * A project tab as vanilla's advancement tabs, on the window's top edge (the first one joins its left
      * edge): the 28-wide sprite cut into its edges and a repeated middle, so a project name fits.
@@ -339,7 +334,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
             g.blitSprite(sprite, 28, 32, 24, 0, x + width - 4, y, 4, 32);
             RenderSystem.disableBlend();
             Font font = Minecraft.getInstance().font;
-            String label = cut(font, getMessage().getString(), width - 12);
+            String label = Text.cut(font, getMessage().getString(), width - 12);
             int tx = x + (width - font.width(label)) / 2;
             if (selected) {
                 g.drawString(font, label, tx, y + 11, PANEL_TEXT, false);
@@ -417,7 +412,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
             String count = String.valueOf(group.count());
             int countX = left + width - 2 - font.width(count);
             g.drawString(font, count, countX, y, Theme.TXT_4);
-            g.drawString(font, cut(font, AgentNames.of(group.agentId()), countX - left - 14), left + 8, y, hovering ? Theme.HOVER : Theme.TXT);
+            g.drawString(font, Text.cut(font, AgentNames.of(group.agentId()), countX - left - 14), left + 8, y, hovering ? Theme.HOVER : Theme.TXT);
         }
 
         @Override
@@ -455,7 +450,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
                 end -= 4;
             }
             boolean on = roster != null && roster.getSelected() == this;
-            g.drawString(font, cut(font, label(), end - left - 18), left + 18, y, on || hovering ? Theme.HOVER : Theme.TXT_2);
+            g.drawString(font, Text.cut(font, label(), end - left - 18), left + 18, y, on || hovering ? Theme.HOVER : Theme.TXT_2);
         }
 
         @Override
