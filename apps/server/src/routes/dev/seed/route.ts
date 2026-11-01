@@ -1,5 +1,5 @@
-// Dev-only seed/reset surface. Seeds the showcase demo world (projects, chats,
-// activity, accounts, secrets, schedules) and offers generic db maintenance.
+// Dev-only seed/reset surface. Seeds the showcase demo world (projects,
+// accounts, secrets, schedules, activity) and offers generic db maintenance.
 // Prod builds return 404 (never ships).
 import { statSync, readdirSync } from "node:fs";
 import { db, paths } from "@agent-office/domain/services";

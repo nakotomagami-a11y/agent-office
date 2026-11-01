@@ -71,7 +71,6 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Search** your recent runs
 - **Run history** - every run of an agent, by day, on its Recent runs tab
 - **Spend tracking** - cost-per-agent, cost-per-project, daily totals
-- **Run detail pages** - full transcript with cost, tokens, model, duration
 - **Analytics dashboards** - spend/runs/runtime trends, model split, per-agent and per-project rankings, tool usage, activity heatmap; per-account breakdown when multiple Claude accounts are connected
 
 ### Integrations

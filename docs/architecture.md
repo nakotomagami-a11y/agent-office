@@ -131,7 +131,7 @@ Toolbox (already built — reach for these, don't reinvent):
 | App paths | API: `API_ROUTES` in `packages/api-contract/src/routes.ts`. UI pages: `apps/web/src/lib/page-routes.ts`. External URLs: `packages/domain/src/config/routes.ts` |
 | Shared / domain types | `packages/domain/src/types` |
 | Constants, catalogs, fixed value sets (error codes, templates, integrations, setting-key maps) | `packages/domain/src/config/<name>.ts` — never a hardcoded array inside a route |
-| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `execution`, `infra`, `projects`, `review`, `skills`, `docs`, `db`); re-exported through the package barrel |
+| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `db`, `docs`, `execution`, `infra`, `missions`, `projects`, `providers`, `review`, `skills`), plus `settings.ts`; re-exported through the services barrel (`services/index.ts`) |
 | HTTP plumbing and server-process state (request helpers, SSE, server-process store, OS-terminal spawn, port allocation) | `apps/server/src/lib/<feature>.ts` — **not** domain |
 | A response DTO used by only one route | Inline in the route; promote to a local `types.ts` **only when a sibling route also needs it** |
 | Tiny route-local helper | An inline function in `route.ts` is fine |
@@ -377,7 +377,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `subagent` | `runId` + sub-agent fields (name, prompt, status, startTs, subRunId, …) | A sub-agent spawn (`Task`/`Agent` tool) detected — drives the WorkflowPill tree |
 | `subagent-update` | `runId` + status/progress fields | Sub-agent status / token / tool progress update |
 
-**Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/workflow` which queries the `runs` table for rows where `parent_run_id = runId`.
+**Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/tree` (`API_ROUTES.runTree`), which builds it from the `runs` rows whose `parent_run_id` links back to the run.
 
 **Replay:** `chunk`, `tool`, `tool-done`, `usage`, `subagent`, `subagent-update` and `rate-limit` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
 
