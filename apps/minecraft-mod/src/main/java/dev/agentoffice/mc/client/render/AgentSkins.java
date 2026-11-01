@@ -89,6 +89,7 @@ final class AgentSkins {
             Path file = folder().resolve(agentId + (slim ? ".slim.png" : ".png"));
             if (!Files.isRegularFile(file)) continue;
             NativeImage image = null;
+            DynamicTexture texture = null;
             try (InputStream in = Files.newInputStream(file)) {
                 image = NativeImage.read(in);
                 if (image.getWidth() != 64 || image.getHeight() != 64) {
@@ -102,11 +103,14 @@ final class AgentSkins {
                 opaque(image, 16, 48, 48, 64);
                 ResourceLocation id = ResourceLocation.fromNamespaceAndPath(AgentOfficeMod.MOD_ID,
                         "skin/custom/" + agentId.toLowerCase(Locale.ROOT) + "_" + Integer.toHexString(agentId.hashCode()));
-                Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
+                texture = new DynamicTexture(image);
                 image = null; // the texture owns it now
+                Minecraft.getInstance().getTextureManager().register(id, texture);
+                texture = null; // and the texture manager owns the texture
                 loaded.put(agentId, id);
                 return new Skin(id, slim);
             } catch (IOException | RuntimeException e) {
+                if (texture != null) texture.close();
                 if (image != null) image.close();
                 LOG.warn("could not read agent skin {}: {}", file, e.toString());
             }
