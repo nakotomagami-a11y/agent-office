@@ -91,7 +91,7 @@ guard for files.
 
 > **enforced by** `no-restricted-syntax` (`error`) in BOTH
 > `packages/domain/eslint.config.mjs` and `apps/web/eslint.config.mjs`
-> **known debt:** 12 pre-existing sites are baselined in
+> **known debt:** 11 pre-existing sites are baselined in
 > `packages/domain/eslint-suppressions.json`. `apps/web` has none — its 12
 > accumulated while the rule was a `warn` there with an empty suppressions file
 > and CI running `--max-warnings=-1`; they were fixed rather than baselined.
