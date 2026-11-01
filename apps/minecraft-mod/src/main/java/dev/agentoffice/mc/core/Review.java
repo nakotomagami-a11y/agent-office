@@ -1,5 +1,11 @@
 package dev.agentoffice.mc.core;
 
+import static dev.agentoffice.mc.core.Json.bool;
+import static dev.agentoffice.mc.core.Json.intNum;
+import static dev.agentoffice.mc.core.Json.intOrNull;
+import static dev.agentoffice.mc.core.Json.str;
+import static dev.agentoffice.mc.core.Json.text;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -130,25 +136,25 @@ public final class Review {
         List<Note> notes = new ArrayList<>();
         for (JsonElement el : arr(o, "notes")) {
             JsonObject n = el.getAsJsonObject();
-            notes.add(new Note(str(n, "kind"), str(n, "author"), str(n, "state"), nz(str(n, "body")), str(n, "at")));
+            notes.add(new Note(str(n, "kind"), str(n, "author"), str(n, "state"), text(n, "body"), str(n, "at")));
         }
         List<DiffFile> files = new ArrayList<>();
         for (JsonElement el : arr(o, "files")) files.add(file(el.getAsJsonObject()));
         JsonObject c = o.has("checks") && o.get("checks").isJsonObject() ? o.getAsJsonObject("checks") : new JsonObject();
-        Checks checks = new Checks(num(c, "total"), num(c, "passing"), num(c, "failing"), num(c, "pending"));
+        Checks checks = new Checks(intNum(c, "total"), intNum(c, "passing"), intNum(c, "failing"), intNum(c, "pending"));
         Link link = null;
         if (o.has("link") && o.get("link").isJsonObject()) {
             JsonObject l = o.getAsJsonObject("link");
             link = new Link(str(l, "agentId"), str(l, "instanceId"), str(l, "source"));
         }
-        return new Detail(pull(o, projectId, projectName), str(o, "repo"), nz(str(o, "body")), str(o, "state"),
+        return new Detail(pull(o, projectId, projectName), str(o, "repo"), text(o, "body"), str(o, "state"),
                 str(o, "headRefOid"), str(o, "mergeStateStatus"), checks, notes, files, str(o, "diffUnavailable"), link);
     }
 
     private static Pull pull(JsonObject p, String projectId, String projectName) {
-        return new Pull(projectId, projectName, num(p, "number"), nz(str(p, "title")), str(p, "url"), nz(str(p, "author")),
-                nz(str(p, "headRef")), nz(str(p, "baseRef")), bool(p, "isDraft"), num(p, "additions"), num(p, "deletions"),
-                num(p, "changedFiles"), str(p, "reviewDecision"), str(p, "updatedAt"));
+        return new Pull(projectId, projectName, intNum(p, "number"), text(p, "title"), str(p, "url"), text(p, "author"),
+                text(p, "headRef"), text(p, "baseRef"), bool(p, "isDraft"), intNum(p, "additions"), intNum(p, "deletions"),
+                intNum(p, "changedFiles"), str(p, "reviewDecision"), str(p, "updatedAt"));
     }
 
     private static DiffFile file(JsonObject f) {
@@ -158,19 +164,19 @@ public final class Review {
             List<Line> lines = new ArrayList<>();
             for (JsonElement le : arr(h, "lines")) {
                 JsonObject l = le.getAsJsonObject();
-                Kind kind = switch (nz(str(l, "kind"))) {
+                Kind kind = switch (text(l, "kind")) {
                     case "add" -> Kind.ADD;
                     case "del" -> Kind.DEL;
                     default -> Kind.CONTEXT;
                 };
-                lines.add(new Line(kind, nz(str(l, "text")), integer(l, "oldLine"), integer(l, "newLine")));
+                lines.add(new Line(kind, text(l, "text"), intOrNull(l, "oldLine"), intOrNull(l, "newLine")));
             }
-            hunks.add(new Hunk(nz(str(h, "header")), num(h, "oldStart"), num(h, "newStart"), nz(str(h, "section")), lines));
+            hunks.add(new Hunk(text(h, "header"), intNum(h, "oldStart"), intNum(h, "newStart"), text(h, "section"), lines));
         }
-        String path = nz(str(f, "path"));
+        String path = text(f, "path");
         String oldPath = str(f, "oldPath");
-        return new DiffFile(path, oldPath == null ? path : oldPath, nz(str(f, "status")), bool(f, "binary"),
-                num(f, "additions"), num(f, "deletions"), bool(f, "truncated"), hunks);
+        return new DiffFile(path, oldPath == null ? path : oldPath, text(f, "status"), bool(f, "binary"),
+                intNum(f, "additions"), intNum(f, "deletions"), bool(f, "truncated"), hunks);
     }
 
     /** What the diff panel draws, top to bottom: file-level notes, hunk headers, folded gaps, lines. */
@@ -239,29 +245,5 @@ public final class Review {
     private static JsonArray arr(JsonObject o, String key) {
         JsonElement el = o.get(key);
         return el != null && el.isJsonArray() ? el.getAsJsonArray() : new JsonArray();
-    }
-
-    private static String str(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? null : el.getAsString();
-    }
-
-    private static String nz(String s) {
-        return s == null ? "" : s;
-    }
-
-    private static int num(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? 0 : el.getAsInt();
-    }
-
-    private static Integer integer(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? null : el.getAsInt();
-    }
-
-    private static boolean bool(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el != null && el.isJsonPrimitive() && el.getAsBoolean();
     }
 }

@@ -482,7 +482,7 @@ public final class ChatSession {
             List<String> changes = new ArrayList<>();
             for (String key : patch.keySet()) {
                 String v = patch.get(key).getAsString();
-                changes.add(Character.toUpperCase(key.charAt(0)) + key.substring(1) + " → " + (v.isEmpty() ? "agent default" : v));
+                changes.add(Character.toUpperCase(key.charAt(0)) + key.substring(1) + " → " + (v.isEmpty() ? "default" : v));
             }
             listener.flash(String.join(", ", changes) + " (from the next message, for this seat)");
         }, e -> {

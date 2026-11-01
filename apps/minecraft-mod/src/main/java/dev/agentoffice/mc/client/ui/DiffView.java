@@ -88,10 +88,10 @@ public final class DiffView {
         int sw = font.width(stats);
         g.drawString(font, stats, x1 - 5 - sw, y0 + 3, Theme.TXT_3, false);
         int px = x0 + 16;
-        String dir = cut(font, Review.visible(file.dir()), (x1 - x0) / 2);
+        String dir = Text.cut(font, Review.visible(file.dir()), (x1 - x0) / 2);
         g.drawString(font, dir, px, y0 + 3, Theme.TXT_4, false);
         px += font.width(dir);
-        g.drawString(font, cut(font, Review.visible(file.name()), x1 - 12 - sw - px), px, y0 + 3, Theme.TXT, false);
+        g.drawString(font, Text.cut(font, Review.visible(file.name()), x1 - 12 - sw - px), px, y0 + 3, Theme.TXT, false);
 
         if (file != builtFile) numW = font.width("0") * digits(file) + 4;
         int textX = x0 + numW * 2 + 12;
@@ -167,7 +167,7 @@ public final class DiffView {
             if (!code) {
                 oldSide.reset();
                 newSide.reset();
-                out.add(new VRow(r, FormattedCharSequence.forward(cut(font, text, fullW), Style.EMPTY), false));
+                out.add(new VRow(r, FormattedCharSequence.forward(Text.cut(font, text, fullW), Style.EMPTY), false));
                 continue;
             }
             Syntax.Result syntax = (r.kind() == Review.RowKind.DEL ? oldSide : newSide).next(text, lang);
@@ -218,12 +218,5 @@ public final class DiffView {
             out.add(FormattedCharSequence.forward(line.getString(), Style.EMPTY));
         }
         return out;
-    }
-
-    /** Cut to {@code width}, ending in "…" when anything was cut. */
-    public static String cut(Font font, String s, int width) {
-        if (width <= 0) return "";
-        if (font.width(s) <= width) return s;
-        return font.plainSubstrByWidth(s, Math.max(0, width - font.width("…"))) + "…";
     }
 }

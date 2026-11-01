@@ -5,6 +5,7 @@ import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
@@ -46,18 +47,18 @@ final class SeatSettingsScreen extends TabletScreen {
         int w = Math.min(260, right - left - PAD * 2);
         int x = left + (right - left - w) / 2;
         int y = top + 40;
-        String labelValue = label != null ? label.getValue() : nz(seat.slot().label());
+        String labelValue = label != null ? label.getValue() : Text.nz(seat.slot().label());
         label = new EditBox(font, x + 90, y, w - 90, 16, Component.literal("Label"));
         label.setMaxLength(60);
         label.setValue(labelValue);
         label.setHint(Component.literal(AgentNames.of(seat.slot().agentId())).withColor(Theme.TXT_4)); // what an empty label shows
         addRenderableWidget(label);
         model = addRenderableWidget(new FlatCycle<>(x + 90, y + 24, w - 90, 16, options(ServerMirror.MODELS, seat.model()),
-                model != null ? model.value() : nz(seat.model()), v -> v.isEmpty() ? def(agent == null ? null : agent.defaultModel()) : v));
+                model != null ? model.value() : Text.nz(seat.model()), v -> Text.setting(v, agent == null ? null : agent.defaultModel())));
         effort = addRenderableWidget(new FlatCycle<>(x + 90, y + 48, w - 90, 16, options(ServerMirror.EFFORTS, seat.effort()),
-                effort != null ? effort.value() : nz(seat.effort()), v -> v.isEmpty() ? def(agent == null ? null : agent.defaultEffort()) : v));
+                effort != null ? effort.value() : Text.nz(seat.effort()), v -> Text.setting(v, agent == null ? null : agent.defaultEffort())));
         permission = addRenderableWidget(new FlatCycle<>(x + 90, y + 72, w - 90, 16, options(ServerMirror.PERMISSION_MODES, seat.permissionMode()),
-                permission != null ? permission.value() : nz(seat.permissionMode()), v -> v.isEmpty() ? "agent default" : v));
+                permission != null ? permission.value() : Text.nz(seat.permissionMode()), v -> Text.setting(v, null)));
         addRenderableWidget(new FlatButton(x + w - 60, y + 104, 60, 16, "Save", FlatButton.Kind.PRIMARY, b -> save())).active = !saving;
         addRenderableWidget(new FlatButton(x + w - 124, y + 104, 60, 16, "Cancel", FlatButton.Kind.GHOST, b -> onClose()));
         setInitialFocus(label);
@@ -66,17 +67,17 @@ final class SeatSettingsScreen extends TabletScreen {
     private void save() {
         if (saving) return;
         JsonObject patch = new JsonObject();
-        if (!label.getValue().trim().equals(nz(seat.slot().label()))) patch.addProperty("label", label.getValue().trim());
-        if (!Objects.equals(model.value(), nz(seat.model()))) patch.addProperty("model", model.value());
-        if (!Objects.equals(effort.value(), nz(seat.effort()))) patch.addProperty("effort", effort.value());
-        if (!Objects.equals(permission.value(), nz(seat.permissionMode()))) patch.addProperty("permissionMode", permission.value());
+        if (!label.getValue().trim().equals(Text.nz(seat.slot().label()))) patch.addProperty("label", label.getValue().trim());
+        if (!Objects.equals(model.value(), Text.nz(seat.model()))) patch.addProperty("model", model.value());
+        if (!Objects.equals(effort.value(), Text.nz(seat.effort()))) patch.addProperty("effort", effort.value());
+        if (!Objects.equals(permission.value(), Text.nz(seat.permissionMode()))) patch.addProperty("permissionMode", permission.value());
         if (patch.size() == 0) {
             onClose();
             return;
         }
         saving = true;
         rebuildWidgets();
-        AgentOffice.call(client, () -> true, c -> {
+        AgentOffice.seatCall(client, () -> true, c -> {
             c.patchInstance(seat.slot(), patch);
             return null;
         }, done -> {
@@ -120,13 +121,5 @@ final class SeatSettingsScreen extends TabletScreen {
         List<String> all = new ArrayList<>(base);
         all.add(original);
         return all;
-    }
-
-    private static String nz(String s) {
-        return s == null ? "" : s;
-    }
-
-    private static String def(String agentDefault) {
-        return agentDefault == null || agentDefault.isEmpty() ? "agent default" : "agent default (" + agentDefault + ")";
     }
 }

@@ -5,6 +5,7 @@ import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentNames;
 import dev.agentoffice.mc.core.AgentOfficeClient;
@@ -280,17 +281,12 @@ public final class OfficeScreen extends TabletScreen {
             String name = slot.displayName() + (slot.label() != null && !slot.label().isBlank() ? "  (" + AgentNames.of(slot.agentId()) + ")" : "");
             g.drawString(font, bold(name, textW), mx0 + 15, y + 6, Theme.TXT, false);
             Api.Agent def = agents.get(slot.agentId());
-            String model = orDefault(seat.model(), def == null ? null : def.defaultModel());
-            String effort = orDefault(seat.effort(), def == null ? null : def.defaultEffort());
+            String model = Text.setting(seat.model(), def == null ? null : def.defaultModel());
+            String effort = Text.setting(seat.effort(), def == null ? null : def.defaultEffort());
             String line = statusLabel(st) + "  ·  " + model + "  ·  " + effort
                     + (seat.permissionMode() != null ? "  ·  " + seat.permissionMode() : "") + "  ·  " + slot.instanceId();
             g.drawString(font, font.plainSubstrByWidth(line, textW), mx0 + 15, y + 18, Theme.TXT_3, false);
         }
-    }
-
-    private static String orDefault(String own, String agentDefault) {
-        if (own != null && !own.isEmpty()) return own;
-        return agentDefault != null && !agentDefault.isEmpty() ? agentDefault : "default";
     }
 
     private static String statusLabel(AgentState st) {

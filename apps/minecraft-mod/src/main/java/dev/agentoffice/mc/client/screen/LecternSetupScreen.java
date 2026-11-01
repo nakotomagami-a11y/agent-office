@@ -2,9 +2,9 @@ package dev.agentoffice.mc.client.screen;
 
 import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Lecterns;
-import dev.agentoffice.mc.client.ui.DiffView;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
+import dev.agentoffice.mc.client.ui.Text;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.core.AgentOfficeClient;
 import dev.agentoffice.mc.core.Api;
@@ -82,9 +82,9 @@ public final class LecternSetupScreen extends TabletScreen {
         super.render(g, mouseX, mouseY, partialTick);
         int w = right - left - PAD * 2;
         g.drawString(font, bold("Review Lectern", w), left + PAD, top + PAD, Theme.TXT, false);
-        g.drawString(font, DiffView.cut(font, "Which project's pull requests should it show?", w), left + PAD, top + PAD + 14, Theme.TXT_3, false);
-        g.drawString(font, DiffView.cut(font, "Change it later with Project… in the review.", w), left + PAD, top + PAD + 26, Theme.TXT_4, false);
-        if (status != null) g.drawString(font, DiffView.cut(font, status, w), left + PAD, top + 46 + ROW + 10, Theme.TXT_3, false);
+        g.drawString(font, Text.cut(font, "Which project's pull requests should it show?", w), left + PAD, top + PAD + 14, Theme.TXT_3, false);
+        g.drawString(font, Text.cut(font, "Change it later with Project… in the review.", w), left + PAD, top + PAD + 26, Theme.TXT_4, false);
+        if (status != null) g.drawString(font, Text.cut(font, status, w), left + PAD, top + 46 + ROW + 10, Theme.TXT_3, false);
     }
 
     @Override

@@ -1,5 +1,9 @@
 package dev.agentoffice.mc.core;
 
+import static dev.agentoffice.mc.core.Json.isString;
+import static dev.agentoffice.mc.core.Json.num;
+import static dev.agentoffice.mc.core.Json.text;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -30,7 +34,7 @@ public final class Transcript {
     /** {@code text} is the raw prompt: its attachment footer is where the images are; strip it for display. */
     public record You(String text, boolean system) implements Item {}
 
-    /** {@code arg} is the compact display form (see {@link #toolArg}), null when there's nothing to show. */
+    /** {@code arg} is the compact display form (see {@link ToolInput#summary}), null when there's nothing to show. */
     public record Tool(String id, String name, String arg, boolean running) implements Item {}
 
     public record AgentText(String text, boolean streaming) implements Item {}
@@ -61,9 +65,9 @@ public final class Transcript {
         List<Item> items = new ArrayList<>();
         if (t.prompt() != null) items.add(new You(t.prompt(), t.fromSystem()));
         for (Api.ToolCall tc : t.toolCalls()) {
-            JsonElement input = parseInput(tc.input());
+            JsonElement input = ToolInput.parse(tc.input());
             if (isSubAgentSpawn(tc.name(), input)) continue;
-            items.add(new Tool(tc.id(), tc.name(), toolArg(input), false));
+            items.add(new Tool(tc.id(), tc.name(), ToolInput.summary(input), false));
         }
         if (t.output() != null && !t.output().isBlank()) items.add(new AgentText(t.output(), false));
         if (Protocol.Turn.ERROR.equals(t.status())) {
@@ -116,7 +120,7 @@ public final class Transcript {
                     usage(data);
                 }
                 case Protocol.Event.CHUNK -> {
-                    String text = str(data, "text");
+                    String text = text(data, "text");
                     if (text.isEmpty()) return true;
                     int last = items.size() - 1;
                     if (last >= 0 && items.get(last) instanceof AgentText a && a.streaming()) {
@@ -127,22 +131,22 @@ public final class Transcript {
                 }
                 case Protocol.Event.TOOL -> tool(data);
                 case Protocol.Event.TOOL_DONE -> {
-                    int at = toolAt(str(data, "toolUseId"));
+                    int at = toolAt(text(data, "toolUseId"));
                     if (at >= 0 && items.get(at) instanceof Tool t) items.set(at, new Tool(t.id(), t.name(), t.arg(), false));
                 }
                 case Protocol.Event.SUBAGENT -> {
                     // The spawn's tool row was suppressed; this card stands in for it (parse-sse-event.ts).
-                    SubAgent card = new SubAgent(str(data, "subRunId"), str(data, "agentId"), str(data, "status"), null, null);
-                    int at = subAgentAt(str(data, "subRunId"));
+                    SubAgent card = new SubAgent(text(data, "subRunId"), text(data, "agentId"), text(data, "status"), null, null);
+                    int at = subAgentAt(text(data, "subRunId"));
                     if (at >= 0) items.set(at, card);
                     else items.add(card);
                 }
                 case Protocol.Event.SUBAGENT_UPDATE -> {
-                    int at = subAgentAt(str(data, "subRunId"));
+                    int at = subAgentAt(text(data, "subRunId"));
                     if (at >= 0 && items.get(at) instanceof SubAgent s) {
-                        String tool = str(data, "currentTool");
-                        String line = str(data, "lastOutputLine");
-                        items.set(at, new SubAgent(s.subRunId(), s.name(), str(data, "status"),
+                        String tool = text(data, "currentTool");
+                        String line = text(data, "lastOutputLine");
+                        items.set(at, new SubAgent(s.subRunId(), s.name(), text(data, "status"),
                                 tool.isEmpty() ? null : tool, line.isEmpty() ? null : line));
                     }
                 }
@@ -157,8 +161,8 @@ public final class Transcript {
                 }
                 case Protocol.Event.ERROR -> {
                     finish(Protocol.SubAgent.ERROR);
-                    String detail = str(data, "detail");
-                    items.add(new Failure(str(data, "code"), detail.isEmpty() ? null : detail));
+                    String detail = text(data, "detail");
+                    items.add(new Failure(text(data, "code"), detail.isEmpty() ? null : detail));
                 }
                 case Protocol.Event.RATE_LIMIT -> rateLimit(data);
                 default -> {
@@ -170,8 +174,8 @@ public final class Transcript {
 
         /** applyToolEvent (tool-item.ts): dedupe by toolUseId, drop spawns, never blank an arg. */
         private void tool(JsonObject data) {
-            String id = str(data, "toolUseId");
-            String name = str(data, "name");
+            String id = text(data, "toolUseId");
+            String name = text(data, "name");
             JsonElement input = data.get("input");
             int at = id.isEmpty() ? -1 : toolAt(id);
             if (isSubAgentSpawn(name, input)) {
@@ -179,7 +183,7 @@ public final class Transcript {
                 if (at >= 0) items.remove(at);
                 return;
             }
-            String arg = toolArg(input);
+            String arg = ToolInput.summary(input);
             if (at < 0) {
                 // A *new* row ends the text above it; an update must not (more text can follow a tool_use).
                 closeStreaming();
@@ -191,11 +195,11 @@ public final class Transcript {
 
         /** The CLI re-reports a rate limit on every tool call: one card, updated in place. */
         private void rateLimit(JsonObject data) {
-            String message = str(data, "message");
+            String message = text(data, "message");
             int last = items.size() - 1;
             if (last >= 0 && items.get(last) instanceof AgentText a && echoes(a.text(), message)) items.remove(last);
             // A missing severity means "limit", as in the web's schema default.
-            RateLimit card = new RateLimit(message, !"warning".equals(str(data, "severity")));
+            RateLimit card = new RateLimit(message, !"warning".equals(text(data, "severity")));
             int at = -1;
             for (int i = items.size() - 1; i >= 0; i--) {
                 if (items.get(i) instanceof RateLimit) {
@@ -257,8 +261,6 @@ public final class Transcript {
     private static final Pattern CLAUDE_CALL = Pattern.compile("(^|[\\s;&|(])claude(\\s|$)");
     private static final Pattern PRINT_FLAG = Pattern.compile("(^|\\s)(-p|--print)(\\s|=|$)");
     private static final Pattern AGENT_FLAG = Pattern.compile("--agent(\\s|=)");
-    private static final List<String> ARG_KEYS =
-            List.of("command", "file_path", "path", "pattern", "url", "query", "description", "prompt", "skill");
 
     /** Sub-agent spawns get their own card in the web chat, never a tool row (tool-item.ts). */
     static boolean isSubAgentSpawn(String name, JsonElement input) {
@@ -272,34 +274,6 @@ public final class Transcript {
             return CLAUDE_CALL.matcher(cmd).find() && PRINT_FLAG.matcher(cmd).find() && AGENT_FLAG.matcher(cmd).find();
         }
         return false;
-    }
-
-    /** One line worth showing next to the tool name: its main field, else the JSON; null for nothing. */
-    static String toolArg(JsonElement input) {
-        if (input == null || input.isJsonNull()) return null;
-        if (input.isJsonPrimitive()) {
-            String s = input.getAsString().trim();
-            return s.isEmpty() ? null : s;
-        }
-        if (input.isJsonObject()) {
-            JsonObject o = input.getAsJsonObject();
-            if (o.size() == 0) return null;
-            for (String key : ARG_KEYS) {
-                if (isString(o, key)) return o.get(key).getAsString().replace('\n', ' ');
-            }
-        }
-        if (input.isJsonArray() && input.getAsJsonArray().isEmpty()) return null;
-        return input.toString();
-    }
-
-    /** Persisted tool input is a JSON string; anything unparseable stays the raw string. */
-    static JsonElement parseInput(String stored) {
-        if (stored == null || stored.isBlank()) return null;
-        try {
-            return JsonParser.parseString(stored);
-        } catch (RuntimeException e) {
-            return new com.google.gson.JsonPrimitive(stored);
-        }
     }
 
     private static final Pattern ATTACHMENT_FOOTER =
@@ -328,17 +302,5 @@ public final class Transcript {
 
     public static String fmtCost(double cost) {
         return String.format(java.util.Locale.ROOT, "$%.2f", cost);
-    }
-
-    private static boolean isString(JsonObject o, String key) {
-        return o.has(key) && o.get(key).isJsonPrimitive() && o.get(key).getAsJsonPrimitive().isString();
-    }
-
-    private static long num(JsonObject o, String key) {
-        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsLong() : 0;
-    }
-
-    private static String str(JsonObject o, String key) {
-        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : "";
     }
 }

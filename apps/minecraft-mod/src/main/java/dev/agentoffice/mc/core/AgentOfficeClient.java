@@ -1,5 +1,10 @@
 package dev.agentoffice.mc.core;
 
+import static dev.agentoffice.mc.core.Json.bool;
+import static dev.agentoffice.mc.core.Json.intNum;
+import static dev.agentoffice.mc.core.Json.num;
+import static dev.agentoffice.mc.core.Json.str;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -35,19 +40,22 @@ public final class AgentOfficeClient {
     private static final Duration QUEUE_TIMEOUT = Duration.ofMillis(ServerMirror.GH_TIMEOUT_MS).plusSeconds(15);
     private static final Duration PULL_TIMEOUT = Duration.ofMillis(2 * ServerMirror.GH_TIMEOUT_MS).plusSeconds(15);
 
-    private final HttpClient http;
+    /**
+     * One for every instance: each HttpClient keeps a selector thread until it is garbage collected, and rediscovery
+     * makes an instance per candidate. HTTP/1.1: the default h2c upgrade request makes Agent Office's Node server drop
+     * the connection with no response at all.
+     */
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(2))
+            .build();
+
     private final URI base;
     /** Set for scripted dev checks: their window opens on the user's desktop, where stray input must not act. */
     private volatile boolean readOnly;
 
     public AgentOfficeClient(URI base) {
         this.base = base;
-        // HTTP/1.1: the default h2c upgrade request makes Agent Office's Node server drop the
-        // connection with no response at all.
-        this.http = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(2))
-                .build();
     }
 
     /**
@@ -97,7 +105,7 @@ public final class AgentOfficeClient {
             for (JsonElement el : call(get(Routes.projects())).getAsJsonArray()) {
                 JsonObject p = el.getAsJsonObject();
                 if (bool(p, "shelved")) continue;
-                int count = p.has("instanceCount") && !p.get("instanceCount").isJsonNull() ? p.get("instanceCount").getAsInt() : 0;
+                int count = intNum(p, "instanceCount");
                 out.add(new Api.Project(str(p, "id"), str(p, "name"), count));
             }
             return out;
@@ -249,7 +257,7 @@ public final class AgentOfficeClient {
                 .POST(HttpRequest.BodyPublishers.noBody()).build();
         HttpResponse<byte[]> res;
         try {
-            res = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            res = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", e);
@@ -314,7 +322,7 @@ public final class AgentOfficeClient {
     public byte[] bytes(String path, int maxBytes) throws IOException {
         HttpResponse<InputStream> res;
         try {
-            res = http.send(get(path), HttpResponse.BodyHandlers.ofInputStream());
+            res = HTTP.send(get(path), HttpResponse.BodyHandlers.ofInputStream());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", e);
@@ -341,7 +349,7 @@ public final class AgentOfficeClient {
         executor.execute(() -> {
             Throwable failure = null;
             try {
-                HttpResponse<InputStream> res = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                HttpResponse<InputStream> res = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
                 handle.attach(res.body());
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(res.body(), StandardCharsets.UTF_8))) {
                     if (res.statusCode() != 200) throw new Api.ApiException(res.statusCode(), null);
@@ -425,7 +433,7 @@ public final class AgentOfficeClient {
     private JsonElement call(HttpRequest req) throws IOException {
         HttpResponse<String> res;
         try {
-            res = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            res = HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", e);
@@ -468,20 +476,5 @@ public final class AgentOfficeClient {
                 .header("content-type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
                 .build();
-    }
-
-    private static String str(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? null : el.getAsString();
-    }
-
-    private static long num(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el == null || el.isJsonNull() ? 0 : el.getAsLong();
-    }
-
-    private static boolean bool(JsonObject o, String key) {
-        JsonElement el = o.get(key);
-        return el != null && el.isJsonPrimitive() && el.getAsBoolean();
     }
 }
