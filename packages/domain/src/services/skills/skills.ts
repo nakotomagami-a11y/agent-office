@@ -791,8 +791,8 @@ interface ClassifiedSkill extends SkillBreakdownRow {
 }
 
 /** Resolves each skill once into its final prompt fragment + mode + size.
- *  `buildSkillsPrompt` and `buildSkillsBreakdown` both derive from this, so
- *  they can't drift apart. Skills with no body produce no entry. */
+ *  The prompt and the Context & Cost breakdown both derive from this, so they
+ *  can't drift apart. Skills with no body produce no entry. */
 function classifySkills(skills: string[]): ClassifiedSkill[] {
   const out: ClassifiedSkill[] = [];
   for (const name of skills) {
@@ -836,10 +836,6 @@ export function buildSkillsBundle(skills: string[]): { prompt: string; breakdown
   };
 }
 
-export function buildSkillsPrompt(skills: string[]): string {
-  return promptFromClassified(classifySkills(skills));
-}
-
 function promptFromClassified(classified: ClassifiedSkill[]): string {
   const inline = classified.filter((c) => c.mode === "inline").map((c) => c.fragment);
   const refs = classified.filter((c) => c.mode === "reference").map((c) => c.fragment);
@@ -853,13 +849,6 @@ function promptFromClassified(classified: ClassifiedSkill[]): string {
     );
   }
   return sections.join("\n\n---\n\n");
-}
-
-/** Per-skill sizing for the Context & Cost tab — one row per skill, derived
- *  from the same `classifySkills` walk `buildSkillsPrompt` uses. */
-export function buildSkillsBreakdown(skills: string[]): SkillBreakdownRow[] {
-  const out: SkillBreakdownRow[] = classifySkills(skills).map(({ name, chars, mode }) => ({ name, chars, mode }));
-  return out;
 }
 
 /** Declared skill names that resolve to nothing. Empty array = all resolve.

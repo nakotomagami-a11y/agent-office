@@ -6,7 +6,7 @@ import { useSkillCustomization, useSetSkillSections } from "@/modules/skills/hoo
 /**
  * Section toggles for a read-only skill (Phase 1 of skill customization).
  * Unchecking a `##` section drops it from what the agent actually receives
- * (see buildSkillsPrompt). Global: the choice applies to every agent using
+ * (see buildSkillsBundle). Global: the choice applies to every agent using
  * this skill. Non-destructive — the upstream SKILL.md is never modified, so
  * updates can't clobber it.
  */
