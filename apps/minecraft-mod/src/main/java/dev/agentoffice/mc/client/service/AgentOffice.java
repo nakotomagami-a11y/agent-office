@@ -20,7 +20,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Agent Office as this client reaches it: the connection, and every call to it run off the render thread with its
@@ -66,6 +69,9 @@ public final class AgentOffice {
         }
     };
 
+    /** Main thread only (see {@link #openWhenConnected}). */
+    private static boolean opening;
+
     private AgentOffice() {}
 
     /** The connection (see {@link Connection}): rediscovered when it stops answering, as the app's port changes on every launch. */
@@ -107,6 +113,25 @@ public final class AgentOffice {
             CONNECTION.failed(c);
             throw e;
         }
+    }
+
+    /**
+     * Connects, then opens what {@code screen} makes of the client, unless the player opened something else or left the
+     * world meanwhile; null opens nothing. Main thread only: one pending open at a time, however fast the player clicks.
+     */
+    public static void openWhenConnected(Function<AgentOfficeClient, Screen> screen) {
+        if (opening) return;
+        opening = true;
+        Minecraft mc = Minecraft.getInstance();
+        client().whenComplete((c, err) -> mc.execute(() -> {
+            opening = false;
+            if (err != null) {
+                mc.gui.setOverlayMessage(Component.literal("Agent Office isn't running"), false);
+            } else if (mc.screen == null && mc.level != null) {
+                Screen next = screen.apply(c);
+                if (next != null) mc.setScreen(next);
+            }
+        }));
     }
 
     /** {@code then}, on the main thread, after {@code millis}, if {@code alive} still holds. */

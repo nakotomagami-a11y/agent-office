@@ -86,21 +86,14 @@ public final class ClientSetup {
         if (mc.player.isSecondaryUseActive() && !body.isShell()) return;
         event.setCanceled(true);
         event.setSwingHand(false);
-        if (opening) return;
-        opening = true;
-        AgentOffice.client().whenComplete((client, err) -> mc.execute(() -> {
-            opening = false;
-            if (err != null) {
-                mc.gui.setOverlayMessage(Component.literal("Agent Office isn't running"), false);
-            } else if (mc.screen == null && mc.level != null) {
-                // The player may have opened something else or left the world while we connected.
-                // A shell has no seat yet: it can only be set up, never chatted with.
-                Api.Slot seat = Bodies.seatOf(body);
-                if (body.isShell()) mc.setScreen(new AgentSetupScreen(client, body.getUUID()));
-                else if (seat != null) mc.setScreen(new ChatScreen(null, client, seat));
-                else mc.gui.setOverlayMessage(Component.literal("This world hasn't told us which seat it is yet: try again"), false);
-            }
-        }));
+        AgentOffice.openWhenConnected(client -> {
+            // A shell has no seat yet: it can only be set up, never chatted with.
+            if (body.isShell()) return new AgentSetupScreen(client, body.getUUID());
+            Api.Slot seat = Bodies.seatOf(body);
+            if (seat != null) return new ChatScreen(null, client, seat);
+            mc.gui.setOverlayMessage(Component.literal("This world hasn't told us which seat it is yet: try again"), false);
+            return null;
+        });
     }
 
     /** The tablet's home screen; from the K key or using an Agent Tablet. */
@@ -108,9 +101,6 @@ public final class ClientSetup {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen == null) WorkspaceScreen.openHome(mc);
     }
-
-    /** Main thread only: one pending open at a time, however fast the player clicks. */
-    private static boolean opening;
 
     /** The Agent Spawn Egg: the villager egg's brown with lavender spots instead of tan. */
     private static void itemColors(RegisterColorHandlersEvent.Item event) {
