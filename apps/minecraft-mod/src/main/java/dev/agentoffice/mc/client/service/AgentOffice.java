@@ -4,7 +4,6 @@ import dev.agentoffice.mc.ModPaths;
 import dev.agentoffice.mc.client.ClientSetup;
 import dev.agentoffice.mc.client.DevHooks;
 import dev.agentoffice.mc.core.AgentOfficeClient;
-import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.Async;
 import dev.agentoffice.mc.core.ChatSession;
 import dev.agentoffice.mc.core.Connection;
@@ -108,27 +107,30 @@ public final class AgentOffice {
         Async.run(SEATS, main(), alive, () -> through(c, call), ok, failed);
     }
 
-    /** An HTTP error status means Agent Office answered; anything else that fails may mean it moved. */
     private static <T> T through(AgentOfficeClient c, Call<T> call) throws IOException {
         try {
             return call.run(c);
-        } catch (Api.ApiException e) {
-            throw e;
         } catch (IOException e) {
-            CONNECTION.failed(c);
+            failed(c, e);
             throw e;
         }
+    }
+
+    /** A call through {@code c} failed with {@code e}, which the caller handles itself: Agent Office may have moved. */
+    public static void failed(AgentOfficeClient c, IOException e) {
+        CONNECTION.failed(c, e);
     }
 
     /**
      * Connects, then opens what {@code screen} makes of the client, unless the player opened something else or left the
      * world meanwhile; null opens nothing. Main thread only: one pending open at a time, however fast the player clicks.
+     * Always asks Agent Office first: the screen keeps this client, so it must not be one that stopped answering.
      */
     public static void openWhenConnected(Function<AgentOfficeClient, Screen> screen) {
         if (opening) return;
         opening = true;
         Minecraft mc = Minecraft.getInstance();
-        client().whenComplete((c, err) -> mc.execute(() -> {
+        CONNECTION.recheck().whenComplete((c, err) -> mc.execute(() -> {
             opening = false;
             if (err != null) {
                 mc.gui.setOverlayMessage(Component.literal("Agent Office isn't running"), false);

@@ -25,9 +25,14 @@ public final class Connection {
 
     private AgentOfficeClient client;
     private long trustedUntil = Long.MIN_VALUE;
+    /** Counts lost trust: a check that saw it change while running doesn't trust what it found. */
+    private long distrusts;
     private CompletableFuture<AgentOfficeClient> checking;
 
-    /** {@code onFound} runs on {@code io} for each newly found client, before anyone gets it. */
+    /**
+     * {@code io} runs the checks, which block on HTTP: a pool, never the game's main thread. {@code onFound} runs there
+     * for each newly found client, before anyone gets it.
+     */
     public Connection(Executor io, Supplier<List<URI>> candidates, Consumer<AgentOfficeClient> onFound) {
         this(io, candidates, onFound, () -> System.nanoTime() / 1_000_000);
     }
@@ -42,30 +47,56 @@ public final class Connection {
     /** The trusted client at once; otherwise the check that is running, or a new one. */
     public synchronized CompletableFuture<AgentOfficeClient> get() {
         if (client != null && clockMs.getAsLong() < trustedUntil) return CompletableFuture.completedFuture(client);
-        if (checking != null) return checking;
-        AgentOfficeClient current = client;
-        CompletableFuture<AgentOfficeClient> check = CompletableFuture.supplyAsync(() -> check(current), io);
-        checking = check;
-        check.whenComplete((found, err) -> settle(check, found));
-        return check;
+        CompletableFuture<AgentOfficeClient> check = checking;
+        if (check == null) {
+            CompletableFuture<AgentOfficeClient> started = new CompletableFuture<>();
+            check = checking = started;
+            AgentOfficeClient current = client;
+            long seen = distrusts;
+            io.execute(() -> run(started, current, seen));
+        }
+        // A copy each: one caller cancelling its future must not fail everyone else's.
+        return check.copy();
     }
 
     /** Asks the current client again, whatever its trust: a caller saw it fail. */
     public synchronized CompletableFuture<AgentOfficeClient> recheck() {
-        trustedUntil = Long.MIN_VALUE;
+        distrust();
         return get();
     }
 
-    /** A call through {@code failed} didn't reach it: the next {@link #get} checks it first. */
-    public synchronized void failed(AgentOfficeClient failed) {
-        if (failed == client) trustedUntil = Long.MIN_VALUE;
+    /**
+     * A call through {@code failed} ended in {@code e}. An HTTP error status ({@link Api.ApiException}) means Agent
+     * Office answered; anything else may mean it moved, so the next {@link #get} checks first.
+     */
+    public synchronized void failed(AgentOfficeClient failed, IOException e) {
+        if (!(e instanceof Api.ApiException) && failed == client) distrust();
     }
 
-    private synchronized void settle(CompletableFuture<AgentOfficeClient> check, AgentOfficeClient found) {
+    private void distrust() {
+        trustedUntil = Long.MIN_VALUE;
+        distrusts++;
+    }
+
+    /** Settles the connection before the check's callers see its result, so a call they make finds it current. */
+    private void run(CompletableFuture<AgentOfficeClient> check, AgentOfficeClient current, long seen) {
+        AgentOfficeClient found;
+        try {
+            found = check(current);
+        } catch (Throwable t) {
+            settle(check, null, seen);
+            check.completeExceptionally(t);
+            return;
+        }
+        settle(check, found, seen);
+        check.complete(found);
+    }
+
+    private synchronized void settle(CompletableFuture<AgentOfficeClient> check, AgentOfficeClient found, long seen) {
         if (checking == check) checking = null;
         if (found == null) return;
         client = found;
-        trustedUntil = clockMs.getAsLong() + TRUST_MS;
+        trustedUntil = distrusts == seen ? clockMs.getAsLong() + TRUST_MS : Long.MIN_VALUE;
     }
 
     private AgentOfficeClient check(AgentOfficeClient current) {

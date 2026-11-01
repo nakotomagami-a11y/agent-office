@@ -1,6 +1,7 @@
 package dev.agentoffice.mc.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -84,11 +86,80 @@ class ConnectionTest {
         candidates.add(app.uri());
         CompletableFuture<AgentOfficeClient> first = connection.get();
         CompletableFuture<AgentOfficeClient> second = connection.get();
-        assertSame(first, second);
-        assertEquals(1, io.size(), "one discovery for both");
-        assertSame(run(first), second.join());
+        CompletableFuture<AgentOfficeClient> third = connection.recheck();
+        assertEquals(1, io.size(), "one discovery for all three");
+        first.cancel(true);
+        AgentOfficeClient c = run(second);
+        assertSame(c, third.join(), "one caller cancelling fails nobody else");
         assertEquals(1, app.health().get());
         assertEquals(1, found.size());
+    }
+
+    @Test
+    void anHttpErrorKeepsTheTrustAndAFailureToReachItDoesNot() throws IOException {
+        Fake app = fake();
+        candidates.add(app.uri());
+        AgentOfficeClient c = run(connection.get());
+        connection.failed(c, new Api.ApiException(500, "internal"));
+        assertTrue(connection.get().isDone(), "Agent Office answered");
+        connection.failed(c, new ConnectException("refused"));
+        assertFalse(connection.get().isDone(), "may have moved: asked first");
+    }
+
+    @Test
+    void aFailureDuringACheckIsNotForgotten() throws IOException {
+        Fake app = fake();
+        candidates.add(app.uri());
+        AgentOfficeClient c = run(connection.get());
+        now.addAndGet(Connection.TRUST_MS);
+        CompletableFuture<AgentOfficeClient> check = connection.get();
+        connection.failed(c, new ConnectException("refused")); // a call that was already on its way
+        assertSame(c, run(check));
+        assertFalse(connection.get().isDone(), "the check's answer predates the failure: asked again");
+    }
+
+    @Test
+    void theConnectionIsSettledBeforeAnyCallerHearsOfIt() throws IOException {
+        Fake app = fake();
+        candidates.add(app.uri());
+        List<Boolean> trustedWhenHeard = new ArrayList<>();
+        CompletableFuture<AgentOfficeClient> f = connection.get();
+        f.thenAccept(c -> trustedWhenHeard.add(connection.get().isDone()));
+        AgentOfficeClient c = run(f);
+        assertEquals(List.of(true), trustedWhenHeard);
+        // So a call that fails at once, as the caller's first act, is not lost.
+        connection.failed(c, new ConnectException("refused"));
+        assertFalse(connection.get().isDone());
+    }
+
+    @Test
+    void aNewClientIsPreparedBeforeAnyoneGetsIt() throws IOException {
+        Fake app = fake();
+        candidates.add(app.uri());
+        List<Boolean> doneWhenPrepared = new ArrayList<>();
+        List<CompletableFuture<AgentOfficeClient>> pending = new ArrayList<>();
+        Connection c = new Connection(io::add, () -> List.copyOf(candidates), found -> doneWhenPrepared.add(pending.get(0).isDone()), now::get);
+        pending.add(c.get());
+        run(pending.get(0));
+        assertEquals(List.of(false), doneWhenPrepared);
+
+        Connection broken = new Connection(io::add, () -> List.copyOf(candidates), found -> {
+            throw new IllegalStateException("prepare failed");
+        }, now::get);
+        assertThrows(CompletionException.class, () -> run(broken.get()));
+        assertFalse(broken.get().isDone(), "nothing was trusted: tried again");
+    }
+
+    @Test
+    void worksOnAnExecutorThatRunsAtOnce() throws IOException {
+        // The check then completes inside get(): it must still be cleared, or every later ask would get this answer.
+        Fake app = fake();
+        candidates.add(app.uri());
+        Connection direct = new Connection(Runnable::run, () -> List.copyOf(candidates), x -> {}, now::get);
+        AgentOfficeClient c = direct.get().join();
+        now.addAndGet(Connection.TRUST_MS);
+        assertSame(c, direct.get().join());
+        assertEquals(2, app.health().get());
     }
 
     @Test
@@ -97,10 +168,10 @@ class ConnectionTest {
         candidates.add(old.uri());
         AgentOfficeClient c = run(connection.get());
 
-        connection.failed(new AgentOfficeClient(old.uri()));
+        connection.failed(new AgentOfficeClient(old.uri()), new ConnectException("refused"));
         assertTrue(connection.get().isDone(), "a failure through another client says nothing about this one");
 
-        connection.failed(c);
+        connection.failed(c, new ConnectException("refused"));
         assertSame(c, run(connection.get()), "still answering: kept");
         assertEquals(2, old.health().get());
 

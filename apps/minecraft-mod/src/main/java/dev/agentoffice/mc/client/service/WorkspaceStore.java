@@ -124,7 +124,9 @@ public final class WorkspaceStore {
                 if (!wanted) continue;
                 try {
                     rs.put(p.id(), c.instances(p));
-                } catch (IOException | RuntimeException e) {
+                } catch (IOException e) {
+                    AgentOffice.failed(c, e); // keep what was known of this one
+                } catch (RuntimeException e) {
                     // keep what was known of this one
                 }
             }

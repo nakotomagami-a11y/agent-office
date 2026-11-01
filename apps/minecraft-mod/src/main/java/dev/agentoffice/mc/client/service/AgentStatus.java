@@ -98,6 +98,7 @@ public final class AgentStatus {
                 } catch (Api.ApiException e) {
                     found.put(k, AgentState.UNKNOWN);
                 } catch (IOException e) {
+                    AgentOffice.failed(c, e);
                     found.put(k, AgentState.OFFLINE);
                 } catch (RuntimeException e) {
                     Ids.LOG.warn("Couldn't read {}'s status", k, e);
