@@ -56,8 +56,8 @@ two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
 - `core/AgentOfficeClient` is the HTTP + SSE client: `java.net.http.HttpClient` pinned to HTTP/1.1 (the default h2c
   upgrade makes Agent Office's Node server drop the connection), JSON through Gson. No other dependencies.
 - `core/Connection` is the one connection: a client that answered `/api/health` is trusted for 30 s, then asked
-  again, sooner after a call that failed to reach it; one that no longer answers means trying every candidate again.
-  Callers asking during a check share it.
+  again, sooner after a call that failed to reach it, and always before a screen opens with it (screens keep their
+  client); one that no longer answers means trying every candidate again. Callers asking during a check share it.
 - `core/Async` runs work off the main thread and always reports how it ended, failures of any kind included.
   `client/service/AgentOffice` is its Minecraft side: the connection, `call(...)`, `later(...)`.
 - `core/ChatSession` is a chat without its screen: reading, following the live run, retries and reconnecting, approvals,
