@@ -1,9 +1,5 @@
 package dev.agentoffice.mc.client.screen;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.service.ClipboardImages;
@@ -19,6 +15,7 @@ import dev.agentoffice.mc.core.Api;
 import dev.agentoffice.mc.core.ChatSession;
 import dev.agentoffice.mc.core.Protocol;
 import dev.agentoffice.mc.core.ServerMirror;
+import dev.agentoffice.mc.core.ToolInput;
 import dev.agentoffice.mc.core.Transcript;
 import java.util.ArrayList;
 import java.util.List;
@@ -243,7 +240,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         int shown = 0;
         List<Api.Permission> pending = session.pending();
         for (Api.Permission p : pending) {
-            List<FormattedCharSequence> detail = font.split(Component.literal(permissionDetail(p)), wx1 - wx0 - 12);
+            List<FormattedCharSequence> detail = font.split(Component.literal(ToolInput.detail(p.input())), wx1 - wx0 - 12);
             List<FormattedCharSequence> lines = new ArrayList<>(detail.subList(0, Math.min(PERMISSION_LINES, detail.size())));
             lines.add(Component.literal(detail.size() > PERMISSION_LINES ? "… hover for the full input" : "hover for the full input")
                     .withColor(Theme.TXT_4).getVisualOrderText());
@@ -259,7 +256,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             List<FormattedCharSequence> lines = cardLines.get(i);
             int h = 22 + lines.size() * 10;
             above -= h;
-            List<FormattedCharSequence> full = font.split(Component.literal(fullInput(p)), Math.max(120, (wx1 - wx0) / 2));
+            List<FormattedCharSequence> full = font.split(Component.literal(ToolInput.pretty(p.input())), Math.max(120, (wx1 - wx0) / 2));
             if (full.size() > TOOLTIP_LINES) {
                 int rest = full.size() - TOOLTIP_LINES;
                 full = new ArrayList<>(full.subList(0, TOOLTIP_LINES));
@@ -322,36 +319,6 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     private static boolean isPaste(int keyCode, int modifiers) {
         int command = Minecraft.ON_OSX ? GLFW.GLFW_MOD_SUPER : GLFW.GLFW_MOD_CONTROL;
         return keyCode == GLFW.GLFW_KEY_V && (modifiers & command) != 0 && (modifiers & (GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_ALT)) == 0;
-    }
-
-    /** Everything the tool would get (a Write's content, an Edit's old/new text), for the hover. */
-    private static String fullInput(Api.Permission p) {
-        if (p.input() == null) return "(no input)";
-        try {
-            JsonElement el = JsonParser.parseString(p.input());
-            String pretty = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(el);
-            // Escaped newlines inside strings become real ones, so scripts and file content read as such.
-            return pretty.replace("\\n", "\n").replace("\\t", "    ");
-        } catch (RuntimeException e) {
-            return p.input();
-        }
-    }
-
-    /** A Bash approval shows the command itself; other tools their main field, else the JSON. */
-    private static String permissionDetail(Api.Permission p) {
-        if (p.input() == null) return "";
-        try {
-            JsonElement el = JsonParser.parseString(p.input());
-            if (el.isJsonObject()) {
-                JsonObject o = el.getAsJsonObject();
-                for (String key : new String[] {"command", "file_path", "url", "path", "pattern"}) {
-                    if (o.has(key) && o.get(key).isJsonPrimitive()) return o.get(key).getAsString();
-                }
-            }
-        } catch (RuntimeException ignored) {
-            // Not JSON: show it raw.
-        }
-        return p.input();
     }
 
     // ── input ───────────────────────────────────────────────────────────────
