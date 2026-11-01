@@ -22,7 +22,6 @@ interface CleanupRow {
 }
 
 const ROWS: CleanupRow[] = [
-  { kind: "transcripts", key: "transcripts", icon: "eye" },
   { kind: "drafts", key: "drafts", icon: "pen" },
   { kind: "orphaned-runs", key: "orphaned_runs", icon: "refresh" },
   { kind: "agent-memory", key: "agent_memory", icon: "memory" },

@@ -3,8 +3,7 @@
  *
  * Each function is opt-in and idempotent. Analytics data (runs history,
  * cost, tokens) is preserved except by `everything()`. Every function
- * returns a small summary object so the UI can show "N transcripts / M
- * drafts cleared".
+ * returns a small summary object so the UI can show "N drafts cleared".
  */
 
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -43,25 +42,6 @@ export const RUN_FK_REFS = [
 
 const RUN_CHILD_TABLES = ["messages", "tool_calls", "background_shells"] as const;
 
-export const PIPELINE_CHILD_TABLES = ["pipeline_steps"] as const;
-
-function deletePipelinesWhere(where: string): number {
-  const db = getDb();
-  const ids = `SELECT id FROM pipelines WHERE ${where}`;
-  for (const t of PIPELINE_CHILD_TABLES) {
-    db.prepare(`DELETE FROM ${t} WHERE pipeline_id IN (${ids})`).run();
-  }
-  return db.prepare(`DELETE FROM pipelines WHERE ${where}`).run().changes;
-}
-
-// ─── Chat transcripts ────────────────────────────────────────────────────────
-
-export function resetAllTranscripts(): CleanupResult {
-  const db = getDb();
-  const changes = db.prepare("DELETE FROM transcripts").run().changes;
-  return { cleared: changes };
-}
-
 // ─── Composer drafts ─────────────────────────────────────────────────────────
 
 export function clearComposerDrafts(): CleanupResult {
@@ -71,7 +51,7 @@ export function clearComposerDrafts(): CleanupResult {
 }
 
 // ─── Orphaned recovered runs ─────────────────────────────────────────────────
-// Interrupted pipelines + zombie 'error/-1' runs left by a crash cleanup pass.
+// Zombie 'error/-1' runs left by a crash cleanup pass.
 // Analytics rows for successful/failed-but-completed runs are preserved. A chat
 // turn (or a sub-agent inside one) is the transcript itself, so it is never an orphan.
 
@@ -79,22 +59,13 @@ const ORPHANED_RUN = `status = 'error' AND exit_code = -1 AND conversation_id IS
   AND (parent_run_id IS NULL OR parent_run_id NOT IN (SELECT id FROM runs WHERE conversation_id IS NOT NULL))`;
 
 export function wipeOrphanedRuns(): CleanupResult {
-  const db = getDb();
-  const { orphanRunsChanges, orphanPipelinesChanges } = db.transaction(() => ({
-    orphanRunsChanges: deleteRunsWhere(ORPHANED_RUN),
-    orphanPipelinesChanges: deletePipelinesWhere("interrupted = 1"),
-  }))();
-  if (orphanRunsChanges > 0) {
+  // Inside a transaction deleteRunsWhere stays quiet, so the events below go out once.
+  const runs = getDb().transaction(() => deleteRunsWhere(ORPHANED_RUN))();
+  if (runs > 0) {
     emitAppEvent("conversations:changed");
     emitAppEvent("loops:changed");
   }
-  return {
-    cleared: orphanRunsChanges + orphanPipelinesChanges,
-    detail: {
-      runs: orphanRunsChanges,
-      pipelines: orphanPipelinesChanges,
-    },
-  };
+  return { cleared: runs, detail: { runs } };
 }
 
 // ─── Agent memory files ──────────────────────────────────────────────────────
@@ -225,7 +196,6 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
   db.transaction(() => {
     const live = liveWork();
     if (live > 0) throw new RunsLiveError(live);
-    detail.transcripts = resetAllTranscripts().cleared;
     detail.drafts = clearComposerDrafts().cleared;
     detail.uiSettings = resetUiSettings().cleared;
     // `active_run_id` has no FK, so deleting runs beneath a conversation or
@@ -239,8 +209,6 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
       detail[t] = db.prepare(`DELETE FROM ${t}`).run().changes;
     }
     detail.runs = db.prepare("DELETE FROM runs").run().changes;
-    detail.pipeline_steps = db.prepare("DELETE FROM pipeline_steps").run().changes;
-    detail.pipelines = db.prepare("DELETE FROM pipelines").run().changes;
   }).immediate();
 
   // Filesystem last: it cannot be rolled back if the db half fails.
@@ -258,8 +226,6 @@ export function everything(opts: CleanupOptions = {}): CleanupResult {
 
 export function runCleanup(kind: CleanupKind, opts: CleanupOptions = {}): CleanupResult {
   switch (kind) {
-    case "transcripts":
-      return resetAllTranscripts();
     case "drafts":
       return clearComposerDrafts();
     case "orphaned-runs":

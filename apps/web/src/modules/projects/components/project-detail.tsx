@@ -95,8 +95,6 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
 
         <ProjectBackupCard
           projectName={project.meta.name}
-          includeHistory={backup.includeHistory}
-          onIncludeHistoryChange={backup.setIncludeHistory}
           onExport={() => void backup.onExport()}
           exportError={backup.exportError}
           restoreOffice={backup.restoreOffice}

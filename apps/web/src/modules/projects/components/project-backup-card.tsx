@@ -7,8 +7,6 @@ import { cn } from "@/lib/cn";
 
 export type ProjectBackupCardProps = {
   projectName: string;
-  includeHistory: boolean;
-  onIncludeHistoryChange: (value: boolean) => void;
   onExport: () => void;
   exportError: string | null;
   restoreOffice: boolean;
@@ -44,8 +42,6 @@ function OptionCheckbox({ checked, onChange, label }: { checked: boolean; onChan
  */
 export function ProjectBackupCard({
   projectName,
-  includeHistory,
-  onIncludeHistoryChange,
   onExport,
   exportError,
   restoreOffice,
@@ -88,7 +84,6 @@ export function ProjectBackupCard({
               </div>
             </div>
           </div>
-          <OptionCheckbox checked={includeHistory} onChange={onIncludeHistoryChange} label={t("project_detail.save_include_history")} />
           <button
             type="button"
             onClick={onExport}

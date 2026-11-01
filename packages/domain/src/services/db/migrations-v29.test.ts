@@ -16,13 +16,16 @@ test("v29 adds the repeat columns and leaves old jobs one-shot", () => {
   db.exec(`
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_every;
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_anchor;
+    CREATE TABLE transcripts (agent_id TEXT, instance_id TEXT);
+    CREATE TABLE pipelines (id TEXT PRIMARY KEY);
+    CREATE TABLE pipeline_steps (pipeline_id TEXT REFERENCES pipelines(id));
   `);
   db.pragma("user_version = 28");
   db.prepare(`INSERT INTO scheduled_jobs (id, fire_at, summon_request, created_at, updated_at)
     VALUES ('j1', 5, '{"agentId":"a","prompt":"hi"}', 1, 1)`).run();
 
   createSchema(db);
-  assert.equal(db.pragma("user_version", { simple: true }), 29);
+  assert.ok((db.pragma("user_version", { simple: true }) as number) >= 29);
   globalThis.__agentOfficeDb = db;
   const job = getScheduledJob("j1");
   assert.equal(job?.fireAt, 5);

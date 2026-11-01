@@ -656,8 +656,6 @@
   "cleanup_panel": {
     "title": "Cleanup",
     "hero_sub": "Surgical resets. Each one names exactly what it clears and what it keeps. Analytics survives everything except the bulk erase.",
-    "row_transcripts_label": "Chat transcripts",
-    "row_transcripts_desc": "Empties every chat panel. Run history and analytics are kept.",
     "row_drafts_label": "Composer drafts",
     "row_drafts_desc": "Discards every in-progress prompt sitting in a composer.",
     "row_orphaned_runs_label": "Orphaned recovered runs",

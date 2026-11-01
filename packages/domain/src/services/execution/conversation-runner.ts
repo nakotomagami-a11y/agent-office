@@ -15,8 +15,8 @@ export function buildSummonRequest(input: StartRunInput): SummonRequest {
     agentId: input.agentId,
     prompt: input.prompt,
     origin: input.origin,
-    // "default" is the DB's null-instance sentinel (see transcriptKey /
-    // db/transcripts.ts) — the rest of the summon path expects it omitted,
+    // "default" is the DB's null-instance sentinel (see transcriptKey) — the
+    // rest of the summon path expects it omitted,
     // not the literal string, for the default slot.
     instanceId: input.instanceId === "default" ? undefined : input.instanceId,
     projectId: input.projectId ?? undefined,

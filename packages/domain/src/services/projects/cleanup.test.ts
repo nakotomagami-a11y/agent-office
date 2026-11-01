@@ -12,7 +12,7 @@
  *     `background_shells`, which was added later, so it threw whenever a
  *     background shell had ever been tracked.
  *
- * `everything` also cleared transcripts and drafts BEFORE opening its
+ * `everything` also cleared drafts BEFORE opening its
  * transaction, so the rollback left a partial wipe behind and reported total
  * failure. That ordering is pinned below.
  *
@@ -38,7 +38,7 @@ const { deleteRunsWhere } = await import("../db/runs");
 const deleteRunsByAgent = (agentId: string) => deleteRunsWhere("agent_id = ?", agentId);
 const {
   everything, wipeOrphanedRuns, isKind, resetAgentMemoryFiles, clearSkillInstallCache, resetUiSettings,
-  RUN_FK_REFS, PIPELINE_CHILD_TABLES, RunsLiveError,
+  RUN_FK_REFS, RunsLiveError,
 } = await import("./cleanup");
 const { liveRuns } = await import("../execution/runs/registry");
 const { STALLED_START_MS } = await import("../execution/conversation");
@@ -97,20 +97,12 @@ test("RUN_FK_REFS matches every FK into runs, whatever the column is called", ()
     "a FK into runs appeared or vanished without updating RUN_FK_REFS");
 });
 
-test("PIPELINE_CHILD_TABLES matches every FK into pipelines", () => {
-  const db = freshDb();
-  const refs = allTables(db).flatMap((t) =>
-    fks(db, t).filter((fk) => fk.table === "pipelines").map(() => t),
-  );
-  assert.deepEqual([...new Set(refs)].sort(), [...PIPELINE_CHILD_TABLES].sort());
-});
-
-test("no FK into runs or pipelines declares ON DELETE, so order stays load-bearing", () => {
+test("no FK into runs declares ON DELETE, so order stays load-bearing", () => {
   // If one ever gains CASCADE the helpers become redundant — but silently.
   const db = freshDb();
   for (const t of allTables(db)) {
     for (const fk of fks(db, t)) {
-      if (fk.table !== "runs" && fk.table !== "pipelines") continue;
+      if (fk.table !== "runs") continue;
       assert.equal(fk.on_delete, "NO ACTION", `${t}.${fk.from} gained ON DELETE ${fk.on_delete}`);
     }
   }
@@ -160,7 +152,7 @@ test("everything() wipes the db even when a background shell is tracked", () => 
   const db = freshDb();
   seedRun(db, "r1");
   seedChildren(db, "r1");
-  db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[]', 1)").run();
+  db.prepare("INSERT INTO drafts (agent_id, instance_id, text, updated_at) VALUES ('dev', 'default', 'half-typed', 1)").run();
 
   const r = everything();
 
@@ -178,19 +170,19 @@ test("everything() removes the retired About You profile", () => {
 });
 
 test("everything() leaves nothing behind when the db half fails", () => {
-  // Transcripts were cleared BEFORE the transaction opened, so a failure
-  // inside it rolled back the runs and kept the transcripts deleted: a
-  // partial wipe the user was told had failed. Simulated by making the final
-  // statement fail — the whole db half must be atomic.
+  // Drafts were cleared BEFORE the transaction opened, so a failure inside it
+  // rolled back the runs and kept the drafts deleted: a partial wipe the user
+  // was told had failed. Simulated by making the final statement fail — the
+  // whole db half must be atomic.
   const db = freshDb();
   seedRun(db, "r1");
   seedChildren(db, "r1");
-  db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[]', 1)").run();
-  db.exec("DROP TABLE pipelines"); // the last DELETE in the transaction
+  db.prepare("INSERT INTO drafts (agent_id, instance_id, text, updated_at) VALUES ('dev', 'default', 'half-typed', 1)").run();
+  db.exec("CREATE TRIGGER fail_runs_delete BEFORE DELETE ON runs BEGIN SELECT RAISE(ABORT, 'boom'); END"); // the last DELETE
 
   assert.throws(() => everything());
 
-  assert.equal(count(db, "transcripts"), 1, "transcripts were wiped despite the rollback");
+  assert.equal(count(db, "drafts"), 1, "drafts were wiped despite the rollback");
   assert.equal(count(db, "runs"), 1, "runs were wiped despite the rollback");
 });
 
@@ -235,18 +227,6 @@ test("an orphaned parent is wiped while its completed sub-agent survives", () =>
   assert.deepEqual(left, [{ id: "sub", parent_run_id: null }], "the sub-agent must survive, unparented");
 });
 
-test("an interrupted pipeline is wiped together with its steps", () => {
-  // The other half of the same function, two lines below the fix, untouched by
-  // review round 1: pipeline_steps -> pipelines is the identical FK order bug.
-  const db = freshDb();
-  db.prepare("INSERT INTO pipelines (id, status, created_at, interrupted) VALUES ('p1', 'error', 1, 1)").run();
-  db.prepare("INSERT INTO pipeline_steps (pipeline_id, step_index, agent_id, status) VALUES ('p1', 0, 'dev', 'error')").run();
-
-  assert.equal(wipeOrphanedRuns().detail?.pipelines, 1);
-  assert.equal(count(db, "pipelines"), 0);
-  assert.equal(count(db, "pipeline_steps"), 0);
-});
-
 test("everything() does not leave a conversation wedged on a deleted run", () => {
   // No FK here, so nothing throws — it wedges. `reconcile` reads a missing run
   // as "just spawned, not persisted yet" and returns early FOREVER, so every
@@ -282,13 +262,13 @@ test("everything() refuses while a run is running anywhere, and deletes nothing"
   // Another server (desktop app and `pnpm server` side by side): its pid is alive.
   db.prepare("UPDATE runs SET owner_pid = ? WHERE id = 'live'").run(process.ppid);
   seedConversation(db, "c1", "running", "live");
-  db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[]', 1)").run();
+  db.prepare("INSERT INTO drafts (agent_id, instance_id, text, updated_at) VALUES ('dev', 'default', 'half-typed', 1)").run();
 
   assert.throws(() => everything(), (e: unknown) => e instanceof RunsLiveError && e.count === 1);
 
   assert.equal(count(db, "runs"), 1);
   assert.equal(count(db, "conversations"), 1);
-  assert.equal(count(db, "transcripts"), 1);
+  assert.equal(count(db, "drafts"), 1);
 });
 
 test("a ghost running row does not block erase: its server is dead, or it is ours and not live", () => {
@@ -331,17 +311,14 @@ test("everything() refuses while this server holds a live run its row doesn't sh
   }
 });
 
-test("everything() clears pipeline steps and ui settings, keeping the migration sentinel", () => {
-  // Both were deletable without failing a test: nothing seeded them.
+test("everything() clears ui settings, keeping the migration sentinel", () => {
+  // Deletable without failing a test: nothing seeded it.
   const db = freshDb();
-  db.prepare("INSERT INTO pipelines (id, status, created_at, interrupted) VALUES ('p1','done',1,0)").run();
-  db.prepare("INSERT INTO pipeline_steps (pipeline_id, step_index, agent_id, status) VALUES ('p1',0,'dev','done')").run();
   db.prepare("INSERT INTO ui_settings (key, value, updated_at) VALUES ('theme','dark',1)").run();
   db.prepare("INSERT INTO ui_settings (key, value, updated_at) VALUES ('_migrated','1',1)").run();
 
   everything();
 
-  assert.equal(count(db, "pipeline_steps"), 0);
   const keys = (db.prepare("SELECT key FROM ui_settings").all() as Array<{ key: string }>).map((r) => r.key);
   assert.deepEqual(keys, ["_migrated"], "the sentinel must survive or the JSONL migration re-runs");
 });

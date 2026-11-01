@@ -389,7 +389,6 @@ export const saveFileSchema = z.object({
     agents: z.string().nullable(),
     grassColor: z.string().nullable(),
   }),
-  history: z.array(z.object({ agentId: z.string(), instanceId: z.string(), transcript: z.string() })).optional(),
 });
 
 /** MCP bridge -> host: a tool call awaiting approval. */

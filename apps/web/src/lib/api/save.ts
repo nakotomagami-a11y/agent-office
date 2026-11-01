@@ -16,9 +16,9 @@ export interface ImportResult {
   error?: string;
 }
 
-export async function exportProject(projectId: string, includeHistory: boolean): Promise<Blob> {
+export async function exportProject(projectId: string): Promise<Blob> {
   const res = await apiClient.get<Blob>(API_ROUTES.saveExport, {
-    params: { projectId, ...(includeHistory ? { history: 1 } : {}) },
+    params: { projectId },
     responseType: "blob",
   });
   return res.data;

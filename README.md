@@ -114,7 +114,7 @@ origins (see [the security model](docs/architecture.md#csrf--security-model)).
 - **Pixi.js v8** for the isometric office canvas (GPU-accelerated; PixiJS Graphics for procedural path tiles)
 - **`@agent-office/pixel-planets`** and **`@agent-office/pixel-icons`** — own-authored procedural renderers, kept as separate repos: WebGL2 planet icons (one shared GL context for all of them) and canvas-2D weapon/shield icons
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules)
-- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, mission seats, UI state
+- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, conversations, drafts, mission seats, UI state
 - **framer-motion** for page + modal transitions
 - **zod** for validation at every trust boundary
 - **Tauri v2** for desktop bundling
