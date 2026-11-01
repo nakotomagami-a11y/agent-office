@@ -183,8 +183,6 @@ class ArchitectureTest {
                 .matcher(Files.readString(SRC.resolve(protocol)) + Files.readString(SRC.resolve(runErrors)));
         while (w.find()) words.add(w.group(1) != null ? w.group(1) : w.group(2));
         assertTrue(words.contains("needs_attention") && words.contains("auth_expired"), "read Protocol's and RunErrors' words");
-        // The mod's own "couldn't ask" status shares the word until part 2's AgentState replaces it.
-        words.remove("unknown");
         Pattern literal = Pattern.compile("\"([\\w-]+)\"");
         List<String> bad = new ArrayList<>();
         for (Source s : sources()) {
