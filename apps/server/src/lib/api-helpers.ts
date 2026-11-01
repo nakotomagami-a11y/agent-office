@@ -6,6 +6,7 @@ import { MAX_UPLOAD_BYTES, safeFilename, isValidIdSegment } from "@agent-office/
 import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
 import { readSettings, isIntegrationEnabled } from "@agent-office/domain/services/settings";
 import { log } from "@agent-office/domain/services/infra/log";
+import { env } from "./env";
 import { isSessionRemovalCode } from "@agent-office/domain/config/sessions";
 
 export function notFound(message = "not_found"): Response {
@@ -15,7 +16,7 @@ export function notFound(message = "not_found"): Response {
 // Dev-only route guard: 404 in production so dev tooling never ships. Returns the
 // response to short-circuit with, or null to continue.
 export function forbidInProd(): Response | null {
-  return process.env.NODE_ENV === "production" ? notFound() : null;
+  return env.NODE_ENV === "production" ? notFound() : null;
 }
 
 // Gate a route on an integration toggle (see the integration registry). Returns a

@@ -10,6 +10,7 @@ import { basename, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { log } from "@agent-office/domain/services/infra/log";
 import { isPidAlive } from "@agent-office/domain/services/infra/pid";
+import { env as serverEnv } from "./env";
 
 const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 
@@ -218,7 +219,7 @@ async function spawnPosix(title: string, cwd: string, argv: string[], env: NodeJ
   };
 
   // AO_TERMINAL=none runs headless, so tests never open a window or need a display.
-  const headless = process.env.AO_TERMINAL === "none";
+  const headless = serverEnv.AO_TERMINAL === "none";
   const termBin = headless || process.platform === "darwin" ? null : detectTerminal();
   if (!headless && process.platform === "darwin") launch("open", ["-a", "Terminal", scriptFile]);
   else if (!termBin) launch("bash", [scriptFile]);

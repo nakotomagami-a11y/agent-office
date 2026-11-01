@@ -483,6 +483,7 @@ Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env
 | `AGENT_OFFICE_DOCS_DIR` | bundled `docs/` | Override path to the in-app docs source |
 | `AO_BASE_URL` | the bound port | This server's loopback URL, which agents use for the gateway and permission callbacks. The standalone server (`main.ts`) sets it to the port it bound. Embedded in Next, an inherited or exported value is dropped at boot and `PORT` (the port Next bound) is used: a server started from an agent's shell would otherwise point at the parent server |
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
+| `AO_TERMINAL` | — | `none` starts dev/build/install commands headless instead of in a terminal window (the POSIX test runs) |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |
 | `NEXT_PUBLIC_POLL_SAFETY_NET` | `60000` | Reconnect safety net (ms) for queries driven by `/api/events` — SSE delivers changes instantly; this only re-fetches if an event was missed mid-reconnect |

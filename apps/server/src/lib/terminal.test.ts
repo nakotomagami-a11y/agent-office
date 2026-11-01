@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 import { processes } from "@agent-office/domain/services";
 import { spawnInTerminal, isLaunchedShell, hasShellCommandExited } from "./terminal";
+import { env as serverEnv } from "./env";
 import { GET as getProcess } from "../routes/processes/[pid]/route";
 
 async function waitFor<T>(probe: () => T | undefined, ms = 10_000): Promise<T | undefined> {
@@ -38,12 +39,12 @@ test("a dev command runs in the project dir with PORT set, stays tracked, and st
     writeFileSync(join(bin, "devtool"), `#!/bin/sh\nexec node -e "${serve}"\n`);
     chmodSync(join(bin, "devtool"), 0o755);
   }
-  const env = { PATH: process.env.PATH, AO_TERMINAL: process.env.AO_TERMINAL, AO_BASE_URL: process.env.AO_BASE_URL };
+  const env = { PATH: process.env.PATH, AO_TERMINAL: serverEnv.AO_TERMINAL, AO_BASE_URL: process.env.AO_BASE_URL };
   process.env.PATH = `${bin}${delimiter}${env.PATH}`;
   // A child Agent Office that inherited this would advertise the parent's URL.
   process.env.AO_BASE_URL = "http://127.0.0.1:1";
   // POSIX goes headless so CI needs no display; Windows keeps checking the real console launch.
-  if (process.platform !== "win32") process.env.AO_TERMINAL = "none";
+  if (process.platform !== "win32") serverEnv.AO_TERMINAL = "none";
   let pid: number | null = null;
   try {
     pid = await spawnInTerminal(`ao-terminal-test-${process.pid}`, project, ["devtool"], 4123);
@@ -74,8 +75,7 @@ test("a dev command runs in the project dir with PORT set, stays tracked, and st
     pid = null;
   } finally {
     process.env.PATH = env.PATH;
-    if (env.AO_TERMINAL === undefined) delete process.env.AO_TERMINAL;
-    else process.env.AO_TERMINAL = env.AO_TERMINAL;
+    serverEnv.AO_TERMINAL = env.AO_TERMINAL;
     if (env.AO_BASE_URL === undefined) delete process.env.AO_BASE_URL;
     else process.env.AO_BASE_URL = env.AO_BASE_URL;
     if (pid) processes.killProcessUnchecked(pid, { tree: true });
@@ -94,8 +94,8 @@ test("a dev command runs in the project dir with PORT set, stays tracked, and st
 // pid stayed alive and a crashed dev server showed as running until the window closed.
 test("a command that ends is reported as exited while its window stays open", async () => {
   const project = mkdtempSync(join(tmpdir(), "ao-term-exit-"));
-  const aoTerminal = process.env.AO_TERMINAL;
-  if (process.platform !== "win32") process.env.AO_TERMINAL = "none";
+  const aoTerminal = serverEnv.AO_TERMINAL;
+  if (process.platform !== "win32") serverEnv.AO_TERMINAL = "none";
   let pid: number | null = null;
   try {
     // On Windows the command runs in a nested cmd, which must hand its argv over intact.
@@ -116,8 +116,7 @@ test("a command that ends is reported as exited while its window stays open", as
       assert.ok(isLaunchedShell(shellPid), "an open window is still ours to stop, tree and all");
     }
   } finally {
-    if (aoTerminal === undefined) delete process.env.AO_TERMINAL;
-    else process.env.AO_TERMINAL = aoTerminal;
+    serverEnv.AO_TERMINAL = aoTerminal;
     if (pid) processes.killProcessUnchecked(pid, { tree: true });
     try {
       rmSync(project, { recursive: true, force: true, maxRetries: 20 });
