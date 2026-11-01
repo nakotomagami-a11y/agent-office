@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
@@ -110,6 +111,7 @@ export function AddAgentModal({ open, projectId, onClose, onProjectChange }: Add
 /* ── Project picker step ────────────────────────────────────────── */
 
 function ProjectPickerStep({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
+  const t = useTranslations("add_agent_modal");
   const projectsQ = useProjects();
   const projects = useMemo(() => projectsQ.data ?? [], [projectsQ.data]);
 
@@ -118,19 +120,19 @@ function ProjectPickerStep({ onPick, onClose }: { onPick: (id: string) => void; 
       <div className="flex items-center border-b border-line shrink-0 px-[22px] py-[18px] gap-[12px]">
         <div className="flex items-center justify-center bg-acc-faint text-acc shrink-0 w-[34px] h-[34px] rounded-[9px] border border-[var(--acc-tint)]"><Icon name="folder" size={15} /></div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-txt text-[16px]">Choose a project</div>
-          <div className="text-txt-3 flex items-center font-[var(--font-mono)] text-[11.5px] mt-[2px] gap-[6px]">Select which project to add agents to</div>
+          <div className="font-bold text-txt text-[16px]">{t("title_pick_project")}</div>
+          <div className="text-txt-3 flex items-center font-[var(--font-mono)] text-[11.5px] mt-[2px] gap-[6px]">{t("pick_project_prompt")}</div>
         </div>
-        <button type="button" className="flex items-center justify-center text-txt-3 bg-transparent border-none cursor-pointer shrink-0 w-[32px] h-[32px] rounded-[8px] hover:bg-bg-3 hover:text-txt" onClick={onClose} aria-label="Close">
+        <button type="button" className="flex items-center justify-center text-txt-3 bg-transparent border-none cursor-pointer shrink-0 w-[32px] h-[32px] rounded-[8px] hover:bg-bg-3 hover:text-txt" onClick={onClose} aria-label={t("close")}>
           <Icon name="x" size={16} />
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-[22px] py-4">
         {projectsQ.isLoading ? null : projects.length === 0 ? (
           <div className="p-6 text-center text-txt-3 text-[13px]">
-            <p className="mb-3">No projects configured yet.</p>
+            <p className="mb-3">{t("no_projects_hint")}</p>
             <Button href={PAGE_ROUTES.settings} variant="primary" onClick={onClose}>
-              Configure root directory
+              {t("configure_root_button")}
             </Button>
           </div>
         ) : (
@@ -153,7 +155,7 @@ function ProjectPickerStep({ onPick, onClose }: { onPick: (id: string) => void; 
                   )}
                 </div>
                 <span className="font-mono text-[11px] text-txt-3">
-                  {p.instanceCount} agent{p.instanceCount !== 1 ? "s" : ""}
+                  {t("agent_count", { count: p.instanceCount })}
                 </span>
               </button>
             ))}
@@ -175,6 +177,7 @@ function AgentPickerStep({
   onChangeProject: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("add_agent_modal");
   const projectQ = useProject(projectId);
   const agentsQ = useAgents();
   const addMut = useAddInstance();
@@ -202,13 +205,13 @@ function AgentPickerStep({
     const seen = new Set<string>();
     for (const a of agents) seen.add(categorize(a));
     return [
-      { id: "all", label: "All", color: null, count: agents.length },
+      { id: "all", label: t("all"), color: null, count: agents.length },
       ...Array.from(seen).map((cat) => ({
         id: cat, label: cat, color: categoryColor(cat),
         count: agents.filter((a) => categorize(a) === cat).length,
       })).sort((a, b) => b.count - a.count),
     ];
-  }, [agents]);
+  }, [agents, t]);
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -260,16 +263,16 @@ function AgentPickerStep({
       <div className="flex items-center border-b border-line shrink-0 px-[22px] py-[18px] gap-[12px]">
         <div className="flex items-center justify-center text-acc shrink-0"><Icon name="plus" size={32} /></div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-txt text-[16px]">Add agent to office</div>
+          <div className="font-bold text-txt text-[16px]">{t("title")}</div>
           <div className="text-txt-3 flex items-center font-[var(--font-mono)] text-[11.5px] mt-[2px] gap-[6px]">
-            Adding to <span className="text-txt-2 font-semibold">{projectLabel}</span>
+            {t("adding_to_label")} <span className="text-txt-2 font-semibold">{projectLabel}</span>
             <span className="text-txt-4">·</span>
-            <button type="button" className="text-acc no-underline cursor-pointer bg-transparent border-none font-[inherit] p-0 hover:underline" onClick={onChangeProject}>Change project</button>
+            <button type="button" className="text-acc no-underline cursor-pointer bg-transparent border-none font-[inherit] p-0 hover:underline" onClick={onChangeProject}>{t("change_project_button")}</button>
             <span className="text-txt-4">·</span>
-            <span>click to stage, summon to commit</span>
+            <span>{t("click_to_add_hint")}</span>
           </div>
         </div>
-        <button type="button" className="flex items-center justify-center text-txt-3 bg-transparent border-none cursor-pointer shrink-0 w-[32px] h-[32px] rounded-[8px] hover:bg-bg-3 hover:text-txt" onClick={onClose} aria-label="Close">
+        <button type="button" className="flex items-center justify-center text-txt-3 bg-transparent border-none cursor-pointer shrink-0 w-[32px] h-[32px] rounded-[8px] hover:bg-bg-3 hover:text-txt" onClick={onClose} aria-label={t("close")}>
           <Icon name="x" size={16} />
         </button>
       </div>
@@ -282,12 +285,12 @@ function AgentPickerStep({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter by name, description, or skill…"
+            placeholder={t("filter_placeholder")}
           />
         </div>
         <div className="inline-flex bg-bg-2 border border-line p-[3px] rounded-[8px]">
-          <button type="button" className={`aa-seg-btn text-txt-3 bg-transparent border-none cursor-pointer px-[10px] py-[5px] rounded-[5px] text-[12px] font-[var(--font-mono)] transition-[background,color] duration-[100ms]${view === "all" ? " bg-bg-3 text-txt [box-shadow:inset_0_0_0_1px_var(--line)]" : ""}`} onClick={() => setView("all")}>All</button>
-          <button type="button" className={`aa-seg-btn text-txt-3 bg-transparent border-none cursor-pointer px-[10px] py-[5px] rounded-[5px] text-[12px] font-[var(--font-mono)] transition-[background,color] duration-[100ms]${view === "available" ? " bg-bg-3 text-txt [box-shadow:inset_0_0_0_1px_var(--line)]" : ""}`} onClick={() => setView("available")}>Not in office</button>
+          <button type="button" className={`aa-seg-btn text-txt-3 bg-transparent border-none cursor-pointer px-[10px] py-[5px] rounded-[5px] text-[12px] font-[var(--font-mono)] transition-[background,color] duration-[100ms]${view === "all" ? " bg-bg-3 text-txt [box-shadow:inset_0_0_0_1px_var(--line)]" : ""}`} onClick={() => setView("all")}>{t("all")}</button>
+          <button type="button" className={`aa-seg-btn text-txt-3 bg-transparent border-none cursor-pointer px-[10px] py-[5px] rounded-[5px] text-[12px] font-[var(--font-mono)] transition-[background,color] duration-[100ms]${view === "available" ? " bg-bg-3 text-txt [box-shadow:inset_0_0_0_1px_var(--line)]" : ""}`} onClick={() => setView("available")}>{t("view_available")}</button>
         </div>
       </div>
 
@@ -316,7 +319,7 @@ function AgentPickerStep({
           <div className="text-center text-txt-3 flex flex-col items-center px-[20px] py-[50px]">
             <div className="flex items-center justify-center bg-bg-3 border border-line text-txt-4 w-[50px] h-[50px] rounded-[12px] mx-auto mb-[14px]"><Icon name="search" size={20} /></div>
             <div className="text-sm text-txt-2">
-              {q ? `No agents match "${q}"` : "No agents in this category"}
+              {q ? t("no_match", { query: q }) : t("no_category_agents")}
             </div>
           </div>
         ) : (
@@ -324,7 +327,7 @@ function AgentPickerStep({
             {view === "all" && notInRoster.length > 0 && (
               <>
                 <div className="flex items-center uppercase text-txt-4 gap-[10px] px-[4px] pt-[12px] pb-[8px] font-[var(--font-mono)] text-[10.5px] tracking-[0.1em]">
-                  <span className="text-txt-3 font-semibold">Available</span>
+                  <span className="text-txt-3 font-semibold">{t("section_available")}</span>
                   <span className="bg-bg-3 border border-line text-txt-2 rounded-full normal-case font-normal px-[7px] py-[1px] tracking-[0] text-[10px]">{notInRoster.length}</span>
                   <span className="flex-1 h-[1px] bg-[var(--line)]" />
                 </div>
@@ -349,7 +352,7 @@ function AgentPickerStep({
             {view === "all" && inRoster.length > 0 && (
               <>
                 <div className="flex items-center uppercase text-txt-4 gap-[10px] px-[4px] pt-[12px] pb-[8px] font-[var(--font-mono)] text-[10.5px] tracking-[0.1em]">
-                  <span className="text-txt-3 font-semibold">Already in office</span>
+                  <span className="text-txt-3 font-semibold">{t("section_in_office")}</span>
                   <span className="bg-bg-3 border border-line text-txt-2 rounded-full normal-case font-normal px-[7px] py-[1px] tracking-[0] text-[10px]">{inRoster.length}</span>
                   <span className="flex-1 h-[1px] bg-[var(--line)]" />
                 </div>
@@ -394,7 +397,7 @@ function AgentPickerStep({
       <div className="flex items-center border-t border-line bg-bg-2 shrink-0 gap-[14px] px-[22px] py-[12px]">
         <div className="flex items-center flex-1 min-w-0 gap-[12px]">
           {stagedEntries.length === 0 ? (
-            <div className="font-[var(--font-mono)] text-[12px] text-txt-2"><span className="text-txt-4">No agents staged yet</span></div>
+            <div className="font-[var(--font-mono)] text-[12px] text-txt-2"><span className="text-txt-4">{t("none_staged")}</span></div>
           ) : (
             <>
               <div className="flex">
@@ -406,16 +409,16 @@ function AgentPickerStep({
                 {stagedEntries.length > 5 && <div className="flex items-center justify-center bg-bg-1 border border-line text-txt-3 -ml-[6px] [box-shadow:0_0_0_2px_var(--bg-2)] w-[26px] h-[26px] rounded-[7px] font-[var(--font-mono)] text-[11px]">+{stagedEntries.length - 5}</div>}
               </div>
               <div className="font-[var(--font-mono)] text-[12px] text-txt-2">
-                <span className="text-txt font-semibold">{totalStaged}</span> agent{totalStaged !== 1 ? "s" : ""} to summon
+                {t.rich("staged_count", { count: totalStaged, b: (chunks) => <span className="text-txt font-semibold">{chunks}</span> })}
                 {totalStaged !== stagedEntries.length && (
-                  <span className="text-txt-4"> · {stagedEntries.length} distinct</span>
+                  <span className="text-txt-4"> {t("distinct", { count: stagedEntries.length })}</span>
                 )}
               </div>
             </>
           )}
         </div>
         <div className="flex gap-[8px]">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>{t("cancel")}</Button>
           <button
             type="button"
             /* cn()/twMerge, not string concat: the idle branch adds
@@ -432,7 +435,7 @@ function AgentPickerStep({
             disabled={addMut.isPending}
           >
             <Icon name="check" size={12} />
-            {addMut.isPending ? "Adding…" : totalStaged === 0 ? "Done" : `Summon ${totalStaged}`}
+            {addMut.isPending ? t("adding_label") : totalStaged === 0 ? t("done_button") : t("summon_button", { count: totalStaged })}
             <span className="inline-block bg-[rgba(255,255,255,0.18)] ml-[4px] font-[var(--font-mono)] text-[9.5px] px-[5px] py-[1px] rounded-[3px]">⌘ ↵</span>
           </button>
         </div>
@@ -459,6 +462,7 @@ function AgentRow({
   onRemove: () => void;
   onDetails: () => void;
 }) {
+  const t = useTranslations("add_agent_modal");
   const inOffice = rosterCount > 0;
   const added = stagedCount > 0 || inOffice;
   const unitSel = unitForAgent(name, unit);
@@ -491,8 +495,8 @@ function AgentRow({
         {description && <div className="text-txt-3 overflow-hidden mt-[4px] text-[12.5px] leading-[1.5] line-clamp-2">{description}</div>}
         {inOffice && (
           <div className="inline-flex items-center text-txt-4 mt-[5px] font-[var(--font-mono)] text-[11px] gap-[6px]">
-            <span className="inline-flex items-center rounded-full bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.30)] text-[var(--working)] px-[6px] py-[1px] gap-[3px]"><Icon name="check" size={9} /> in office</span>
-            <span>· already summoned {rosterCount}×</span>
+            <span className="inline-flex items-center rounded-full bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.30)] text-[var(--working)] px-[6px] py-[1px] gap-[3px]"><Icon name="check" size={9} /> {t("in_office_badge")}</span>
+            <span>{t("already_summoned", { count: rosterCount })}</span>
           </div>
         )}
       </div>
@@ -501,8 +505,8 @@ function AgentRow({
           type="button"
           className="inline-flex items-center justify-center shrink-0 w-[34px] h-[34px] rounded-[8px] border bg-transparent border-line text-txt-3 transition-[background,color] duration-[120ms] hover:bg-bg-3 hover:text-txt hover:border-line-2"
           onClick={onDetails}
-          title="View agent details"
-          aria-label="View agent details"
+          title={t("view_details")}
+          aria-label={t("view_details")}
         >
           <Icon name="help-circle" size={14} />
         </button>
@@ -513,7 +517,7 @@ function AgentRow({
                 type="button"
                 className="inline-flex items-center justify-center shrink-0 w-[30px] h-[34px] rounded-[8px] border bg-[rgba(34,197,94,0.10)] border-[rgba(34,197,94,0.30)] text-[var(--working)] transition-[background,border-color] duration-[120ms] hover:bg-[rgba(239,68,68,0.12)] hover:border-[rgba(239,68,68,0.35)] hover:text-status-error"
                 onClick={onRemove}
-                aria-label="Remove one"
+                aria-label={t("remove_one")}
               >
                 <Icon name="minus" size={12} />
               </button>
@@ -523,7 +527,7 @@ function AgentRow({
               className="inline-flex items-center font-semibold whitespace-nowrap cursor-pointer shrink-0 gap-[6px] py-[8px] pl-[10px] pr-[14px] rounded-[8px] text-[12.5px] transition-[background,border-color,color] duration-[120ms] font-[inherit] border bg-[rgba(34,197,94,0.10)] border-[rgba(34,197,94,0.30)] text-[var(--working)] hover:bg-[rgba(34,197,94,0.18)] hover:border-[rgba(34,197,94,0.45)]"
               onClick={onAdd}
             >
-              <Icon name="check" size={12} /> Added
+              <Icon name="check" size={12} /> {t("added")}
               <span className="rounded-full text-white inline-flex items-center justify-center bg-[var(--working)] px-[6px] font-[var(--font-mono)] text-[10px] min-w-[18px] h-[18px]">{inOffice ? rosterCount + stagedCount : stagedCount}</span>
             </button>
           </div>
@@ -533,7 +537,7 @@ function AgentRow({
             className="inline-flex items-center font-semibold whitespace-nowrap cursor-pointer shrink-0 gap-[6px] py-[8px] px-[14px] rounded-[8px] text-[12.5px] transition-[background,border-color,color] duration-[120ms] font-[inherit] border bg-bg-3 border-line text-txt-2 hover:bg-acc hover:text-white hover:border-[var(--acc)]"
             onClick={onAdd}
           >
-            <Icon name="plus" size={12} /> Add
+            <Icon name="plus" size={12} /> {t("add_button")}
           </button>
         )}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
@@ -109,6 +110,7 @@ const BULLET_TONES: Tone[] = ["acc", "green", "cyan"];
  * null there.
  */
 export function UpdateBell() {
+  const t = useTranslations("update_bell");
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -197,11 +199,11 @@ export function UpdateBell() {
           type="button"
           onClick={() => setOpen(true)}
           className="group surface-sheen h-[38px] shrink-0 flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)] cursor-pointer"
-          title={`Update available — v${version}`}
-          aria-label={`Update available, version ${version}`}
+          title={t("title_available", { version: version ?? "" })}
+          aria-label={t("aria_available", { version: version ?? "" })}
         >
           <Icon name="download" size={15} className="text-acc transition-transform duration-200 group-hover:scale-110" />
-          Update available
+          {t("modal_title_available")}
         </button>
       ) : null}
 
@@ -212,19 +214,19 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="green" icon="shield" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="green">Up to date</Eyebrow>
+                  <Eyebrow tone="green">{t("eyebrow_uptodate")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    You&apos;re on the latest build
+                    {t("modal_title_uptodate")}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                You&apos;re already on the newest release. We check again automatically on launch.
+                {t("uptodate_body")}
               </p>
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={close} className={PRIMARY_ACTION}>
-                  Done
+                  {t("done")}
                 </button>
               </div>
             </>
@@ -233,25 +235,24 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="amber" icon="alert-circle" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="amber">Manual install</Eyebrow>
+                  <Eyebrow tone="amber">{t("eyebrow_manual")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    Download {version} from GitHub
+                    {t("manual_title", { version: version ?? "" })}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                Automatic updates aren&apos;t signed for macOS yet. Grab the build and reinstall
-                over the top — settings and data are untouched.
+                {t("manual_note")}
               </p>
               <Meta left={currentVersion ? `${currentVersion} → ${version}` : `${version}`} />
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={close} className={GHOST_ACTION}>
-                  Later
+                  {t("later")}
                 </button>
                 <button type="button" onClick={() => openReleasesPage(status.url)} className={PRIMARY_ACTION}>
                   <Icon name="external-link" size={14} />
-                  Open releases
+                  {t("open_releases")}
                 </button>
               </div>
             </>
@@ -260,26 +261,24 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="amber" icon="alert-circle" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="amber">Manual install</Eyebrow>
+                  <Eyebrow tone="amber">{t("eyebrow_manual")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    Download {version} from GitHub
+                    {t("manual_title", { version: version ?? "" })}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                In-app install isn&apos;t supported for this install type (e.g. a Linux{" "}
-                <code className="font-mono">.deb</code>). Grab the build and reinstall over the
-                top — after that, updates apply automatically.
+                {t.rich("install_failed_body", { code: (chunks) => <code className="font-mono">{chunks}</code> })}
               </p>
               <Meta left={currentVersion ? `${currentVersion} → ${version}` : `${version}`} />
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={close} className={GHOST_ACTION}>
-                  Later
+                  {t("later")}
                 </button>
                 <button type="button" onClick={() => openReleasesPage(RELEASES_URL)} className={PRIMARY_ACTION}>
                   <Icon name="external-link" size={14} />
-                  Open releases
+                  {t("open_releases")}
                 </button>
               </div>
             </>
@@ -288,25 +287,24 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="green" icon="check" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="green">Installed</Eyebrow>
+                  <Eyebrow tone="green">{t("eyebrow_installed")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    Restart to finish
+                    {t("installed_title")}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                {version} is downloaded and verified. Runs in progress are checkpointed and
-                resume after the restart.
+                {t("installed_body", { version: version ?? "" })}
               </p>
-              <Meta left={`restarting into ${version}`} right={sizeLabel} />
+              <Meta left={t("restarting_into", { version: version ?? "" })} right={sizeLabel} />
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={close} className={GHOST_ACTION}>
-                  On next launch
+                  {t("on_next_launch")}
                 </button>
                 <button type="button" onClick={() => void relaunchApp()} className={PRIMARY_ACTION}>
                   <Icon name="refresh" size={14} />
-                  Restart now
+                  {t("restart_now")}
                 </button>
               </div>
             </>
@@ -315,14 +313,14 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="cyan" icon="download" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="cyan" dot>Downloading</Eyebrow>
+                  <Eyebrow tone="cyan" dot>{t("eyebrow_downloading")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    Fetching {version}
+                    {t("downloading_title", { version: version ?? "" })}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                Keep working — the install waits for you to restart.
+                {t("downloading_body")}
               </p>
               <Meta left={currentVersion ? `${currentVersion} → ${version}` : `${version}`} right={sizeLabel} />
               <div className="mt-[14px] flex flex-col gap-[6px]">
@@ -333,16 +331,18 @@ export function UpdateBell() {
                   />
                 </div>
                 <span className="font-[var(--font-mono)] text-[11px] text-acc">
-                  {totalBytes ? `${formatMB(downloadedBytes)} MB of ${formatMB(totalBytes)} MB` : pct == null ? "Downloading…" : `Downloading… ${pct}%`}
+                  {totalBytes
+                    ? t("downloaded_of", { done: formatMB(downloadedBytes), total: formatMB(totalBytes) })
+                    : pct == null ? t("downloading") : t("downloading_pct", { pct })}
                 </span>
               </div>
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={cancelDownload} className={GHOST_ACTION}>
-                  Cancel
+                  {t("cancel")}
                 </button>
                 <button type="button" onClick={close} className={PRIMARY_ACTION}>
-                  Hide
+                  {t("hide")}
                 </button>
               </div>
             </>
@@ -351,15 +351,14 @@ export function UpdateBell() {
               <div className="flex items-center gap-[13px]">
                 <StateIcon tone="acc" icon="download" />
                 <div className="flex-1 min-w-0">
-                  <Eyebrow tone="acc" dot>Update available</Eyebrow>
+                  <Eyebrow tone="acc" dot>{t("modal_title_available")}</Eyebrow>
                   <div className="mt-1 text-[19px] font-extrabold tracking-[-0.03em] leading-[1.15]">
-                    Version {version} is ready
+                    {t("available_title", { version: version ?? "" })}
                   </div>
                 </div>
               </div>
               <p className="mt-[14px] text-[13px] leading-[1.6] text-txt-3">
-                Downloads in the background and installs on the next restart. Projects, agents
-                and memory stay as they are.
+                {t("available_body")}
               </p>
               <Meta left={currentVersion ? `${currentVersion} → ${version}` : `${version}`} right={sizeLabel} />
               {highlights.length > 0 ? (
@@ -377,18 +376,18 @@ export function UpdateBell() {
                     onClick={() => openReleasesPage(RELEASES_URL)}
                     className="mt-[2px] self-start text-[11.5px] font-bold text-acc hover:underline underline-offset-2 cursor-pointer bg-transparent border-0 p-0"
                   >
-                    Full release notes
+                    {t("release_notes")}
                   </button>
                 </div>
               ) : null}
               <div className="mt-[22px] flex items-center gap-[9px]">
                 <span className="flex-1" />
                 <button type="button" onClick={close} className={GHOST_ACTION}>
-                  Later
+                  {t("later")}
                 </button>
                 <button type="button" onClick={() => void install()} className={PRIMARY_ACTION}>
                   <Icon name="download" size={14} />
-                  Download &amp; install
+                  {t("download_install")}
                 </button>
               </div>
             </>
