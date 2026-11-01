@@ -143,7 +143,7 @@ export function ModalShell({
         onClick={onClose}
         className={cn(
           "app-modal-backdrop fixed top-0 right-0 bottom-0 flex justify-center z-[200] p-2 before:[backdrop-filter:blur(12px)_saturate(0.9)] before:[-webkit-backdrop-filter:blur(12px)_saturate(0.9)]",
-          placement === "top" ? "items-start pt-[110px]" : "items-center",
+          placement === "top" ? "items-start pt-[12vh]" : "items-center",
           CHROME_LEFT_CLASS,
         )}
         style={{ top: CHROME_TOP }}

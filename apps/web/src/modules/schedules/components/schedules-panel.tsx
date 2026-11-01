@@ -5,10 +5,9 @@ import type { ScheduledJob, ScheduleRepeatEvery } from "@agent-office/domain/typ
 import { cn } from "@/lib/cn";
 import { Button, ACCENT_BTN } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { ModalShell } from "@/components/ui/modal-shell";
-import { groupByDay, scheduleSummary, shownAt, whenParts } from "../format/schedule-format";
-import { useRunScheduleNow, useSchedules } from "../hooks/use-schedules";
-import { SchedulesViewTabs, type ScheduleView } from "./schedules-view-tabs";
+import { groupByDay, groupJobs, scheduleSummary, shownAt, type ScheduleView } from "../format/schedule-format";
+import { useSchedules } from "../hooks/use-schedules";
+import { SchedulesViewTabs } from "./schedules-view-tabs";
 import { ScheduleRow } from "./schedule-row";
 import { ScheduleAttentionGroup } from "./schedule-attention";
 import { NewOrderModal } from "./new-order-modal";
@@ -20,17 +19,6 @@ const EMPTY_TAB: Record<ScheduleView, { icon: IconName; title: string; hint: str
   recurring: { icon: "refresh", title: "No repeating orders.", hint: "Set Repeat in New order to run one hourly, daily, on weekdays or weekly." },
   history: { icon: "clock", title: "No history yet.", hint: "Completed orders will land here." },
 };
-
-/** Upcoming holds everything that will fire next, a series' next slot included; Recurring lists the series. */
-function groupJobs(jobs: ScheduledJob[]) {
-  const live = jobs.filter((j) => j.status === "pending" || j.status === "firing").sort((a, b) => a.fireAt - b.fireAt);
-  return {
-    attention: jobs.filter((j) => j.status === "needs-attention").sort((a, b) => a.fireAt - b.fireAt),
-    upcoming: live,
-    recurring: live.filter((j) => j.repeat),
-    history: jobs.filter((j) => j.status === "done").sort((a, b) => shownAt(b) - shownAt(a)),
-  };
-}
 
 function ScheduleList({ rows, view }: { rows: ScheduledJob[]; view: ScheduleView }) {
   if (rows.length === 0) {
@@ -78,38 +66,13 @@ function SchedulesEmpty({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function StaleModal({ job, onClose, runNow }: { job: ScheduledJob | null; onClose: () => void; runNow: ReturnType<typeof useRunScheduleNow> }) {
-  const run = () => {
-    if (job) runNow.mutate(job.id);
-    onClose();
-  };
-  return (
-    <ModalShell open={job !== null} onClose={onClose} ariaLabel="Run overdue work?" maxWidth={420} bareContent className="rounded-[18px]">
-      <div className="pt-[18px] px-[20px] pb-[6px] text-[15px] font-extrabold tracking-[-0.02em] leading-normal">Run overdue work?</div>
-      {job && (
-        <p className="m-0 px-[20px] pb-[16px] text-[13px] text-txt-2 leading-[1.55]">
-          “{job.summonRequest.prompt || job.label}” was scheduled for {whenParts(job.fireAt).abs} — more than 12 hours
-          ago. It wasn’t run automatically. Run it now?
-        </p>
-      )}
-      <div className="flex justify-end gap-[8px] px-[20px] py-[12px] border-t border-edge">
-        <Button variant="ghost" className="h-[30px] rounded-[10px] text-[12.5px] font-semibold text-txt-3 hover:text-txt" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" className="h-[30px] px-[14px] rounded-[10px] text-[12.5px] font-bold" onClick={run}>Run now</Button>
-      </div>
-    </ModalShell>
-  );
-}
-
 export function SchedulesPanel() {
   const jobsQ = useSchedules();
   const jobs = useMemo(() => jobsQ.data ?? [], [jobsQ.data]);
   const [formOpen, setFormOpen] = useState(false);
-  const [staleJob, setStaleJob] = useState<ScheduledJob | null>(null);
   const [view, setView] = useState<ScheduleView>("upcoming");
   const closeForm = useCallback(() => setFormOpen(false), []);
-  const closeStale = useCallback(() => setStaleJob(null), []);
   const showCreated = useCallback((repeat: ScheduleRepeatEvery | undefined) => setView(repeat ? "recurring" : "upcoming"), []);
-  const staleRun = useRunScheduleNow();
 
   const groups = useMemo(() => groupJobs(jobs), [jobs]);
   const hasJobs = jobs.length > 0;
@@ -161,11 +124,7 @@ export function SchedulesPanel() {
               <SchedulesViewTabs
                 view={view}
                 setView={setView}
-                counts={{
-                  upcoming: groups.upcoming.length + groups.attention.length,
-                  recurring: groups.recurring.length,
-                  history: groups.history.length,
-                }}
+                counts={groups.counts}
               />
               <span className="flex-1" />
               <span className="font-mono text-[10.5px] text-txt-4 inline-flex items-center gap-[6px]">
@@ -174,7 +133,7 @@ export function SchedulesPanel() {
               </span>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-[8px] pt-[8px] pb-[16px] flex flex-col gap-[14px]">
-              {showAttention && <ScheduleAttentionGroup jobs={groups.attention} onRunStale={setStaleJob} runningId={staleRun.isPending ? staleRun.variables : undefined} />}
+              {showAttention && <ScheduleAttentionGroup jobs={groups.attention} />}
               {showAttention && rows.length === 0 ? null : <ScheduleList rows={rows} view={view} />}
             </div>
           </div>
@@ -182,7 +141,6 @@ export function SchedulesPanel() {
       </div>
 
       <NewOrderModal open={formOpen} onClose={closeForm} onCreated={showCreated} />
-      <StaleModal job={staleJob} onClose={closeStale} runNow={staleRun} />
     </>
   );
 }

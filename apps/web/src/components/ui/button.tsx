@@ -35,12 +35,13 @@ const VARIANTS: Record<ButtonVariant, string> = {
   danger: "bg-status-error text-white border-status-error",
 };
 
-export const BUTTON_SIZES = ["default", "sm"] as const;
+export const BUTTON_SIZES = ["default", "sm", "compact"] as const;
 export type ButtonSize = (typeof BUTTON_SIZES)[number];
 
 const SIZES: Record<ButtonSize, string> = {
   default: "",
   sm: "h-[26px] px-[9px] text-[12px] gap-[5px] rounded-[8px]",
+  compact: "h-[28px] px-[12px] text-[12px] font-semibold gap-[6px] rounded-[9px] whitespace-nowrap",
 };
 
 type ButtonBaseProps = {

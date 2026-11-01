@@ -1,5 +1,6 @@
 import { getDb } from "./connection";
 import type { ScheduledJob, ScheduleRepeatEvery, ScheduledJobStatus, SummonRequest } from "../../types/index";
+import { SCHEDULE_REPEAT_EVERY } from "../../config/schedules";
 
 interface ScheduledJobRow {
   id: string; fire_at: number; summon_request: string; reason: string; label: string;
@@ -7,8 +8,6 @@ interface ScheduledJobRow {
   repeat_every: string | null; repeat_anchor: number | null;
   created_at: number; updated_at: number;
 }
-
-const REPEAT_EVERY: readonly string[] = ["hourly", "daily", "weekdays", "weekly"] satisfies ScheduleRepeatEvery[];
 
 function rowToScheduledJob(row: ScheduledJobRow): ScheduledJob {
   return {
@@ -21,7 +20,7 @@ function rowToScheduledJob(row: ScheduledJobRow): ScheduledJob {
     attention: (row.attention ?? undefined) as ScheduledJob["attention"],
     attempts: row.attempts,
     firedRunId: row.fired_run_id ?? undefined,
-    ...(row.repeat_every && REPEAT_EVERY.includes(row.repeat_every) && row.repeat_anchor !== null
+    ...(row.repeat_every && (SCHEDULE_REPEAT_EVERY as readonly string[]).includes(row.repeat_every) && row.repeat_anchor !== null
       ? { repeat: { every: row.repeat_every as ScheduleRepeatEvery, anchorAt: row.repeat_anchor } }
       : {}),
     createdAt: row.created_at,

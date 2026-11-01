@@ -5,7 +5,8 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { formatAgentDisplayName } from "@/lib/agent-display-name";
-import { clockTime, repeatSummary, shownAt, whenParts } from "../format/schedule-format";
+import { SCHEDULE_MAX_ATTEMPTS } from "@agent-office/domain/config/schedules";
+import { clockTime, jobTitle, repeatSummary, shownAt, whenParts } from "../format/schedule-format";
 import { useCancelSchedule, useRunScheduleNow } from "../hooks/use-schedules";
 
 const isFinished = (job: ScheduledJob) => job.status === "done";
@@ -17,7 +18,7 @@ function rowMeta(job: ScheduledJob): string {
   ];
   if (job.repeat) parts.push(repeatSummary(job.repeat));
   if (job.reason === "rate-limit") parts.push(isFinished(job) ? "resumed after rate-limit reset" : "resumes on rate-limit reset");
-  if (job.attempts > 0 && !isFinished(job)) parts.push(`retry ${job.attempts}/5`);
+  if (job.attempts > 0 && !isFinished(job)) parts.push(`retry ${job.attempts}/${SCHEDULE_MAX_ATTEMPTS}`);
   if (isFinished(job)) parts.push(`last ran ${whenParts(job.updatedAt).rel}`);
   return parts.join(" · ");
 }
@@ -35,7 +36,9 @@ function RowStatus({ job }: { job: ScheduledJob }) {
   return <span className="text-acc">{whenParts(job.fireAt).rel}</span>;
 }
 
-function RowAction({ icon, title, label, onClick, disabled }: { icon: IconName; title: string; label?: ReactNode; onClick: () => void; disabled?: boolean }) {
+type RowActionProps = { icon: IconName; title: string; label?: ReactNode; onClick: () => void; disabled?: boolean; tone?: "danger" };
+
+export function RowAction({ icon, title, label, onClick, disabled, tone }: RowActionProps) {
   return (
     <button
       type="button"
@@ -43,7 +46,10 @@ function RowAction({ icon, title, label, onClick, disabled }: { icon: IconName; 
       aria-label={title}
       onClick={onClick}
       disabled={disabled}
-      className="h-[28px] min-w-[28px] px-[8px] inline-flex items-center justify-center gap-[5px] rounded-[9px] bg-card-2 text-txt-3 text-[12px] font-medium cursor-pointer border-0 transition-colors hover:bg-card-3 hover:text-txt focus-visible:outline-2 focus-visible:outline-acc disabled:opacity-50 disabled:cursor-default"
+      className={cn(
+        "h-[28px] min-w-[28px] px-[8px] inline-flex items-center justify-center gap-[5px] rounded-[9px] text-txt-3 text-[12px] font-medium cursor-pointer border-0 transition-colors focus-visible:outline-2 focus-visible:outline-acc disabled:opacity-50 disabled:cursor-default",
+        tone === "danger" ? "bg-transparent hover:bg-red-soft hover:text-red" : "bg-card-2 hover:bg-card-3 hover:text-txt",
+      )}
     >
       <Icon name={icon} size={12} />
       {label}
@@ -66,7 +72,7 @@ export function ScheduleRow({ job }: { job: ScheduledJob }) {
       <span className="w-[64px] max-[640px]:w-[44px] shrink-0 font-mono text-[13px] font-bold text-txt">{clockTime(shownAt(job))}</span>
       <AgentAvatar unit={unitForAgent(job.summonRequest.agentId)} size={28} className="shrink-0 rounded-[7px] max-[640px]:hidden" />
       <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
-        <div className="text-[13.5px] font-semibold text-txt truncate">{job.summonRequest.prompt || job.label}</div>
+        <div className="text-[13.5px] font-semibold text-txt truncate">{jobTitle(job)}</div>
         <div className="font-mono text-[11px] text-txt-4 truncate">{rowMeta(job)}</div>
       </div>
       {/* Touch screens have no hover: narrow layouts keep the actions visible. */}

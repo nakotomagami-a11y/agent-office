@@ -5,7 +5,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
 import type { ScheduledJob } from "@agent-office/domain/types";
-import { dayLabel, groupByDay, scheduleErrorText, scheduleSummary, shownAt } from "./schedule-format";
+import { dayLabel, groupByDay, groupJobs, scheduleErrorText, scheduleSummary, shownAt } from "./schedule-format";
 
 const H = 3_600_000;
 const job = (o: Partial<ScheduledJob>): ScheduledJob => ({
@@ -47,4 +47,16 @@ test("the summary counts one-shots and series apart", () => {
 test("server error codes become copy, unknown ones a generic line", () => {
   assert.equal(scheduleErrorText(new Error("schedule_not_runnable")), "it's already running or finished");
   assert.equal(scheduleErrorText(new Error("weird_code")), "something went wrong — try again");
+});
+
+test("a series' next slot is in Upcoming and Recurring; attention counts toward Upcoming only", () => {
+  const g = groupJobs([
+    job({ id: "once" }),
+    job({ id: "series", repeat: { every: "daily", anchorAt: 0 } }),
+    job({ id: "stuck", status: "needs-attention", attention: "stale", repeat: { every: "daily", anchorAt: 0 } }),
+    job({ id: "ran", status: "done" }),
+  ]);
+  assert.deepEqual(g.upcoming.map((j) => j.id).sort(), ["once", "series"]);
+  assert.deepEqual(g.recurring.map((j) => j.id), ["series"]);
+  assert.deepEqual(g.counts, { upcoming: 3, recurring: 1, history: 1 });
 });

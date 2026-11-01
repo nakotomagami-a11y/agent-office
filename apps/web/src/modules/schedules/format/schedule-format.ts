@@ -39,6 +39,28 @@ export const ATTENTION_MSG_KEY: Record<NonNullable<ScheduledJob["attention"]>, "
   "provider-unavailable": "provider_unavailable",
 };
 
+/** What a row is called: its prompt, or the job label for a prompt-less summon. */
+export const jobTitle = (job: ScheduledJob) => job.summonRequest.prompt || job.label;
+
+export type ScheduleView = "upcoming" | "recurring" | "history";
+
+/** Upcoming holds everything that will fire next, a series' next slot included; Recurring lists the series. */
+export function groupJobs(jobs: ScheduledJob[]) {
+  const live = jobs.filter((j) => j.status === "pending" || j.status === "firing").sort((a, b) => a.fireAt - b.fireAt);
+  const groups = {
+    attention: jobs.filter((j) => j.status === "needs-attention").sort((a, b) => a.fireAt - b.fireAt),
+    upcoming: live,
+    recurring: live.filter((j) => j.repeat),
+    history: jobs.filter((j) => j.status === "done").sort((a, b) => shownAt(b) - shownAt(a)),
+  };
+  const counts: Record<ScheduleView, number> = {
+    upcoming: groups.upcoming.length + groups.attention.length,
+    recurring: groups.recurring.length,
+    history: groups.history.length,
+  };
+  return { ...groups, counts };
+}
+
 /** When a row sits in the list: a finished job by when it ran ("run now" never moves `fireAt`). */
 export function shownAt(job: ScheduledJob): number {
   return job.status === "done" ? job.updatedAt : job.fireAt;

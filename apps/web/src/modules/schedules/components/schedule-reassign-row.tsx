@@ -9,6 +9,7 @@ import type { UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useReassignSchedule } from "../hooks/use-schedules";
+import { agentItems } from "./agent-items";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -53,23 +54,6 @@ function PickerField({
   );
 }
 
-export function agentItems(
-  agents: { id: string; name: string; unitChoice: UnitSelection }[],
-  selectedId: string,
-  onPick: (id: string) => void,
-): DropdownItem[] {
-  return agents.map((a) => ({
-    key: a.id,
-    selected: a.id === selectedId,
-    onSelect: () => onPick(a.id),
-    label: (
-      <span className="flex items-center gap-[9px] min-w-0">
-        <AgentAvatar unit={a.unitChoice} size={20} className="rounded" />
-        <span className="truncate">{agentDisplayName(a)}</span>
-      </span>
-    ),
-  }));
-}
 
 function agentDisplay(agent: { name: string; unitChoice: UnitSelection } | undefined): ReactNode {
   if (!agent) return null;
@@ -103,7 +87,6 @@ export function ScheduleReassignRow({ job, onDone }: { job: ScheduledJob; onDone
       </Field>
       <Button
         variant="primary"
-        className="rounded-[10px] px-[14px] text-[12.5px] font-bold"
         onClick={() => {
           reassign.mutate({ id: job.id, target: { agentId, instanceId: instanceId || undefined } });
           onDone();
@@ -111,7 +94,7 @@ export function ScheduleReassignRow({ job, onDone }: { job: ScheduledJob; onDone
       >
         Save
       </Button>
-      <Button variant="ghost" className="rounded-[10px] text-[12.5px] font-semibold text-txt-3 hover:text-txt" onClick={onDone}>
+      <Button variant="ghost" onClick={onDone}>
         Cancel
       </Button>
     </div>

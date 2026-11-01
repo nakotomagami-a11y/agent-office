@@ -6,7 +6,6 @@ import { API_ROUTES } from "@agent-office/api-contract";
 import type { ScheduledJob, ScheduleRepeatEvery, SummonRequest } from "@agent-office/domain/types";
 import { POLL } from "@/lib/polling";
 import { toast } from "@/lib/toast-store";
-
 import { scheduleErrorText } from "../format/schedule-format";
 
 const failed = (what: string) => (err: unknown) => toast(`Couldn't ${what}: ${scheduleErrorText(err)}`);

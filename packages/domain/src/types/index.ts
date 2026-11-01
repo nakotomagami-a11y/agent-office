@@ -439,7 +439,8 @@ export type ContextProfile = "tight" | "balanced" | "deep";
 
 export type ScheduledJobStatus = "pending" | "firing" | "done" | "cancelled" | "needs-attention";
 export type ScheduledJobAttention = "stale" | "missing-instance" | "retry-exceeded" | "bridge-missing" | "provider-unavailable";
-export type ScheduleRepeatEvery = "hourly" | "daily" | "weekdays" | "weekly";
+import type { ScheduleRepeatEvery } from "../config/schedules";
+export type { ScheduleRepeatEvery };
 /** A recurring job re-arms after each run instead of finishing. `anchorAt` is the
  *  series' first slot; occurrences are computed from it, so a rate-limit retry that
  *  moves `fireAt` does not drift the series' wall-clock time. */

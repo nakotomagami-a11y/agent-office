@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ScheduleRepeatEvery } from "@agent-office/domain/types";
+import { SCHEDULE_REPEAT_EVERY } from "@agent-office/domain/config/schedules";
 import { cn } from "@/lib/cn";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ModalShell } from "@/components/ui/modal-shell";
@@ -15,11 +16,11 @@ import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { useProjects } from "@/modules/projects/hooks/use-projects";
 import { REPEAT_LABEL, clockTime, dayLabel, scheduleErrorText } from "../format/schedule-format";
 import { useCreateSchedule } from "../hooks/use-schedules";
-import { agentItems } from "./schedule-reassign-row";
+import { agentItems } from "./agent-items";
 
 const CHIP =
   "h-8 max-w-[220px] pl-[6px] pr-[10px] inline-flex items-center gap-[7px] rounded-full bg-card-2 border border-edge-2 text-[12.5px] font-semibold text-txt cursor-pointer transition-colors hover:bg-card-3 hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc";
-const REPEAT_OPTIONS: Array<ScheduleRepeatEvery | ""> = ["", "hourly", "daily", "weekdays", "weekly"];
+const REPEAT_OPTIONS: Array<ScheduleRepeatEvery | ""> = ["", ...SCHEDULE_REPEAT_EVERY];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** Next whole hour, in the picker's `YYYY-MM-DDTHH:mm` format. */
@@ -207,7 +208,7 @@ export function NewOrderModal({ open, onClose, onCreated }: { open: boolean; onC
       bareContent
       className="rounded-[24px] shadow-[var(--lift),0_50px_120px_-40px_rgba(0,0,0,0.95),0_0_0_6px_color-mix(in_srgb,var(--acc)_7%,transparent)]"
     >
-      {open && <NewOrderForm onClose={onClose} onCreated={onCreated} />}
+      <NewOrderForm onClose={onClose} onCreated={onCreated} />
     </ModalShell>
   );
 }

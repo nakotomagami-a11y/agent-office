@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type ScheduleView = "upcoming" | "recurring" | "history";
+import type { ScheduleView } from "../format/schedule-format";
 
 export function SchedulesViewTabs({
   view,
