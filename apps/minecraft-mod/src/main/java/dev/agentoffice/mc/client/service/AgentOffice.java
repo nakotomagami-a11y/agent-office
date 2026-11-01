@@ -103,6 +103,11 @@ public final class AgentOffice {
         Async.run(IO, main(), alive, () -> through(c, call), ok, failed);
     }
 
+    /** As {@link #call(AgentOfficeClient, BooleanSupplier, Call, Consumer, Consumer)}, in line with every other seat read and write. */
+    public static <T> void seatCall(AgentOfficeClient c, BooleanSupplier alive, Call<T> call, Consumer<T> ok, Consumer<Exception> failed) {
+        Async.run(SEATS, main(), alive, () -> through(c, call), ok, failed);
+    }
+
     /** An HTTP error status means Agent Office answered; anything else that fails may mean it moved. */
     private static <T> T through(AgentOfficeClient c, Call<T> call) throws IOException {
         try {

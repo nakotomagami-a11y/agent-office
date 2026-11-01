@@ -77,7 +77,7 @@ final class SeatSettingsScreen extends TabletScreen {
         }
         saving = true;
         rebuildWidgets();
-        AgentOffice.call(client, () -> true, c -> {
+        AgentOffice.seatCall(client, () -> true, c -> {
             c.patchInstance(seat.slot(), patch);
             return null;
         }, done -> {
