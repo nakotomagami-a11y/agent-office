@@ -22,6 +22,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB_DIR="$REPO_ROOT/apps/web"
 DEB_DIR="$WEB_DIR/src-tauri/target/release/bundle/deb"
 
+# Fail here rather than after a 4-minute Rust build that ends in `dpkg: not found`.
+if ! command -v dpkg >/dev/null; then
+  echo "==> This machine has no dpkg. On Arch/CachyOS use: pnpm install:local:arch" >&2
+  exit 1
+fi
+
 echo "==> Building Agent Office from working tree: $REPO_ROOT"
 
 # Marker so we only accept a .deb produced by THIS run.

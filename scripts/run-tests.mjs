@@ -37,7 +37,11 @@ const tsxCli = createRequire(join(process.cwd(), "package.json")).resolve("tsx/c
 const home = mkdtempSync(join(tmpdir(), "ao-test-home-"));
 // gh config (paths.ts ghConfigDir): else tests read the developer's real gh login. APPDATA is
 // overridden, not deleted — without it Windows falls to a different branch than real users take.
-const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData", "Roaming") };
+// NODE_ENV is pinned, not inherited: an agent running the suite from inside the
+// packaged app inherits NODE_ENV=production, and every forbidInProd() route then
+// 404s. That reddened the dev-seed test for agents only — CI, where NODE_ENV is
+// unset, stayed green, so the failure looked like the agent's own diff.
+const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData", "Roaming"), NODE_ENV: "test" };
 const dropped = ["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "PORT", "CLAUDE_CONFIG_DIR", "GH_CONFIG_DIR", "XDG_CONFIG_HOME"];
 for (const key of dropped) delete env[key];
 
