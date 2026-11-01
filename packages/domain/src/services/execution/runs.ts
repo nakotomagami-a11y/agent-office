@@ -17,7 +17,7 @@ import { emitAppEvent } from "../infra/events";
 import { appBaseUrl } from "../infra/discovery";
 import { denyAllForRun, type PermissionRequest } from "./permissions";
 import { pushRun, getRun, isRunOrphaned, markRunAborted } from "../infra/store";
-import { isInterruptionCode } from "../../config/run-errors";
+import { isInterruptionCode, RUN_ERROR_REMEDIATION } from "../../config/run-errors";
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "../infra/sleep-inhibit";
@@ -337,7 +337,7 @@ export function attachEmit(runId: string, emit: SseEmit): boolean {
     void emit(event);
   }
   // Not only once finished: max_runtime is broadcast before the kill lands.
-  if (run.error) void emit({ name: "error", data: { runId, ...run.error } });
+  if (run.error) void emit({ name: "error", data: withRemediation({ runId, ...run.error }) });
   if (run.status !== "running") {
     void emit({
       name: "done",
@@ -389,7 +389,7 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
   const persisted = getRun(runId);
   if (!persisted) {
     return [
-      { name: "error", data: { runId, code: "unknown", detail: runId } },
+      { name: "error", data: withRemediation({ runId, code: "unknown", detail: runId }) },
       { name: "done", data: { runId, exitCode: 1 } },
     ];
   }
@@ -405,7 +405,7 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
   // process actually owns the run.
   if (stillRunning && !orphaned) {
     return [
-      { name: "error", data: { runId, code: "server_restart" } },
+      { name: "error", data: withRemediation({ runId, code: "server_restart" }) },
       { name: "done", data: { runId, exitCode: 1, sessionId: persisted.sessionId } },
     ];
   }
@@ -418,13 +418,18 @@ export function resolveDetachedRunEvents(runId: string): SseEvent[] {
   if (failed) {
     events.push({
       name: "error",
-      data: orphaned
+      data: withRemediation(orphaned
         ? { runId, code: "server_restart", interrupted: true }
-        : errorEventFromRow(runId, persisted),
+        : errorEventFromRow(runId, persisted)),
     });
   }
   events.push({ name: "done", data: { runId, exitCode: exitCode ?? (failed ? 1 : 0), sessionId: persisted.sessionId } });
   return events;
+}
+
+// RULE errors.machine-codes: a failure teaches its own fix, to the agent or client reading the stream.
+function withRemediation(data: SseErrorEvent): SseErrorEvent {
+  return { ...data, remediation: RUN_ERROR_REMEDIATION[data.code] };
 }
 
 function errorEventFromRow(runId: string, row: PersistedRun): SseErrorEvent {
@@ -477,7 +482,7 @@ export function killAllRuns(): void {
 function broadcast(run: LiveRun, raw: SseEvent): void {
   let event = raw;
   if (raw.name === "error") {
-    const data = { ...raw.data, detail: redactSecrets(raw.data.detail, run.secretValues) };
+    const data = withRemediation({ ...raw.data, detail: redactSecrets(raw.data.detail, run.secretValues) });
     event = { name: "error", data };
     // The first error is the cause; later ones (e.g. the kill after max_runtime) are fallout.
     run.error ??= { code: data.code, detail: data.detail, interrupted: data.interrupted };

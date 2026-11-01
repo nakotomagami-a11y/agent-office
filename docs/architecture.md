@@ -166,7 +166,8 @@ human sentence — the client owns i18n (next-intl maps the code → localized c
 Write `badRequest("agent_required")`, not `badRequest("Agent is required")`. Run
 failures are enumerated once in `packages/domain/src/config/run-errors.ts`
 (`RUN_ERROR_CODES` + `isRunErrorCode`); the SSE `error` event carries `{ code, detail? }`
-where `detail` is short raw context, never transcript prose.
+where `detail` is short raw context, never transcript prose, plus `remediation`: the
+agent-facing fix for that code (`RUN_ERROR_REMEDIATION`).
 
 > Regression that motivated this: the run-stream route once emitted a `message`
 > field the client never reads. Four hand-written sentences were silently dropped and
@@ -371,7 +372,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `tool-done` | `runId, toolUseId, ts, backgrounded?` | That tool call's result arrived, or its run ended without one — bounds the files an imggen card may claim |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message and on result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Run finalized (success or failure) |
-| `error` | `runId, code, detail?` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
+| `error` | `runId, code, detail?, interrupted?, remediation` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
 | `rate-limit` | `runId, message, resetsAt?, severity` | Anthropic rate limit hit **or** approaching. `severity: "warning"` = approaching (run keeps going, amber "Continue" card); `severity: "limit"` = hard limit (red "Retry" card). Derived from the CLI `rate_limit_event` status via `buildRateLimitEvent`. |
 | `subagent` | `runId` + sub-agent fields (name, prompt, status, startTs, subRunId, …) | A sub-agent spawn (`Task`/`Agent` tool) detected — drives the WorkflowPill tree |
 | `subagent-update` | `runId` + status/progress fields | Sub-agent status / token / tool progress update |

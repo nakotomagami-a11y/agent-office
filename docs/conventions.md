@@ -111,10 +111,11 @@ The client owns i18n. `badRequest("agent_required")`, not
 `detail` is short raw context, never transcript prose.
 
 Every code carries an **agent-facing remediation** — a failure should teach the
-fix at the moment it happens, not require the rule up front.
+fix at the moment it happens, not require the rule up front. Every SSE `error`
+event carries it as `remediation`, live, replayed or rebuilt from the stored run.
 
 > **enforced by** `RUN_ERROR_CODES` + `isRunErrorCode`; remediation completeness
-> asserted in `run-errors.test.ts`
+> asserted in `run-errors.test.ts`, and its delivery in `runs.resume-retry.test.ts`
 
 ---
 

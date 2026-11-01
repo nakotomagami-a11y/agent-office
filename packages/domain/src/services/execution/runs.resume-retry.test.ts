@@ -14,6 +14,7 @@ import { after, test } from "node:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { RUN_ERROR_REMEDIATION } from "../../config/run-errors";
 
 const STUB = `
 const args = process.argv.slice(2);
@@ -88,6 +89,21 @@ test("a retry that hits an expired login still gets the Sign-in card", async () 
   assert.equal(errors.length, 1);
   assert.ok(errors[0]?.name === "error");
   assert.equal(errors[0].data.code, "auth_expired");
+});
+
+test("a failed run's error event carries the fix for its code", async () => {
+  const r = run("NOAUTH", ["-p", "--output-format", "stream-json"]);
+  await r.done;
+  const err = r.events.find((e) => e.name === "error");
+  assert.ok(err?.name === "error");
+  assert.equal(err.data.code, "auth_expired");
+  assert.equal(err.data.remediation, RUN_ERROR_REMEDIATION.auth_expired);
+
+  const replayed: SseEvent[] = [];
+  attachEmit(r.runId, (e) => { replayed.push(e); });
+  const again = replayed.find((e) => e.name === "error");
+  assert.ok(again?.name === "error");
+  assert.equal(again.data.remediation, RUN_ERROR_REMEDIATION.auth_expired);
 });
 
 test("stopping a run reports it as stopped", async () => {

@@ -505,7 +505,14 @@ export type { CleanupKind } from "../config/cleanup";
 import type { DocCategory } from "../config/doc-categories";
 import type { SkillIconClass } from "../config/skill-icons";
 
-export interface SseErrorEvent { runId: string; code: RunErrorCode; detail?: string; interrupted?: boolean }
+export interface SseErrorEvent {
+  runId: string;
+  code: RunErrorCode;
+  detail?: string;
+  interrupted?: boolean;
+  /** Agent-facing fix for `code` (`RUN_ERROR_REMEDIATION`), set on every error the server emits. */
+  remediation?: string;
+}
 export interface SseRateLimitEvent { runId: string; message: string; resetsAt?: number; severity: "warning" | "limit" }
 export interface SseAttachedEvent {
   runId: string;
