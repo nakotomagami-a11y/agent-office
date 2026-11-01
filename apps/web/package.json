@@ -52,7 +52,6 @@
     "@types/react-dom": "^19.0.0",
     "@typescript-eslint/eslint-plugin": "^8.63.0",
     "@typescript-eslint/parser": "^8.63.0",
-    "autoprefixer": "^10.4.20",
     "cross-spawn": "^7.0.6",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
