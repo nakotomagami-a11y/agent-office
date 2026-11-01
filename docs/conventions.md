@@ -58,8 +58,9 @@ and `app/(app)/agents/[id]/edit/page.tsx`.
 *Fix:* add or reuse an endpoint and call it via `API_ROUTES` from
 `@agent-office/api-contract`. A pure domain function the browser genuinely needs goes on
 the browser-safe allowlist, which is checked from both sides: web may import it, and the
-module itself may value-import only the other allowlisted modules (`loop-machine`,
-`runs/errors`, `runs/reset-time` today). No `eslint-disable`.
+module itself may value-import only the other allowlisted modules. Web imports
+`loop-machine` and `runs/errors` today; `runs/reset-time` is on the list only because
+`runs/errors` imports it. No `eslint-disable`.
 
 > **enforced by** `@typescript-eslint/no-restricted-imports` in `apps/web/eslint.config.mjs`
 > and, for the allowlist, in `packages/domain/eslint.config.mjs`

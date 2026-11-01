@@ -113,7 +113,7 @@ test("a ruling delivered but not recorded on the hub cannot be given twice", asy
   assert.ok(req.ok);
   const askId = github.addComment(req.body);
   lead.use();
-  db.recordOwnMissionPost(missionId, askId);
+  db.confirmMissionPost(missionId, db.reserveMissionPost(missionId), askId);
   github.failPosts = 1;
   assert.ok((await actions.answerAsk(missionId, askId, "Yes.", lead.deps)).ok, "the coordinator has it");
   const view = await missionView(missionId, lead.deps);
@@ -127,7 +127,7 @@ test("a ruling for a coordinator at its cap is refused before anything is sent o
   assert.ok(req.ok);
   const askId = github.addComment(req.body);
   lead.use();
-  db.recordOwnMissionPost(missionId, askId);
+  db.confirmMissionPost(missionId, db.reserveMissionPost(missionId), askId);
   const lead0 = lead.seat("coordinator");
   db.addMissionSpend(missionId, "coordinator", lead0.capUsd);
   const before = github.comments.length;
@@ -156,7 +156,7 @@ test("a ruling whose delivery fails stays open instead of vanishing from the hub
   assert.ok(req.ok);
   const askId = github.addComment(req.body);
   lead.use();
-  db.recordOwnMissionPost(missionId, askId);
+  db.confirmMissionPost(missionId, db.reserveMissionPost(missionId), askId);
   const failing = { ...lead.deps, send: async () => { throw new Error("chat gone"); } };
   await assert.rejects(actions.answerAsk(missionId, askId, "Yes.", failing));
   assert.ok(state().asks.some((a) => a.commentId === askId));

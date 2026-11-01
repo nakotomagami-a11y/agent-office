@@ -138,31 +138,6 @@ export function listQueue(conversationId: string): QueuedMessageRow[] {
   return rows.map(toQueued);
 }
 
-export function enqueueMessage(conversationId: string, text: string, attachments: string | null = null, origin: MessageOrigin = "user"): QueuedMessageRow {
-  const db = getDb();
-  const now = Date.now();
-  const id = randomUUID();
-  const row = db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM queued_messages WHERE conversation_id = ?").get(conversationId) as { pos: number };
-  const position = row.pos;
-  db.prepare(
-    "INSERT INTO queued_messages (id, conversation_id, text, origin, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  ).run(id, conversationId, text, origin, attachments, position, now);
-  return { id, text, origin, attachments, position, createdAt: now };
-}
-
-/** Remove and return the front (lowest position) queued message, atomically. */
-export function dequeueMessage(conversationId: string): QueuedMessageRow | null {
-  const db = getDb();
-  return db.transaction(() => {
-    const raw = db
-      .prepare("SELECT id, text, origin, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC LIMIT 1")
-      .get(conversationId) as RawQueuedRow | undefined;
-    if (!raw) return null;
-    db.prepare("DELETE FROM queued_messages WHERE id = ?").run(raw.id);
-    return toQueued(raw);
-  })();
-}
-
 export function removeQueuedMessage(conversationId: string, messageId: string): void {
   getDb().prepare("DELETE FROM queued_messages WHERE conversation_id = ? AND id = ?").run(conversationId, messageId);
 }

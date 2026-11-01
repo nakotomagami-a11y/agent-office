@@ -100,7 +100,7 @@ test("no loop while the chat has more work: a running turn or a queued message",
 
   const queued = db.startNewConversation("developer", "dev-on", "proj");
   const done2 = turn({ tool: "Edit", conversationId: queued.id });
-  db.enqueueMessage(queued.id, "and also the logout page");
+  db.replaceQueue(queued.id, [{ id: "qa-queued", text: "and also the logout page" }]);
   assert.equal(await maybeStartQaLoop(done2, true, runner, 1), null);
 });
 

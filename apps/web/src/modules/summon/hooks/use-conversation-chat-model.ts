@@ -27,7 +27,7 @@ import {
   deriveStreamStaleness,
   deriveLiveStats,
 } from "../format/derive-live-stats";
-import { sumHistoryTokens } from "../format/derive-chat-phase";
+import { sumHistoryTokens } from "../format/sum-history-tokens";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ChatPhase } from "../components/live-status";
 import type { ThreadItem } from "@agent-office/domain/types";

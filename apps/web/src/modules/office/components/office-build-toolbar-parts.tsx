@@ -1,9 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { Icon } from "@/components/ui/icon";
-import { DECORATIONS, type DecoCategory, type DecorationDef, type DecorationKind } from "./decorations";
+import type { DecoCategory, DecorationDef } from "./decorations";
 import { type GrassColorDef } from "./grass-colors";
 import type { BuildTool } from "./office-build-toolbar";
-import { ACC_BORDER, TILE_BASIS, TILE_BG, TILE_BG_SEL, TILE_SHADOW_SEL } from "./office-build-toolbar-styles";
 
 export type IconName = Parameters<typeof Icon>[0]["name"];
 
@@ -25,27 +24,8 @@ export const TOOLS: { id: BuildTool; icon: IconName; label: string; key: string;
 
 // Presentational pieces of the build toolbar — pure markup, no state.
 
-export function HeaderBtn({ icon, label, title, onClick, disabled }: { icon: IconName; label: string; title: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      className="w-[27px] h-[27px] rounded-[7px] flex items-center justify-center text-txt-2 cursor-pointer transition-colors duration-100 hover:bg-bg-3 hover:text-txt disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-txt-2"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={label}
-    >
-      <Icon name={icon} size={14} />
-    </button>
-  );
-}
-
 export function SoonBadge() {
   return <span className="inline-flex items-center text-[8px] font-bold uppercase tracking-[0.04em] px-[5px] py-[1px] rounded-[5px] bg-acc-faint text-acc">soon</span>;
-}
-
-export function InspectorChip({ children }: { children: ReactNode }) {
-  return <span className="font-mono text-[9.5px] px-[7px] py-[2px] rounded-full bg-bg-3 text-txt-2 border border-line">{children}</span>;
 }
 
 export function GenSlider({
@@ -79,52 +59,6 @@ export function GenSlider({
       />
       <span className="w-[34px] shrink-0 text-right font-mono text-[11px] tabular-nums text-txt">{format(value)}</span>
     </label>
-  );
-}
-
-export function DecoTileCell({
-  kind,
-  selected,
-  onSelect,
-}: {
-  kind: DecorationKind;
-  selected: boolean;
-  onSelect: (k: BuildTool | null) => void;
-}) {
-  const def = DECORATIONS[kind];
-  if (def.locked) {
-    return (
-      <div
-        className="relative flex flex-col items-center justify-end gap-[6px] px-[4px] pt-[11px] pb-[7px] rounded-[12px] border border-line opacity-40 cursor-not-allowed"
-        style={{ ...TILE_BASIS, background: TILE_BG }}
-        title={`${def.label} · locked`}
-        aria-disabled
-      >
-        <span className="absolute top-[5px] right-[5px] text-txt-3"><Icon name="lock" size={11} /></span>
-        <span className="grayscale"><DecoSprite def={def} size={42} /></span>
-        <div className="max-w-full text-center overflow-hidden text-ellipsis whitespace-nowrap text-[9.5px] text-txt-3">{def.label}</div>
-      </div>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className={`group relative flex flex-col items-center justify-end gap-[6px] px-[4px] pt-[11px] pb-[7px] rounded-[12px] border cursor-pointer transition-[transform,border-color] duration-150 hover:-translate-y-[3px] ${selected ? "border-transparent" : "border-line hover:border-line-2"}`}
-      style={{
-        ...TILE_BASIS,
-        background: selected ? TILE_BG_SEL : TILE_BG,
-        ...(selected ? { borderColor: ACC_BORDER, boxShadow: TILE_SHADOW_SEL } : {}),
-      }}
-      onClick={() => onSelect(kind)}
-      title={`${def.label} · ${def.terrain}-only`}
-      aria-pressed={selected}
-    >
-      <span className="absolute top-[4px] right-[4px] w-[19px] h-[19px] rounded-[6px] flex items-center justify-center text-txt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-bg-1 hover:!text-acc" title="Pin to favorites — coming soon" aria-hidden>
-        <Icon name="pin" size={11} />
-      </span>
-      <DecoSprite def={def} size={42} />
-      <div className={`max-w-full text-center overflow-hidden text-ellipsis whitespace-nowrap text-[9.5px] ${selected ? "text-acc font-semibold" : "text-txt-2"}`}>{def.label}</div>
-    </button>
   );
 }
 

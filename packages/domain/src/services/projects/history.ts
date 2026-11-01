@@ -5,12 +5,6 @@ import type { ContextProfile } from "../../types/index";
 export type { HistoryMessage } from "../db";
 export type { ContextProfile } from "../../types/index";
 
-export const PROFILE_TOK: Record<ContextProfile, number> = {
-  tight: 400,
-  balanced: 1_500,
-  deep: 4_000,
-};
-
 const MSG_LIMIT: Record<ContextProfile, number> = { tight: 3, balanced: 8, deep: 16 };
 const TRUNCATE: Record<ContextProfile, number> = { tight: 800, balanced: 500, deep: 300 };
 

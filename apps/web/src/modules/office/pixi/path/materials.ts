@@ -141,10 +141,3 @@ export const PATH_MATERIALS: Record<PathMaterialId, PathMaterialConfig> = {
 };
 
 export const DEFAULT_PATH_MATERIAL: PathMaterialId = "dirt";
-
-export function isPathMaterial(v: unknown): v is PathMaterialId {
-  return v === "dirt" || v === "stone" || v === "sand" || v === "gravel";
-}
-
-/** Ordered list for pickers/toolbars. */
-export const PATH_MATERIAL_IDS: PathMaterialId[] = ["dirt", "stone", "sand", "gravel"];

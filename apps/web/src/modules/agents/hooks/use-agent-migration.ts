@@ -14,11 +14,6 @@ import { API_ROUTES } from "@agent-office/api-contract";
  * without a manual refresh.
  */
 
-/** Window event: request the agent-migration modal be opened on demand (e.g.
- *  from the update bell's bundled-agents affordance). The globally-mounted
- *  AgentMigrationTrigger owns the modal and listens for this. */
-export const OPEN_AGENT_MIGRATION_EVENT = "agent-office:open-agent-migration";
-
 /** Judged against the hash the agent was installed from; `unknown` = installed before that record. */
 export type AgentChange = "bundle_changed" | "edited_locally" | "both" | "unknown";
 

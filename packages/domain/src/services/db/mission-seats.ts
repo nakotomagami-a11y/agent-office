@@ -130,10 +130,6 @@ export function confirmMissionPost(missionId: string, nonce: string, commentId: 
 }
 
 /** A comment this device posted outside the nonce path (tests, or a log rebuilt by hand). */
-export function recordOwnMissionPost(missionId: string, commentId: number): void {
-  confirmMissionPost(missionId, reserveMissionPost(missionId), commentId);
-}
-
 export interface OwnMissionPosts {
   ids: Set<number>;
   /** Reserved nonces whose comment id never came back. */

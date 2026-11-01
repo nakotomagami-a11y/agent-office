@@ -625,26 +625,6 @@ export const DECORATIONS: Record<DecorationKind, DecorationDef> = {
   },
 };
 
-/**
- * Auto-rendered bridge end-cap sprites. These are NOT placeable
- * decorations - OfficeMap paints them on land cells that touch a
- * placed `bridge_h` / `bridge_v` middle tile, so the bridge always
- * "lands" with a proper end-piece without the user having to manage
- * caps in the build palette.
- *
- * Each entry is a 64×64 PNG; the sprite art already has transparent
- * padding on the side that connects to the bridge middle (left half
- * for the LEFT cap, right half for the RIGHT cap, etc.), so painting
- * the full tile on top of a land cell only covers the half that
- * meets the bridge.
- */
-export const BRIDGE_CAPS = {
-  h_l: { src: "/decorations/bridge-h-l.png", frameW: 64, frameH: 64 },
-  h_r: { src: "/decorations/bridge-h-r.png", frameW: 64, frameH: 64 },
-  v_t: { src: "/decorations/bridge-v-t.png", frameW: 64, frameH: 64 },
-  v_b: { src: "/decorations/bridge-v-b.png", frameW: 64, frameH: 64 },
-} as const;
-
 export const DECORATION_KINDS: DecorationKind[] = Object.keys(DECORATIONS) as DecorationKind[];
 
 /**

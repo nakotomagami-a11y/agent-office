@@ -469,8 +469,6 @@ export interface ScheduledJob {
   updatedAt: number;
 }
 
-export type SseEventName = "chunk" | "tool" | "tool-done" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
-
 /** A tool call parked awaiting the operator's approval. Unanswered ones are
  *  denied by the server after a timeout — the client never has to. */
 export interface SsePermissionRequestEvent {

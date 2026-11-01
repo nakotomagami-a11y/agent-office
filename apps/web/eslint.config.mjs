@@ -23,10 +23,10 @@ import nextPlugin from "@next/eslint-plugin-next";
 const WEB_THROUGH_SERVER =
   "RULE arch.web-through-server (docs/conventions.md): the UI reaches the brains over HTTP — API_ROUTES from @agent-office/api-contract — never by calling domain services or the server in-process. Types are fine (`import type`).";
 const DOMAIN_SERVICES = {
-  // Except the browser-safe three: packages/domain lint holds them to importing
-  // nothing but each other. A regex, because gitignore-style `!` cannot re-include
+  // Except the browser-safe two: packages/domain lint holds them to importing
+  // nothing but the allowlist. A regex, because gitignore-style `!` cannot re-include
   // a file whose parent directory a pattern already matched.
-  regex: "^@agent-office/domain/services(?!/execution/(loop-machine|runs/errors|runs/reset-time)$)(/.*)?$",
+  regex: "^@agent-office/domain/services(?!/execution/(loop-machine|runs/errors)$)(/.*)?$",
   allowTypeImports: true,
   message: WEB_THROUGH_SERVER,
 };
@@ -77,9 +77,7 @@ export default [
 
       // ── Complexity budgets (docs/conventions.md) ───────────────
       // Warn only — the codebase has legacy files that go over these
-      // limits. The warnings surface them without blocking dev; per-file
-      // cleanup is tracked in ROADMAP.md (Wave 7)
-      // execution.
+      // limits. The warnings surface them without blocking dev.
       "max-lines": [
         "warn",
         { max: 200, skipBlankLines: true, skipComments: true },
