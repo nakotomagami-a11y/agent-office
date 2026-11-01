@@ -14,7 +14,7 @@ import Database from "better-sqlite3";
 import { createSchema } from "../db/migrations";
 import * as accounts from "./accounts";
 import * as githubAccounts from "./github-accounts";
-import { ACCOUNTS_DIR, GITHUB_ACCOUNTS_DIR, accountConfigDir } from "../infra/paths";
+import { ACCOUNTS_DIR, GITHUB_ACCOUNTS_DIR, PROJECTS_DIR, accountConfigDir } from "../infra/paths";
 
 const mem = new Database(":memory:");
 createSchema(mem);
@@ -39,4 +39,27 @@ test("removing a Claude account deletes its config folder", () => {
   assert.equal(accounts.remove(id).ok, true);
   assert.equal(existsSync(dir), false);
   assert.equal(existsSync(ACCOUNTS_DIR), true, "only the account's own folder goes");
+});
+
+test("an account a project names is not removed, even from a CRLF project.md", () => {
+  // The LF-only frontmatter match missed a Windows checkout's file and let the delete through.
+  const gh = githubAccounts.create({ label: "pinned" });
+  const claude = "acc_pinned1";
+  const dir = accountConfigDir(claude);
+  mkdirSync(dir, { recursive: true });
+  mem.prepare("INSERT INTO accounts (id, label, config_dir, created_at) VALUES (?, 'x', ?, 1)").run(claude, dir);
+  mkdirSync(join(PROJECTS_DIR, "uses-both"), { recursive: true });
+  writeFileSync(
+    join(PROJECTS_DIR, "uses-both", "project.md"),
+    `---
+name: Uses both
+accountId: ${claude}
+githubAccountId: ${gh.id}
+---
+`,
+  );
+
+  assert.deepEqual(accounts.remove(claude), { ok: false, reason: "referenced", blocked: ["uses-both"] });
+  assert.deepEqual(githubAccounts.remove(gh.id), { ok: false, reason: "referenced", blocked: ["uses-both"] });
+  assert.equal(existsSync(dir), true);
 });

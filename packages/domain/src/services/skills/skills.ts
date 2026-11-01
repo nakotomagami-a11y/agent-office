@@ -40,7 +40,7 @@ import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { SKILLS_DIR, isValidIdSegment } from "../infra/paths";
 import { log } from "../infra/log";
 import { EXTERNAL_API } from "../../config/routes";
-import { parseFrontmatter, parseYaml, stringifyYaml, type YamlValue } from "../infra/yaml";
+import { parseFrontmatter, parseFrontmatterDetailed, stringifyYaml, type YamlValue } from "../infra/yaml";
 import type { SkillIconClass } from "../../config/skill-icons";
 
 const REGISTRY_CACHE = join(SKILLS_DIR, "_registry.json");
@@ -488,9 +488,7 @@ export interface WriteSkillInput {
 
 /** Return the markdown below a leading `--- … ---` block (or the input as-is). */
 function stripFrontmatter(content: string): string {
-  const normalized = content.replace(/\r\n/g, "\n");
-  const m = normalized.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
-  return (m ? m[1]! : normalized).trim();
+  return parseFrontmatterDetailed(content.replace(/\r\n/g, "\n")).body.trim();
 }
 
 /** Assemble a canonical SKILL.md from structured fields + body. */
@@ -533,20 +531,16 @@ export function writeLocalSkill(
 /** Import a skill from pasted SKILL.md text; the name comes from frontmatter. */
 export function importPastedSkill(content: string): InstalledSkill {
   const normalized = content.replace(/\r\n/g, "\n");
-  const fm = normalized.match(/^---\n([\s\S]*?)\n---/);
-  if (!fm) {
+  const { fm, matched, mapping } = parseFrontmatterDetailed(normalized);
+  if (!matched) {
     throw new Error("pasted content has no frontmatter — expected a `--- name/description ---` block");
   }
-  let meta: { name?: string; description?: string; tags?: string[] } = {};
-  try {
-    meta = parseYaml(fm[1]!) as typeof meta;
-  } catch {
-    throw new Error("could not parse the frontmatter YAML");
-  }
-  const name = (meta.name ?? "").trim();
+  if (!mapping) throw new Error("could not parse the frontmatter YAML");
+  const name = typeof fm.name === "string" ? fm.name.trim() : "";
   if (!name) throw new Error("frontmatter is missing a `name`");
+  const tags = Array.isArray(fm.tags) ? fm.tags.filter((t): t is string => typeof t === "string") : undefined;
   return writeLocalSkill(
-    { name, description: meta.description ?? "", tags: meta.tags, body: normalized },
+    { name, description: typeof fm.description === "string" ? fm.description : "", tags, body: normalized },
     { overwrite: false },
   );
 }
