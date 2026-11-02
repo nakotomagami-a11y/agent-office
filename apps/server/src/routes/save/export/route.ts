@@ -1,5 +1,4 @@
-// GET /api/save/export — export a project, its agents and the office layout as a portable JSON
-// bundle download.
+// GET /api/save/export — export a project and its roster agents as a portable JSON bundle download.
 import { save } from "@agent-office/domain/services";
 import { badRequest, notFound } from "../../../lib/api-helpers";
 

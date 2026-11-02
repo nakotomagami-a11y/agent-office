@@ -1,6 +1,7 @@
 /**
  * v30 → v31 on a populated database: the legacy `transcripts`, `pipelines` and `pipeline_steps`
- * tables go, and any rows they still held are on disk first.
+ * tables are emptied (not dropped: an older installed build still reads them), and any rows they
+ * still held are on disk first.
  *
  *   pnpm --filter @agent-office/domain test src/services/db/migrations-v31.test.ts
  */
@@ -15,32 +16,36 @@ import { BACKUPS_DIR } from "../infra/paths";
 const tables = (db: Database.Database) =>
   (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map((t) => t.name);
 
-test("v31 drops the legacy tables after backing up their rows", () => {
+test("v31 empties the legacy tables after backing up their rows, and keeps them", () => {
   const db = new Database(":memory:");
   createSchema(db);
-  db.exec(`
-    CREATE TABLE transcripts (agent_id TEXT NOT NULL, instance_id TEXT NOT NULL, items TEXT NOT NULL, updated_at INTEGER NOT NULL);
-    CREATE TABLE pipelines (id TEXT PRIMARY KEY, status TEXT NOT NULL, created_at INTEGER NOT NULL);
-    CREATE TABLE pipeline_steps (pipeline_id TEXT NOT NULL REFERENCES pipelines(id), step_index INTEGER NOT NULL);
-  `);
   db.pragma("user_version = 30");
-  db.prepare("INSERT INTO transcripts VALUES ('dev', 'default', '[\"old chat\"]', 7)").run();
+  db.prepare("INSERT INTO transcripts (agent_id, instance_id, items, updated_at) VALUES ('dev', 'default', '[\"old chat\"]', 7)").run();
   const before = new Set(existsSync(BACKUPS_DIR) ? readdirSync(BACKUPS_DIR) : []);
 
   createSchema(db);
 
   assert.equal(db.pragma("user_version", { simple: true }), 31);
   const left = tables(db);
-  for (const t of ["transcripts", "pipelines", "pipeline_steps"]) assert.ok(!left.includes(t), `${t} survived v31`);
-  const written = readdirSync(BACKUPS_DIR).filter((f) => !before.has(f));
+  for (const t of ["transcripts", "pipelines", "pipeline_steps"]) {
+    assert.ok(left.includes(t), `${t} was dropped; an older build sharing the db still reads it`);
+    assert.equal((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n, 0, `${t} still has rows`);
+  }
+  // Other test files write backups into the same folder at the same time.
+  const written = readdirSync(BACKUPS_DIR).filter((f) => !before.has(f) && /^(transcripts|pipelines|pipeline_steps)-\d+\.json$/.test(f));
   assert.deepEqual(written.map((f) => f.replace(/-\d+\.json$/, "")), ["transcripts"], "only a table with rows is backed up");
-  assert.deepEqual(JSON.parse(readFileSync(join(BACKUPS_DIR, written[0]!), "utf8")), [
-    { agent_id: "dev", instance_id: "default", items: "[\"old chat\"]", updated_at: 7 },
-  ]);
+  const saved: unknown = JSON.parse(readFileSync(join(BACKUPS_DIR, written[0]!), "utf8"));
+  assert.ok(Array.isArray(saved) && saved.length === 1);
+  const row: unknown = saved[0];
+  assert.ok(typeof row === "object" && row !== null);
+  const { agent_id, instance_id, items, updated_at } = row as Record<string, unknown>;
+  assert.deepEqual([agent_id, instance_id, items, updated_at], ["dev", "default", "[\"old chat\"]", 7]);
 });
 
-test("a fresh database never creates the legacy tables it would drop", () => {
+test("a fresh database holds no legacy rows", () => {
   const db = new Database(":memory:");
   createSchema(db);
-  assert.deepEqual(tables(db).filter((t) => ["transcripts", "pipelines", "pipeline_steps"].includes(t)), []);
+  for (const t of tables(db).filter((n) => ["transcripts", "pipelines", "pipeline_steps"].includes(n))) {
+    assert.equal((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n, 0, t);
+  }
 });

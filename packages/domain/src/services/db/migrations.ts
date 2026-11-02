@@ -572,19 +572,18 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       DELETE FROM ui_settings WHERE key LIKE 'office-%';
     `);
   },
-  // v30 → v31: the legacy tables go. `transcripts` was superseded by `conversations` in v14, and
-  // nothing has written a pipeline since Workflows. Any rows left are copied to disk first.
+  // v30 → v31: the legacy tables (superseded in v14 / never written) are backed up and emptied, not
+  // dropped: an older installed build sharing this database still queries them. Drop them later.
   (db) => {
     for (const table of LEGACY_TABLES) backupTable(db, table);
-    db.exec(`
-      DROP TABLE IF EXISTS pipeline_steps;
-      DROP TABLE IF EXISTS pipelines;
-      DROP TABLE IF EXISTS transcripts;
-    `);
+    for (const table of LEGACY_TABLES) {
+      const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+      if (exists) db.exec(`DELETE FROM ${table}`);
+    }
   },
 ];
 
-const LEGACY_TABLES = ["transcripts", "pipelines", "pipeline_steps"] as const;
+const LEGACY_TABLES = ["pipeline_steps", "pipelines", "transcripts"] as const; // children first (FK)
 
 /** The rows of a table a migration drops, as JSON in the backups folder; null when there were none.
  *  Throws rather than return when the file cannot be written, so the migration stops before anything

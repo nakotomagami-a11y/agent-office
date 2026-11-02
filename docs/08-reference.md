@@ -505,7 +505,7 @@ Chat-format history. One row per assistant / user message. Full-text-indexed via
 ### Other tables
 
 - `tool_calls` — one row per tool_use content block
-- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v31 dropped that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`.
+- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v31 emptied that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`. The empty tables stay until no installed build reads them.
 - `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
 - `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
 - `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.

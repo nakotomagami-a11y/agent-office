@@ -119,8 +119,8 @@ check("listConversationTurns: attaches the full tool-call trail, oldest-first", 
 });
 
 check("backfill creates a conversation per legacy slot and tags its runs", () => {
-  // v30 dropped the legacy table; backfill only ever runs at v14, where it still exists.
-  mem.exec(`CREATE TABLE transcripts (agent_id TEXT NOT NULL, instance_id TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]',
+  // v31 empties the legacy table; backfill only ever runs at v14, where it still holds rows.
+  mem.exec(`CREATE TABLE IF NOT EXISTS transcripts (agent_id TEXT NOT NULL, instance_id TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]',
     active_run_id TEXT, session_id TEXT, updated_at INTEGER NOT NULL, queued_messages TEXT NOT NULL DEFAULT '[]',
     PRIMARY KEY(agent_id, instance_id))`);
   mem.prepare("INSERT INTO transcripts (agent_id, instance_id, items, active_run_id, session_id, queued_messages, updated_at) VALUES (?,?,?,?,?,?,?)")
