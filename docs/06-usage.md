@@ -1,48 +1,17 @@
 # Usage
 
-Day-to-day workflows: the isometric office floor, sending agents to work and streaming their output, run history, multi-instance worktrees, spend tracking, the processes panel, and roster updates.
+Day-to-day workflows: sending agents to work and streaming their output, run history, multi-instance worktrees, spend tracking, the processes panel, and roster updates.
 
-## Office floor — the isometric workspace
+## Roster status LEDs
 
-The Office page renders a top-down isometric floor with rooms, walls, decorations, and one desk per agent instance in the currently-active project. Drag desks to reposition; drag agents from the sidebar onto empty tiles to add them to the roster.
-
-### Navigation
-
-- **Wheel** — zoom.
-- **Middle-drag** or **space+drag** — pan.
-- **Click a desk** — opens the agent details modal.
-- **Alt+←/→** — previous/next instance of the same agent.
-- **Drag desk** — reposition (persisted to `ui_settings`).
-- **Drag agent from sidebar** — add to roster.
-- **Drop instance on trash** — remove from roster (cleans up worktree).
-
-### Status LEDs
-
-Each desk has a colored dot indicating the agent's state:
+Each agent in the sidebar roster has a colored dot showing its state:
 
 | Color | Meaning |
 |---|---|
-| 🔵 blue | Working — subprocess running, streaming |
-| 🟣 purple | Thinking — model computing, no output yet |
-| 🟢 green | Done — last run completed successfully |
-| 🟡 amber | Queued — waiting on rate limit or dispatch queue |
+| 🟢 green | Working or thinking — a run is live |
+| 🟡 amber | Queued (waiting on a rate limit or the dispatch queue) or done |
 | 🔴 red | Error — last run failed |
 | ⚪ gray | Idle — no active run |
-
-### Build mode
-
-Toggle the wrench icon to enter **Build mode**. In build mode you can:
-
-- Paint the grass tile color.
-- Place decorations (plants, computers, coffee).
-- Add walls to define rooms.
-- Rename rooms.
-
-Layout is per-project; stored in `ui_settings` keyed by `office:<projectId>`.
-
-### Rooms
-
-Rooms are visual groupings on the floor. Assigned via `room:` in an agent's frontmatter (e.g. `room: Boardroom`). The office auto-arranges desks into their room's rectangle.
 
 ## Summon & Runs — sending agents to work
 
@@ -104,7 +73,7 @@ The **Search** page finds a past run by its prompt or output, among your recent 
 
 ## Multi-instance & worktrees
 
-You can drop the same agent onto a project multiple times — each drop creates a new instance with its own worktree, chat history, and memory.
+You can add the same agent to a project multiple times — each one creates a new instance with its own worktree, chat history, and memory.
 
 ### Worktree isolation model
 

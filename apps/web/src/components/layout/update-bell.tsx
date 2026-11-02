@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { HEADER_SHEEN } from "./header-button";
+import { APP_VERSION, VersionBadge } from "./version-badge";
 import {
   CHECK_UPDATE_EVENT,
   detectUpdate,
@@ -36,6 +39,10 @@ const PRIMARY_ACTION =
   "transition-transform duration-150 hover:-translate-y-px active:translate-y-0";
 const GHOST_ACTION =
   "px-[16px] py-[10px] rounded-[11px] bg-transparent text-txt-3 text-[12.5px] font-bold cursor-pointer transition-colors duration-150 hover:text-txt";
+
+function vTag(version: string | undefined): string {
+  return `v${(version ?? "").replace(/^v/, "")}`;
+}
 
 function formatMB(bytes: number): string {
   return (bytes / 1_000_000).toFixed(1);
@@ -106,8 +113,8 @@ const BULLET_TONES: Tone[] = ["acc", "green", "cyan"];
  *   - Linux/Windows: downloads in the background and installs in place —
  *     the modal can be hidden mid-download and reopened from the pill.
  *   - macOS: link out to the GitHub releases page (no signed updater yet).
- * Renders nothing in the browser or when up to date — detectUpdate() returns
- * null there.
+ * In the browser or when up to date it shows the VersionBadge instead (the pill
+ * already names both versions, so the two never show at once).
  */
 export function UpdateBell() {
   const t = useTranslations("update_bell");
@@ -195,17 +202,28 @@ export function UpdateBell() {
   return (
     <>
       {status ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="group surface-sheen h-[38px] shrink-0 flex items-center gap-[8px] pl-[12px] pr-[14px] rounded-full text-txt-2 hover:text-txt font-semibold text-[12.5px] shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_38%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)] cursor-pointer"
-          title={t("title_available", { version: version ?? "" })}
-          aria-label={t("aria_available", { version: version ?? "" })}
-        >
-          <Icon name="download" size={15} className="text-acc transition-transform duration-200 group-hover:scale-110" />
-          {t("modal_title_available")}
-        </button>
-      ) : null}
+        <Tooltip content={t("title_available", { version: version ?? "" })} side="bottom" className="shrink-0">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className={cn(HEADER_SHEEN, "h-auto gap-[9px] py-[7px] pl-[8px] pr-[14px] text-left")}
+            aria-label={t("aria_available", { version: version ?? "" })}
+          >
+            <span className="relative w-[24px] h-[24px] shrink-0 flex items-center justify-center rounded-[8px] bg-acc-soft text-acc">
+              <Icon name="download" size={13} className="size-[13px] [flex:0_0_13px]" />
+              <span className="absolute -top-[2px] -right-[2px] w-[7px] h-[7px] rounded-full bg-acc border-2 border-canvas animate-[aoPulse_1.9s_ease-in-out_infinite]" />
+            </span>
+            <span className="leading-[1.2]">
+              <span className="block text-[11.5px] font-bold text-acc whitespace-nowrap">{t("pill_ready")}</span>
+              <span className="block font-[var(--font-mono)] text-[9.5px] text-txt-4 whitespace-nowrap">
+                {vTag(currentVersion ?? APP_VERSION)} → {vTag(version)}
+              </span>
+            </span>
+          </button>
+        </Tooltip>
+      ) : (
+        <VersionBadge />
+      )}
 
       <ModalShell open={open} onClose={close} maxWidth={452} className="rounded-[22px]" bareContent>
         <div className="px-[26px] pt-[26px] pb-[20px]">

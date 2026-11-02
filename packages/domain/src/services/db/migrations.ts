@@ -562,7 +562,17 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       ALTER TABLE scheduled_jobs ADD COLUMN repeat_anchor INTEGER;
     `);
   },
-  // v29 → v30: the legacy tables go. `transcripts` was superseded by `conversations` in v14, and
+  // v29 → v30: the office floor and its world builder are gone, and their ui_settings rows with
+  // them, after a copy is on disk. `office-view` held only the roster groups: it becomes `roster-groups`.
+  (db) => {
+    backupOfficeSettings(db);
+    db.exec(`
+      UPDATE ui_settings SET key = 'roster-groups'
+        WHERE key = 'office-view' AND NOT EXISTS (SELECT 1 FROM ui_settings WHERE key = 'roster-groups');
+      DELETE FROM ui_settings WHERE key LIKE 'office-%';
+    `);
+  },
+  // v30 → v31: the legacy tables go. `transcripts` was superseded by `conversations` in v14, and
   // nothing has written a pipeline since Workflows. Any rows left are copied to disk first.
   (db) => {
     for (const table of LEGACY_TABLES) backupTable(db, table);
@@ -586,6 +596,17 @@ export function backupTable(db: Database.Database, table: string, dir = BACKUPS_
   if (rows.length === 0) return null;
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${table}-${Date.now()}.json`);
+  writeFileSync(file, JSON.stringify(rows, null, 2));
+  return file;
+}
+
+/** The office rows v30 drops (user-built maps), as JSON in the backups folder; null when there were
+ *  none. Throws when the file cannot be written, like backupSavedPrompts. */
+export function backupOfficeSettings(db: Database.Database, dir = BACKUPS_DIR): string | null {
+  const rows = db.prepare("SELECT key, value FROM ui_settings WHERE key LIKE 'office-%'").all();
+  if (rows.length === 0) return null;
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `office-ui-settings-${Date.now()}.json`);
   writeFileSync(file, JSON.stringify(rows, null, 2));
   return file;
 }
@@ -683,5 +704,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 28) { MIGRATIONS[27]!(db); v = 28; db.pragma("user_version = 28"); }
     if (v < 29) { MIGRATIONS[28]!(db); v = 29; db.pragma("user_version = 29"); }
     if (v < 30) { MIGRATIONS[29]!(db); v = 30; db.pragma("user_version = 30"); }
+    if (v < 31) { MIGRATIONS[30]!(db); v = 31; db.pragma("user_version = 31"); }
   })();
 }

@@ -1,20 +1,14 @@
-// Portable project save-file bundle: export a project (+ its roster agents and
-// office layout) and restore it. Framework-agnostic
-// - only touches domain services, so both /api/save routes stay thin controllers.
+// Portable project save-file bundle: a project and its roster agents. Domain-only,
+// so both /api/save routes stay thin controllers.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as agents from "../agents/agents";
-import * as db from "../db";
 import * as projects from "./projects";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, IMPORT_BACKUPS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
-import { OFFICE_SETTING_KEYS, type OfficeSettingField } from "../../config/office";
 import type { Project, ProjectMetaPatch } from "../../types";
 
-const OFFICE_FIELDS = Object.keys(OFFICE_SETTING_KEYS) as OfficeSettingField[];
-
 export interface SaveBundleAgent { id: string; content: string; memory: string }
-export type OfficeSnapshot = Record<OfficeSettingField, string | null>;
 
 // Export produces the project's real, typed meta; import receives whatever the
 // validated save file carried (a loose record), so the two directions differ.
@@ -23,13 +17,11 @@ export interface SaveBundle {
   exportedAt: string;
   project: { id: string; meta: Project["meta"]; memory: string };
   agents: SaveBundleAgent[];
-  office: OfficeSnapshot;
 }
 
 export interface ImportBundle {
   project: { id: string; meta: Record<string, unknown>; memory: string };
   agents: SaveBundleAgent[];
-  office: OfficeSnapshot;
 }
 
 function collectUniqueRosterAgents(project: Project): SaveBundleAgent[] {
@@ -46,13 +38,6 @@ function collectUniqueRosterAgents(project: Project): SaveBundleAgent[] {
   return out;
 }
 
-function collectOfficeSnapshot(): OfficeSnapshot {
-  const all = db.getAllUiSettings();
-  const out = {} as OfficeSnapshot;
-  for (const field of OFFICE_FIELDS) out[field] = all[OFFICE_SETTING_KEYS[field]] ?? null;
-  return out;
-}
-
 /** Build a portable bundle for a project, or null if the project doesn't exist. */
 export function exportBundle(projectId: string): SaveBundle | null {
   const project = projects.readProject(projectId);
@@ -62,20 +47,13 @@ export function exportBundle(projectId: string): SaveBundle | null {
     exportedAt: new Date().toISOString(),
     project: { id: project.id, meta: project.meta, memory: project.memory },
     agents: collectUniqueRosterAgents(project),
-    office: collectOfficeSnapshot(),
   };
-}
-
-export interface ImportOptions {
-  /** The office layout is global, not the project's: replaced only when the user asked. */
-  restoreOffice: boolean;
 }
 
 export interface ImportOutcome {
   projectId: string;
   agentCount: number;
   backedUp: string[];
-  officeRestored: boolean;
   snapshot: string | null;
 }
 
@@ -145,15 +123,8 @@ function restoreProject(p: ImportBundle["project"]): void {
   projects.addToRoster(p.id, meta.roster.map(portableSeat), "importBundle");
 }
 
-function restoreOffice(office: OfficeSnapshot): void {
-  for (const field of OFFICE_FIELDS) {
-    const value = office[field];
-    if (value != null) db.setUiSetting(OFFICE_SETTING_KEYS[field], value);
-  }
-}
-
-function snapshotBefore(projectId: string, office: boolean, at: string): string | null {
-  const before = exportBundle(projectId) ?? (office ? { office: collectOfficeSnapshot() } : null);
+function snapshotBefore(projectId: string, at: string): string | null {
+  const before = exportBundle(projectId);
   if (!before) return null;
   ensureDir(IMPORT_BACKUPS_DIR);
   const file = join(IMPORT_BACKUPS_DIR, `${projectId}.${at}.agent-office.json`);
@@ -162,11 +133,10 @@ function snapshotBefore(projectId: string, office: boolean, at: string): string 
 }
 
 /** Restore a validated bundle; whatever it replaces is saved under BACKUPS_DIR first. */
-export function importBundle(bundle: ImportBundle, opts: ImportOptions = { restoreOffice: false }): ImportOutcome {
+export function importBundle(bundle: ImportBundle): ImportOutcome {
   const at = new Date().toISOString().replace(/[:.]/g, "-");
-  const snapshot = snapshotBefore(bundle.project.id, opts.restoreOffice, at);
+  const snapshot = snapshotBefore(bundle.project.id, at);
   const backedUp = restoreAgents(bundle.agents, at);
   restoreProject(bundle.project);
-  if (opts.restoreOffice) restoreOffice(bundle.office);
-  return { projectId: bundle.project.id, agentCount: bundle.agents.length, backedUp, officeRestored: opts.restoreOffice, snapshot };
+  return { projectId: bundle.project.id, agentCount: bundle.agents.length, backedUp, snapshot };
 }

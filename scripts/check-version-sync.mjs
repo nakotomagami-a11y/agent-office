@@ -23,6 +23,15 @@ const found = [
   ["packaging/arch/PKGBUILD", /^pkgver=(.+)$/m.exec(read("packaging/arch/PKGBUILD"))?.[1]?.trim()],
 ];
 
+// set-version.mjs used to write `pkgrel=1`, which deletes the AO_PKGREL hook
+// install-local-arch.sh needs. Nothing else looks at pkgrel, so the regression
+// would only surface as a `pacman -U` that no-ops after a 4-minute build.
+const PKGREL_LINE = "pkgrel=${AO_PKGREL:-1}";
+if (!read("packaging/arch/PKGBUILD").includes(PKGREL_LINE)) {
+  console.error(`packaging/arch/PKGBUILD must keep \`${PKGREL_LINE}\` verbatim.`);
+  process.exit(1);
+}
+
 const wrong = found.filter(([, v]) => v !== canonical);
 if (wrong.length > 0) {
   console.error(`version mismatch — apps/web/package.json is the canonical ${canonical}:`);

@@ -10,7 +10,6 @@ export interface ImportResult {
   projectId?: string;
   agentCount?: number;
   backedUp?: string[];
-  officeRestored?: boolean;
   snapshot?: string | null;
   detail?: string;
   error?: string;
@@ -24,9 +23,7 @@ export async function exportProject(projectId: string): Promise<Blob> {
   return res.data;
 }
 
-export async function importState(snapshot: unknown, restoreOffice: boolean): Promise<ImportResult> {
-  const res = await apiClient.post<ImportResult>(API_ROUTES.saveImport, snapshot, {
-    params: restoreOffice ? { office: 1 } : {},
-  });
+export async function importState(snapshot: unknown): Promise<ImportResult> {
+  const res = await apiClient.post<ImportResult>(API_ROUTES.saveImport, snapshot);
   return res.data;
 }

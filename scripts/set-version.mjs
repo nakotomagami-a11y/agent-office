@@ -58,18 +58,25 @@ function bumpCargoLock(relPath) {
 }
 
 /** The Arch recipe carries its own `pkgver`, plus a `pkgrel` rebuild counter
- *  that must reset to 1 for a new version — `pacman -U` refuses an identical
+ *  that must reset for a new version — `pacman -U` refuses an identical
  *  pkgver-pkgrel, so a stale pair silently builds the OLD version. This file
- *  was missing from the bump, which is how 0.1.2 shipped four times. */
+ *  was missing from the bump, which is how 0.1.2 shipped four times.
+ *  pkgrel is written as the expansion, not a literal: install-local-arch.sh
+ *  passes AO_PKGREL so repeated local builds of ONE version stay installable.
+ *  Writing `pkgrel=1` here would delete that and the only symptom would be a
+ *  `pacman -U` that no-ops after a 4-minute build, so check-version-sync.mjs
+ *  asserts the line survives. */
+const PKGREL_LINE = "pkgrel=${AO_PKGREL:-1}";
+
 function bumpPkgbuild(relPath) {
   const file = join(root, relPath);
   const src = readFileSync(file, "utf8");
   const next = src
     .replace(/^pkgver=.*$/m, `pkgver=${version}`)
-    .replace(/^pkgrel=.*$/m, "pkgrel=1");
+    .replace(/^pkgrel=.*$/m, PKGREL_LINE);
   if (next === src) throw new Error(`set-version: no pkgver/pkgrel found in ${relPath}`);
   writeFileSync(file, next);
-  console.log(`    ${relPath} → ${version}-1`);
+  console.log(`    ${relPath} → ${version}-\${AO_PKGREL:-1}`);
 }
 
 console.log(`Setting version ${version} (★ = canonical source):`);

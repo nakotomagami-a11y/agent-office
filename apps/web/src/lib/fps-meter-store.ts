@@ -2,9 +2,8 @@ import { create } from "zustand";
 
 /**
  * Dev instrument: whether the live FPS readout is shown. Toggled from the dev
- * menu; read by the dev-menu pinned meter and the iso office's two in-canvas
- * FPS readouts (canvas-tools bar + build-mode badge). Ephemeral — resets on
- * reload, matching the other dev instruments.
+ * menu; read by the dev-menu pinned meter. Ephemeral — resets on reload,
+ * matching the other dev instruments.
  */
 type FpsMeterState = {
   enabled: boolean;

@@ -6,34 +6,17 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PAGE_ROUTES } from "@/lib/page-routes";
-import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { isActiveRoute } from "./sidebar-routing";
 
 export function MobileBottomNav() {
   const t = useTranslations();
   const pathname = usePathname();
-  // Office is iso-only; hide its entry unless the Isometric view integration is on.
-  const isoEnabled = useIntegrationEnabled("iso-view");
 
   return (
     <nav
       className="hidden max-[600px]:flex [&>*]:flex-1 [&>*]:basis-0 fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-bg-0 pb-[env(safe-area-inset-bottom)]"
       aria-label={t("mobile_nav.aria_label")}
     >
-      {isoEnabled && (
-        <Link
-          href={PAGE_ROUTES.office}
-          aria-current={isActiveRoute(pathname, PAGE_ROUTES.office, { exact: true }) ? "page" : undefined}
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 h-16 text-[10px] text-txt-3",
-            isActiveRoute(pathname, PAGE_ROUTES.office, { exact: true }) && "text-acc",
-          )}
-        >
-          <Icon name="home" size={20} />
-          <span>{t("nav.office")}</span>
-        </Link>
-      )}
-
       <Link
         href={PAGE_ROUTES.analytics}
         aria-current={isActiveRoute(pathname, PAGE_ROUTES.analytics) ? "page" : undefined}

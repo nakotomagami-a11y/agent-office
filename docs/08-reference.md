@@ -51,7 +51,6 @@ Agent Office can export a project as a self-contained JSON file. This captures e
 |---|---|
 | Project metadata | `id`, meta (name, description, cwd, roster), memory body |
 | Agent definitions | Full `.md` file content + per-agent memory for each rostered agent (deduplicated) |
-| Office settings | Grid layout, decorations, agent positions, grass colour from `ui_settings` |
 
 ### What is NOT exported
 
@@ -79,7 +78,7 @@ Content-Type: application/json
 
 1. **Export on source machine** — `GET /api/save/export?projectId=<id>` — save the JSON file.
 2. **Copy to destination** — transfer the JSON file to the target machine (scp, USB, cloud storage).
-3. **Import on destination** — `POST /api/save/import`. Agents, project metadata, memory files, and office layout are restored. Run the first-run wizard first if it is a fresh install.
+3. **Import on destination** — `POST /api/save/import`. Agents, project metadata and memory files are restored. Run the first-run wizard first if it is a fresh install.
 
 ## REST API reference
 
@@ -506,7 +505,7 @@ Chat-format history. One row per assistant / user message. Full-text-indexed via
 ### Other tables
 
 - `tool_calls` — one row per tool_use content block
-- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v30 dropped that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`.
+- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v31 dropped that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`.
 - `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
 - `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
 - `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.
@@ -608,9 +607,7 @@ The Next.js server augments its `PATH` with common install locations (`~/.nvm/ve
 
 ### `ui_settings` allow-list
 
-`PATCH /api/ui-settings` refuses any key not on the allow-list. Every key stores a string value up to **10 KB**.
-
-**Static keys** (single global values):
+`PATCH /api/ui-settings` refuses any key not on the allow-list. Every key stores a string value up to **2 MB**.
 
 | Key | Purpose |
 |---|---|
@@ -619,20 +616,9 @@ The Next.js server augments its `PATH` with common install locations (`~/.nvm/ve
 | `tabs-state` | JSON blob: `{ tabs: Tab[], activeTabId: string \| null, closedStack: Tab[] }` — open project tabs, active tab, and LRU stack of the 10 most-recently closed tabs (for `Ctrl+Shift+T` restore). Persists Chrome-style tab UX across app restarts. |
 | `claude-limits` | JSON blob for spend-cap configuration. |
 | `performance-mode` | `"full"` \| `"lite"` \| `"off"` — rendering / animation budget. |
-| `office-grid` | Global office grid dimensions fallback. |
-| `office-decorations` | Global decoration placements fallback. |
-| `office-agents` | Global agent positions fallback. |
-| `office-grass-color` | Global floor color fallback. |
-
-**Dynamic key prefixes** (each followed by a project id, e.g. `office-grid:acme-web`):
-
-| Prefix | Purpose |
-|---|---|
-| `office-grid:` | Grid dimensions for one project's office. |
-| `office-decorations:` | Decoration placements. |
-| `office-agents:` | Agent positions on the floor. |
-| `office-grass-color:` | Floor color. |
-| `office-map-custom:` | `"true"` \| `"false"` — whether the map was hand-edited. |
+| `performance-auto` | `"true"` \| `"false"` — follow the power source (full on AC, lite on battery). |
+| `agent-office:wizard-draft` | JSON draft of a partly-filled first-run wizard. |
+| `roster-groups` | JSON blob: `{ expandedGroups, pinnedGroups }`, each keyed by project id — expanded and pinned roster groups. |
 
 Any other key returns `400 forbidden_key`.
 
@@ -654,7 +640,7 @@ Client-only state stores (persisted where noted):
 
 | Store | Persistence | What it tracks |
 |---|---|---|
-| `use-office-store` | `zustand/persist` → localStorage | View mode (`iso` \| `cards`), selected agent/instance, inspector-open state, pending-tab, group expansion state |
+| `use-office-store` | server via `ui_settings.roster-groups` (groups only) | Selected agent/instance, inspector-open state, pending-tab, expanded and pinned roster groups |
 | `use-summon-store` | in-memory | Per-instance chat state — message queue, streaming buffers |
 | `active-project-store` | server via `ui_settings.active-project` | Currently-active project slug — mirrored from the active tab by `tabs-router-sync` |
 | `tabs-store` | server via `ui_settings.tabs-state` | Open project tabs, active tab, closed-tab LRU stack (Chrome-style shell) |

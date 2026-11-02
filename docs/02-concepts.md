@@ -22,7 +22,7 @@ Think of a project as a "workspace" that keeps everything about one codebase tog
 
 ### 3. Instance
 
-An **instance** is one specific copy of an agent, dedicated to one specific project. If you drop the `developer` agent onto three different projects, you get three instances — each with its own conversation history and memory.
+An **instance** is one specific copy of an agent, dedicated to one specific project. If you add the `developer` agent to three different projects, you get three instances — each with its own conversation history and memory.
 
 Think of instances the way you'd think of the same consultant working for three different companies. Same person, three separate relationships.
 
@@ -55,7 +55,7 @@ An **agent** definition + a **project** = an **instance**. Send a prompt → a *
 ### "I want an agent to fix a bug in my code"
 
 1. Open your project (create one if it doesn't exist).
-2. Drag the `developer` agent onto the project's roster.
+2. Add the `developer` agent to the project (**Add agent** in the sidebar).
 3. Click the agent to open the chat panel.
 4. Paste the bug report. Send.
 5. Watch the agent read files, propose a fix, and run tests.
@@ -63,12 +63,12 @@ An **agent** definition + a **project** = an **instance**. Send a prompt → a *
 ### "I want a second opinion on a strategic decision"
 
 1. Open the project you're deciding on (or a scratch project if none applies).
-2. Drag `cs-cboardroom` onto the roster — that's the board-of-advisors orchestrator.
+2. Add `cs-cboardroom` to the roster — that's the board-of-advisors orchestrator.
 3. Ask your question. The boardroom convenes CEO, CFO, CTO, CPO privately, then synthesises.
 
 ### "I want to know why my cloud bill spiked last month"
 
-1. Drag `data-analyst` onto any project.
+1. Add `data-analyst` to any project.
 2. Ask: *"Query the runs table and show me spending by model for the last 30 days."*
 3. The analyst writes SQL, runs it, returns the numbers plus the query so you can re-run it.
 

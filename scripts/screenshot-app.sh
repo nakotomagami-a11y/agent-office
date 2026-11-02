@@ -51,10 +51,6 @@ echo "==> Seeding showcase data"
 curl -sX POST "http://localhost:$SHOT_PORT/api/dev/seed" -H 'content-type: application/json' -d '{"action":"showcase"}'
 echo
 
-echo "==> Enabling experimental integrations for the capture (iso-view is off by default)"
-curl -sX PATCH "http://localhost:$SHOT_PORT/api/settings" -H 'content-type: application/json' -d '{"integrations":{"iso-view":true}}' -o /dev/null
-echo
-
 echo "==> Capturing screenshots -> $SHOT_OUT"
 SHOT_BASE="http://localhost:$SHOT_PORT" node "$ROOT/scripts/screenshot-app.mjs" "$SHOT_OUT"
 

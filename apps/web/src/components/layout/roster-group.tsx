@@ -12,15 +12,10 @@ import { AgentQuickView, type QuickViewTrigger } from "./agent-quick-view";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
-import {
-  AGENT_DRAG_MIME,
-  useOfficeDragStore,
-  type DragRef,
-} from "@/modules/office/hooks/use-office-drag";
 
 function agentLedClass(status: AgentStatusInfo["status"]) {
   return cn(
-    "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-[2px] border-bg-2",
+    "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-[2px] border-canvas",
     LIVE_STATUSES.includes(status) && "bg-status-working shadow-[0_0_5px_var(--working)]",
     (status === "queued" || status === "done") && "bg-ao-warn",
     status === "error" && "bg-status-error",
@@ -28,17 +23,18 @@ function agentLedClass(status: AgentStatusInfo["status"]) {
   );
 }
 
+const HOVER_ACTION = "hidden group-hover:flex group-focus-within:flex shrink-0";
+
 function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (e: React.MouseEvent) => void }) {
   const t = useTranslations();
   return (
-    <Tooltip content={pinned ? t("sidebar.unpin_title") : t("sidebar.pin_title")} side="top">
+    <Tooltip content={pinned ? t("sidebar.unpin_title") : t("sidebar.pin_title")} side="top" className={HOVER_ACTION}>
       <RosterActionButton
         active={pinned}
         onClick={onToggle}
         aria-label={pinned ? t("sidebar.unpin_aria") : t("sidebar.pin_aria")}
-        className={!pinned ? "opacity-0 group-hover:opacity-100" : undefined}
       >
-        <Icon name="pin" size={11} />
+        <Icon name="pin" size={11} className="size-[11px] [flex:0_0_11px]" />
       </RosterActionButton>
     </Tooltip>
   );
@@ -92,16 +88,11 @@ export function RosterGroup({
   const t = useTranslations();
   const { agent, instances, instanceStatuses, expanded } = group;
   const isMulti = instances.length > 1;
-  const setDragging = useOfficeDragStore((s) => s.setDragging);
 
   const inst = instances[0];
   const singleStatus = instanceStatuses[0] ?? "idle";
   const aggregated = isMulti ? aggregateStatus(instanceStatuses) : singleStatus;
   const hasLive = instanceStatuses.some((s) => LIVE_STATUSES.includes(s));
-
-  const dragRef: DragRef = isMulti || !inst
-    ? { agentId: agent.id }
-    : { agentId: agent.id, instanceId: inst.instanceId };
 
   const isSelected = !isMulti && inst ? selectedInstanceId === inst.instanceId : false;
 
@@ -117,108 +108,65 @@ export function RosterGroup({
         onMouseEnter={trigger?.onMouseEnter}
         onMouseLeave={trigger?.onMouseLeave}
         className={cn(
-          "flex items-center gap-[10px] p-[6px] rounded-[8px] cursor-pointer hover:bg-bg-3 group relative",
+          "group relative flex items-center gap-[9px] px-[7px] py-[6px] rounded-[10px] cursor-pointer transition-colors duration-[130ms] hover:bg-card-2 focus-visible:bg-card-2 focus-visible:outline-none",
           isSelected && "bg-acc-faint",
         )}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
-          e.dataTransfer.setData("text/plain", agent.id);
-          e.dataTransfer.effectAllowed = "move";
-          setDragging(dragRef);
-        }}
-        onDragEnd={() => setDragging(null)}
         onClick={() => isMulti ? onToggle() : (inst && onSelect(inst.instanceId))}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ")
             isMulti ? onToggle() : (inst && onSelect(inst.instanceId));
         }}
         aria-expanded={isMulti ? expanded : undefined}
       >
-        {/* Avatar + LED */}
-        <div className="relative w-8 h-8 shrink-0">
-          <AgentAvatar unit={agent.unitChoice} size={40} />
+        <span className="relative w-[30px] h-[30px] shrink-0">
+          <AgentAvatar unit={agent.unitChoice} size={30} className="rounded-[9px] bg-card-3 border border-edge" />
           <span className={agentLedClass(aggregated)} />
-        </div>
-
-        {/* Name */}
-        <span className="flex-1 min-w-0 flex items-center gap-[6px] text-[14px] font-semibold text-txt overflow-hidden text-ellipsis whitespace-nowrap">
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{agentDisplayName(agent)}</span>
         </span>
 
-        {/* Right section — multi mode only; count/chevron are permanent
-            controls (not hover-only) so they stay in grid flow. */}
-        <div className="flex items-center gap-[6px] text-txt-4">
-          {isMulti && (
-            <>
-              {onTogglePin && (
-                <PinButton pinned={pinned} onToggle={(e) => { e.stopPropagation(); onTogglePin(); }} />
-              )}
-              <span className={cn(
-                "px-[7px] py-[1px] rounded-full font-[var(--font-mono)] text-[10.5px] font-bold tracking-[0.02em]",
-                hasLive
-                  ? "bg-acc-faint border border-acc-tint text-acc"
-                  : "bg-bg-3 border border-line text-txt-3",
-              )}>
-                {instances.length}
-              </span>
-              <span className={cn(
-                "w-[18px] h-[18px] flex items-center justify-center transition-transform duration-[160ms]",
-                expanded ? "rotate-90 text-acc" : "text-txt-4",
-              )}>
-                <Icon name="chevron" size={11} />
-              </span>
-            </>
-          )}
-        </div>
+        <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-txt overflow-hidden text-ellipsis whitespace-nowrap">
+          {agentDisplayName(agent)}
+        </span>
 
-        {/* Hover actions (single-instance mode) — the name owns the full row
-            width and truncates with an ellipsis; these controls are absolutely
-            positioned so they overlay the row's right edge on top of the name
-            instead of reserving flow space and squeezing it. A left-to-right
-            fade mask (row hover colour → transparent) sits behind them so a
-            long, truncated name dissolves cleanly under the buttons rather
-            than bleeding through the gaps. */}
-        {!isMulti && (
-          <>
-            <span
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute right-0 top-0 bottom-0 w-[96px] rounded-r-[8px] z-[1]",
-                "bg-gradient-to-l from-[var(--bg-3)] from-55% to-transparent",
-                "opacity-0 transition-opacity duration-[120ms]",
-                "group-hover:opacity-100",
-              )}
-            />
-            <div className="absolute right-[6px] top-1/2 -translate-y-1/2 flex items-center gap-[3px] z-[2]">
-              {onTogglePin && (
-                <PinButton pinned={pinned} onToggle={(e) => { e.stopPropagation(); onTogglePin(); }} />
-              )}
-              <span className="flex gap-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-[120ms]">
-                <Tooltip content={t("sidebar.spawn_instance_title")} side="top">
-                  <RosterActionButton
-                    onClick={(e) => { e.stopPropagation(); onSpawn(agent.id); }}
-                    aria-label={t("sidebar.spawn_instance_aria", { name: agent.name })}
-                  >
-                    <Icon name="plus" size={12} />
-                  </RosterActionButton>
-                </Tooltip>
-                {inst && (
-                  <Tooltip content={t("sidebar.remove_from_project_title")} side="top">
-                    <RosterActionButton
-                      tone="danger"
-                      onClick={(e) => { e.stopPropagation(); onRemove(inst.instanceId); }}
-                      aria-label={t("sidebar.remove_from_project_aria", { name: agent.name })}
-                    >
-                      <Icon name="x" size={12} />
-                    </RosterActionButton>
-                  </Tooltip>
-                )}
-              </span>
-            </div>
-          </>
+        {isMulti && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            aria-label={t("sidebar.group_toggle_aria", { name: agent.name, count: instances.length })}
+            aria-expanded={expanded}
+            className={cn(
+              "flex items-center gap-[4px] px-[7px] py-[2px] rounded-full text-[10px] font-bold shrink-0 cursor-pointer",
+              hasLive ? "bg-acc-soft text-acc" : "bg-card-3 text-txt-3",
+            )}
+          >
+            {instances.length}
+            <Icon name="chevron-down" size={9} strokeWidth={2.6} className={cn("size-[9px] [flex:0_0_9px]", "transition-transform duration-[140ms]", expanded && "rotate-180")} />
+          </button>
+        )}
+
+        {onTogglePin && (
+          <PinButton pinned={pinned} onToggle={(e) => { e.stopPropagation(); onTogglePin(); }} />
+        )}
+        <Tooltip content={t("sidebar.spawn_instance_title")} side="top" className={HOVER_ACTION}>
+          <RosterActionButton
+            onClick={(e) => { e.stopPropagation(); onSpawn(agent.id); }}
+            aria-label={t("sidebar.spawn_instance_aria", { name: agent.name })}
+          >
+            <Icon name="plus" size={11} className="size-[11px] [flex:0_0_11px]" strokeWidth={2.2} />
+          </RosterActionButton>
+        </Tooltip>
+        {!isMulti && inst && (
+          <Tooltip content={t("sidebar.remove_from_project_title")} side="top" className={HOVER_ACTION}>
+            <RosterActionButton
+              tone="danger"
+              onClick={(e) => { e.stopPropagation(); onRemove(inst.instanceId); }}
+              aria-label={t("sidebar.remove_from_project_aria", { name: agent.name })}
+            >
+              <Icon name="x" size={10} className="size-[10px] [flex:0_0_10px]" strokeWidth={2.2} />
+            </RosterActionButton>
+          </Tooltip>
         )}
       </div>
   );
@@ -241,7 +189,7 @@ export function RosterGroup({
 
       {/* Expanded sessions tree */}
       {isMulti && expanded && (
-        <div className="relative ml-[22px] pl-[14px] pt-[2px] pb-[6px] before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-[6px] before:w-px before:bg-line-2">
+        <div className="flex flex-col gap-[1px] mt-[2px] mb-[4px] ml-[15px] pl-[14px] border-l border-edge">
           {instances.map((inst, idx) => {
             const spendKey = `${inst.agentId}|${inst.instanceId}`;
             const instSpend = spendByInstance[spendKey] ?? 0;
@@ -269,10 +217,10 @@ export function RosterGroup({
           <RosterSessionRow
             onClick={() => onSpawn(agent.id)}
             aria-label={t("sidebar.spawn_instance_aria", { name: agent.name })}
-            className="text-txt-3 font-[var(--font-mono)] text-[11px] hover:bg-transparent hover:text-acc"
+            className="gap-[7px] text-txt-4 hover:bg-transparent hover:text-acc"
           >
-            <Icon name="plus" size={11} />
-            {t("sidebar.new_session")}
+            <Icon name="plus" size={10} className="size-[10px] [flex:0_0_10px]" strokeWidth={2.4} />
+            <span className="text-[11px] font-semibold whitespace-nowrap">{t("sidebar.new_session")}</span>
           </RosterSessionRow>
         </div>
       )}

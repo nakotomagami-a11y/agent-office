@@ -35,15 +35,6 @@ const FILL_BASE: Omit<IconShape, "body"> = {
 };
 
 const ICON_PATHS = {
-  home: {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <path d="M3 11.5 12 4l9 7.5" />
-        <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
-      </>
-    ),
-  },
   users: {
     ...STROKE_BASE,
     body: (
@@ -233,15 +224,6 @@ const ICON_PATHS = {
       </>
     ),
   },
-  map: {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <path d="m9 4-7 3v13l7-3 6 3 7-3V4l-7 3z" />
-        <path d="M9 4v13M15 7v13" />
-      </>
-    ),
-  },
   grid: {
     ...STROKE_BASE,
     body: (
@@ -360,15 +342,6 @@ const ICON_PATHS = {
       </>
     ),
   },
-  cursor: {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51z" />
-        <path d="m13 13 6 6" />
-      </>
-    ),
-  },
   hammer: {
     ...STROKE_BASE,
     body: (
@@ -415,15 +388,6 @@ const ICON_PATHS = {
       </>
     ),
   },
-  redo: {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <path d="M21 7v6h-6" />
-        <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
-      </>
-    ),
-  },
   "help-circle": {
     ...STROKE_BASE,
     body: (
@@ -431,16 +395,6 @@ const ICON_PATHS = {
         <circle cx="12" cy="12" r="9" />
         <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
-      </>
-    ),
-  },
-  "paint-bucket": {
-    ...STROKE_BASE,
-    body: (
-      <>
-        <path d="m19 11-8-8-8.5 8.5a5.5 5.5 0 0 0 7.78 7.78L19 11Z" />
-        <path d="m5 2 5 5" />
-        <path d="M17.5 17.5c1.1 1.1 1.5 2 1.5 3a2 2 0 0 1-4 0c0-1 .4-1.9 1.5-3Z" />
       </>
     ),
   },
@@ -569,10 +523,6 @@ const ICON_PATHS = {
         <path d="M4 17h12" />
       </>
     ),
-  },
-  bookmark: {
-    ...STROKE_BASE,
-    body: <path d="M6 3h12a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1z" />,
   },
   eye: {
     ...STROKE_BASE,

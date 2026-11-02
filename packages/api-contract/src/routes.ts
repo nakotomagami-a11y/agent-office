@@ -50,6 +50,7 @@ export const API_ROUTES = {
   projectClearCache: (id: string) => `/api/projects/${encodeURIComponent(id)}/clear-cache`,
   projectFolder: (id: string) => `/api/projects/${encodeURIComponent(id)}/folder`,
   projectSpend: (id: string) => `/api/projects/${encodeURIComponent(id)}/spend`,
+  projectActivity: (id: string) => `/api/projects/${encodeURIComponent(id)}/activity`,
 
   processes: "/api/processes",
   process: (pid: number) => `/api/processes/${pid}`,

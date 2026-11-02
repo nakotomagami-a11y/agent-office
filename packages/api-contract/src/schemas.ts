@@ -3,6 +3,7 @@ import { MAX_PROMPT_BYTES } from "@agent-office/domain/config/limits";
 import { PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { GENERATED_IMAGE_SLUG, MAX_IMAGES_PER_JOB } from "@agent-office/domain/config/generated-images";
 import { SESSION_REMOVAL_CODES, WORK_CHOICES } from "@agent-office/domain/config/sessions";
+import { isValidIdSegment } from "@agent-office/domain/config/id-segment";
 import { SCHEDULE_REPEAT_EVERY } from "@agent-office/domain/config/schedules";
 import { providerBaseUrlSchema, providerIdSchema, providerModelsSchema } from "./providers";
 
@@ -206,15 +207,18 @@ export const sessionConflictSchema = z.object({
   detail: z.string().optional(),
 });
 
+// Shares the service's predicate: the copy that lived here accepted `..`.
+const skillNameSchema = z.string().refine(isValidIdSegment, "invalid_skill_name");
+
 export const skillInstallSchema = z.object({
   source: z.string().min(1),
   ref: z.string().min(1),
   path: z.string().min(1),
-  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  name: skillNameSchema,
 });
 
 export const skillCreateSchema = z.object({
-  name: z.string().min(1).regex(/^[A-Za-z0-9._-]+$/),
+  name: skillNameSchema,
   description: z.string().default(""),
   tags: z.array(z.string()).default([]),
   body: z.string().min(1),
@@ -335,6 +339,12 @@ export const runsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
+export const projectActivityQuerySchema = z.object({
+  start: z.coerce.number().int().min(0).max(8.64e15),
+  bucketMs: z.coerce.number().int().min(60_000).max(8.64e13),
+  count: z.coerce.number().int().min(1).max(100),
+});
+
 export const skillsRegistryQuerySchema = z.object({
   refresh: z
     .string()
@@ -372,8 +382,7 @@ export const bootstrapProjectSchema = z.object({
   initGit: z.boolean().optional(),
 });
 
-// POST /api/save/import — an exported project bundle. `project.meta` is arbitrary
-// serialized frontmatter, so it stays an open record (validated as an object).
+// POST /api/save/import. Unknown keys (an old bundle's `office` layout or `history`) are stripped: old files still import.
 export const saveFileSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
@@ -383,12 +392,6 @@ export const saveFileSchema = z.object({
     memory: z.string(),
   }),
   agents: z.array(z.object({ id: z.string(), content: z.string(), memory: z.string() })),
-  office: z.object({
-    grid: z.string().nullable(),
-    decorations: z.string().nullable(),
-    agents: z.string().nullable(),
-    grassColor: z.string().nullable(),
-  }),
 });
 
 /** MCP bridge -> host: a tool call awaiting approval. */

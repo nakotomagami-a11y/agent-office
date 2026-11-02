@@ -1,8 +1,0 @@
-/* Office scene — scene background. */
-
-/* ─── Office scene background ─── */
-/* Overrides any old cached inline style with the ocean background image. */
-.office-scene {
-  background-color: #47aca9 !important;
-  background-image: none !important;
-}

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { Project } from "@agent-office/domain/types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
-import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
+import { getPlanetParams } from "@agent-office/pixel-planets";
 import { planetTag } from "../format/planet-tag";
-import { ProjectRuntimeBar, ProjectShortcutsBar } from "@/modules/office/components/office-toolbar";
+import { ProjectRuntimeBar, ProjectShortcutsBar } from "./project-actions";
+import { HeroRoster } from "./project-hero-roster";
+import { toast } from "@/lib/toast-store";
 
 export type ProjectHeroProps = {
   project: Project;
@@ -17,18 +19,35 @@ export type ProjectHeroProps = {
   onOpenPlanetEditor: () => void;
   onAddAgent: () => void;
   onSaveDescription: (value: string) => unknown;
+  onSaveName: (value: string) => Promise<unknown>;
 };
 
-const AVATAR_STACK_CAP = 4;
+/**
+ * The design tints the planet's halo with the planet's own lightest surface
+ * colour (its Savanna glow is exactly Savanna's first terrain swatch). Taking
+ * the brightest swatch of the first layer keeps that for every palette —
+ * including custom ones and black holes, whose first swatch is the near-black core.
+ */
+function planetGlow(projectId: string, planet: Project["meta"]["planet"]): string {
+  const colors = getPlanetParams(projectId, planet).layers[0]?.colors ?? [];
+  let best = [0.545, 0.482, 1];
+  let bestLum = -1;
+  for (let i = 0; i + 2 < colors.length; i += 4) {
+    const rgb = [colors[i]!, colors[i + 1]!, colors[i + 2]!];
+    const lum = 0.2126 * rgb[0]! + 0.7152 * rgb[1]! + 0.0722 * rgb[2]!;
+    if (lum > bestLum) { bestLum = lum; best = rgb; }
+  }
+  const [r, g, b] = best.map((c) => Math.round(c * 255));
+  return `rgba(${r},${g},${b},.30)`;
+}
 
 /**
- * The cosmic hero card — this IS the page header in the V3 dashboard (there's
- * no separate "Project" title bar above it, confirmed against the raw
- * mockup). Planet art, editable name/description, roster status, and the
- * real project action toolbar all live here, split across two rows: build/
- * dev-server stay next to "Add agent"; folder/editor/clear-cache sit on the
- * roster row, to the left of the avatar stack, since they're reached far
- * less often.
+ * The cosmic hero card — the page header of the project dashboard. The planet
+ * is a backdrop pinned to the card's right edge and vertically centred, so
+ * when the Live runs card beside it grows the hero stretches to match and the
+ * text column simply re-centres. The text column's max width is measured off
+ * the planet's visible edge (not a flat percentage), so buttons wrap before
+ * they could ever slide under it; narrow cards shrink, then drop, the planet.
  */
 export function ProjectHero({
   project,
@@ -38,10 +57,13 @@ export function ProjectHero({
   onOpenPlanetEditor,
   onAddAgent,
   onSaveDescription,
+  onSaveName,
 }: ProjectHeroProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [descValue, setDescValue] = useState("");
   const tag = planetTag(project.meta.planet);
+  const glow = useMemo(() => planetGlow(project.id, project.meta.planet), [project.id, project.meta.planet]);
+  const hasCwd = !!project.meta.cwd;
 
   const submitDesc = (value: string) => {
     setEditingDesc(false);
@@ -49,10 +71,10 @@ export function ProjectHero({
   };
 
   return (
-    <div className="flex-[1.62] min-w-0 relative overflow-hidden rounded-[24px] surface-sheen shadow-[var(--lift)] px-[28px] py-[26px] flex items-center gap-[28px]">
+    <div className="@container flex-[1.62] min-w-[min(100%,500px)] relative overflow-hidden rounded-[24px] surface-sheen shadow-[var(--lift)] px-[28px] py-[26px] flex items-center gap-[28px]">
       <div
         aria-hidden
-        className="absolute left-[-40px] bottom-[-120px] w-[340px] h-[300px] pointer-events-none"
+        className="absolute left-[48%] bottom-[-140px] w-[520px] h-[420px] pointer-events-none"
         style={{ background: "radial-gradient(circle at 50% 50%, rgba(139,123,255,.20), transparent 64%)" }}
       />
       <button
@@ -60,19 +82,26 @@ export function ProjectHero({
         onClick={onOpenPlanetEditor}
         title="Change planet"
         aria-label="Change planet"
-        className="relative shrink-0 group cursor-pointer border-0 bg-transparent p-0"
+        className="group absolute right-[-130px] top-1/2 -translate-y-1/2 z-0 p-0 border-0 bg-transparent cursor-pointer outline-none @max-[620px]:scale-[.7] @max-[460px]:hidden"
       >
-        <PlanetCanvas projectId={project.id} config={project.meta.planet} size={168} />
-        <span className="absolute bottom-[4px] right-[4px] w-[30px] h-[30px] rounded-full flex items-center justify-center bg-card-3 border border-edge-2 text-txt-2 shadow-[var(--lift)] transition-colors duration-150 group-hover:text-acc">
-          <Icon name="edit" size={14} />
+        <span className="relative block animate-[aoDrift_12s_ease-in-out_infinite]">
+          <span
+            aria-hidden
+            className="absolute inset-[-20%] rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle at 48% 44%, ${glow}, transparent 66%)` }}
+          />
+          <PlanetCanvas projectId={project.id} config={project.meta.planet} size={340} className="relative" />
+          <span className="absolute bottom-[58px] right-[156px] w-[30px] h-[30px] rounded-full flex items-center justify-center bg-card-3 border border-edge-2 text-txt-2 shadow-[var(--lift)] transition-colors duration-150 group-hover:text-acc group-focus-visible:text-acc group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-acc">
+            <Icon name="edit" size={14} strokeWidth={1.8} />
+          </span>
         </span>
       </button>
 
-      <div className="flex-1 min-w-0">
+      <div className="relative z-[1] flex-1 min-w-0 max-w-[calc(100%-198px)] @max-[620px]:max-w-[calc(100%-150px)] @max-[460px]:max-w-none">
         <div className="flex items-center gap-[9px] flex-wrap">
           {workingCount > 0 && (
             <span className="flex items-center gap-[7px] px-[11px] py-[4px] rounded-full bg-green-soft text-green text-[11.5px] font-semibold whitespace-nowrap shrink-0">
-              <span className="w-[6px] h-[6px] rounded-full bg-green animate-pulse" />
+              <span className="w-[6px] h-[6px] rounded-full bg-green animate-[aoPulse_1.7s_ease-in-out_infinite]" />
               {workingCount} of {rosterAgentIds.length} working
             </span>
           )}
@@ -83,8 +112,9 @@ export function ProjectHero({
           )}
         </div>
 
-        <h1 className="m-0 mt-[13px] text-[42px] leading-[1.02] tracking-[-0.035em] font-extrabold">{project.meta.name}</h1>
+        <TitleField name={project.meta.name} onSave={onSaveName} />
 
+        <AnimatedHeight>
         <DescriptionField
           editing={editingDesc}
           value={editingDesc ? descValue : project.meta.description}
@@ -96,6 +126,7 @@ export function ProjectHero({
           onCommit={submitDesc}
           onCancel={() => setEditingDesc(false)}
         />
+        </AnimatedHeight>
 
         <div className="flex flex-col gap-[11px] mt-[20px]">
           <div className="flex items-center gap-[10px] flex-wrap">
@@ -104,19 +135,15 @@ export function ProjectHero({
               onClick={onAddAgent}
               className="flex items-center gap-[8px] px-[18px] py-[11px] rounded-[13px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[13.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_14px_30px_-14px_rgba(139,123,255,0.9)] transition-transform duration-150 hover:-translate-y-[2px]"
             >
-              <Icon name="plus" size={15} /> Add agent
+              <Icon name="plus" size={15} strokeWidth={2.2} /> Summon agent
             </button>
             <ProjectRuntimeBar projectId={project.id} />
           </div>
 
-          {/* Unconditional (not gated on roster size) — ProjectShortcutsBar must
-              keep showing on an empty-roster project, matching its old row-1
-              behavior. Only the avatar stack itself needs agents to render. */}
-          <div className="flex items-center gap-[14px]">
+          <div className="flex items-center gap-[14px] flex-wrap">
             <ProjectShortcutsBar projectId={project.id} />
-            {rosterAgentIds.length > 0 && (
-              <RosterAvatarStack rosterAgentIds={rosterAgentIds} allAgents={allAgents} />
-            )}
+            {hasCwd && rosterAgentIds.length > 0 && <span aria-hidden className="w-px h-[20px] bg-edge shrink-0" />}
+            <HeroRoster projectId={project.id} projectName={project.meta.name} roster={project.meta.roster} allAgents={allAgents} />
           </div>
         </div>
       </div>
@@ -139,9 +166,12 @@ function DescriptionField({
   onCommit: (value: string) => void;
   onCancel: () => void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(ref, editing ? value : null);
   if (editing) {
     return (
       <textarea
+        ref={ref}
         autoFocus
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -154,8 +184,8 @@ function DescriptionField({
           if (e.key === "Escape") onCancel();
         }}
         placeholder="What is this project? (Ctrl+Enter to save, Esc to cancel)"
-        rows={3}
-        className="w-full mt-[11px] max-w-[430px] p-[10px] rounded-[10px] bg-card-2 border border-edge text-[13px] text-txt leading-[1.55] outline-none resize-none placeholder:text-txt-4 focus:border-acc-line"
+        rows={2}
+        className="block w-full mt-[11px] max-w-[380px] px-[10px] py-[8px] rounded-[10px] bg-card-2 border border-edge text-[13.5px] text-txt leading-[1.62] outline-none resize-none overflow-hidden placeholder:text-txt-4 focus:border-acc-line"
       />
     );
   }
@@ -164,7 +194,7 @@ function DescriptionField({
       <p
         onClick={onEdit}
         title="Click to edit description"
-        className="m-0 mt-[11px] max-w-[430px] text-[13.5px] text-txt-2 leading-[1.62] cursor-text transition-colors duration-150 hover:text-txt"
+        className="m-0 mt-[11px] max-w-[380px] text-[13.5px] text-txt-2 leading-[1.62] cursor-text transition-colors duration-150 hover:text-txt"
         style={{ textWrap: "pretty" }}
       >
         {value}
@@ -182,35 +212,161 @@ function DescriptionField({
   );
 }
 
-function RosterAvatarStack({ rosterAgentIds, allAgents }: { rosterAgentIds: string[]; allAgents: OfficeAgent[] }) {
-  const shown = rosterAgentIds.slice(0, AVATAR_STACK_CAP);
-  const overflow = rosterAgentIds.length - shown.length;
+const TITLE_TEXT = "m-0 mt-[13px] text-[42px] leading-[1.02] tracking-[-0.035em] font-extrabold [overflow-wrap:anywhere]";
 
-  return (
-    <div className="flex items-center">
-      {shown.map((agentId, i) => {
-        const agent = allAgents.find((a) => a.id === agentId);
-        const online = agent?.status === "working" || agent?.status === "thinking";
-        return (
-          <span
-            key={agentId}
-            className={`flex items-center justify-center w-[30px] h-[30px] rounded-full overflow-hidden bg-card-3 border-2 ${online ? "border-green" : "border-card"}`}
-            style={i > 0 ? { marginLeft: -9 } : undefined}
-          >
-            {/* Roster can reference an agent whose definition was since removed from
-                ~/.claude/agents/ — fall back to a generic glyph instead of a blank hole. */}
-            {agent ? <AgentAvatar unit={agent.unitChoice} size={30} label={agent.name} /> : <Icon name="cpu" size={13} className="text-txt-4" />}
-          </span>
-        );
-      })}
-      {overflow > 0 && (
-        <span
-          className="flex items-center justify-center w-[30px] h-[30px] rounded-full bg-card-3 border-2 border-card text-[10.5px] font-bold text-txt-3"
-          style={{ marginLeft: -9 }}
+// Debounced, serialised saves: each PUT carries the cached `rev`, so two in flight would make the second a stale_write.
+function TitleField({ name, onSave }: { name: string; onSave: (value: string) => Promise<unknown> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const draftRef = useRef(name);
+  const original = useRef(name);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const saver = useNameSaver(onSave);
+  useAutoGrow(ref, editing ? draft : null);
+
+  const setBoth = (value: string) => {
+    draftRef.current = value;
+    setDraft(value);
+  };
+  const change = (value: string) => {
+    const clean = value.replace(/[\r\n]+/g, " ");
+    setBoth(clean);
+    if (clean.trim()) saver.request(clean.trim(), NAME_SAVE_DEBOUNCE_MS);
+  };
+  const finish = () => {
+    setEditing(false);
+    saver.request(draftRef.current.trim() || original.current, 0);
+  };
+  const start = () => {
+    original.current = name;
+    saver.reset(name);
+    setBoth(name);
+    setEditing(true);
+  };
+
+  if (!editing) {
+    return (
+      <h1 className={TITLE_TEXT}>
+        <button
+          type="button"
+          onClick={start}
+          title="Click to rename"
+          className="block w-full text-left p-0 m-0 bg-transparent border-0 cursor-text rounded-[8px] transition-colors duration-150 hover:text-txt-2 focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-4 [overflow-wrap:anywhere]"
         >
-          +{overflow}
-        </span>
-      )}
+          {name}
+        </button>
+      </h1>
+    );
+  }
+  return (
+    <textarea
+      ref={ref}
+      autoFocus
+      rows={1}
+      maxLength={100}
+      value={draft}
+      aria-label="Project name"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => change(e.target.value)}
+      onBlur={finish}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          setBoth(original.current);
+          e.currentTarget.blur();
+        }
+      }}
+      className={`${TITLE_TEXT} block w-full p-0 bg-transparent border-0 text-txt outline-none resize-none overflow-hidden caret-acc`}
+    />
+  );
+}
+
+const NAME_SAVE_DEBOUNCE_MS = 400;
+const NAME_RETRY_MS = 800;
+
+// `confirmed` only advances on success and a failure keeps the newest wish, so a refused PUT never leaves a half-typed name.
+function useNameSaver(onSave: (value: string) => Promise<unknown>) {
+  const confirmed = useRef<string | null>(null);
+  const wanted = useRef<string | null>(null);
+  const busy = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const pump = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    let retried = false;
+    while (wanted.current !== null && wanted.current !== confirmed.current) {
+      const next = wanted.current;
+      try {
+        await onSave(next);
+        confirmed.current = next;
+        retried = false;
+      } catch {
+        if (retried) {
+          toast("Couldn't save the project name — try again.");
+          break;
+        }
+        retried = true;
+        await new Promise((r) => setTimeout(r, NAME_RETRY_MS));
+      }
+    }
+    busy.current = false;
+  }, [onSave]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  return useMemo(
+    () => ({
+      request(value: string, delayMs: number) {
+        wanted.current = value;
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => void pump(), delayMs);
+      },
+      reset(value: string) {
+        confirmed.current = value;
+        wanted.current = value;
+      },
+    }),
+    [pump],
+  );
+}
+
+function useAutoGrow(ref: RefObject<HTMLTextAreaElement | null>, value: string | null) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || value === null) return;
+    el.style.height = "auto";
+    const cs = getComputedStyle(el);
+    const lineHeight = parseFloat(cs.lineHeight);
+    const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const borderY = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    // scrollHeight includes glyph overflow past the line box; whole lines match the text it replaces.
+    const lines = Math.max(1, Math.round((el.scrollHeight - padY) / lineHeight));
+    el.style.height = `${lines * lineHeight + padY + borderY}px`;
+  }, [ref, value]);
+}
+
+function AnimatedHeight({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const measure = () => setHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div
+      className="overflow-hidden transition-[height] duration-[260ms] ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none"
+      style={height === null ? undefined : { height }}
+    >
+      <div ref={inner} className="flow-root">{children}</div>
     </div>
   );
 }

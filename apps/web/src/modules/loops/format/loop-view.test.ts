@@ -4,7 +4,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { availableActions, ceilingPressure, sortedOpen } from "./loop-view";
+import { availableActions, ceilingPressure, needsDecision, sortedOpen } from "./loop-view";
 import type { LoopRow } from "@agent-office/domain/services/db/loops";
 
 const NOW = 500;
@@ -66,4 +66,12 @@ test("the bar tracks the ceiling that will actually bind", () => {
 
 test("findings render most severe first", () => {
   assert.deepEqual(sortedOpen(loop({ open: [NIT, MUST] })).map((f) => f.severity), ["must-fix", "nit"]);
+});
+
+test("a loop needs the human only when escalated, never during a normal review or fix round", () => {
+  assert.equal(needsDecision(loop({ phase: "reviewing", open: [MUST] }), NOW), false);
+  assert.equal(needsDecision(loop({ phase: "fixing", open: [MUST] }), NOW), false);
+  assert.equal(needsDecision(loop({ phase: "authoring" }), NOW), false);
+  assert.equal(needsDecision(loop({ phase: "escalated", binding: "max_rounds", open: [MUST] }), NOW), true);
+  assert.equal(needsDecision(loop({ phase: "done", binding: "clean" as never }), NOW), false);
 });

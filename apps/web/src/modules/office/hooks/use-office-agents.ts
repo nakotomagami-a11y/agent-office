@@ -10,7 +10,6 @@ import { POLL } from "@/lib/polling";
 import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { shortName } from "../derive/sprite-palette";
 import { statusFromRuns, type AgentStatusInfo } from "../derive/derive-status";
-import { hasKnownCost } from "@/modules/providers/format/run-cost";
 
 export interface OfficeAgent extends ApiAgent {
   id: string;
@@ -19,16 +18,12 @@ export interface OfficeAgent extends ApiAgent {
   unitChoice: UnitSelection;
   status: AgentStatusInfo["status"];
   task?: string;
-  taskKind?: string;
 }
 
 interface OfficeAgentsResult {
   agents: OfficeAgent[];
   runs: PersistedRun[];
   workingCount: number;
-  idleCount: number;
-  errorCount: number;
-  spendToday: number;
 }
 
 export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
@@ -44,9 +39,7 @@ export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
     refetchInterval: POLL.SAFETY_NET,
   });
 
-  const enriched = useMemo<
-    Omit<OfficeAgentsResult, "spendToday"> & { spendToday: number }
-  >(() => {
+  const enriched = useMemo<OfficeAgentsResult>(() => {
     const rawAgents = agentsQuery.data ?? [];
     const rawRuns = runsQuery.data ?? [];
     const agents = rawAgents.map<OfficeAgent>((a) => {
@@ -58,28 +51,11 @@ export function useOfficeAgents(): OfficeAgentsResult & { isLoading: boolean } {
         unitChoice: unitForAgent(a.id, a.unit),
         status: status.status,
         task: status.task,
-        taskKind: status.taskKind,
       };
     });
 
-    let workingCount = 0;
-    let idleCount = 0;
-    let errorCount = 0;
-    for (const a of agents) {
-      if (a.status === "working" || a.status === "thinking") workingCount++;
-      else if (a.status === "idle") idleCount++;
-      else if (a.status === "error") errorCount++;
-    }
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayMs = todayStart.getTime();
-    let spendToday = 0;
-    for (const r of rawRuns) {
-      if (r.ts >= todayMs && hasKnownCost(r)) spendToday += r.cost || 0;
-    }
-
-    return { agents, runs: rawRuns, workingCount, idleCount, errorCount, spendToday };
+    const workingCount = agents.filter((a) => a.status === "working" || a.status === "thinking").length;
+    return { agents, runs: rawRuns, workingCount };
   }, [agentsQuery.data, runsQuery.data]);
 
   return { ...enriched, isLoading: agentsQuery.isLoading };

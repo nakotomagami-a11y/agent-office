@@ -25,6 +25,10 @@ export interface InstalledSkill {
   name: string;
   description: string;
   body: string;
+  /** From this skill's own frontmatter, unlike RegistrySkill.tags, which the
+   *  registry infers from the description. The editor saves what it was given.
+   *  Always present: an empty list means the file declares none. */
+  tags: string[];
   provenance?: SkillProvenance;
 }
 
@@ -794,6 +798,27 @@ export interface PageRange {
   start: number;
   end: number;
   projectId?: string;
+}
+
+export interface ActivityCounts {
+  runs: number;
+  errors: number;
+  /** Known cost only — `unknown`-basis runs add 0. */
+  cost: number;
+}
+
+export interface ProjectActivityRange {
+  projectId: string;
+  start: number;
+  bucketMs: number;
+  count: number;
+}
+
+export interface ProjectActivity {
+  buckets: ActivityCounts[];
+  /** Sum over [start, min(start + bucketMs·count, now)); `previous` is the same elapsed window one span earlier. */
+  totals: ActivityCounts;
+  previous: ActivityCounts;
 }
 
 export interface AccountStats {

@@ -21,7 +21,6 @@ export type AddAgentModalProps = {
   open: boolean;
   projectId: string | null;
   onClose: () => void;
-  onProjectChange?: (id: string) => void;
 };
 
 /* ── Category metadata ─────────────────────────────────────────── */
@@ -47,7 +46,7 @@ function modelColor(m: string | undefined): string {
 
 /* ── Main modal ─────────────────────────────────────────────────── */
 
-export function AddAgentModal({ open, projectId, onClose, onProjectChange }: AddAgentModalProps) {
+export function AddAgentModal({ open, projectId, onClose }: AddAgentModalProps) {
   const [targetId, setTargetId] = useState<string | null>(projectId);
   const projectsQ = useProjects();
   const projects = projectsQ.data;
@@ -63,8 +62,7 @@ export function AddAgentModal({ open, projectId, onClose, onProjectChange }: Add
     const only = projects[0]!.id;
     autoPickedRef.current = true;
     setTargetId(only);
-    onProjectChange?.(only);
-  }, [open, targetId, projects, onProjectChange]);
+  }, [open, targetId, projects]);
 
   const handleClose = () => { setTargetId(projectId); onClose(); };
 
@@ -96,7 +94,7 @@ export function AddAgentModal({ open, projectId, onClose, onProjectChange }: Add
           />
         ) : (
           <ProjectPickerStep
-            onPick={(id) => { setTargetId(id); onProjectChange?.(id); }}
+            onPick={(id) => setTargetId(id)}
             onClose={handleClose}
           />
         )}

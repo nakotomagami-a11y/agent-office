@@ -1,19 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PlanetEditorModal } from "@/components/ui/planet-editor-modal";
 import { useGitStatus, useProject, useUpdateProject } from "../hooks/use-projects";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
-import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useProjectDetailActions } from "../hooks/use-project-detail-actions";
 import { AddAgentModal } from "./add-agent-modal";
 import { ProjectHero } from "./project-hero";
 import { ProjectLiveRuns } from "./project-live-runs";
-import { ProjectStatCards } from "./project-stat-cards";
+import { ProjectActivityCard } from "./project-activity-card";
+import { ProjectWorkingTreeCard } from "./project-working-tree-card";
 import { ProjectRecentRuns } from "./project-recent-runs";
 import { ProjectEnvironmentCard } from "./project-environment-card";
-import { ProjectMemoryCard } from "./project-memory-card";
 import { ProjectBackupCard } from "./project-backup-card";
 import { ProjectDangerZone } from "./project-danger-zone";
 
@@ -23,7 +22,7 @@ export type ProjectDetailProps = { id: string };
  * V3 project dashboard. There is no separate "Project" page header here — the
  * cosmic hero card IS the header, confirmed against the raw V3 mockup (no H1
  * sits above the two-column grid). Every stat below is derived from real
- * data: `useRuns`, `useGitStatus`, and the project's own `runCount`/`memory`.
+ * data: the project's activity endpoint, `useGitStatus`, and the project's own `memory`.
  */
 export function ProjectDetail({ id }: ProjectDetailProps) {
   const t = useTranslations();
@@ -31,13 +30,14 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   const updateMut = useUpdateProject();
   const { agents: allAgents } = useOfficeAgents();
   const gitStatusQ = useGitStatus(id, !!projectQ.data?.meta.cwd);
-  const runsQ = useRuns({ projectId: id, limit: 100 });
   const { backup, danger } = useProjectDetailActions(id, projectQ.data, () => projectQ.refetch());
 
   const [planetEditorOpen, setPlanetEditorOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
   const project = projectQ.data;
+  const { mutateAsync: updateAsync } = updateMut;
+  const saveName = useCallback((name: string) => updateAsync({ id, patch: { meta: { name } } }), [updateAsync, id]);
 
   if (projectQ.isLoading) return null;
   if (!project) {
@@ -70,16 +70,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
             onOpenPlanetEditor={() => setPlanetEditorOpen(true)}
             onAddAgent={() => setAddOpen(true)}
             onSaveDescription={(description) => updateMut.mutateAsync({ id, patch: { meta: { description } } })}
+            onSaveName={saveName}
           />
-          <ProjectLiveRuns projectId={id} roster={project.meta.roster} onSummonAnother={() => setAddOpen(true)} />
+          <ProjectLiveRuns projectId={id} roster={project.meta.roster} agents={allAgents} onSummonAnother={() => setAddOpen(true)} />
         </div>
 
-        <ProjectStatCards
-          totalRunCount={project.runCount ?? 0}
-          runs={runsQ.data ?? []}
-          gitStatus={gitStatusQ.data}
-          lastRunAt={project.lastRunAt}
-        />
+        <div className="flex flex-wrap gap-[16px]">
+          <ProjectActivityCard projectId={id} />
+          <ProjectWorkingTreeCard gitStatus={gitStatusQ.data} loading={gitStatusQ.isLoading} lastRunAt={project.lastRunAt} />
+        </div>
 
         <div className="flex flex-wrap gap-[16px] items-stretch">
           <ProjectRecentRuns projectId={id} />
@@ -89,16 +88,14 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
               accountId={project.meta.accountId}
               githubAccountId={project.meta.githubAccountId}
             />
-            <ProjectMemoryCard projectId={id} memory={project.memory} />
           </div>
         </div>
 
         <ProjectBackupCard
-          projectName={project.meta.name}
           onExport={() => void backup.onExport()}
+          exportFileName={backup.exportFileName}
           exportError={backup.exportError}
-          restoreOffice={backup.restoreOffice}
-          onRestoreOfficeChange={backup.setRestoreOffice}
+          exported={backup.exported}
           importing={backup.importing}
           importStatus={backup.importStatus}
           fileInputRef={backup.fileRef}
@@ -107,7 +104,8 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
         />
 
         <ProjectDangerZone
-          instanceCount={project.meta.roster.length}
+          projectName={project.meta.name}
+          sessionAgentIds={project.meta.roster.map((r) => r.agentId)}
           cwdOrName={project.meta.cwd ?? project.meta.name}
           pending={danger.pendingDanger}
           working={danger.dangerWorking}

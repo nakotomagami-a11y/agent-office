@@ -40,38 +40,6 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-@keyframes water-foam {
-  from { background-position-x: 0; }
-  to   { background-position-x: -3072px; }
-}
-@keyframes deco-bush {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1024px; }
-}
-@keyframes deco-water-rock {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1024px; }
-}
-@keyframes deco-duck {
-  from { background-position-x: 0; }
-  to   { background-position-x: -96px; }
-}
-@keyframes deco-tree {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1536px; }
-}
-@keyframes deco-cursed-chest {
-  from { background-position-x: 0; }
-  to   { background-position-x: -384px; }
-}
-@keyframes deco-campfire {
-  from { background-position-x: 0; }
-  to   { background-position-x: -256px; }
-}
-@keyframes deco-butterfly {
-  from { background-position-x: 0; }
-  to   { background-position-x: -80px; }
-}
 @keyframes act-ping {
   0% { transform: scale(0.6); opacity: 0.6; }
   100% { transform: scale(1.6); opacity: 0; }
@@ -83,3 +51,17 @@
   0%   { transform: translateX(-110%); }
   100% { transform: translateX(420%); }
 }
+/* Proposal keyframes (project page hero + Live runs), copied verbatim from the design. */
+@keyframes aoPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
+@keyframes aoDrift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes aoFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes aoPopIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes lrSheen {
+  0% { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
+  8% { opacity: 1; }
+  55% { transform: translateX(330%) skewX(-18deg); opacity: 1; }
+  62%, 100% { transform: translateX(330%) skewX(-18deg); opacity: 0; }
+}
+@keyframes lrIn { from { opacity: 0; transform: translateY(6px) scale(.985); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes lrPing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 5px transparent; } }
+@keyframes lrBreath { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }

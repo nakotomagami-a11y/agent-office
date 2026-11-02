@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { getStatusMeta } from "@/components/ui/status-dot-colors";
 import { cn } from "@/lib/cn";
+import { isMacOS } from "@/lib/updater";
 import { useProjects, useUpdateProject } from "@/modules/projects/hooks/use-projects";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { BootstrapProjectModal } from "@/modules/projects/components/bootstrap-project-modal";
@@ -194,14 +195,14 @@ export function ProjectPickerDropdown({
           aria-label={t("project_switcher.menu_label")}
           onKeyDown={onKey}
           className={cn(
-            "flex flex-col surface-sheen rounded-[20px] shadow-[var(--lift)] overflow-hidden w-[392px]",
+            "flex flex-col surface-sheen rounded-[20px] shadow-[var(--lift)] overflow-hidden w-[392px] animate-[aoPopIn_160ms_ease-out]",
             className,
           )}
         >
           {/* Search + Active/Shelved filter */}
           <div className="shrink-0 flex items-center gap-[10px] py-[13px] px-[14px] border-b border-edge">
             <div className="flex-1 min-w-0 flex items-center gap-[9px] px-[11px] py-[8px] rounded-[12px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-text">
-              <Icon name="search" size={13} className="text-txt-4 shrink-0" />
+              <Icon name="search" size={13} className="size-[13px] [flex:0_0_13px] text-txt-4 shrink-0" />
               <input
                 type="text"
                 value={query}
@@ -281,6 +282,7 @@ export function ProjectPickerDropdown({
                     projectId={p.id}
                     planetConfig={p.planet}
                     tagLabel={isAlreadyOpen ? t("tabs.picker_open_tag") : undefined}
+                    shelvedTag={p.shelved ? t("project_switcher.filter_shelved") : undefined}
                     onHover={() => setActiveIndex(rowIndex)}
                     onSelect={() => {
                       onPickProject(p.id);
@@ -299,12 +301,15 @@ export function ProjectPickerDropdown({
             <button
               type="button"
               role="menuitem"
-              className="flex items-center gap-[8px] py-[7px] px-[10px] rounded-[11px] text-txt-2 text-[12px] font-semibold hover:bg-card-3 hover:text-txt transition-[background,color] duration-[140ms]"
+              className="flex items-center gap-[8px] py-[7px] px-[10px] rounded-[11px] text-txt-2 text-[12px] font-semibold whitespace-nowrap hover:text-acc transition-colors duration-[140ms]"
               onClick={openBootstrap}
             >
-              <Icon name="plus" size={13} /> {t("project_switcher.new_project")}
+              <Icon name="plus" size={13} className="size-[13px] [flex:0_0_13px]" /> {t("project_switcher.new_project")}
             </button>
             <span className="flex-1" />
+            <span className="font-[var(--font-mono)] text-[9.5px] text-txt-4 whitespace-nowrap">
+              {t("project_switcher.switch_hint", { mod: isMacOS() ? "⌘" : "Ctrl+" })}
+            </span>
             {onPickManage ? (
               <button
                 type="button"
@@ -313,7 +318,7 @@ export function ProjectPickerDropdown({
                 onMouseEnter={() => setActiveIndex(rows.length - 1)}
                 onClick={handleManage}
               >
-                <Icon name="settings" size={13} /> {t("project_switcher.manage")}
+                <Icon name="settings" size={13} className="size-[13px] [flex:0_0_13px]" /> {t("project_switcher.manage")}
               </button>
             ) : null}
           </div>
@@ -341,7 +346,7 @@ function FilterTab({
       className={cn(
         "flex items-center gap-[5px] py-[5px] px-[10px] rounded-[9px] text-[11px] font-semibold whitespace-nowrap transition-[background,color] duration-[140ms]",
         active
-          ? "bg-[linear-gradient(120deg,var(--acc),var(--acc-2))] text-white"
+          ? "bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white"
           : "bg-transparent text-txt-4 hover:text-txt-2",
       )}
     >
@@ -363,6 +368,7 @@ type RowProps = {
   projectId?: string | null;
   planetConfig?: PlanetConfig;
   tagLabel?: string;
+  shelvedTag?: string;
   shelved?: boolean;
   shelveLabel?: string;
   onToggleShelve?: () => void;
@@ -380,6 +386,7 @@ function PickerRow({
   projectId,
   planetConfig,
   tagLabel,
+  shelvedTag,
   shelved,
   shelveLabel,
   onToggleShelve,
@@ -398,7 +405,7 @@ function PickerRow({
         }}
         className={cn(
           "flex items-center relative cursor-pointer w-full text-left bg-transparent border-none gap-[11px] px-[9px] py-[8px] rounded-[12px] transition-[background] duration-[130ms]",
-          highlighted ? "bg-card-3" : openBg ? "bg-acc-soft" : "hover:bg-card-3",
+          highlighted ? "bg-card-2" : openBg ? "bg-acc-soft" : "hover:bg-card-2",
           selected &&
             "before:content-[''] before:absolute before:left-0 before:top-[8px] before:bottom-[8px] before:w-[2px] before:bg-[var(--acc)] before:rounded-full",
         )}
@@ -412,7 +419,7 @@ function PickerRow({
           />
         ) : (
           <span className="flex items-center justify-center shrink-0 text-txt-3 w-[28px] h-[28px] rounded-full border border-edge bg-card-2">
-            <Icon name="folder" size={13} />
+            <Icon name="folder" size={13} className="size-[13px] [flex:0_0_13px]" />
           </span>
         )}
         <span className="min-w-0 flex-1 leading-[1.35]">
@@ -423,7 +430,7 @@ function PickerRow({
             )}
           >
             {primary}
-            {selected && <Icon name="check" size={11} className="text-acc shrink-0" />}
+            {selected && <Icon name="check" size={11} className="size-[11px] [flex:0_0_11px] text-acc shrink-0" />}
           </div>
           {secondary && (
             <div className="font-mono text-[10px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -439,6 +446,15 @@ function PickerRow({
             )}
           >
             {tagLabel}
+          </span>
+        ) : shelvedTag ? (
+          <span
+            className={cn(
+              "text-[8.5px] font-extrabold uppercase tracking-[0.07em] px-[7px] py-[2px] rounded-full bg-card-3 text-txt-4 shrink-0",
+              onToggleShelve && "group-hover/row:opacity-0 transition-opacity duration-[100ms]",
+            )}
+          >
+            {shelvedTag}
           </span>
         ) : statusMeta ? (
           <span
@@ -463,7 +479,7 @@ function PickerRow({
           }}
           className="absolute right-[8px] top-1/2 -translate-y-1/2 w-[24px] h-[24px] inline-flex items-center justify-center rounded-[8px] text-txt-3 opacity-0 group-hover/row:opacity-100 hover:bg-card-3 hover:text-txt transition-[opacity,background,color] duration-[120ms] z-[2]"
         >
-          <Icon name={shelved ? "undo" : "archive"} size={13} />
+          <Icon name={shelved ? "undo" : "archive"} size={13} className="size-[13px] [flex:0_0_13px]" />
         </button>
       )}
     </div>

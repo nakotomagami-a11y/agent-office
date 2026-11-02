@@ -15,11 +15,6 @@ import {
 import { useProjectSpend } from "@/modules/projects/hooks/use-project-spend";
 import { useFilter } from "@/hooks/use-filter";
 import { useSettings } from "@/modules/settings/hooks/use-settings";
-import {
-  AGENT_DRAG_MIME,
-  useOfficeDragStore,
-  type DragRef,
-} from "@/modules/office/hooks/use-office-drag";
 import { isTauri, closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/lib/tauri-window";
 import { RosterGroup, type RosterGroupData } from "./roster-group";
 import { splitRoster } from "@/modules/office/derive/split-roster";
@@ -173,7 +168,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col min-h-0 h-full overflow-hidden p-[14px] gap-[16px] max-[1024px]:overflow-hidden max-[600px]:hidden"
+      className="flex flex-col min-h-0 h-full overflow-hidden px-[14px] py-[20px] gap-[20px] max-[1024px]:overflow-hidden max-[600px]:hidden"
       aria-label={t("app.name")}
     >
       {tauri && (
@@ -190,20 +185,20 @@ export function Sidebar() {
             nothing useful to say at that width — hide it instead of letting
             `whitespace-nowrap` hard-clip "Roster" mid-word past the rail's
             edge (found during the Phase 10 responsive sweep). */}
-        <div className="flex items-center gap-[9px] px-[8px] pb-[8px] max-[1024px]:hidden">
+        <div className="flex items-center gap-[9px] px-[8px] pt-[2px] pb-[8px] max-[1024px]:hidden">
           <span className="text-[15px] font-extrabold tracking-[-0.02em] whitespace-nowrap">{t("sidebar.roster_title")}</span>
           <span className="font-[var(--font-mono)] text-[11px] text-txt-4 whitespace-nowrap">{totalCount}</span>
           <span className="flex-1" />
           {workingCount > 0 && (
             <span className="flex items-center gap-[5px] px-2 py-[2px] rounded-full bg-green-soft text-[10.5px] font-bold text-green whitespace-nowrap">
-              <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
+              <span className="w-[5px] h-[5px] rounded-full bg-green animate-[aoPulse_1.7s_ease-in-out_infinite]" />
               {t("nav.live_badge", { count: workingCount })}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 mx-[6px] mb-[8px] px-[11px] py-[8px] rounded-xl bg-card-2 border border-edge shadow-[var(--inset-hi)]">
-          <Icon name="search" size={13} className="text-txt-4 shrink-0" />
+        <div className="flex items-center gap-[8px] mx-[6px] mb-[8px] px-[11px] py-[8px] rounded-[12px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-text focus-within:border-acc-line">
+          <Icon name="search" size={13} className="size-[13px] [flex:0_0_13px] text-txt-4 shrink-0" />
           <input
             type="text"
             value={filter}
@@ -215,7 +210,7 @@ export function Sidebar() {
           />
           {filter && (
             <button type="button" onClick={() => setFilter("")} className="text-txt-4 hover:text-txt shrink-0" aria-label={t("common.clear")}>
-              <Icon name="x" size={11} />
+              <Icon name="x" size={11} className="size-[11px] [flex:0_0_11px]" />
             </button>
           )}
         </div>
@@ -287,9 +282,9 @@ export function Sidebar() {
           title={t("sidebar.add_agent_title")}
           disabled={!activeProjectId}
           onClick={() => setAddAgentOpen(true)}
-          className="mt-[6px] flex items-center justify-center py-2 rounded-[10px] border border-dashed border-edge-2 bg-transparent text-txt-3 shrink-0 transition-colors duration-150 hover:text-txt hover:border-txt-4 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-[6px] flex items-center justify-center py-[8px] rounded-[10px] border border-dashed border-edge-2 bg-transparent text-txt-3 shrink-0 transition-colors duration-[160ms] hover:text-txt hover:border-txt-4 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Icon name="plus" size={14} />
+          <Icon name="plus" size={14} strokeWidth={2.2} className="size-[14px] [flex:0_0_14px]" />
         </button>
       </div>
 
@@ -312,7 +307,7 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
 function RosterHeader({ label, count, pinned = false }: { label: string; count: number; pinned?: boolean }) {
   return (
     <div className="flex items-center gap-[7px] px-[7px] pt-[10px] pb-[6px] max-[1024px]:hidden">
-      {pinned && <Icon name="pin" size={10} className="text-acc shrink-0" />}
+      {pinned && <Icon name="pin" size={10} className="size-[10px] [flex:0_0_10px] text-acc shrink-0" />}
       <span className={cn("text-[9.5px] font-bold tracking-[0.09em] uppercase whitespace-nowrap", pinned ? "text-acc" : "text-txt-4")}>
         {label}
       </span>
@@ -351,21 +346,7 @@ function RosterEntry({
   onRemove: () => void;
 }) {
   const t = useTranslations();
-  const { agent, instance, displayName } = row;
-  const setDragging = useOfficeDragStore((s) => s.setDragging);
-
-  const dragRef: DragRef = instance
-    ? { agentId: agent.id, instanceId: instance.instanceId }
-    : { agentId: agent.id };
-
-  const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
-    e.dataTransfer.setData("text/plain", agent.id);
-    e.dataTransfer.effectAllowed = "move";
-    setDragging(dragRef);
-  };
-
-  const onDragEnd = () => setDragging(null);
+  const { agent, displayName } = row;
 
   const ledClass = cn(
     "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-2 border-canvas",
@@ -378,20 +359,17 @@ function RosterEntry({
   return (
     <div
       className={cn(
-        "group relative cursor-grab flex items-center gap-[9px] rounded-[10px] px-[7px] py-[6px] transition-colors duration-150 hover:bg-card-3",
+        "group relative cursor-pointer flex items-center gap-[9px] rounded-[10px] px-[7px] py-[6px] transition-colors duration-[130ms] hover:bg-card-2",
         selected && "bg-acc-faint",
       )}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
       onClick={onSelect}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(); }}
       title={t("sidebar.row_open_chat_title")}
     >
-      <div className="relative shrink-0 w-[30px] h-[30px] rounded-[9px] overflow-hidden">
-        <AgentAvatar unit={agent.unitChoice} size={30} className="rounded-[9px] border border-edge" />
+      <div className="relative shrink-0 w-[30px] h-[30px]">
+        <AgentAvatar unit={agent.unitChoice} size={30} className="rounded-[9px] bg-card-3 border border-edge" />
         <span className={ledClass} />
       </div>
 
@@ -405,9 +383,9 @@ function RosterEntry({
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           aria-label={t("sidebar.remove_from_project_aria", { name: displayName })}
           title={t("sidebar.remove_from_project_title")}
-          className="shrink-0 w-[20px] h-[20px] flex items-center justify-center rounded-[6px] text-txt-4 opacity-0 group-hover:opacity-100 hover:bg-red-soft hover:text-red transition-[background,color,opacity] duration-150"
+          className="shrink-0 w-[20px] h-[20px] hidden group-hover:flex group-focus-within:flex items-center justify-center rounded-[6px] text-txt-4 hover:bg-red-soft hover:text-red transition-colors duration-[130ms]"
         >
-          <Icon name="x" size={10} />
+          <Icon name="x" size={10} className="size-[10px] [flex:0_0_10px]" />
         </button>
       )}
     </div>

@@ -1,7 +1,5 @@
 /** Every UI page path. Never hardcode one elsewhere. */
 export const PAGE_ROUTES = {
-  /** Landing page / office island — the root route. Use this; there is no separate `home` alias. */
-  office: "/",
   agents: "/agents",
   agent: (id: string) => `/agents/${encodeURIComponent(id)}`,
   agentEdit: (id: string) => `/agents/${encodeURIComponent(id)}/edit`,

@@ -5,7 +5,6 @@ import { cn } from "@/lib/cn";
 
 const INTEGRATION_IMAGE: Record<string, string> = {
   github: "/icons/github.png",
-  "iso-view": "/icons/isomap.png",
 };
 
 /** One integration row: icon, label (+ status badge), description, and a toggle.

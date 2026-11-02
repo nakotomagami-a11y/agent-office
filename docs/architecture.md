@@ -11,7 +11,7 @@
 | `packages/domain` | `@agent-office/domain` — **the brains**: types, DB layer, services, fixed value sets. Knows nothing about HTTP |
 | `packages/api-contract` | `@agent-office/api-contract` — the wire contract: `API_ROUTES` and the request schemas the server validates against. Pure (zod + domain config), so any client can import it |
 | `apps/server` | `@agent-office/server` — the HTTP API + SSE runner: route handlers, boot tasks, the origin guard. One web-standard `handle(Request): Response` |
-| `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
+| `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/` |
 | `apps/minecraft-mod` | NeoForge 1.21.1 mod, a second client of the same API. Gradle, not part of the pnpm workspace (`docs/minecraft-mod.md`) |
 
 ```
@@ -27,8 +27,7 @@ Dependencies point one way, and lint holds the line (`docs/conventions.md`):
 its embedding seam (below). `@agent-office/pixel-planets` and
 `@agent-office/pixel-icons` are still used — they moved out of `packages/` into
 standalone repos and are pinned by commit as git dependencies in
-`apps/web/package.json`. The office *scene* is PixiJS inside `apps/web`; those
-two packages render the planet and weapon icons, not the scene.
+`apps/web/package.json`. They render the project planet and skill weapon icons.
 
 ---
 
@@ -397,7 +396,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v30**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v31**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -408,13 +407,13 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
 | `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
-| `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to. It replaced the legacy `transcripts` blob: v14 created one conversation per old (agent, instance) slot, and v30 dropped that table along with the never-used `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/` |
+| `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to. It replaced the legacy `transcripts` blob: v14 created one conversation per old (agent, instance) slot, and v31 dropped that table along with the never-used `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/` |
 | `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at, origin | Messages typed while a run is in flight, dispatched in order once it finishes |
 | `loops` | id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round, spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at | Loop v0 state (#145/#150/#151/#153). Started by `POST /api/loops`, or by the chat header's "QA loop" toggle (`execution/qa-loop.ts`): a seat with `qaLoopEnabled` gets a loop at the review phase after any user turn that edited files, once the chat is idle. The reviewer runs on its own agent settings outside the chat; fix rounds go through the conversation as `system` messages, each capped at the loop's remaining budget. The reviewer may cite the `general.*` rules (`config/loop.ts`) plus the `## <id>` headings of the reviewed project's own `docs/conventions.md` |
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
-| `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
+| `ui_settings` | key, value, updated_at | Theme, tabs, roster groups, spend cap, etc. Internal keys prefixed `_` hidden from GET |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, repeat_every, repeat_anchor, created_at, updated_at | Serialized summon + fire time; drives manual scheduling, recurring orders and rate-limit auto-resume |

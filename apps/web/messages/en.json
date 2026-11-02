@@ -4,7 +4,6 @@
     "brand_sub": "studio · v3.0"
   },
   "nav": {
-    "office": "Office",
     "analytics": "Analytics",
     "templates": "Templates",
     "projects": "Projects",
@@ -20,37 +19,12 @@
     "primary_label": "Primary",
     "live_badge": "{count} live"
   },
-  "office": {
+  "project_actions": {
     "open_error_no_cwd": "This project has no folder set.",
     "open_error_cwd_missing": "The project folder doesn't exist.",
     "open_error_cwd_unreadable": "Agent Office can't read the project folder.",
     "open_error_editor_not_found": "VS Code isn't installed, or it couldn't be found.",
-    "open_error_failed": "Couldn't open the project folder.",
-    "title": "The office",
-    "needs_attention_label": "need attention",
-    "budget_daily": "Budget",
-    "new_agent": "Forge agent",
-    "add_agent": "Add agent",
-    "error_filter_banner": "Showing agents needing attention",
-    "error_filter_clear": "Clear filter"
-  },
-  "office_build_toolbar": {
-    "switch_to_shared": "Switch back to the default shared layout",
-    "switch_to_project": "Create a project-specific layout",
-    "scope_project": "Project",
-    "scope_default": "Default"
-  },
-  "office_scene_hud": {
-    "tile": "Tile",
-    "map": "Map",
-    "placed": "Placed",
-    "placed_count": "{count, plural, one {# tile} other {# tiles}}"
-  },
-  "office_view": {
-    "iso_disabled_title": "Isometric office is off",
-    "iso_disabled_perf_body": "The isometric floor needs the Full rendering budget. Raise the performance mode in Settings to load it.",
-    "iso_disabled_body": "The office renders as a 3D isometric floor. Turn on the Isometric view integration to use it.",
-    "open_settings": "Open Settings"
+    "open_error_failed": "Couldn't open the project folder."
   },
   "common": {
     "search_placeholder": "Filter…",
@@ -149,7 +123,7 @@
     "header_agents": "Agents",
     "add_agent_title": "Add agent",
     "filter_aria": "Filter roster",
-    "no_agents_in_project": "No agents in {project}. Click \"Add agent\" on the office toolbar.",
+    "no_agents_in_project": "No agents in {project}. Click \"Add agent\" to add one.",
     "no_agent_definitions": "No agent definitions yet. Drop a markdown file in ~/.claude/agents/.",
     "row_open_chat_title": "Click to view details · open chat from there",
     "remove_from_project_aria": "Remove {name} from this project",
@@ -236,6 +210,7 @@
   "update_bell": {
     "title_available": "Update available — v{version}",
     "aria_available": "Update available, version {version}",
+    "pill_ready": "Update ready",
     "modal_title_available": "Update available",
     "available_title": "Version {version} is ready",
     "available_body": "Downloads in the background and installs on the next restart. Projects, agents and memory stay as they are.",
@@ -280,7 +255,8 @@
     "agent_count": "{count, plural, one {# agent} other {# agents}}",
     "manage": "Manage projects…",
     "cwd_label": "cwd {path}",
-    "new_project": "New project…"
+    "new_project": "New project…",
+    "switch_hint": "{mod}1–9 switches"
   },
   "tabs": {
     "empty_hint": "Click + to open a project",
@@ -395,7 +371,8 @@
     "edit_title": "Open settings",
     "uses_count": "{count, plural, one {# use} other {# uses}}",
     "model_default": "default",
-    "description_empty": "—"
+    "description_empty": "—",
+    "new_agent": "Forge agent"
   },
   "agent_details": {
     "tab_memory": "Memory",
@@ -414,14 +391,17 @@
     "playwright_disabled_toast": "Playwright disabled for this session — applies on next task",
     "playwright_on_tooltip": "Playwright is available to this session. Click to turn it off — its browser tools won't load into context and sub-agents can't use it either.",
     "playwright_off_tooltip": "Playwright is off for this session. Click to turn it back on.",
-    "playwright_on_label": "playwright on",
-    "playwright_off_label": "playwright off",
     "qa_loop_enabled_toast": "QA loop on: a turn that changes files is followed by a review loop",
-    "qa_loop_disabled_toast": "QA loop off for new turns. A loop already running finishes on its own; stop it from its pill",
+    "qa_loop_disabled_toast": "QA loop off for new turns. A loop already running finishes on its own; stop it from the +N menu in the header",
     "qa_loop_on_tooltip": "After a turn that changes files, qa-code-review reviews it and this agent fixes what it finds: up to 3 reviews, $10, 1 hour. Click to turn it off.",
     "qa_loop_off_tooltip": "Click to have every turn that changes files reviewed and fixed in a loop.",
-    "qa_loop_on_label": "QA loop on",
-    "qa_loop_off_label": "QA loop off",
+    "qa_loop_label": "QA loop",
+    "tools_chip": "tools",
+    "tools_on": "{count} on",
+    "tools_off": "off",
+    "tools_this_session": "This session",
+    "overflow_label": "{count, plural, one {# more item} other {# more items}}",
+    "overflow_label_decision": "{count, plural, one {# more item} other {# more items}}, a QA loop waits on your decision",
     "delete_instance_tooltip": "Delete this instance",
     "close_esc": "Close (Esc)"
   },
@@ -433,9 +413,6 @@
     "empty_description_suffix": " to scan for project folders."
   },
   "project_detail": {
-    "memory_card_sub": "composes into every roster summon for {project}",
-    "memory_placeholder": "Project-wide context that prepends to every agent prompt.",
-    "roster_card_sub": "{count, plural, one {# agent} other {# agents}}",
     "save_card_title": "Save file",
     "save_card_sub": "export this project as a portable JSON save file",
     "save_export_button": "Export",
@@ -443,8 +420,6 @@
     "import_success": "Imported {count, plural, one {# agent} other {# agents}} into project \"{project}\". Refresh to see changes.",
     "danger_title": "Danger zone",
     "danger_sub": "destructive actions — they cannot be undone",
-    "danger_confirm_question": "Are you sure?",
-    "danger_cancel": "Cancel",
     "danger_keep": "Keep work",
     "danger_discard": "Discard work",
     "reset_title": "Reset roster",
@@ -455,11 +430,25 @@
     "delete_detail": "forgets this project's Agent Office settings, roster, memory and uploads. Conversation history, the files in {path} and any session worktree holding work stay. The folder is still in your projects root, so it comes back as a new, empty project",
     "delete_confirm": "Delete",
     "delete_failed": "Could not delete the project: {error}",
+    "reset_tooltip": "Remove every session, with its worktree and branch",
+    "reset_tooltip_empty": "No sessions to reset",
+    "delete_tooltip": "Forget this project. Its files on disk stay",
     "import_backed_up": "{count, plural, one {# agent you already had ({ids}) was replaced; the previous copy is} other {# agents you already had ({ids}) were replaced; the previous copies are}} in ~/.claude/agent-office/backups/agents/.",
     "import_snapshot": "The project as it was before is saved in {path}.",
-    "import_office_restored": "Your office layout was replaced with the one in the file.",
-    "import_restore_office": "Also replace my office layout (shared by every project) with the file's",
-    "export_failed": "Export failed: {error}"
+    "export_failed": "Export failed: {error}",
+    "backup_status_none": "no backups yet",
+    "backup_status_exported": "exported just now",
+    "import_card_title": "Import project",
+    "import_card_sub": "drop a save file, or click to browse",
+    "import_drop_title": "Drop to import",
+    "import_drop_sub": "restore a .agent-office.json save file",
+    "reset_sub": "{project} · {count, plural, one {# session} other {# sessions}}",
+    "reset_leave": "{count, plural, one {# session leaves} other {# sessions leave}} the office",
+    "reset_hint": "enter to confirm",
+    "reset_choice_hint": "pick what happens to that work",
+    "delete_type_confirm": "Type <name>{project}</name> to confirm",
+    "delete_hint": "esc to cancel",
+    "delete_working": "Deleting…"
   },
   "session_removal": {
     "title": "Remove session",
@@ -479,7 +468,7 @@
     "agent_delete_has_work": "{count, plural, one {One of its sessions has} other {# of its sessions have}} work that is on no other branch ({names}). OK deletes the agent but keeps that work: worktree folders with changes and branches with commits stay on disk. Cancel deletes nothing."
   },
   "project_activity": {
-    "empty": "No runs yet on this project. Summon an agent from the office."
+    "empty": "No runs yet on this project. Add an agent and send it a prompt."
   },
   "planet_editor_modal": {
     "title": "Edit planet",
@@ -584,10 +573,7 @@
     "group_engine_hint": "required to run the office",
     "group_connections_label": "Connected accounts",
     "group_connections_hint": "external identities agents act as",
-    "group_capabilities_label": "Capabilities",
-    "group_capabilities_hint": "optional surfaces you can switch on",
     "required_tag": "Required",
-    "experimental_tag": "Experimental",
     "enable_aria": "Enable {name}",
     "claude_tagline": "The model behind every agent · one account per project",
     "add_account": "Add account",
@@ -601,7 +587,6 @@
     "github_inactive_login": "Signed in on this machine, not the active account",
     "empty_accounts": "No accounts yet. Add one to route this project through it.",
     "health_connected": "Connected",
-    "health_on": "On",
     "health_attention": "Needs attention",
     "health_off": "Off"
   },
@@ -617,7 +602,7 @@
     "row_skill_cache_label": "Downloaded and bundled skills",
     "row_skill_cache_desc": "Deletes skills installed from the registry (reinstall them from Skills) and unedited bundled starter skills (restored at the next server start). Skills you created or imported, and any you edited in Agent Office, are kept.",
     "row_ui_settings_label": "App UI settings",
-    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project and the setup wizard draft. Office maps, layouts, decorations and your spend cap are kept.",
+    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project, pinned and expanded roster groups and the setup wizard draft. Your spend cap is kept.",
     "cleared": "Cleared",
     "failed": "Failed",
     "confirm_prompt": "Run this reset?",
@@ -642,13 +627,11 @@
     "mode_full_label": "Full",
     "mode_full_note": "Everything on. Best-looking interface, heaviest per frame.",
     "mode_lite_label": "Lite",
-    "mode_lite_note": "Flat surfaces, no PixiJS. Fast on older or throttled machines.",
+    "mode_lite_note": "Flat surfaces, no transitions or blur. Fast on older or throttled machines.",
     "mode_off_label": "Off",
     "mode_off_note": "Minimal render load. Utilitarian, no motion beyond status.",
     "matrix_title": "What each mode does",
     "matrix_sub": "override any single row without leaving your mode",
-    "feature_office_renderer_name": "Isometric office renderer",
-    "feature_office_renderer_detail": "PixiJS floor view",
     "feature_framer_motion_name": "Framer-motion transitions",
     "feature_framer_motion_detail": "panel and route animation",
     "feature_backdrop_blur_name": "Backdrop blur and shadows",

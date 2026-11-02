@@ -550,15 +550,15 @@ test("the orphan sweep never deletes a chat turn or a sub-agent inside one", () 
   for (const t of RUN_CHILD_TABLES) assert.equal(count(db, t), 1, `${t} lost a chat turn's row`);
 });
 
-// --- S5-7: the UI reset keeps the office --------------------------------------
+// --- S5-7: the UI reset keeps the spend cap -----------------------------------
 
-test("resetting UI settings keeps office maps, decorations and the spend cap", () => {
+test("resetting UI settings keeps the spend cap", () => {
   const db = freshDb();
   const put = db.prepare("INSERT INTO ui_settings (key, value, updated_at) VALUES (?, 'v', 1)");
-  for (const k of ["theme", "tabs-state", "office-grid:p1", "office-decorations:p1", "office-agents", "claude-limits", "_migrated"]) put.run(k);
+  for (const k of ["theme", "tabs-state", "roster-groups", "claude-limits", "_migrated"]) put.run(k);
 
-  assert.equal(resetUiSettings().cleared, 2);
+  assert.equal(resetUiSettings().cleared, 3);
   const keys = (db.prepare("SELECT key FROM ui_settings ORDER BY key").all() as Array<{ key: string }>).map((r) => r.key);
-  assert.deepEqual(keys, ["_migrated", "claude-limits", "office-agents", "office-decorations:p1", "office-grid:p1"],
+  assert.deepEqual(keys, ["_migrated", "claude-limits"],
     "a reset that dropped claude-limits silently turned a hard spend cap back into a warning");
 });

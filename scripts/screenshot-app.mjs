@@ -75,150 +75,6 @@ const PROCESSES_MOCK = (() => {
   ];
 })();
 
-// ── Office floor layout ──────────────────────────────────────────────────
-// The showcase seed creates projects + agents + runs, but a fresh project's
-// office map is intentionally blank (all-water grid, 0 decorations, no agent
-// placements — see office-scene-data.ts:makeSeedGrid). That's the correct
-// default for a real new project, but it makes the flagship "office"
-// screenshot a solid cyan void. So: generate a real island and drop the
-// project's agents onto it before capturing, the same way a user would via
-// Build > Terrain > Generate + dragging agents onto tiles.
-//
-// generateIsland() below is a deliberate, hand-kept-in-sync port of
-// generateLand({shape:"island"}) from
-// apps/web/src/modules/office/derive/land-generator.ts — duplicated rather
-// than imported because this script runs standalone (no Next bundler, so no
-// path aliases / TS) and the algorithm is small, pure, and stable.
-const GRID_COLS = 108;
-const GRID_ROWS = 68;
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const lerp = (a, b, t) => a + (b - a) * t;
-function makeNoise(rng, freq) {
-  const size = freq + 2;
-  const vals = new Float32Array(size * size);
-  for (let i = 0; i < vals.length; i++) vals[i] = rng();
-  return (nx, ny) => {
-    const fx = nx * freq, fy = ny * freq;
-    const x0 = Math.min(size - 2, Math.floor(fx));
-    const y0 = Math.min(size - 2, Math.floor(fy));
-    const tx = fx - x0, ty = fy - y0;
-    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
-    const v00 = vals[y0 * size + x0], v10 = vals[y0 * size + x0 + 1];
-    const v01 = vals[(y0 + 1) * size + x0], v11 = vals[(y0 + 1) * size + x0 + 1];
-    return lerp(lerp(v00, v10, sx), lerp(v01, v11, sx), sy);
-  };
-}
-function generateIsland({ seed, coverage, roughness, cols, rows }) {
-  const rng = mulberry32(seed || 1);
-  const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => false));
-  const noise = makeNoise(rng, 4);
-  const R = lerp(0.55, 1.02, coverage);
-  const amp = roughness * 0.22;
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const dx = ((x + 0.5) / cols - 0.5) * 2;
-      const dy = ((y + 0.5) / rows - 0.5) * 2;
-      const d = Math.hypot(dx, dy);
-      const n = (noise((x + 0.5) / cols, (y + 0.5) / rows) - 0.5) * 2 * amp;
-      if (d < R + n) grid[y][x] = true;
-    }
-  }
-  for (let y = 0; y < rows; y++)
-    for (let x = 0; x < cols; x++)
-      if (x < 2 || y < 2 || x >= cols - 2 || y >= rows - 2) grid[y][x] = false;
-  return grid;
-}
-
-const DECO_KINDS = ["tree", "tree2", "tree3", "bush", "bush2", "rock", "rock2"];
-
-/** Lay out a generated island + a scatter of decorations + the project's
- *  roster placed on land tiles, so the office screenshot shows a real
- *  scene instead of the blank default. `roster` is [{agentId, instanceId}]. */
-async function layoutOffice(projectId, roster) {
-  const grid = generateIsland({ seed: 42, coverage: 0.62, roughness: 0.35, cols: GRID_COLS, rows: GRID_ROWS });
-  const isLand = (x, y) => x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS && grid[y][x];
-  const key = (x, y) => `${x},${y}`;
-  const used = new Set();
-
-  // BFS outward from (x,y) to the nearest unused land tile — used to snap
-  // "nice" hand-picked spots (a spaced row, a ring) onto the actual
-  // generated coastline instead of assuming every spot is land.
-  function nearestFreeLand(x, y) {
-    const seen = new Set([key(x, y)]);
-    let frontier = [[x, y]];
-    while (frontier.length > 0) {
-      const next = [];
-      for (const [fx, fy] of frontier) {
-        const k = key(fx, fy);
-        if (isLand(fx, fy) && !used.has(k)) return [fx, fy];
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = fx + dx, ny = fy + dy, nk = key(nx, ny);
-          if (!seen.has(nk) && nx >= 0 && nx < GRID_COLS && ny >= 0 && ny < GRID_ROWS) {
-            seen.add(nk);
-            next.push([nx, ny]);
-          }
-        }
-      }
-      frontier = next;
-    }
-    return [x, y]; // unreachable in practice — island always has room
-  }
-
-  const cx = Math.round(GRID_COLS / 2), cy = Math.round(GRID_ROWS / 2);
-
-  // Roster in a spaced-out row through the island's center, like desks
-  // along a shared bench, rather than a dense pile.
-  const spacing = 5;
-  const agents = {};
-  roster.forEach(({ agentId, instanceId }, i) => {
-    const wantX = cx + (i - (roster.length - 1) / 2) * spacing;
-    const [x, y] = nearestFreeLand(Math.round(wantX), cy);
-    used.add(key(x, y));
-    agents[key(x, y)] = instanceId ? { agentId, instanceId } : { agentId };
-  });
-
-  // Decorations on a coarse ring around the roster row so they read as
-  // scenery, not a pile — every `step` tiles on a expanding diamond outward
-  // from center, skipping anything already occupied.
-  const decorations = {};
-  const decoCount = Math.min(24, Math.floor(roster.length * 3));
-  const step = 6;
-  let ring = 1;
-  while (Object.keys(decorations).length < decoCount && ring < GRID_COLS) {
-    for (const [dx, dy] of [[step * ring, 0], [-step * ring, 0], [0, step * ring], [0, -step * ring],
-      [step * ring, step], [-step * ring, -step], [step, step * ring], [-step, -step * ring]]) {
-      if (Object.keys(decorations).length >= decoCount) break;
-      const [x, y] = nearestFreeLand(cx + dx, cy + dy);
-      const k = key(x, y);
-      if (used.has(k)) continue;
-      used.add(k);
-      decorations[k] = [{ kind: DECO_KINDS[Object.keys(decorations).length % DECO_KINDS.length] }];
-    }
-    ring++;
-  }
-
-  await fetch(`${BASE}/api/ui-settings`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      "office-grid": JSON.stringify(grid),
-      "office-decorations": JSON.stringify(decorations),
-      "office-grass-color": "green",
-      [`office-agents:${projectId}`]: JSON.stringify(agents),
-      "office-map-rev": "1",
-    }),
-  });
-}
-
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({ viewport: { width: 1512, height: 945 }, deviceScaleFactor: 2 });
 await ctx.addInitScript((css) => {
@@ -276,11 +132,6 @@ async function goto(path) {
   await sleep(400);
 }
 
-// Office screenshot is parked for now — being redone by hand — so skip the
-// island layout seed too (its only consumer was that capture). Re-add
-// ["/", "office"] to PAGES below and the layoutOffice() call above it to
-// bring the automated capture back.
-
 // ── Top-level pages ──────────────────────────────────────────────────────
 const PAGES = [
   ["/projects", "projects"],
@@ -294,13 +145,6 @@ const PAGES = [
 for (const [path, file] of PAGES) {
   await goto(path);
   if (file === "skills") await sleep(1_500); // registry mock resolves async
-  // The isometric office (PixiJS + @pixi/tilemap) renders a flat placeholder
-  // color for its first second or two while terrain/decoration/unit sprite
-  // atlases load — worse on this page than anywhere else in the app because
-  // it's normally the very first navigation, hitting a cold Next dev-server
-  // compile on top of the texture loads. Give it real time to settle instead
-  // of capturing the placeholder frame.
-  if (file === "office") await sleep(3_000);
   await shot(file);
 }
 

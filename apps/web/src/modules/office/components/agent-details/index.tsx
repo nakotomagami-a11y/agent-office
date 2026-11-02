@@ -6,7 +6,7 @@ import { Portal } from "@/components/ui/portal";
 import { useOfficeAgents } from "../../hooks/use-office-agents";
 import { useOfficeStore, type AgentTab } from "../../hooks/use-office-store";
 import { ChatPanel } from "@/modules/summon/components/chat-panel";
-import { BackgroundTaskPill, useIsBackgroundTaskAlive, type BackgroundTask } from "@/modules/summon/components/background-task-indicator";
+import { useIsBackgroundTaskAlive, type BackgroundTask } from "@/modules/summon/components/background-task-indicator";
 import { transcriptKey } from "@/modules/summon/format/transcript-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { useRunStream } from "@/modules/summon/hooks/use-run-stream";
@@ -27,13 +27,13 @@ import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
 import { UnitSprite } from "@/components/ui/unit-sprite";
-import { ProjectActionsMenu } from "../office-toolbar";
+import { ProjectActionsMenu } from "@/modules/projects/components/project-actions";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import { statusFromRuns, statusFromRunsForInstance } from "../../derive/derive-status";
 import { cn } from "@/lib/cn";
 import { MissionPill } from "@/modules/missions/components/mission-pill";
-import { QaLoopToggle, LatestLoopPill } from "@/modules/loops/components/qa-loop-controls";
+import { HeaderOverflow, HeaderTools } from "./header-menus";
 
 type Tab = AgentTab;
 
@@ -42,6 +42,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "context-cost", label: "Context & Cost" },
   { id: "customization", label: "Customization" },
 ];
+
+const RUNTIME_CHIP =
+  "!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:!shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0";
 
 /** Row label for the model/effort dropdowns — check marks the current value. */
 function runtimeItemLabel(value: string, selected: boolean) {
@@ -204,7 +207,6 @@ export function AgentDetailsModal() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- changeTab is stable across renders
   }, [inspectorOpen, selectedId, consumePendingTab]);
 
-  // Close on Escape
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!inspectorOpen) return;
@@ -288,7 +290,6 @@ export function AgentDetailsModal() {
     />
   );
 
-  // usage stream reserved for future use
 
   // Breadcrumb: instance index + label for the currently selected instance
   const selectedInstIdx = isMultiAgentSelected
@@ -317,10 +318,11 @@ export function AgentDetailsModal() {
       >
         <div
           ref={ref}
-          className="ao-modal surface-sheen relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
+          className="ao-modal surface-sheen outline-none relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
           style={{ height: `calc(100vh - ${CHROME_TOP + 52}px)`, maxHeight: "940px" }}
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           aria-label={`Agent: ${agent.name}`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -358,203 +360,181 @@ export function AgentDetailsModal() {
           <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
           <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-          {/* ── Agent header ── */}
-          <div className="flex items-center gap-[14px] px-6 h-[84px] border-b border-ao-line-0 bg-gradient-to-b from-white/[0.015] to-transparent shrink-0">
-            <div className="relative shrink-0 w-[40px] h-[70px] flex items-center justify-center">
-              <UnitSprite unit={agent.unitChoice} size={70} label={agent.name} animate action={isWorking ? "attack" : "idle"} />
+          {/* The sprite spans both rows, so it can be large without crowding the tab bar, and the chips line up under the name. */}
+          <div className="flex items-center gap-4 shrink-0 py-2 pl-6 pr-5 border-b border-ao-line-0 bg-gradient-to-b from-white/[0.015] to-transparent">
+            <div className="shrink-0 w-[84px] h-[84px] translate-y-1 flex items-center justify-center">
+              <UnitSprite unit={agent.unitChoice} size={84} label={agent.name} animate action={isWorking ? "attack" : "idle"} />
             </div>
-            <div className="flex flex-col gap-0.5 min-w-0 overflow-hidden">
-              {/* Agent name is always the primary heading — session/label is
-                  secondary metadata after it, never the other way round. */}
-              <div className="flex items-center gap-[7px] min-w-0">
-                <span className="font-bold text-base text-ao-fg-0 truncate shrink-0">{agentDisplayName(agent)}</span>
-                {isMultiAgentSelected && selectedInst && (
-                  <>
-                    <span className="text-ao-fg-3 shrink-0" aria-hidden>/</span>
-                    <span className="text-ao-fg-2 text-[13px] truncate max-w-[160px]">
-                      Session {selectedInstIdx + 1}
-                    </span>
-                    {selectedInst.label && (
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <div className="flex items-center gap-[14px] min-w-0">
+                <div className="flex flex-col gap-[3px] flex-1 min-w-0 overflow-hidden">
+                  {/* Agent name is always the primary heading — session/label is
+                      secondary metadata after it, never the other way round. */}
+                  <div className="flex items-center gap-[7px] min-w-0">
+                    <span className="font-bold text-base text-ao-fg-0 truncate shrink-0">{agentDisplayName(agent)}</span>
+                    {isMultiAgentSelected && selectedInst && (
                       <>
-                        <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
-                        <span className="text-ao-fg-2 text-[13px] truncate">{selectedInst.label}</span>
+                        <span className="text-ao-fg-3 shrink-0" aria-hidden>/</span>
+                        <span className="text-ao-fg-1 text-[13px] shrink-0 whitespace-nowrap">
+                          Session {selectedInstIdx + 1}
+                        </span>
+                        {selectedInst.label && (
+                          <>
+                            <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
+                            <span className="text-ao-fg-2 text-[13px] truncate">{selectedInst.label}</span>
+                          </>
+                        )}
                       </>
                     )}
-                  </>
-                )}
-                {statusDot}
-              </div>
-              <div className="flex items-center gap-[7px] min-w-0 whitespace-nowrap text-ao-fg-2 font-mono text-[12px]">
-                <DropdownMenu
-                  align="start"
-                  ariaLabel="Model"
-                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:!shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
-                  trigger={
-                    <span className="flex items-center gap-[6px]">
-                      <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--ao-accent)]" aria-hidden />
-                      <span>{agent.defaultModel ?? "default"}</span>
-                      <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
-                    </span>
-                  }
-                  items={modelOptions.map((m) => ({
-                    key: m,
-                    label: runtimeItemLabel(gateway && providerView?.config.models?.[m as "haiku"] ? `${m} → ${providerView.config.models[m as "haiku"]}` : m, (agent.defaultModel ?? "") === m),
-                    selected: (agent.defaultModel ?? "") === m,
-                    onSelect: () => void applyRuntime({ model: m }),
-                  }))}
-                />
-                {capabilities.effort ? (
-                <DropdownMenu
-                  align="start"
-                  ariaLabel="Effort"
-                  triggerClassName="!h-[24px] !px-[10px] !rounded-[9px] !text-[11.5px] !font-mono !font-semibold !text-ao-fg-2 !bg-ao-bg-2 !shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:!shadow-[inset_0_0_0_1px_var(--ao-line-1)] hover:!text-ao-fg-0"
-                  trigger={
-                    <span className="flex items-center gap-[6px]">
-                      <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--cyan)]" aria-hidden />
-                      <span>effort {agent.defaultEffort ?? "default"}</span>
-                      <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
-                    </span>
-                  }
-                  items={EFFORT_OPTS.map((e) => ({
-                    key: e,
-                    label: runtimeItemLabel(e, (agent.defaultEffort ?? "") === e),
-                    selected: (agent.defaultEffort ?? "") === e,
-                    onSelect: () => void applyRuntime({ effort: e }),
-                  }))}
-                />
-                ) : null}
-                {activeProjectId && selectedInstanceId && agentDeclaresPlaywright && (
-                  <Tooltip
-                    content={
-                      playwrightEnabled
-                        ? t("playwright_on_tooltip")
-                        : t("playwright_off_tooltip")
-                    }
-                    side="bottom"
-                    delayMs={400}
-                  >
+                    {statusDot}
+                  </div>
+                  {branchLabel && (
+                    <div className="flex items-center gap-[6px] min-w-0 font-mono text-[11.5px] text-ao-fg-3" title={branchLabel}>
+                      <Icon name="branch" size={12} className="shrink-0" />
+                      <span className="truncate">{branchLabel}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  {/* Alt+← / Alt+→ navigator when multi-instance */}
+                  {isMultiAgentSelected && (
+                    <div className="flex items-center gap-[1px] p-[3px] mr-1 rounded-[12px] bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-0)]">
+                      <Tooltip content="Previous (Alt+←)" side="bottom">
+                        <button
+                          type="button"
+                          aria-label="Previous instance (Alt+←)"
+                          onClick={() => {
+                            const ci = agentInstances.findIndex((i) => i.instanceId === selectedInstanceId);
+                            const ni = (ci - 1 + agentInstances.length) % agentInstances.length;
+                            const next = agentInstances[ni];
+                            if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
+                          }}
+                          className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
+                        >
+                          <span className="rotate-180 inline-flex"><Icon name="chevron" size={12} /></span>
+                        </button>
+                      </Tooltip>
+                      <span className="font-mono text-[11px] font-semibold text-ao-fg-2 min-w-[30px] text-center">
+                        {selectedInstIdx + 1}/{agentInstances.length}
+                      </span>
+                      <Tooltip content="Next (Alt+→)" side="bottom">
+                        <button
+                          type="button"
+                          aria-label="Next instance (Alt+→)"
+                          onClick={() => {
+                            const ci = agentInstances.findIndex((i) => i.instanceId === selectedInstanceId);
+                            const ni = (ci + 1) % agentInstances.length;
+                            const next = agentInstances[ni];
+                            if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
+                          }}
+                          className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
+                        >
+                          <Icon name="chevron" size={12} />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {tab === "conversation" && (
                     <button
                       type="button"
-                      aria-pressed={playwrightEnabled}
-                      onClick={togglePlaywright}
-                      disabled={updateInstanceMut.isPending}
-                      className={cn(
-                        "inline-flex items-center gap-[6px] h-[24px] px-[10px] rounded-[9px] font-mono text-[11.5px] font-semibold transition-colors duration-[120ms] disabled:opacity-50",
-                        playwrightEnabled
-                          ? "text-ao-fg-2 bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:text-ao-fg-0 hover:shadow-[inset_0_0_0_1px_var(--ao-line-1)]"
-                          : "text-[var(--ao-fg-3)] bg-transparent shadow-[inset_0_0_0_1px_var(--ao-line-0)] hover:text-ao-fg-1",
-                      )}
+                      className="inline-flex items-center gap-[6px] h-7 px-[12px] rounded-lg text-white text-[13px] font-semibold transition-transform duration-[120ms] hover:-translate-y-px disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0"
+                      style={{ background: "linear-gradient(120deg,var(--acc),var(--acc-2))", boxShadow: "0 10px 22px -12px color-mix(in srgb, var(--acc) 80%, transparent)" }}
+                      onClick={() => void handleNewConversation()}
+                      disabled={addMut.isPending}
                     >
-                      <span
-                        className={cn(
-                          "w-[6px] h-[6px] rounded-full shrink-0",
-                          playwrightEnabled ? "bg-[var(--ao-ok)] shadow-[0_0_5px_var(--ao-ok)]" : "bg-[var(--ao-fg-3)]",
-                        )}
-                        aria-hidden
-                      />
-                      <span>{playwrightEnabled ? t("playwright_on_label") : t("playwright_off_label")}</span>
+                      <Icon name="plus" size={13} /> New
                     </button>
-                  </Tooltip>
-                )}
-                {activeProjectId && selectedInstanceId && (
-                  <QaLoopToggle
+                  )}
+                  {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
+                  {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
+                  {activeProjectId && selectedInstanceId && (
+                    <Tooltip content={t("delete_instance_tooltip")} side="bottom" delayMs={400}>
+                      <button
+                        type="button"
+                        aria-label="Delete this agent instance"
+                        className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
+                        onClick={() => {
+                          setRemoveTarget({
+                            instanceId: selectedInstanceId,
+                            name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
+                          });
+                          closeInspector();
+                        }}
+                      >
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-[6px] shrink-0 font-mono">
+                  <DropdownMenu
+                    align="start"
+                    ariaLabel="Model"
+                    triggerClassName={RUNTIME_CHIP}
+                    trigger={
+                      <span className="flex items-center gap-[6px]">
+                        <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--ao-accent)]" aria-hidden />
+                        <span>{agent.defaultModel ?? "default"}</span>
+                        <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
+                      </span>
+                    }
+                    items={modelOptions.map((m) => ({
+                      key: m,
+                      label: runtimeItemLabel(gateway && providerView?.config.models?.[m as "haiku"] ? `${m} → ${providerView.config.models[m as "haiku"]}` : m, (agent.defaultModel ?? "") === m),
+                      selected: (agent.defaultModel ?? "") === m,
+                      onSelect: () => void applyRuntime({ model: m }),
+                    }))}
+                  />
+                  {capabilities.effort ? (
+                  <DropdownMenu
+                    align="start"
+                    ariaLabel="Effort"
+                    triggerClassName={RUNTIME_CHIP}
+                    trigger={
+                      <span className="flex items-center gap-[6px]">
+                        <span className="w-[6px] h-[6px] rounded-full shrink-0 bg-[var(--cyan)]" aria-hidden />
+                        <span>effort {agent.defaultEffort ?? "default"}</span>
+                        <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
+                      </span>
+                    }
+                    items={EFFORT_OPTS.map((e) => ({
+                      key: e,
+                      label: runtimeItemLabel(e, (agent.defaultEffort ?? "") === e),
+                      selected: (agent.defaultEffort ?? "") === e,
+                      onSelect: () => void applyRuntime({ effort: e }),
+                    }))}
+                  />
+                  ) : null}
+                  {activeProjectId && selectedInstanceId && (
+                    <>
+                      <span className="w-px h-[14px] mx-1 bg-ao-line-1" aria-hidden />
+                      <HeaderTools
+                        key={selectedInstanceId}
+                        projectId={activeProjectId}
+                        instanceId={selectedInstanceId}
+                        qaLoopEnabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                        playwright={agentDeclaresPlaywright ? { on: playwrightEnabled, pending: updateInstanceMut.isPending, toggle: togglePlaywright } : null}
+                      />
+                    </>
+                  )}
+                </div>
+                <div className="flex-1" />
+                <div className="flex items-center gap-[6px] min-w-0">
+                  {/* The chat below renders with noHeader, so its own MissionPill never shows: the lead's
+                      claims, questions and rulings must be reachable from here. */}
+                  <MissionPill instanceId={selectedInstanceId ?? undefined} />
+                  <HeaderOverflow
+                    key={selectedInstanceId ?? "none"}
                     projectId={activeProjectId}
                     instanceId={selectedInstanceId}
-                    enabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                    qaLoopEnabled={currentInstanceForToggle?.qaLoopEnabled === true}
+                    shell={tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive ? backgroundTask : null}
+                    onDismissShell={() => setDismissedBgTaskId(backgroundTask?.id ?? null)}
                   />
-                )}
-                {branchLabel && (
-                  <span className="text-ao-fg-3 truncate max-w-[220px]" title={branchLabel}>
-                    {branchLabel}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              {/* The chat below renders with noHeader, so its own MissionPill never shows: the lead's
-                  claims, questions and rulings must be reachable from here. */}
-              <MissionPill instanceId={selectedInstanceId ?? undefined} />
-              {activeProjectId && selectedInstanceId && (
-                <LatestLoopPill
-                  projectId={activeProjectId}
-                  instanceId={selectedInstanceId}
-                  enabled={currentInstanceForToggle?.qaLoopEnabled === true}
-                />
-              )}
-              {tab === "conversation" && backgroundTask && backgroundTask.id !== dismissedBgTaskId && backgroundTaskAlive && (
-                <BackgroundTaskPill task={backgroundTask} onDismiss={() => setDismissedBgTaskId(backgroundTask.id)} />
-              )}
-              {/* Alt+← / Alt+→ navigator when multi-instance */}
-              {isMultiAgentSelected && (
-                <div className="flex items-center gap-[1px] p-[3px] mr-1 rounded-[12px] bg-ao-bg-2 shadow-[inset_0_0_0_1px_var(--ao-line-0)]">
-                  <Tooltip content="Previous (Alt+←)" side="bottom">
-                    <button
-                      type="button"
-                      aria-label="Previous instance (Alt+←)"
-                      onClick={() => {
-                        const ci = agentInstances.findIndex((i) => i.instanceId === selectedInstanceId);
-                        const ni = (ci - 1 + agentInstances.length) % agentInstances.length;
-                        const next = agentInstances[ni];
-                        if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
-                      }}
-                      className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
-                    >
-                      <span className="rotate-180 inline-flex"><Icon name="chevron" size={12} /></span>
-                    </button>
-                  </Tooltip>
-                  <span className="font-mono text-[11px] font-semibold text-ao-fg-2 min-w-[30px] text-center">
-                    {selectedInstIdx + 1}/{agentInstances.length}
-                  </span>
-                  <Tooltip content="Next (Alt+→)" side="bottom">
-                    <button
-                      type="button"
-                      aria-label="Next instance (Alt+→)"
-                      onClick={() => {
-                        const ci = agentInstances.findIndex((i) => i.instanceId === selectedInstanceId);
-                        const ni = (ci + 1) % agentInstances.length;
-                        const next = agentInstances[ni];
-                        if (next) { selectAgent(selectedId!, { instanceId: next.instanceId, tab }); }
-                      }}
-                      className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[9px] text-ao-fg-3 hover:text-ao-fg-0 hover:bg-ao-bg-3 transition-all duration-[120ms]"
-                    >
-                      <Icon name="chevron" size={12} />
-                    </button>
-                  </Tooltip>
                 </div>
-              )}
-              {tab === "conversation" && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-[6px] h-7 px-[12px] rounded-lg text-white text-[13px] font-semibold transition-transform duration-[120ms] hover:-translate-y-px disabled:opacity-40 disabled:cursor-default disabled:hover:translate-y-0"
-                  style={{ background: "linear-gradient(120deg,var(--acc),var(--acc-2))", boxShadow: "0 10px 22px -12px color-mix(in srgb, var(--acc) 80%, transparent)" }}
-                  onClick={() => void handleNewConversation()}
-                  disabled={addMut.isPending}
-                >
-                  <Icon name="plus" size={13} /> New
-                </button>
-              )}
-              {/* Project actions kebab — folder / VS Code / cache / build / dev servers */}
-              {activeProjectId && <ProjectActionsMenu projectId={activeProjectId} />}
-              {activeProjectId && selectedInstanceId && (
-                <>
-                  <Tooltip content={t("delete_instance_tooltip")} side="bottom" delayMs={400}>
-                    <button
-                      type="button"
-                      aria-label="Delete this agent instance"
-                      className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-ao-fg-3 hover:text-[var(--ao-bad)] hover:bg-[var(--ao-bad-soft)] border border-transparent hover:border-[rgba(217,83,79,0.25)] transition-all duration-[120ms] disabled:opacity-40"
-                      onClick={() => {
-                        setRemoveTarget({
-                          instanceId: selectedInstanceId,
-                          name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
-                        });
-                        closeInspector();
-                      }}
-                    >
-                      <Icon name="trash" size={15} />
-                    </button>
-                  </Tooltip>
-                </>
-              )}
+              </div>
             </div>
           </div>
 

@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui/icon";
 import { ACCENT_BTN } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
+import { HEADER_ICON_BTN } from "./header-button";
 import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useSkillUpdates, useUpdateSkill } from "@/modules/skills/hooks/use-skills";
 
@@ -32,22 +35,25 @@ export function SkillUpdatesBell() {
   if (isLoading || updates.length === 0) return null;
 
   return (
-    <div ref={wrapRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center justify-center relative w-7 h-7 rounded-md text-txt-2 hover:bg-bg-3 hover:text-txt cursor-pointer border-none bg-transparent"
-        title={`${updates.length} skill update${updates.length === 1 ? "" : "s"} available`}
-        aria-label={`${updates.length} skill updates available`}
-      >
-        <Icon name="refresh" size={14} />
-        <span
-          aria-hidden
-          className="absolute top-[-2px] right-[-2px] inline-flex items-center justify-center min-w-[14px] h-[14px] px-[3px] rounded-full text-[9px] font-bold text-white bg-[var(--error)] border border-bg-2"
+    <div ref={wrapRef} className="relative shrink-0">
+      <Tooltip content={`${updates.length} skill update${updates.length === 1 ? "" : "s"} available`} side="bottom" className="shrink-0">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={cn(HEADER_ICON_BTN, "relative")}
+          aria-label={`${updates.length} skill updates available`}
+          aria-haspopup="menu"
+          aria-expanded={open}
         >
-          {updates.length > 9 ? "9+" : updates.length}
-        </span>
-      </button>
+          <Icon name="refresh" size={16} className="transition-transform duration-300 ease-out group-hover:scale-110" />
+          <span
+            aria-hidden
+            className="absolute -top-[3px] -right-[3px] inline-flex items-center justify-center min-w-[16px] h-[16px] px-[3px] rounded-full text-[9px] font-bold text-white bg-red border-2 border-canvas"
+          >
+            {updates.length > 9 ? "9+" : updates.length}
+          </span>
+        </button>
+      </Tooltip>
       {open ? (
         <div className="absolute top-[calc(100%+6px)] right-0 w-[320px] surface-sheen rounded-[14px] shadow-[var(--lift)] z-[300] overflow-hidden">
           <div className="flex items-center gap-[8px] px-[14px] py-[10px] border-b border-line">

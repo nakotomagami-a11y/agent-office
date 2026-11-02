@@ -7,6 +7,8 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import { ACCENT_BTN } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
+import { HEADER_ICON_BTN } from "@/components/layout/header-button";
 import { getDbStats, runSeed, type DbStats, type SeedAction } from "@/lib/api/dev-seed";
 import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
 import { useFpsMeterStore } from "@/lib/fps-meter-store";
@@ -64,7 +66,7 @@ function FpsMeter() {
  * Dev console — an internal instrument panel for seeding data, inspecting the
  * DB, flipping interface modes, and (soon) simulating agent states.
  *
- * Wired: interface toggles (isometric view, rendering budget), demo-data
+ * Wired: interface toggles (rendering budget), demo-data
  * seeding, DB stats + maintenance, reload. Panels/rows tagged `soon` are UI
  * only — they get wired once the layout is signed off.
  */
@@ -367,14 +369,11 @@ export function DevMenu() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="h-[24px] px-[10px] inline-flex items-center gap-[6px] bg-transparent border border-transparent rounded-sm text-txt-2 font-[inherit] text-[12.5px] cursor-pointer hover:bg-bg-2 hover:border-line"
-      >
-        <Icon name="terminal" size={12} />
-        Dev
-      </button>
+      <Tooltip content="Dev" side="bottom" className="shrink-0">
+        <button type="button" onClick={() => setOpen(true)} aria-label="Dev" className={HEADER_ICON_BTN}>
+          <Icon name="terminal" size={16} className="transition-transform duration-300 ease-out group-hover:scale-110" />
+        </button>
+      </Tooltip>
 
       {fpsEnabled ? <FpsMeter /> : null}
 
@@ -441,7 +440,7 @@ export function DevMenu() {
                     <span className="text-txt-3 shrink-0"><Icon name="gauge" size={15} /></span>
                     <div className="flex-1 min-w-0">
                       <div className="text-[12.5px] font-medium text-txt">Rendering budget</div>
-                      <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">How much the UI renders. Lite/Off flatten the office to cards.</div>
+                      <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">How much the UI renders. Lite/Off cut animations and effects.</div>
                     </div>
                     <div className="w-[168px] shrink-0">
                       <Segmented<PerformanceMode>

@@ -1,0 +1,993 @@
+"use client";
+
+import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useTranslations } from "next-intl";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { Tooltip } from "@/components/ui/tooltip";
+import { Portal } from "@/components/ui/portal";
+import { cn } from "@/lib/cn";
+import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
+import { toast } from "@/lib/toast-store";
+import { useProject } from "@/modules/projects/hooks/use-projects";
+import { useDevServerStore } from "@/lib/dev-server-store";
+import {
+  getDevConfig,
+  startDevCommand,
+  installDeps,
+  getBuildInfo,
+  startBuild as startProjectBuild,
+  clearBuildCache,
+  openProjectFolder,
+} from "@/lib/api/dev-server";
+import { listProcesses, getProcess, killProcess } from "@/lib/api/processes";
+import { killErrorKey } from "@/modules/processes/format/process-format";
+
+// Shared compact button style for all toolbar action buttons
+const TBTN = "inline-flex items-center gap-[5px] px-[9px] h-[30px] rounded-[7px] text-[12px] text-txt-2 border border-transparent hover:bg-bg-3 hover:text-txt transition-[background,color,border-color] duration-[120ms] cursor-pointer select-none shrink-0";
+
+// Full-width labelled row used when an action is rendered inside the kebab menu
+const MROW = "flex items-center gap-[10px] w-full h-[34px] px-[10px] rounded-[7px] text-[13px] text-txt-2 hover:bg-bg-3 hover:text-txt transition-colors duration-[120ms] cursor-pointer select-none text-left disabled:cursor-default disabled:hover:bg-transparent";
+
+// Same thin scrollbar as the project picker; scrollbars.css forbids ::-webkit-scrollbar.
+const MENU_SCROLL = "[scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]";
+// Long command lists ran off the bottom of the window: cap at 440px or the space below the trigger.
+const menuMaxHeight = (rect: DOMRect) => Math.min(440, window.innerHeight - rect.bottom - 18);
+
+// Icon-only toolbar buttons that render a decorative PNG (folder, VS Code, bin) —
+// no hover background, the icon itself scales up on hover instead.
+const IMG_BTN = "group inline-flex items-center justify-center w-[40px] h-[40px] rounded-[7px] border border-transparent cursor-pointer select-none shrink-0";
+const IMG_ICON = "shrink-0 object-contain transition-transform duration-[150ms] ease-out group-hover:scale-[1.25]";
+
+const HERO_OUTLINE = "flex items-center gap-[8px] px-[16px] py-[11px] rounded-[13px] border border-edge-2 bg-card-2 text-txt-2 text-[13.5px] font-semibold cursor-pointer whitespace-nowrap transition-all duration-150 hover:text-txt hover:border-txt-4 disabled:cursor-default";
+const HERO_RUNNING = "flex items-center gap-[7px] px-[15px] py-[11px] rounded-[13px] border-none bg-green-soft text-green text-[13.5px] font-semibold cursor-pointer whitespace-nowrap transition-[filter] duration-150 hover:brightness-110";
+const HERO_ICON_BTN = "w-[32px] h-[32px] shrink-0 flex items-center justify-center rounded-[10px] border-none bg-transparent text-txt-4 cursor-pointer transition-all duration-[140ms] hover:bg-card-2 hover:text-txt disabled:cursor-default";
+const SPIN = "[animation:spin_1s_linear_infinite]";
+
+type InstallState = "unknown" | "needed" | "installing" | "done" | "failed";
+
+type RunState =
+  | { phase: "idle" }
+  | { phase: "starting" }
+  | { phase: "running"; pid: number; port: number | null; url: string | null }
+  | { phase: "stopping" };
+
+export function DevServerButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
+  const [install, setInstall] = useState<InstallState>("unknown");
+  const [installError, setInstallError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+
+  const qc = useQueryClient();
+  const store = useDevServerStore();
+  const tProcesses = useTranslations("processes_modal");
+
+  const devQ = useQuery({
+    queryKey: ["project-dev-config", projectId],
+    queryFn: () => getDevConfig(projectId),
+    staleTime: 60_000,
+  });
+
+  const commands = devQ.data?.commands ?? [];
+  const hasPackageJson = devQ.data?.hasPackageJson ?? false;
+
+  // Sync install state from query data (only when we don't have a local override)
+  useEffect(() => {
+    if (!devQ.data || install !== "unknown") return;
+    setInstall(devQ.data.hasNodeModules ? "done" : devQ.data.hasPackageJson ? "needed" : "done");
+  }, [devQ.data, install]);
+
+  // Reconcile UI state with already-running processes (once per project, persisted in store)
+  useEffect(() => {
+    if (commands.length === 0 || store.isReconciled(projectId)) return;
+    store.markReconciled(projectId);
+    listProcesses()
+      .then((processes) => {
+        const mine = processes.filter((p) => p.projectId === projectId);
+        if (mine.length === 0) return;
+        for (const proc of mine) {
+          const alreadyTracked = commands.some((cmd) => {
+            const s = store.getRunState(projectId, cmd.key);
+            return s.phase === "running" && s.pid === proc.pid;
+          });
+          if (alreadyTracked) continue;
+          const matched =
+            commands.find((cmd) => {
+              const scriptName = cmd.argv[cmd.argv.length - 1] ?? "";
+              return proc.cmd.includes(scriptName) || proc.cmd.includes(cmd.key);
+            }) ?? commands[0]!;
+          if (matched && store.getRunState(projectId, matched.key).phase === "idle") {
+            store.setRunState(projectId, matched.key, {
+              phase: "running",
+              pid: proc.pid,
+              port: proc.port,
+              url: `http://localhost:${proc.port}`,
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commands.length, projectId]);
+
+  // Dev servers run in a detached OS terminal window, so closing that window
+  // kills the process without the store ever hearing about it. Poll the
+  // tracked pid's OS-level liveness and self-heal back to idle once it's gone.
+  useEffect(() => {
+    if (commands.length === 0) return;
+    let cancelled = false;
+    const poll = async () => {
+      const state = useDevServerStore.getState();
+      for (const cmd of commands) {
+        const s = state.getRunState(projectId, cmd.key);
+        if (s.phase !== "running") continue;
+        const alive = await getProcess(s.pid).then((r) => r.alive ?? true).catch(() => true);
+        if (!cancelled && !alive) state.setRunState(projectId, cmd.key, { phase: "idle" });
+      }
+    };
+    const id = setInterval(() => { void poll(); }, 4000);
+    return () => { cancelled = true; clearInterval(id); };
+  // `commands` is a fresh [] literal every render until it resolves — depend
+  // on length, not the array, to avoid re-arming the interval every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commands.length, projectId]);
+
+  // Panel is portalled to <body>, so it's not a DOM descendant of `dropRef` —
+  // also check `panelRef`, or clicks inside the open panel read as "outside".
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!dropRef.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Position off the trigger's live bounding rect rather than `position:
+  // absolute` — the card this button lives in is `overflow-hidden`, which
+  // would otherwise clip the dropdown.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPanelStyle(hero
+        ? { position: "fixed", top: rect.bottom + 8, left: rect.left, width: 200, maxHeight: menuMaxHeight(rect) }
+        : { position: "fixed", top: rect.bottom + 6, right: window.innerWidth - rect.right, width: 220, maxHeight: menuMaxHeight(rect) });
+    };
+    place();
+    // A fixed-position panel detaches when something holding its trigger scrolls.
+    const close = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, triggerRef.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, hero]);
+
+  function getState(key: string): RunState {
+    return store.getRunState(projectId, key) as RunState;
+  }
+
+  function setKeyState(key: string, s: RunState) {
+    store.setRunState(projectId, key, s);
+  }
+
+  // Self-heal stale "running" state for servers killed out of band (terminal
+  // closed, crash, `kill` elsewhere). Poll pid liveness while any command is
+  // running and flip back to idle once the OS confirms it's gone.
+  const runningSig = commands
+    .map((cmd) => {
+      const s = getState(cmd.key);
+      return s.phase === "running" && s.pid > 0 ? `${cmd.key}:${s.pid}` : "";
+    })
+    .filter(Boolean)
+    .join(",");
+  useEffect(() => {
+    if (!runningSig) return;
+    let cancelled = false;
+    const checkOnce = async () => {
+      for (const cmd of commands) {
+        const s = getState(cmd.key);
+        if (s.phase !== "running" || s.pid <= 0) continue;
+        try {
+          const { alive } = await getProcess(s.pid);
+          if (!cancelled && alive === false) setKeyState(cmd.key, { phase: "idle" });
+        } catch {
+          /* transient — leave state as-is, retry on the next tick */
+        }
+      }
+    };
+    void checkOnce(); // prompt heal on mount / when a run starts
+    const id = setInterval(() => { void checkOnce(); }, 4000);
+    return () => { cancelled = true; clearInterval(id); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runningSig encodes the running pids; store getters/setters are stable
+  }, [runningSig]);
+
+  async function runInstall(): Promise<boolean> {
+    setInstall("installing");
+    setInstallError(null);
+    try {
+      await installDeps(projectId);
+      setInstall("done");
+      // node_modules now exists — refresh the dev-config so button state and the
+      // Dev/Build buttons reflect it without a manual reload.
+      void qc.invalidateQueries({ queryKey: ["project-dev-config", projectId] });
+      return true;
+    } catch (err) {
+      setInstall("failed");
+      setInstallError(err instanceof Error ? err.message : "Install failed");
+      return false;
+    }
+  }
+
+  async function startCmd(key: string) {
+    // Smart default: if deps were never installed, install them first instead
+    // of launching a dev server that would immediately crash on missing modules.
+    if (install === "needed" || install === "failed") {
+      const ok = await runInstall();
+      if (!ok) return;
+    }
+    setKeyState(key, { phase: "starting" });
+    try {
+      const body = await startDevCommand(projectId, key);
+      setKeyState(key, { phase: "running", pid: body.pid ?? 0, port: body.port ?? null, url: body.url ?? null });
+    } catch {
+      setKeyState(key, { phase: "idle" });
+      toast(`Couldn't start ${commands.find((c) => c.key === key)?.name ?? key}`);
+    }
+  }
+
+  async function stopCmd(key: string) {
+    const s = getState(key);
+    if (s.phase !== "running") return;
+    setKeyState(key, { phase: "stopping" });
+    try {
+      await killProcess(s.pid);
+    } catch (e) {
+      const errorKey = killErrorKey(e);
+      // Maybe still our server: showing it idle invites a second one onto the busy port.
+      // A 403 means the pid isn't ours to kill (reused, or another user's), so that one goes idle.
+      if (errorKey === "kill_error_ownership_unverified" || errorKey === "kill_error_failed") {
+        setKeyState(key, s);
+        toast(tProcesses(errorKey, { pid: s.pid }));
+        return;
+      }
+      if (errorKey === "kill_error_forbidden") toast(tProcesses(errorKey, { pid: s.pid }));
+    }
+    setKeyState(key, { phase: "idle" });
+  }
+
+  const runningCount = commands.filter((cmd) => store.getRunState(projectId, cmd.key).phase === "running").length;
+  // Only block the Dev/Start buttons while an install is actually running.
+  // When deps are merely "needed", clicking Dev auto-installs first (startCmd).
+  const busyInstall = install === "installing";
+
+  // No package.json and no detected commands (e.g. non-JS project) — hide entirely
+  if (install !== "unknown" && install !== "installing" && !hasPackageJson && commands.length === 0) {
+    return null;
+  }
+
+  // ── Install button ──────────────────────────────────────────────────────────
+  const installBtn = install === "needed" ? (
+    <button type="button" className={TBTN} onClick={() => { void runInstall(); }}>
+      <Icon name="download" size={12} /> Install
+    </button>
+  ) : install === "installing" ? (
+    <button type="button" className={TBTN} disabled>
+      <Icon name="refresh" size={12} className="[animation:spin_1s_linear_infinite]" /> Installing…
+    </button>
+  ) : install === "failed" ? (
+    <Tooltip content={installError ?? "Install failed — click to retry"} side="bottom">
+      <button type="button" className={cn(TBTN, "text-[var(--error)]")} onClick={() => { void runInstall(); }}>
+        <Icon name="x" size={12} /> Install failed — retry
+      </button>
+    </Tooltip>
+  ) : null;
+
+  if (hero) {
+    const heroInstall = install === "needed" || install === "installing" || install === "failed" ? (
+      <button
+        type="button"
+        className={cn(HERO_OUTLINE, install === "failed" && "text-red")}
+        onClick={() => { void runInstall(); }}
+        disabled={install === "installing"}
+        title={install === "failed" ? installError ?? undefined : undefined}
+      >
+        <Icon name={install === "installing" ? "refresh" : install === "failed" ? "x" : "download"} size={15} className={cn(install === "installing" && SPIN)} />
+        {install === "installing" ? "Installing…" : install === "failed" ? "Install failed — retry" : "Install"}
+      </button>
+    ) : null;
+    if (commands.length === 0) return heroInstall;
+
+    // One idle command keeps its one-click start; the dropdown only earns its
+    // extra click once there is something to choose between or to stop.
+    const only = commands.length === 1 ? commands[0]! : null;
+    const onlyPhase = only ? getState(only.key).phase : null;
+    if (only && onlyPhase !== "running") {
+      const busy = onlyPhase === "starting" || onlyPhase === "stopping";
+      return (
+        <>
+          {heroInstall}
+          <button type="button" className={HERO_OUTLINE} onClick={() => { void startCmd(only.key); }} disabled={busy || busyInstall} title={`Start ${only.name}`}>
+            <Icon name={busy ? "refresh" : "play"} size={busy ? 15 : 11} className={cn(busy && SPIN)} />
+            {onlyPhase === "starting" ? "Starting…" : onlyPhase === "stopping" ? "Stopping…" : only.name}
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {heroInstall}
+        <div ref={dropRef} className="relative">
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            disabled={busyInstall}
+            className={runningCount > 0 ? HERO_RUNNING : HERO_OUTLINE}
+          >
+            <Icon name="play" size={11} />
+            {runningCount > 0 ? `${runningCount} running` : "Dev servers"}
+            <Icon name="chevron-down" size={13} strokeWidth={2} />
+          </button>
+          {open && (
+            <Portal>
+              <div ref={panelRef} style={panelStyle} className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-[8px] flex flex-col">
+                <div className={cn("min-h-0 overflow-y-auto flex flex-col", MENU_SCROLL)}>
+                  {commands.map((cmd) => {
+                    const s = getState(cmd.key);
+                    const busy = s.phase === "starting" || s.phase === "stopping";
+                    const running = s.phase === "running";
+                    return (
+                      <div key={cmd.key} className="group flex items-center gap-[10px] px-[9px] py-[8px] rounded-[10px] transition-colors duration-[140ms] hover:bg-card-2">
+                        <span className={cn("w-[6px] h-[6px] rounded-full shrink-0", running ? "bg-green animate-[aoPulse_1.7s_ease-in-out_infinite]" : "bg-txt-4")} />
+                        <span className={cn("flex-1 min-w-0 truncate text-[12.5px] font-semibold", running ? "text-txt" : "text-txt-3")}>{cmd.name}</span>
+                        {running && s.port !== null && (
+                          <a
+                            href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10.5px] text-green bg-green-soft px-[7px] py-[2px] rounded-[6px] whitespace-nowrap shrink-0 no-underline transition-[filter] duration-150 hover:brightness-125"
+                          >
+                            :{s.port}
+                          </a>
+                        )}
+                        {busy ? (
+                          <Icon name="refresh" size={12} className={cn("text-txt-3 shrink-0", SPIN)} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { void (running ? stopCmd(cmd.key) : startCmd(cmd.key)); }}
+                            disabled={!running && busyInstall}
+                            aria-label={`${running ? "Stop" : "Start"} ${cmd.name}`}
+                            title={`${running ? "Stop" : "Start"} ${cmd.name}`}
+                            className="w-[22px] h-[22px] shrink-0 flex items-center justify-center rounded-[6px] text-txt-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 hover:text-txt hover:bg-card-3"
+                          >
+                            <Icon name={running ? "stop" : "play"} size={10} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Portal>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // ── Menu layout: every command as an inline row, no nested dropdown ─────────
+  if (menu) {
+    const installRow =
+      install === "needed" ? (
+        <button type="button" className={MROW} onClick={() => { void runInstall(); }}>
+          <Icon name="download" size={13} /> Install dependencies
+        </button>
+      ) : install === "installing" ? (
+        <button type="button" className={MROW} disabled>
+          <Icon name="refresh" size={13} className="[animation:spin_1s_linear_infinite]" /> Installing…
+        </button>
+      ) : install === "failed" ? (
+        <button type="button" className={cn(MROW, "text-[var(--error)]")} onClick={() => { void runInstall(); }}>
+          <Icon name="x" size={13} /> Install failed — retry
+        </button>
+      ) : null;
+
+    if (commands.length === 0) return installRow;
+
+    return (
+      <>
+        {installRow}
+        {commands.map((cmd) => {
+          const s = getState(cmd.key);
+          const busy = s.phase === "starting" || s.phase === "stopping";
+          const running = s.phase === "running";
+          return (
+            <div key={cmd.key} className="flex items-center gap-[8px] w-full h-[34px] pl-[10px] pr-[6px] rounded-[7px] hover:bg-bg-3 group">
+              <Icon
+                name="play"
+                size={12}
+                className={cn("shrink-0", running ? "text-[var(--working)]" : "text-txt-3")}
+              />
+              <span className={cn("flex-1 text-[13px] truncate", running ? "text-txt" : "text-txt-2")}>{cmd.name}</span>
+              {running && s.port !== null && (
+                <a
+                  href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[11px] text-[var(--working)] no-underline px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--working)_12%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  :{s.port}
+                </a>
+              )}
+              {busy && <Icon name="refresh" size={13} className="text-txt-3 [animation:spin_1s_linear_infinite] shrink-0" />}
+              {!busy && !running && (
+                <button
+                  type="button"
+                  onClick={() => { void startCmd(cmd.key); }}
+                  disabled={busyInstall}
+                  className="w-6 h-6 flex items-center justify-center rounded-[5px] text-txt-3 hover:text-txt hover:bg-bg-4 shrink-0 disabled:opacity-40"
+                  title={`Start ${cmd.name}`}
+                >
+                  <Icon name="play" size={11} />
+                </button>
+              )}
+              {!busy && running && (
+                <button
+                  type="button"
+                  onClick={() => { void stopCmd(cmd.key); }}
+                  className="w-6 h-6 flex items-center justify-center rounded-[5px] text-txt-3 hover:text-txt hover:bg-bg-4 shrink-0"
+                  title={`Stop ${cmd.name}`}
+                >
+                  <Icon name="stop" size={11} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  // ── Single command: inline buttons ─────────────────────────────────────────
+  if (commands.length === 1) {
+    const cmd = commands[0]!;
+    const s = getState(cmd.key);
+    return (
+      <span className="inline-flex items-center gap-1">
+        {installBtn}
+        {s.phase === "idle" && (
+          <Tooltip content={`Start ${cmd.name}`} side="bottom">
+            <button type="button" className={TBTN} onClick={() => { void startCmd(cmd.key); }} disabled={busyInstall}>
+              <Icon name="play" size={11} /> {cmd.name}
+            </button>
+          </Tooltip>
+        )}
+        {(s.phase === "starting" || s.phase === "stopping") && (
+          <button type="button" className={TBTN} disabled>
+            <Icon name="refresh" size={11} className="[animation:spin_1s_linear_infinite]" />
+            {s.phase === "starting" ? "Starting…" : "Stopping…"}
+          </button>
+        )}
+        {s.phase === "running" && (
+          <>
+            {s.port !== null && (
+              <Tooltip content={`Open ${s.url}`} side="bottom">
+                <a
+                  href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[11px] text-[var(--working)] no-underline px-[7px] h-[30px] inline-flex items-center rounded-[7px] bg-[color-mix(in_srgb,var(--working)_10%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)] hover:bg-[color-mix(in_srgb,var(--working)_18%,transparent)] transition-colors"
+                >
+                  :{s.port}
+                </a>
+              </Tooltip>
+            )}
+            <Tooltip content="Stop dev server" side="bottom">
+              <button type="button" className={TBTN} onClick={() => { void stopCmd(cmd.key); }}>
+                <Icon name="stop" size={11} /> Stop
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </span>
+    );
+  }
+
+  // ── Multiple commands: dropdown ─────────────────────────────────────────────
+  if (commands.length > 1) {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1.5">
+          {installBtn}
+          <div ref={dropRef} className="relative">
+            <button
+              ref={triggerRef}
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className={cn(
+                "inline-flex items-center gap-[6px] text-txt-2 px-[10px] py-[5px] rounded-[7px] text-[12.5px] border border-transparent transition-[background,color,border-color] duration-[120ms] hover:bg-bg-3 hover:text-txt",
+                open && "bg-bg-3 text-txt",
+                runningCount > 0 && "text-[var(--working)]",
+              )}
+              disabled={busyInstall}
+            >
+              <Icon name="play" size={12} />
+              {runningCount > 0 ? `${runningCount} running` : "Dev servers"}
+              <Icon name="chevron-down" size={10} />
+            </button>
+
+            {open && (
+              <Portal>
+              <div
+                ref={panelRef}
+                style={panelStyle}
+                className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col"
+              >
+                <div className={cn("min-h-0 overflow-y-auto grid", MENU_SCROLL)}>
+                  {commands.map((cmd) => {
+                    const s = getState(cmd.key);
+                    const busy = s.phase === "starting" || s.phase === "stopping";
+                    return (
+                      <div key={cmd.key} className="flex items-center gap-2 px-3 py-[7px] rounded-[7px] hover:bg-[var(--bg-3)] group">
+                        <span className={cn("flex-1 text-[13px] truncate", s.phase === "running" ? "text-[var(--txt)]" : "text-[var(--txt-2)]")}>
+                          {cmd.name}
+                        </span>
+                        {s.phase === "running" && s.port !== null && (
+                          <a
+                            href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[11px] text-[var(--working)] no-underline px-1 py-0.5 rounded bg-[color-mix(in_srgb,var(--working)_12%,transparent)] border border-[color-mix(in_srgb,var(--working)_25%,transparent)]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            :{s.port}
+                          </a>
+                        )}
+                        {busy && (
+                          <Icon name="refresh" size={13} className="text-[var(--txt-3)] [animation:spin_1s_linear_infinite] shrink-0" />
+                        )}
+                        {!busy && s.phase === "idle" && (
+                          <Tooltip content={`Start ${cmd.name}`} side="left" delayMs={300}>
+                            <button
+                              type="button"
+                              onClick={() => { void startCmd(cmd.key); }}
+                              className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            >
+                              <Icon name="play" size={11} />
+                            </button>
+                          </Tooltip>
+                        )}
+                        {!busy && s.phase === "running" && (
+                          <Tooltip content={`Stop ${cmd.name}`} side="left" delayMs={300}>
+                            <button
+                              type="button"
+                              onClick={() => { void stopCmd(cmd.key); }}
+                              className="w-6 h-6 flex items-center justify-center rounded-[5px] text-[var(--txt-3)] hover:text-[var(--txt)] hover:bg-[var(--bg-4)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            >
+                              <Icon name="stop" size={11} />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              </Portal>
+            )}
+          </div>
+        </span>
+      </>
+    );
+  }
+
+  // ── No commands detected ────────────────────────────────────────────────────
+  return installBtn;
+}
+
+const OPEN_ERROR_KEYS = {
+  no_cwd: "open_error_no_cwd",
+  cwd_missing: "open_error_cwd_missing",
+  cwd_unreadable: "open_error_cwd_unreadable",
+  editor_not_found: "open_error_editor_not_found",
+} as const;
+
+/** The route answers with a machine code; a failed open used to vanish as an unhandled rejection. */
+function useOpenProject() {
+  const t = useTranslations("project_actions");
+  return (projectId: string, app?: "code") => {
+    openProjectFolder(projectId, app).catch((e: unknown) => {
+      const code = e instanceof Error ? e.message : "";
+      toast(t(Object.hasOwn(OPEN_ERROR_KEYS, code) ? OPEN_ERROR_KEYS[code as keyof typeof OPEN_ERROR_KEYS] : "open_error_failed"));
+    });
+  };
+}
+
+function HeroIconButton({ label, icon, onClick, className, disabled }: {
+  label: string;
+  icon: IconName;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip content={label} side="bottom">
+      <button type="button" aria-label={label} className={cn(HERO_ICON_BTN, className)} onClick={onClick} disabled={disabled}>
+        <Icon name={icon} size={15} strokeWidth={1.8} className={cn(icon === "refresh" && SPIN)} />
+      </button>
+    </Tooltip>
+  );
+}
+
+export function OpenFolderButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
+  const open = useOpenProject();
+  if (hero) return <HeroIconButton label="Open project folder" icon="folder" onClick={() => open(projectId)} />;
+  if (menu) {
+    return (
+      <button type="button" className={MROW} onClick={() => open(projectId)}>
+        <img src="/icons/docs-chest.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open project folder
+      </button>
+    );
+  }
+  return (
+    <Tooltip content="Open project folder" side="bottom">
+      <button type="button" className={IMG_BTN}
+        onClick={() => open(projectId)}>
+        <img src="/icons/docs-chest.png" alt="" width={30} height={30} className={IMG_ICON} />
+      </button>
+    </Tooltip>
+  );
+}
+
+export function OpenInVSCodeButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
+  const open = useOpenProject();
+  if (hero) return <HeroIconButton label="Open in VS Code" icon="code" onClick={() => open(projectId, "code")} />;
+  if (menu) {
+    return (
+      <button type="button" className={MROW} onClick={() => open(projectId, "code")}>
+        <img src="/icons/vscode.png" alt="" width={15} height={15} className="shrink-0 object-contain" /> Open in VS Code
+      </button>
+    );
+  }
+  return (
+    <Tooltip content="Open in VS Code" side="bottom">
+      <button type="button" className={IMG_BTN}
+        onClick={() => open(projectId, "code")}>
+        <img src="/icons/vscode.png" alt="" width={30} height={30} className={IMG_ICON} />
+      </button>
+    </Tooltip>
+  );
+}
+
+type BuildPhase = "idle" | "building" | "done" | "error";
+
+export function ClearCacheButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
+  const [phase, setPhase] = useState<"idle" | "clearing" | "done" | "error">("idle");
+
+  async function clearCache() {
+    if (phase !== "idle") return;
+    setPhase("clearing");
+    try {
+      await clearBuildCache(projectId);
+      setPhase("done");
+    } catch {
+      setPhase("error");
+    }
+    setTimeout(() => setPhase("idle"), 2500);
+  }
+
+  if (hero) {
+    return (
+      <HeroIconButton
+        label={phase === "clearing" ? "Clearing cache…" : phase === "done" ? "Cache cleared" : phase === "error" ? "Clear failed" : "Clear build cache (.next, .turbo, node_modules/.cache)"}
+        icon={phase === "clearing" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "trash"}
+        onClick={() => { void clearCache(); }}
+        disabled={phase !== "idle"}
+        className={cn("hover:bg-red-soft hover:text-red", phase === "done" && "text-green", phase === "error" && "text-red")}
+      />
+    );
+  }
+
+  if (menu) {
+    return (
+      <button type="button" className={cn(MROW, phase === "done" && "text-[var(--ok)]", phase === "error" && "text-[var(--error)]")} onClick={() => { void clearCache(); }} disabled={phase !== "idle"}>
+        {phase === "idle" ? (
+          <img src="/icons/bin.png" alt="" width={15} height={15} className="shrink-0 object-contain" />
+        ) : (
+          <Icon
+            name={phase === "clearing" ? "refresh" : phase === "done" ? "check" : "x"}
+            size={13}
+            className={cn("shrink-0", phase === "clearing" && "[animation:spin_1s_linear_infinite]")}
+          />
+        )}
+        {phase === "clearing" ? "Clearing cache…" : phase === "done" ? "Cache cleared" : phase === "error" ? "Clear failed" : "Clear build cache"}
+      </button>
+    );
+  }
+
+  if (phase === "clearing") {
+    return (
+      <button type="button" className={TBTN} disabled>
+        <Icon name="refresh" size={12} className="[animation:spin_1s_linear_infinite]" />
+      </button>
+    );
+  }
+  if (phase === "done") {
+    return (
+      <button type="button" className={cn(TBTN, "text-[var(--ok)]")} disabled>
+        <Icon name="check" size={12} />
+      </button>
+    );
+  }
+  if (phase === "error") {
+    return (
+      <button type="button" className={cn(TBTN, "text-[var(--error)]")} disabled>
+        <Icon name="x" size={12} />
+      </button>
+    );
+  }
+  return (
+    <Tooltip content="Clear build cache (.next, .turbo, node_modules/.cache)" side="bottom">
+      <button type="button" className={IMG_BTN} onClick={() => { void clearCache(); }}>
+        <img src="/icons/bin.png" alt="" width={30} height={30} className={IMG_ICON} />
+      </button>
+    </Tooltip>
+  );
+}
+
+export function BuildButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
+  const [phase, setPhase] = useState<BuildPhase>("idle");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => { return () => { if (pollRef.current) clearInterval(pollRef.current); }; }, []);
+
+  const buildQ = useQuery({
+    queryKey: ["project-build-check", projectId],
+    queryFn: () => getBuildInfo(projectId),
+    staleTime: 60_000,
+  });
+
+  const hasBuild = buildQ.data?.hasBuild ?? false;
+
+  async function startBuild() {
+    if (phase !== "idle") return;
+    setPhase("building");
+    try {
+      const body = await startProjectBuild(projectId);
+      if (!body.pid) { setPhase("done"); setTimeout(() => setPhase("idle"), 2000); return; }
+
+      const pid = body.pid;
+      pollRef.current = setInterval(async () => {
+        const data = await getProcess(pid).catch(() => null);
+        if (!data) return;
+        if (!data.alive) {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setPhase("done");
+          setTimeout(() => setPhase("idle"), 3000);
+        }
+      }, 2000);
+    } catch {
+      setPhase("error");
+      setTimeout(() => setPhase("idle"), 3000);
+    }
+  }
+
+  if (!hasBuild) return null;
+
+  if (hero) {
+    return (
+      <button
+        type="button"
+        className={cn(HERO_OUTLINE, phase === "done" && "text-green", phase === "error" && "text-red")}
+        onClick={() => { void startBuild(); }}
+        disabled={phase !== "idle"}
+      >
+        <Icon
+          name={phase === "building" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "zap"}
+          size={15}
+          strokeWidth={1.8}
+          className={cn(phase === "building" && SPIN)}
+        />
+        {phase === "building" ? "Building…" : phase === "done" ? "Built" : phase === "error" ? "Failed" : "Build"}
+      </button>
+    );
+  }
+
+  if (menu) {
+    return (
+      <button type="button" className={cn(MROW, phase === "done" && "text-[var(--ok)]", phase === "error" && "text-[var(--error)]")} onClick={() => { void startBuild(); }} disabled={phase !== "idle"}>
+        <Icon
+          name={phase === "building" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "zap"}
+          size={13}
+          className={cn("shrink-0", phase === "building" && "[animation:spin_1s_linear_infinite]")}
+        />
+        {phase === "building" ? "Building…" : phase === "done" ? "Built" : phase === "error" ? "Build failed" : "Build project"}
+      </button>
+    );
+  }
+
+  if (phase === "building") {
+    return (
+      <button type="button" className={TBTN} disabled>
+        <Icon name="refresh" size={12} className="[animation:spin_1s_linear_infinite]" /> Building…
+      </button>
+    );
+  }
+  if (phase === "done") {
+    return (
+      <button type="button" className={cn(TBTN, "text-[var(--ok)]")} disabled>
+        <Icon name="check" size={12} /> Built
+      </button>
+    );
+  }
+  if (phase === "error") {
+    return (
+      <button type="button" className={cn(TBTN, "text-[var(--error)]")} disabled>
+        <Icon name="x" size={12} /> Failed
+      </button>
+    );
+  }
+  return (
+    <Tooltip content="Build project" side="bottom">
+      <button type="button" className={TBTN} onClick={() => { void startBuild(); }}>
+        <Icon name="zap" size={12} /> Build
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * Folder / VS Code / clear-cache as the project hero's ghost icon buttons, on its
+ * roster row. No ActionBar collapse: the hero row wraps instead.
+ */
+export function ProjectShortcutsBar({ projectId }: { projectId: string }) {
+  const hasCwd = useProjectHasCwd(projectId);
+  if (!hasCwd) return null;
+  return (
+    <div className="flex items-center gap-[1px]">
+      <OpenFolderButton projectId={projectId} hero />
+      <OpenInVSCodeButton projectId={projectId} hero />
+      <ClearCacheButton projectId={projectId} hero />
+    </div>
+  );
+}
+
+/** Build / dev server in the hero's button style — the "runtime" counterpart to {@link ProjectShortcutsBar}. */
+export function ProjectRuntimeBar({ projectId }: { projectId: string }) {
+  const hasCwd = useProjectHasCwd(projectId);
+  if (!hasCwd) return null;
+  return (
+    <>
+      <BuildButton projectId={projectId} hero />
+      <DevServerButton projectId={projectId} hero />
+    </>
+  );
+}
+
+function useProjectHasCwd(projectId: string): boolean {
+  const projectQ = useProject(projectId);
+  return !!projectQ.data?.meta.cwd;
+}
+
+/**
+ * Kebab (⋮) menu variant of the project actions — used in the agent
+ * conversation modal header, where the horizontal toolbar has no room. Every
+ * action (including each dev command) renders as an inline row; no nested
+ * dropdowns.
+ */
+export function ProjectActionsMenu({ projectId }: { projectId: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+  const projectQ = useProject(projectId);
+  const hasCwd = !!projectQ.data?.meta.cwd;
+
+  // Mirror BuildButton's own gate so we can bracket it with dividers only when
+  // it actually renders (react-query dedupes this against the child's query).
+  const buildQ = useQuery({
+    queryKey: ["project-build-check", projectId],
+    queryFn: () => getBuildInfo(projectId),
+    staleTime: 60_000,
+  });
+  const hasBuild = buildQ.data?.hasBuild ?? false;
+
+  // Panel is portalled to <body>, so it's not a DOM descendant of `ref` —
+  // also check `panelRef`, or clicks inside the open panel read as "outside".
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !panelRef.current?.contains(target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // This menu renders inside a modal/hero card that establishes its own
+  // stacking context, so a nested z-index can't escape it. Portal to <body>
+  // with `position: fixed` off the trigger's live rect instead.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPanelStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+        width: 240,
+        maxHeight: menuMaxHeight(rect),
+      });
+    };
+    place();
+    const close = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      if (scrollMovesAnchor(e, triggerRef.current)) close();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  if (!hasCwd) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <Tooltip content="Project actions" side="bottom" delayMs={400}>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label="Project actions"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            "inline-flex items-center justify-center w-[34px] h-[34px] rounded-[12px] text-txt-2 hover:text-txt hover:bg-bg-3 border border-transparent hover:border-line transition-all duration-[120ms]",
+            open && "bg-bg-3 text-txt border-line",
+          )}
+        >
+          <Icon name="more-vertical" size={15} />
+        </button>
+      </Tooltip>
+      {open && (
+        <Portal>
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-1 flex flex-col"
+          >
+            <div className="shrink-0 flex flex-col gap-[1px]">
+              <OpenFolderButton projectId={projectId} menu />
+              <OpenInVSCodeButton projectId={projectId} menu />
+              <ClearCacheButton projectId={projectId} menu />
+              <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+              {hasBuild && (
+                <>
+                  <BuildButton projectId={projectId} menu />
+                  <div className="h-px bg-[var(--line-2)] my-1 mx-1" />
+                </>
+              )}
+            </div>
+            <div className={cn("min-h-0 overflow-y-auto grid gap-[1px]", MENU_SCROLL)}>
+              <DevServerButton projectId={projectId} menu />
+            </div>
+          </div>
+        </Portal>
+      )}
+    </div>
+  );
+}

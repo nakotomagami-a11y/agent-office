@@ -139,13 +139,13 @@ export function clearSkillInstallCache(dir: string = SKILLS_DIR, bundledDir: str
 
 // ─── UI settings (theme, layout, tab persistence) ────────────────────────────
 // The `_migrated` sentinel is preserved so the JSONL→SQLite migration doesn't
-// re-run on next boot. `office-*` (maps, decorations) is work and
-// `claude-limits` (the spend cap) is configuration: neither is a preference.
+// re-run on next boot. `claude-limits` (the spend cap) is configuration, not a
+// preference.
 
 export function resetUiSettings(): CleanupResult {
   const db = getDb();
   const changes = db
-    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' AND key NOT LIKE 'office-%' AND key != 'claude-limits'")
+    .prepare("DELETE FROM ui_settings WHERE key NOT LIKE '\\_%' ESCAPE '\\' AND key != 'claude-limits'")
     .run().changes;
   return { cleared: changes };
 }

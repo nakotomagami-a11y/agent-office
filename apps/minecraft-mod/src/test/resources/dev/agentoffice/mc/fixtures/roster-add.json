@@ -1,0 +1,29 @@
+{
+  "project": {
+    "id": "alpha",
+    "meta": {
+      "name": "alpha",
+      "description": "",
+      "cwd": "/home/code/alpha",
+      "roster": [
+        {
+          "instanceId": "developer-fx01",
+          "agentId": "developer"
+        }
+      ],
+      "planet": {
+        "type": "terran",
+        "seed": 569418669,
+        "paletteIdx": 3,
+        "pixels": 1000,
+        "dither": true
+      }
+    },
+    "memory": "",
+    "rev": "rev"
+  },
+  "instance": {
+    "instanceId": "developer-fx01",
+    "agentId": "developer"
+  }
+}

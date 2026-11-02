@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api/fetch";
 import { API_ROUTES } from "@agent-office/api-contract";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { exportProject, importState } from "@/lib/api/save";
 import { resetRoster, sessionConflictOf, type SessionConflict } from "@/lib/api/roster";
 import type { WorkChoice } from "@agent-office/domain/config/sessions";
@@ -32,7 +33,7 @@ export function useProjectDetailActions(
   const router = useRouter();
 
   const [exportError, setExportError] = useState<string | null>(null);
-  const [restoreOffice, setRestoreOffice] = useState(false);
+  const [exported, setExported] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,6 +49,8 @@ export function useProjectDetailActions(
     setPendingDangerRaw(action);
   };
 
+  const exportFileName = `${(project?.meta.name ?? projectId).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-agent-office.json`;
+
   const handleExport = async () => {
     if (!project) return;
     setExportError(null);
@@ -58,15 +61,15 @@ export function useProjectDetailActions(
       setExportError(t("project_detail.export_failed", { error: err instanceof Error ? err.message : String(err) }));
       return;
     }
-    const slug = project.meta.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = `${slug}-agent-office.json`;
+    a.download = exportFileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
+    setExported(true);
   };
 
   const importFile = async (file: File) => {
@@ -75,12 +78,11 @@ export function useProjectDetailActions(
     try {
       const text = await file.text();
       const json = JSON.parse(text) as unknown;
-      const data = await importState(json, restoreOffice);
+      const data = await importState(json);
       const msg = [
         t("project_detail.import_success", { count: data.agentCount ?? 0, project: data.projectId ?? "" }),
         data.backedUp?.length ? t("project_detail.import_backed_up", { count: data.backedUp.length, ids: data.backedUp.join(", ") }) : null,
         data.snapshot ? t("project_detail.import_snapshot", { path: data.snapshot }) : null,
-        data.officeRestored ? t("project_detail.import_office_restored") : null,
       ].filter(Boolean).join(" ");
       setImportStatus({ ok: true, msg });
     } catch (err) {
@@ -105,7 +107,7 @@ export function useProjectDetailActions(
     try {
       if (pendingDanger === "delete") {
         await apiFetch(API_ROUTES.project(projectId), { method: "DELETE" });
-        router.push("/");
+        router.push(PAGE_ROUTES.projects);
         return;
       }
       await resetRoster(projectId, work);
@@ -124,7 +126,7 @@ export function useProjectDetailActions(
 
   return {
     backup: {
-      exportError, restoreOffice, setRestoreOffice,
+      exportError, exported, exportFileName,
       importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport, onDropFile: importFile,
     },
     danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },

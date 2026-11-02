@@ -1,0 +1,33 @@
+event: attached
+data: {"runId":"run-stream","output":"","tokensIn":2400,"tokensOut":80,"cost":0.12,"status":"error","startTs":1767225600000}
+
+event: chunk
+data: {"runId":"run-stream","text":"Looking."}
+
+event: tool
+data: {"runId":"run-stream","name":"Read","toolUseId":"toolu-2","ts":1767225600000}
+
+event: tool
+data: {"runId":"run-stream","name":"Read","toolUseId":"toolu-2","input":{"file_path":"a.ts"},"ts":1767225600000}
+
+event: tool-done
+data: {"runId":"run-stream","toolUseId":"toolu-2","ts":1767225600000}
+
+event: subagent
+data: {"type":"subagent","parentRunId":"run-stream","subRunId":"sub-1","agentId":"qa-code-review","prompt":"Review","status":"running","startTs":1767225600000}
+
+event: subagent-update
+data: {"type":"subagent-update","subRunId":"sub-1","status":"running","currentTool":"Grep","tokensIn":5,"tokensOut":6,"cost":0.01,"lastOutputLine":"Reading the diff"}
+
+event: rate-limit
+data: {"runId":"run-stream","message":"Approaching your usage limit","severity":"warning"}
+
+event: usage
+data: {"runId":"run-stream","tokensIn":2400,"tokensOut":80,"cost":0.12}
+
+event: error
+data: {"runId":"run-stream","code":"auth_expired","detail":"Log in again","remediation":"Claude credentials are invalid. The user must sign in again — do not retry, and never attempt to re-authenticate yourself."}
+
+event: done
+data: {"runId":"run-stream","exitCode":1,"durationMs":9000,"tokensIn":2400,"tokensOut":80,"cost":0.12}
+
