@@ -77,7 +77,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
 
         <div className="flex flex-wrap gap-[16px]">
           <ProjectActivityCard projectId={id} />
-          <ProjectWorkingTreeCard gitStatus={gitStatusQ.data} loading={gitStatusQ.isLoading} lastRunAt={project.lastRunAt} />
+          <ProjectWorkingTreeCard gitStatus={gitStatusQ.data} loading={gitStatusQ.isLoading} hasFolder={!!project.meta.cwd} lastRunAt={project.lastRunAt} />
         </div>
 
         <div className="flex flex-wrap gap-[16px] items-stretch">

@@ -11,9 +11,9 @@ import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import { formatDuration, formatMoney } from "@/components/layout/quick-view-format";
 import { questionOf, runningRuns, runsAwaitingReply } from "../format/run-stats";
 import { relativeTime } from "../format/format";
+import { LiveRunsEmpty } from "./project-live-runs-empty";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
-import { UnitSprite } from "@/components/ui/unit-sprite";
-import { unitForAgent, type UnitSelection } from "@/components/ui/unit-sprite-registry";
+import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { Icon } from "@/components/ui/icon";
 import { ToolIcon } from "@/modules/summon/components/tool-group-row";
 import { ApiError } from "@/lib/api-client";
@@ -25,7 +25,6 @@ import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 // a glance-at-it-in-passing panel, not the place to browse every run.
 const VISIBLE_CAP = 2;
 const CREW_CAP = 3;
-const LONE_PAWN: UnitSelection = { faction: "blue", kind: "pawn" };
 
 const LIVE_SHEEN = "linear-gradient(90deg,transparent,rgba(139,123,255,.07) 45%,rgba(196,186,255,.10) 50%,rgba(139,123,255,.07) 55%,transparent)";
 const REPLY_SHEEN = "linear-gradient(90deg,transparent,rgba(251,191,36,.09) 45%,rgba(255,236,180,.12) 50%,rgba(251,191,36,.09) 55%,transparent)";
@@ -147,8 +146,10 @@ export function ProjectLiveRuns({ projectId, roster, agents, onSummonAnother }: 
         </div>
       )}
 
-      {isEmpty ? (
-        <EmptyState crew={crew} onSummonAnother={onSummonAnother} />
+      {runsQ.isPending ? (
+        <span className="flex-1" />
+      ) : isEmpty ? (
+        <LiveRunsEmpty crew={crew} onSummonAnother={onSummonAnother} />
       ) : (
         <>
           <span className="flex-1" />
@@ -182,33 +183,6 @@ function CountPill({ tone, label }: { tone: "green" | "amber"; label: string }) 
       />
       {label}
     </span>
-  );
-}
-
-function EmptyState({ crew, onSummonAnother }: { crew: UnitSelection[]; onSummonAnother: () => void }) {
-  const units = crew.length ? crew : [LONE_PAWN];
-  return (
-    <div className={cn("flex-1 flex flex-col items-center justify-center gap-[10px] py-[20px] text-center", IN)}>
-      <div aria-hidden className="relative flex items-end justify-center">
-        <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-[120%] h-[14px] rounded-[50%] bg-[radial-gradient(closest-side,rgba(139,123,255,.28),transparent)]" />
-        {units.map((unit, i) => (
-          <UnitSprite key={i} unit={unit} size={52} className={cn("relative", i > 0 && "-ml-[14px]")} />
-        ))}
-      </div>
-      <div className="flex flex-col gap-[3px]">
-        <p className="m-0 text-[14px] font-semibold text-txt">{crew.length ? "Your crew is on standby" : "All quiet in here"}</p>
-        <p className="m-0 text-[12px] text-txt-3 max-w-[280px]">
-          {crew.length ? "Hand one a task and watch the work stream in here, live." : "Summon your first agent and watch its work stream in here, live."}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onSummonAnother}
-        className="flex items-center gap-[7px] px-[14px] py-[8px] rounded-[11px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[12.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_12px_26px_-12px_rgba(139,123,255,0.8)] transition-transform duration-150 hover:-translate-y-[1px]"
-      >
-        <Icon name="plus" size={13} /> Summon agent
-      </button>
-    </div>
   );
 }
 

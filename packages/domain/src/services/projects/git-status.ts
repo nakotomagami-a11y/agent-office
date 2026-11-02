@@ -20,7 +20,9 @@ export async function readGitStatus(cwd: string | undefined): Promise<GitStatus>
   if (!cwd || !isAbsolute(cwd)) return { ...NOT_GIT };
 
   const [branchR, diffR, statusR, aheadR, behindR] = await Promise.allSettled([
-    git("git rev-parse --abbrev-ref HEAD", cwd),
+    // Not `rev-parse --abbrev-ref HEAD`: that fails in a fresh `git init` with no
+    // commits yet, which the dashboard's "run git init" empty state leads straight to.
+    git("git branch --show-current", cwd),
     git("git diff --shortstat HEAD", cwd),
     git("git status --porcelain --untracked-files=all", cwd),
     git("git rev-list @{u}..HEAD --count", cwd),
@@ -52,5 +54,5 @@ export async function readGitStatus(cwd: string | undefined): Promise<GitStatus>
   const ahead = aheadR.status === "fulfilled" ? (parseInt(aheadR.value) || 0) : 0;
   const behind = behindR.status === "fulfilled" ? (parseInt(behindR.value) || 0) : 0;
 
-  return { isGit: true, branch: branchR.value, added, removed, filesChanged, ahead, behind };
+  return { isGit: true, branch: branchR.value || "HEAD", added, removed, filesChanged, ahead, behind };
 }

@@ -12,10 +12,12 @@ const num = (n: number) => n.toLocaleString("en-US");
 export function ProjectWorkingTreeCard({
   gitStatus,
   loading,
+  hasFolder,
   lastRunAt,
 }: {
   gitStatus: GitStatus | undefined;
   loading: boolean;
+  hasFolder: boolean;
   lastRunAt: number | undefined;
 }) {
   const [selected, setSelected] = useState<Kind | null>(null);
@@ -73,9 +75,9 @@ export function ProjectWorkingTreeCard({
             <Icon name="branch" size={20} />
           </span>
           <div className="flex flex-col gap-[3px]">
-            <span className="text-[14px] font-semibold text-txt">No git history yet</span>
+            <span className="text-[14px] font-semibold text-txt">{hasFolder ? "Not tracked by git yet" : "No folder linked"}</span>
             <span className="text-[12px] leading-[1.5] text-txt-3 max-w-[270px]">
-              Run <code className="px-[6px] py-[1px] rounded-[6px] bg-card-2 border border-edge font-mono text-[11px] text-txt-2">git init</code> in this project to see every line your agents change.
+              {hasFolder ? <>Run <code className="px-[6px] py-[1px] rounded-[6px] bg-card-2 border border-edge font-mono text-[11px] text-txt-2">git init</code> in this project&apos;s folder to see every line your agents change.</> : "This project has no folder, so there's no working tree to track."}
             </span>
           </div>
         </div>
