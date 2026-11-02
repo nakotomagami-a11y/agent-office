@@ -145,7 +145,7 @@ Inside `apps/web/src`:
 - `modules/analytics/` - spend/usage dashboards
 - `modules/accounts/`, `modules/github-accounts/` - multi-account management
 - `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/search/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
-- `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, compare, toast, ...), the axios `api-client`, and `api/` resource modules
+- `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, toast, ...), the axios `api-client`, and `api/` resource modules
 
 ## Run it
 

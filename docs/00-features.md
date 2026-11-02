@@ -18,7 +18,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 | **Finding past work** | Scrollback | Run history with search + parent→sub-agent run tree |
 | **Memory** | Manual paste | Three memory tiers injected automatically |
 | **Agents** | One, ad-hoc | A curated roster of specialists you can edit, plus your own `.md` files |
-| **Interface** | Text only | Project tabs, live dashboard |
+| **Interface** | Text only | Project tabs, a live-runs panel per project |
 
 *Everything stays local under `~/.claude` — but so does the raw CLI's own state, so this is reassurance, not an advantage over the CLI.*
 

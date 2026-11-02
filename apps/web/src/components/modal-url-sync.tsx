@@ -11,7 +11,7 @@ function isAgentTab(v: string | null): v is AgentTab {
   return AGENT_TABS.includes(v as AgentTab);
 }
 
-// Keys (besides "modal") that describe modal payloads; cleared unless kept.
+// Modal payload keys, cleared unless kept; `run` only clears old saved ?modal=compare tabs.
 const PAYLOAD_KEYS = ["run", "agent", "tab", "instance"] as const;
 function clearPayload(sp: URLSearchParams, keep: readonly string[] = []) {
   for (const k of PAYLOAD_KEYS) if (!keep.includes(k)) sp.delete(k);
