@@ -20,6 +20,7 @@ const STUB = `
 const args = process.argv.slice(2);
 const say = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 if (args.includes("--resume")) {
+  say({ type: "system", subtype: "init", session_id: "dead" });
   process.stderr.write("No conversation found with session ID: dead\\n");
   say({ type: "result", is_error: true, session_id: "dead", errors: ["No conversation found with session ID: dead"] });
   process.exit(1);
@@ -31,7 +32,11 @@ process.stdin.on("end", () => {
     process.stderr.write("Error: Input must be provided either through stdin or as a prompt argument when using --print\\n");
     process.exit(1);
   }
-  if (input === "HANG") return setInterval(() => {}, 1000);
+  if (input === "HANG") {
+    say({ type: "system", subtype: "init", session_id: "fresh" });
+    say({ type: "assistant", message: { content: [{ type: "text", text: "On it." }] } });
+    return setInterval(() => {}, 1000);
+  }
   if (input === "NOAUTH") {
     process.stderr.write("Not logged in · Please run /login\\n");
     process.exit(1);
@@ -55,6 +60,7 @@ process.env.AO_CLAUDE_BIN = join(dir, process.platform === "win32" ? "claude.cmd
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const { abortRun, attachEmit, startRun } = await import("./runs");
+const { getRun } = await import("../infra/store");
 (await import("../providers/store")).setSelection("subscription", "chosen");
 type SseEvent = import("./runs").SseEvent;
 
@@ -114,4 +120,14 @@ test("stopping a run reports it as stopped", async () => {
   assert.ok(err?.name === "error");
   assert.equal(err.data.code, "stopped");
   assert.equal(err.data.interrupted, true);
+});
+
+test("a turn stopped during the retry hands on the fresh session, never the dead one", async () => {
+  const r = run("HANG", ["-p", "--resume", "dead", "--output-format", "stream-json"]);
+  for (let i = 0; i < 300 && getRun(r.runId)?.sessionId !== "fresh"; i++) await new Promise((res) => setTimeout(res, 10));
+  abortRun(r.runId);
+  await r.done;
+  const done = r.events.find((e) => e.name === "done");
+  assert.ok(done?.name === "done");
+  assert.deepStrictEqual([getRun(r.runId)?.sessionId, done.data.sessionId], ["fresh", "fresh"]);
 });

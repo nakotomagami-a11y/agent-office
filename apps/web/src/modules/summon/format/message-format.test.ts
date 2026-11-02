@@ -37,12 +37,26 @@ test("extractImages returns every distinct image once, alongside upload paths an
   ]);
 });
 
+test("a Windows generated-image path (backslashes, space in the folder) is found in prose", () => {
+  const win = "C:\\Users\\u\\Documents\\Generated Images\\2026-10-08\\09-23-25_fox-logo_7.png";
+  assert.deepEqual(extractImages(`Saved:\n${win}\nDone.`), [EXPECTED_URL]);
+  assert.deepEqual(extractImages(`\`${win}\`.`), [EXPECTED_URL]);
+  assert.deepEqual(extractImages(win.replace(/\\/g, "/")), [EXPECTED_URL]);
+});
+
+test("a long backslash run stays fast", () => {
+  const start = performance.now();
+  extractImages(`\\Generated Images\\2026-01-01\\${"\\".repeat(100_000)}x`);
+  assert.ok(performance.now() - start < 500);
+});
+
 test("wrong-shape paths and formats the route refuses are not mapped", () => {
   assert.equal(pathToUrl("/home/u/Documents/Generated Images/x/y.png"), null);
   assert.equal(pathToUrl("/home/u/Documents/Generated Images/notes.png"), null);
   assert.equal(pathToUrl(`${DIR}/sub/a.png`), null);
   assert.equal(pathToUrl(`${DIR}/a.svg`), null);
   assert.deepEqual(extractImages(`${DIR}/a.svg ${DIR}/notes.txt`), []);
+  assert.deepEqual(extractImages(`${DIR}/sub/a.png`), []);
 });
 
 test("extractImages stays linear on a long slash-only token", () => {

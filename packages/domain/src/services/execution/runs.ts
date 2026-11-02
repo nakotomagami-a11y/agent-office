@@ -287,6 +287,8 @@ export function startRun(opts: StartRunOpts): { runId: string } {
       run.error = undefined;
       // The failed attempt reported the dead session; never hand it on again.
       run.sessionId = undefined;
+      run.pendingSessionId = undefined;
+      db.setRunSessionId(run.id, null);
       // Say so: the agent now answers without the earlier conversation. Kept out
       // of run.output, which error classification reads (empty output → Sign-in).
       run.freshSession = true;
@@ -564,6 +566,18 @@ function handleStreamLine(run: LiveRun, line: string): void {
   if (model) {
     run.model = model;
     db.setRunModel(run.id, model);
+  }
+
+  // A turn stopped, crashed or orphaned by a restart before its `result` must still hand its session
+  // on. Adopted at the first answer, not at `init`: a kill in between would hand on a session the CLI
+  // never saved. A resumed turn already has its session, unless this is the fresh retry.
+  if (evt.type === "system" && evt.subtype === "init" && isOwnText(evt) && typeof evt.session_id === "string"
+    && !run.sessionId && (run.freshSession || !run.args.includes("--resume"))) {
+    run.pendingSessionId = evt.session_id;
+  } else if (run.pendingSessionId && !run.sessionId && (evt.type === "assistant" || evt.type === "stream_event") && isOwnText(evt)) {
+    run.sessionId = run.pendingSessionId;
+    run.pendingSessionId = undefined;
+    db.setRunSessionId(run.id, run.sessionId);
   }
 
   if (evt.type === "stream_event" && evt.event) {
