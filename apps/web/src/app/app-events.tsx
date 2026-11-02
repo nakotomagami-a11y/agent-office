@@ -24,6 +24,7 @@ const HANDLERS: Record<string, (qc: QueryClient) => void> = {
   },
   "conversations:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: queryKeys.conversations.all });
+    void qc.invalidateQueries({ queryKey: [...queryKeys.projects.all, "detail"] });
   },
   "loops:changed": (qc) => {
     void qc.invalidateQueries({ queryKey: queryKeys.loops.all });

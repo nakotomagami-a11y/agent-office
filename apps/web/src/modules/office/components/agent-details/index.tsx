@@ -375,7 +375,7 @@ export function AgentDetailsModal() {
                     {isMultiAgentSelected && selectedInst && (
                       <>
                         <span className="text-ao-fg-3 shrink-0" aria-hidden>/</span>
-                        <span className="text-ao-fg-1 text-[13px] shrink-0 whitespace-nowrap">
+                        <span className="text-ao-fg-1 text-[13px] min-w-0 max-w-[50%] truncate whitespace-nowrap">
                           {selectedInst.label || selectedInst.sessionName || `Session ${selectedInstIdx + 1}`}
                         </span>
                         {selectedInst.topic && (

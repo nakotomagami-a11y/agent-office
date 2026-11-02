@@ -237,7 +237,7 @@ Sweep stored data by kind (e.g. reaped error runs) via `POST /api/cleanup/:kind`
 
 ### Session names
 
-Each session of an agent gets a stable name (*Elda*, *Tamsin*, …) instead of "Session 2": picked from a fixed pool by its instance id, never shared by two sessions of one project, and replaced by your own label when you rename it. Next to it the sidebar and the conversation header show the session's **topic**, the first sentence of the first prompt in its current conversation; *New* starts a fresh topic. Both are computed when the project is read (`packages/domain/src/config/session-names.ts`) and never stored.
+Each session of an agent gets a stable name (*Elda*, *Tamsin*, …) instead of "Session 2": picked from a fixed pool by its instance id and unique among the project's pool names, and replaced by your own label when you rename it. It holds while the roster does; removing a session, or giving another one its name as a label, can move a session whose pick collided onto the next free name. Next to it the sidebar and the conversation header show the session's **topic**, the first sentence of the first prompt you wrote in its current conversation; *New* starts a fresh topic. Both are computed when the project is read (`packages/domain/src/config/session-names.ts`) and never stored.
 
 ## Bootstrap Project modal (`/projects` → New Project)
 

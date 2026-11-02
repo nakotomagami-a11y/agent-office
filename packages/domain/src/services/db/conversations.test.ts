@@ -78,6 +78,7 @@ check("currentConversationFirstPrompts: first top-level prompt of the CURRENT co
   const old = convo.createConversation("dev", "topic", "p", null);
   insertRun({ id: "tp-old", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "old thread", model: "", effort: "", startedAt: 100, conversationId: old.id });
   const cur = convo.startNewConversation("dev", "topic", "p");
+  insertRun({ id: "tp-sys", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "You hold seat qa…", model: "", effort: "", startedAt: 120, conversationId: cur.id, origin: "system" });
   insertRun({ id: "tp-2", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "second", model: "", effort: "", startedAt: 300, conversationId: cur.id });
   insertRun({ id: "tp-1", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "new thread", model: "", effort: "", startedAt: 200, conversationId: cur.id });
   insertRun({ id: "tp-sub", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "child", model: "", effort: "", startedAt: 150, parentRunId: "tp-1", conversationId: cur.id });
