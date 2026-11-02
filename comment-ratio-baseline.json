@@ -1319,16 +1319,6 @@
     "code": 2,
     "comment": 21
   },
-  "apps/web/src/lib/claude-limits-store.ts": {
-    "ratio": 0.0857,
-    "code": 70,
-    "comment": 6
-  },
-  "apps/web/src/lib/claude-limits.ts": {
-    "ratio": 0.14,
-    "code": 50,
-    "comment": 7
-  },
   "apps/web/src/lib/cn.ts": {
     "ratio": 0,
     "code": 5,

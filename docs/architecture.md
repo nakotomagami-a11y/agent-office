@@ -413,7 +413,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
-| `ui_settings` | key, value, updated_at | Theme, tabs, roster groups, spend cap, etc. Internal keys prefixed `_` hidden from GET |
+| `ui_settings` | key, value, updated_at | Theme, tabs, roster groups, etc. Internal keys prefixed `_` hidden from GET |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, repeat_every, repeat_anchor, created_at, updated_at | Serialized summon + fire time; drives manual scheduling, recurring orders and rate-limit auto-resume |

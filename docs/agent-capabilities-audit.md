@@ -190,6 +190,7 @@ Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being remov
 | C31 | The unwired `CLAUDE.md` generator (`project-map-file.ts`) is deleted | — | — |
 | S1-15 | One `resolveStarterDataDir`; one account-usage check, CRLF-safe, used by both account kinds | `accounts.remove-dir.test.ts` | Pin a Claude account in a CRLF `project.md`, try to remove the account: refused |
 | CRLF | Docs and pasted skills parse frontmatter with the shared CRLF-safe splitter | `docs.test.ts` | Save a doc with CRLF endings: it stays listed |
+| S5-8 | The dead Claude limits store is deleted (its modal went in #225); the rate-limit pill reads "$X spent this week"; "Resume when my limit resets" appears only with a reset time the thread saw; the `claude-limits` ui-setting is gone and a UI reset clears it | `cleanup.test.ts` | Stop a run, open Schedule resume: only "Pick a time" shows |
 | S4-18 | The `/search` page and `modules/search` are removed (no entry point since #30), with the `RunRow` they alone used; `messages_fts` stays for the `deep` profile | — | Open `/search`: the 404 page |
 
 ## Overlap with PR #212 (AI providers mission)
@@ -274,7 +275,7 @@ Every user-facing setting was traced to its reader. Most work; these don't:
 | S5-5 | BROKEN | Cleanup → "Chat transcripts" empties the retired `transcripts` table (0 rows; chat uses `conversations`); project export "include history" reads the same table, so it's always empty | `cleanup.ts:56-60`, `save.ts:59-66` |
 | S5-6 | WRONG | **Cleanup → "Skill install cache" deletes the user's own skills** ("they reinstall on next use" — only bundled ones, only at next server start) | `cleanup.ts:122-131`, `boot.ts:64-67` |
 | S5-7 | WRONG | Cleanup → "App UI settings" wipes every UI key incl. the office map (44 KB), decorations, wizard draft | `cleanup.ts:137-143` |
-| S5-8 | BROKEN | The limits modal is never mounted; its store stays at defaults, so the office budget line never shows and the resume menu always guesses "next Monday" | `claude-limits-modal.tsx:272-273`, `schedule-resume-menu.tsx:29-33`, `rate-limit-card.tsx:75-88` #212 |
+| S5-8 | FIXED | The limits modal is never mounted; its store stays at defaults, so the office budget line never shows and the resume menu always guesses "next Monday" | `claude-limits-modal.tsx:272-273`, `schedule-resume-menu.tsx:29-33`, `rate-limit-card.tsx:75-88` #212 |
 | S5-9 | WRONG | `features.multiInstance` has no UI; off by default, a second copy of an agent shares the checkout with no worktree (only logged); docs describe it wrongly | `projects.ts:535-543`, `docs/07-interface.md:257` |
 | S5-10 | WRONG | Turning GitHub integration off still injects the GitHub identity and the "git push authenticates as X" line; the picker spins forever | `spawn-env.ts:78-97`, `agents.ts:298-304` #212 |
 | S5-11 | BROKEN | Memory page "Docs" tab has no reader and no writer (no agent sees it); CRLF breaks its header parser | `memory/page.tsx:36`, `docs.ts:39,120,153` |

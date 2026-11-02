@@ -17,7 +17,7 @@ import { PaperPanelPainter } from "@/components/ui/paper-panel-painter";
 /**
  * Group layout for in-app pages (everything except auth, if/when added).
  * Wraps every protected page in the GNOME window chrome + sidebar, plus
- * global overlays (agent-details + Claude limits modals) so any trigger
+ * global overlays (agent-details modal) so any trigger
  * elsewhere in the app can open them.
  *
  * The project tab strip + Docs + theme toggle + account chip live inside

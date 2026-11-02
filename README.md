@@ -143,8 +143,8 @@ Inside `apps/web/src`:
 - `modules/missions/` - mission start/join dialog and the chat-header mission pill
 - `modules/analytics/` - spend/usage dashboards
 - `modules/accounts/`, `modules/github-accounts/` - multi-account management
-- `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
-- `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, toast, ...), the axios `api-client`, and `api/` resource modules
+- `modules/processes/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
+- `lib/` - Zustand stores (theme, active-project, tabs, processes, dev-server, branch, performance, toast, ...), the axios `api-client`, and `api/` resource modules
 
 ## Run it
 
