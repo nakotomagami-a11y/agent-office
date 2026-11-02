@@ -16,7 +16,7 @@ picks it up).
 | `03-agents.md`              | Agent file format, model policy, starter roster, skills    |
 | `04-projects.md`            | Projects, roster, worktrees                                |
 | `05-memory.md`              | Global / project / per-agent memory tiers                  |
-| `06-usage.md`               | Office floor, summon, history, spend, migration            |
+| `06-usage.md`               | Roster LEDs, summon, history, spend, migration             |
 | `07-interface.md`           | UI feature reference — every tab, modal, hotkey            |
 | `08-reference.md`           | API, DB schema, SSE events, architecture, env vars         |
 

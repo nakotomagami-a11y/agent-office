@@ -7,13 +7,10 @@ import { Icon } from "@/components/ui/icon";
 import { ActionBar, type ActionBarItem } from "@/components/ui/action-bar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Portal } from "@/components/ui/portal";
-import { ACCENT_BTN } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 import { toast } from "@/lib/toast-store";
-import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProject } from "@/modules/projects/hooks/use-projects";
-import { AddAgentModal } from "@/modules/projects/components/add-agent-modal";
 import { useDevServerStore } from "@/lib/dev-server-store";
 import {
   getDevConfig,
@@ -510,7 +507,7 @@ const OPEN_ERROR_KEYS = {
 
 /** The route answers with a machine code; a failed open used to vanish as an unhandled rejection. */
 function useOpenProject() {
-  const t = useTranslations("office");
+  const t = useTranslations("project_actions");
   return (projectId: string, app?: "code") => {
     openProjectFolder(projectId, app).catch((e: unknown) => {
       const code = e instanceof Error ? e.message : "";
@@ -705,29 +702,10 @@ export function BuildButton({ projectId, menu = false }: { projectId: string; me
 }
 
 /**
- * Canonical project action bar — single source of truth for all toolbar headers.
- * Used in OfficeToolbar, CardsOffice, and project-detail so every header stays in sync.
- */
-export function ProjectActionsBar({ projectId }: { projectId: string }) {
-  const hasCwd = useProjectHasCwd(projectId);
-  if (!hasCwd) return null;
-  return (
-    <ActionBar
-      items={[
-        ...shortcutItems(projectId),
-        { key: `div-${projectId}`, type: "divider" as const },
-        ...runtimeItems(projectId),
-      ]}
-    />
-  );
-}
-
-/**
- * Folder / VS Code / clear-cache only — the "shortcuts" segment of
- * {@link ProjectActionsBar} split out so a header can place it somewhere
- * other than next to Build/Dev server (e.g. {@link ProjectHero}'s avatar
- * row, to the left of the roster stack, instead of crowding the "Add agent"
- * row above it).
+ * Folder / VS Code / clear-cache only — the "shortcuts" segment, split out so
+ * a header can place it somewhere other than next to Build/Dev server (e.g.
+ * {@link ProjectHero}'s avatar row, to the left of the roster stack, instead
+ * of crowding the "Add agent" row above it).
  */
 export function ProjectShortcutsBar({ projectId }: { projectId: string }) {
   const hasCwd = useProjectHasCwd(projectId);
@@ -873,44 +851,5 @@ export function ProjectActionsMenu({ projectId }: { projectId: string }) {
         </Portal>
       )}
     </div>
-  );
-}
-
-export type OfficeToolbarProps = {
-  agentCount: number;
-  workingCount: number;
-};
-
-export function OfficeToolbar({ agentCount: _agentCount, workingCount: _workingCount }: OfficeToolbarProps) {
-  const t = useTranslations("office");
-  const activeProjectId = useActiveProjectStore((s) => s.id);
-  const setActiveId = useActiveProjectStore((s) => s.setId);
-
-  const [addOpen, setAddOpen] = useState(false);
-
-  return (
-    <header className="shrink-0 flex items-center gap-[16px]">
-      <div className="flex items-center gap-[14px] min-w-0">
-        <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.035em] whitespace-nowrap shrink-0">{t("title")}</h1>
-      </div>
-
-      <div className="ml-auto flex items-center gap-[10px]">
-        {activeProjectId && <ProjectActionsBar projectId={activeProjectId} />}
-        <button
-          type="button"
-          className={cn("flex items-center gap-[8px] px-[18px] py-[11px] rounded-[14px] text-[13.5px] font-bold cursor-pointer whitespace-nowrap", ACCENT_BTN)}
-          onClick={() => setAddOpen(true)}
-        >
-          <Icon name="plus" size={15} /> {t("add_agent")}
-        </button>
-      </div>
-
-      <AddAgentModal
-        open={addOpen}
-        projectId={activeProjectId}
-        onClose={() => setAddOpen(false)}
-        onProjectChange={(id) => setActiveId(id)}
-      />
-    </header>
   );
 }

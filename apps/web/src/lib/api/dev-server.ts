@@ -1,5 +1,5 @@
 /**
- * API module for project runtime operations surfaced in the office toolbar:
+ * API module for project runtime operations surfaced in the project actions:
  * dev-server detection/start, dependency install, production build, git status,
  * and the open-folder / clear-cache shortcuts.
  */

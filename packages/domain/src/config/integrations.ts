@@ -1,7 +1,6 @@
-// Integration registry — the single source of truth for the app's optional,
-// toggleable integrations. Surfaced in Settings → Integrations and the first-run
-// wizard; gated server-side via requireIntegration() and client-side by reading
-// settings.integrations. Adding an entry here is all it takes to add a toggle.
+// Integration registry — the app's optional, toggleable integrations, gated server-side via
+// requireIntegration() and client-side by settings.integrations. The first-run wizard lists every
+// entry; Settings → Integrations (integrations-tab.tsx) renders only the kinds it has a card for.
 
 export type IntegrationStatus = "stable" | "experimental";
 
@@ -25,14 +24,6 @@ export const INTEGRATIONS = [
     status: "stable",
     defaultEnabled: true,
     icon: "branch",
-  },
-  {
-    id: "iso-view",
-    label: "Isometric view",
-    description: "Render the office as a 3D isometric floor (PixiJS). Early development — expect rough edges.",
-    status: "experimental",
-    defaultEnabled: false,
-    icon: "layers",
   },
 ] as const satisfies readonly IntegrationDef[];
 

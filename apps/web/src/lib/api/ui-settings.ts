@@ -1,9 +1,9 @@
 /**
  * API module for the `ui_settings` key/value store — the catch-all bag the UI
- * uses for theme, active project, office layout, Claude limits, etc.
+ * uses for theme, active project, roster groups, Claude limits, etc.
  *
- * Every call to `/api/ui-settings` lives here; callers (Zustand stores, office
- * auto-save, the scene loader) never touch `apiClient` or bare `fetch`.
+ * Every call to `/api/ui-settings` lives here; callers (Zustand stores) never
+ * touch `apiClient` or bare `fetch`.
  */
 
 import { API_ROUTES } from "@agent-office/api-contract";

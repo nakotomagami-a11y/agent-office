@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/fetch";
 import { queryKeys } from "@/lib/api/query-keys";
 import { API_ROUTES } from "@agent-office/api-contract";
-import { getIntegration } from "@agent-office/domain/config/integrations";
 import type { AppSettings, ScannedEntry } from "@agent-office/domain/types";
 
 export function useSettings() {
@@ -12,14 +11,6 @@ export function useSettings() {
     queryKey: queryKeys.settings.detail(),
     queryFn: () => apiFetch<AppSettings | null>(API_ROUTES.settings),
   });
-}
-
-/** Client mirror of isIntegrationEnabled — stored toggle if set, else registry default. */
-export function useIntegrationEnabled(id: string): boolean {
-  const settingsQ = useSettings();
-  const stored = settingsQ.data?.integrations?.[id];
-  if (typeof stored === "boolean") return stored;
-  return getIntegration(id)?.defaultEnabled ?? false;
 }
 
 export function useScanProjects(root: string, excluded: string[]) {

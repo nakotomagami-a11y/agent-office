@@ -1,5 +1,4 @@
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
-import { useOfficeDragStore } from "@/modules/office/hooks/use-office-drag";
 import { useAgentCapStore } from "@/modules/office/hooks/use-agent-cap-store";
 import { useSummonStore } from "@/modules/summon/hooks/use-summon-store";
 import { usePerformanceStore } from "@/lib/performance-store";
@@ -17,7 +16,6 @@ type Readable = { getState: () => unknown };
 /** Every client-side Zustand store, keyed by a short label. */
 const STORES: Record<string, Readable> = {
   office: useOfficeStore,
-  officeDrag: useOfficeDragStore,
   agentCap: useAgentCapStore,
   summon: useSummonStore,
   performance: usePerformanceStore,

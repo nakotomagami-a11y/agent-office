@@ -43,7 +43,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 
 ### Orchestrate a team
 
-- **Multi-instance + worktree isolation** — drop the same agent onto a project many times; each gets its own isolated git worktree so parallel instances run at once without colliding. This is genuinely hard to do by hand — it's the standout. See [Usage → Multi-instance & worktrees](#/usage).
+- **Multi-instance + worktree isolation** — add the same agent to a project many times; each gets its own isolated git worktree so parallel instances run at once without colliding. This is genuinely hard to do by hand — it's the standout. See [Usage → Multi-instance & worktrees](#/usage).
 - **Message queue** — line up prompts while a run is streaming; they dispatch in order, editable until they start. See [Interface → Message queue](#/interface).
 - **Schedules** — run an agent at a set time, or auto-resume a run the moment its rate limit resets — no babysitting. See [Schedules](#/schedules).
 - **Curated roster** — specialist agents bundled for convenience: dev tiers, C-suite advisors, QA, engineering, research. The CLI already supports `.md` subagents; this is a ready-made starting set, not a lock-in. See [Agents → Starter roster](#/agents).
@@ -61,10 +61,9 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 - **Missions, drafts, attachments** — coordinate agents on several devices through a GitHub draft PR, autosave composer text, drop or paste files and images. See [Interface → Chat features](#/interface).
 - **Processes panel** — every dev server and build the app spawns, with live status. See [Usage → Processes panel](#/usage).
 - **Project actions** — dev / build / install / clear-cache / open-folder, plus a git status widget and template bootstrapping. See [Projects → Actions](#/projects).
-- **Office view** — an isometric office (or a flat card grid) with a desk per agent and live status LEDs; one of several ways to see your team, not the point of the app. See [Usage → Office floor](#/usage).
 
 ### Local-first & portable
 
 - **Everything on your machine** — all data lives under `~/.claude`; nothing leaves except API calls to Anthropic. See [Reference → Data & storage](#/reference).
-- **Export / import a project** — move agents, roster, memory, and office layout to another machine. See [Reference → Save / export / import](#/reference).
+- **Export / import a project** — move agents, roster, memory, and optionally conversation history to another machine. See [Reference → Save / export / import](#/reference).
 - **Roster migration** — accept bundled agent updates while your custom agents stay untouched. See [Usage → Roster migration](#/usage).

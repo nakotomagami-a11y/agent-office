@@ -13,7 +13,6 @@
     "./config/agent-opts": "./src/config/agent-opts.ts",
     "./config/run-errors": "./src/config/run-errors.ts",
     "./config/integrations": "./src/config/integrations.ts",
-    "./config/office": "./src/config/office.ts",
     "./config/project-templates": "./src/config/project-templates.ts",
     "./config/*": "./src/config/*.ts",
     "./services": "./src/services/index.ts",

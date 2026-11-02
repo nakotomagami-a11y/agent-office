@@ -1,4 +1,4 @@
-// POST /api/save/import[?office=1] — restore an exported bundle; office layout only with office=1.
+// POST /api/save/import — restore an exported bundle.
 import { save } from "@agent-office/domain/services";
 import { isValidIdSegment } from "@agent-office/domain/services/infra/paths";
 import { validateBody } from "../../../lib/validation";
@@ -23,8 +23,7 @@ export async function POST(request: Request) {
   if (!isValidIdSegment(data.project.id)) return badRequest("invalid_project_id");
 
   try {
-    const restoreOffice = new URL(request.url).searchParams.get("office") === "1";
-    return Response.json({ ok: true, ...save.importBundle(data, { restoreOffice }) });
+    return Response.json({ ok: true, ...save.importBundle(data) });
   } catch (e) {
     return serverError(String(e instanceof Error ? e.message : e));
   }

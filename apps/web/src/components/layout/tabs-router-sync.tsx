@@ -48,7 +48,7 @@ export function TabsRouterSync() {
     const query = searchParams?.toString();
     const fullPath = query ? `${pathname}?${query}` : pathname;
     // Keep the legacy active-project store aligned with the URL so existing
-    // readers (sidebar, agent-details, cards-office, office-toolbar, etc.)
+    // readers (sidebar, agent-details, project actions, etc.)
     // don't need a rewire during the phased tabs migration.
     setActiveProjectId(projectId);
 

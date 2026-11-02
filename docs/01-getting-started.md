@@ -42,4 +42,4 @@ Settings are saved in `~/.claude/agent-office-settings.json`. To see the wizard 
 
 ## Your first run
 
-Open a project and click **Add agent** on the office toolbar to give it an agent. Click the agent, open its chat, type a prompt and press **Send**. The answer streams in live, and the run stays in the history with its cost and transcript.
+Open a project and click **Add agent** in the sidebar to give it an agent. Click the agent, open its chat, type a prompt and press **Send**. The answer streams in live, and the run stays in the history with its cost and transcript.

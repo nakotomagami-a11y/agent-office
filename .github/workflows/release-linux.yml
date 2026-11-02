@@ -248,7 +248,7 @@ jobs:
           #    Verified empirically on that exact host: native Wayland spawns the
           #    WebView (WebKitWebProcess stays up, no EGL/DMABUF abort) and the
           #    XWayland tax disappears. Native Wayland also keeps DMABUF zero-copy
-          #    for the PIXI/WebGL canvas, which the X11 path did not. GDK falls
+          #    for WebGL canvases, which the X11 path did not. GDK falls
           #    back to X11 automatically on an X11-only session (backend list).
           #    Fallback if a future driver update reintroduces the crash: add
           #    `export WEBKIT_DISABLE_DMABUF_RENDERER=1` below (also tested-good,

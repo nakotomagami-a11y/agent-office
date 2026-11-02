@@ -390,8 +390,7 @@ export const bootstrapProjectSchema = z.object({
   initGit: z.boolean().optional(),
 });
 
-// POST /api/save/import — an exported project bundle. `project.meta` is arbitrary
-// serialized frontmatter, so it stays an open record (validated as an object).
+// POST /api/save/import. Unknown keys (an old bundle's `office` layout) are stripped: old files still import.
 export const saveFileSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
@@ -401,12 +400,6 @@ export const saveFileSchema = z.object({
     memory: z.string(),
   }),
   agents: z.array(z.object({ id: z.string(), content: z.string(), memory: z.string() })),
-  office: z.object({
-    grid: z.string().nullable(),
-    decorations: z.string().nullable(),
-    agents: z.string().nullable(),
-    grassColor: z.string().nullable(),
-  }),
   history: z.array(z.object({ agentId: z.string(), instanceId: z.string(), transcript: z.string() })).optional(),
 });
 

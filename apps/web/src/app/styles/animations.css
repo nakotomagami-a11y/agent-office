@@ -40,38 +40,6 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-@keyframes water-foam {
-  from { background-position-x: 0; }
-  to   { background-position-x: -3072px; }
-}
-@keyframes deco-bush {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1024px; }
-}
-@keyframes deco-water-rock {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1024px; }
-}
-@keyframes deco-duck {
-  from { background-position-x: 0; }
-  to   { background-position-x: -96px; }
-}
-@keyframes deco-tree {
-  from { background-position-x: 0; }
-  to   { background-position-x: -1536px; }
-}
-@keyframes deco-cursed-chest {
-  from { background-position-x: 0; }
-  to   { background-position-x: -384px; }
-}
-@keyframes deco-campfire {
-  from { background-position-x: 0; }
-  to   { background-position-x: -256px; }
-}
-@keyframes deco-butterfly {
-  from { background-position-x: 0; }
-  to   { background-position-x: -80px; }
-}
 @keyframes act-ping {
   0% { transform: scale(0.6); opacity: 0.6; }
   100% { transform: scale(1.6); opacity: 0; }

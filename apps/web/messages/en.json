@@ -6,7 +6,6 @@
     "brand_sub": "studio · v3.0"
   },
   "nav": {
-    "office": "Office",
     "analytics": "Analytics",
     "templates": "Templates",
     "projects": "Projects",
@@ -22,39 +21,12 @@
     "primary_label": "Primary",
     "live_badge": "{count} live"
   },
-  "office": {
+  "project_actions": {
     "open_error_no_cwd": "This project has no folder set.",
     "open_error_cwd_missing": "The project folder doesn't exist.",
     "open_error_cwd_unreadable": "Agent Office can't read the project folder.",
     "open_error_editor_not_found": "VS Code isn't installed, or it couldn't be found.",
-    "open_error_failed": "Couldn't open the project folder.",
-    "title": "The office",
-    "agents_count": "{count, plural, one {# agent} other {# agents}}",
-    "working_count": "{count} working",
-    "needs_attention_label": "need attention",
-    "budget_daily": "Budget",
-    "new_agent": "Forge agent",
-    "add_agent": "Add agent",
-    "error_filter_banner": "Showing agents needing attention",
-    "error_filter_clear": "Clear filter"
-  },
-  "office_build_toolbar": {
-    "switch_to_shared": "Switch back to the default shared layout",
-    "switch_to_project": "Create a project-specific layout",
-    "scope_project": "Project",
-    "scope_default": "Default"
-  },
-  "office_scene_hud": {
-    "tile": "Tile",
-    "map": "Map",
-    "placed": "Placed",
-    "placed_count": "{count, plural, one {# tile} other {# tiles}}"
-  },
-  "office_view": {
-    "iso_disabled_title": "Isometric office is off",
-    "iso_disabled_perf_body": "The isometric floor needs the Full rendering budget. Raise the performance mode in Settings to load it.",
-    "iso_disabled_body": "The office renders as a 3D isometric floor. Turn on the Isometric view integration to use it.",
-    "open_settings": "Open Settings"
+    "open_error_failed": "Couldn't open the project folder."
   },
   "common": {
     "search_placeholder": "Filter…",
@@ -158,7 +130,7 @@
     "filter_aria": "Filter roster",
     "resize_blocks_aria": "Resize the links and roster blocks",
     "resize_blocks_title": "Drag to resize · double-click to reset",
-    "no_agents_in_project": "No agents in {project}. Click \"Add agent\" on the office toolbar.",
+    "no_agents_in_project": "No agents in {project}. Click \"Add agent\" to add one.",
     "no_agent_definitions": "No agent definitions yet. Drop a markdown file in ~/.claude/agents/.",
     "row_open_chat_title": "Click to view details · open chat from there",
     "remove_from_project_aria": "Remove {name} from this project",
@@ -422,7 +394,8 @@
     "no_skills": "no skills",
     "uses_count": "{count, plural, one {# use} other {# uses}}",
     "model_default": "default",
-    "description_empty": "—"
+    "description_empty": "—",
+    "new_agent": "Forge agent"
   },
   "unit_picker": {
     "faction_legend": "Faction",
@@ -487,7 +460,6 @@
     "memory_placeholder": "Project-wide context that prepends to every agent prompt.",
     "roster_card_title": "Roster",
     "roster_card_sub": "{count, plural, one {# agent} other {# agents}}",
-    "roster_empty": "No agents added yet. Use the office page to summon and assign.",
     "chat_button": "Chat",
     "remove_title": "Remove from project",
     "remove_inline_confirm": "Remove {label}?",
@@ -515,8 +487,6 @@
     "delete_failed": "Could not delete the project: {error}",
     "import_backed_up": "{count, plural, one {# agent you already had ({ids}) was replaced; the previous copy is} other {# agents you already had ({ids}) were replaced; the previous copies are}} in ~/.claude/agent-office/backups/agents/.",
     "import_snapshot": "The project as it was before is saved in {path}.",
-    "import_office_restored": "Your office layout was replaced with the one in the file.",
-    "import_restore_office": "Also replace my office layout (shared by every project) with the file's",
     "export_failed": "Export failed: {error}"
   },
   "session_removal": {
@@ -541,7 +511,7 @@
     "loading": "loading…",
     "sub_runs": "{count, plural, one {# run} other {# runs}}",
     "sub_today": "· {amount} today",
-    "empty": "No runs yet on this project. Summon an agent from the office."
+    "empty": "No runs yet on this project. Add an agent and send it a prompt."
   },
   "planet_editor_modal": {
     "title": "Edit planet",
@@ -632,10 +602,7 @@
     "group_engine_hint": "required to run the office",
     "group_connections_label": "Connected accounts",
     "group_connections_hint": "external identities agents act as",
-    "group_capabilities_label": "Capabilities",
-    "group_capabilities_hint": "optional surfaces you can switch on",
     "required_tag": "Required",
-    "experimental_tag": "Experimental",
     "enable_aria": "Enable {name}",
     "claude_tagline": "The model behind every agent · one account per project",
     "add_account": "Add account",
@@ -649,7 +616,6 @@
     "github_inactive_login": "Signed in on this machine, not the active account",
     "empty_accounts": "No accounts yet. Add one to route this project through it.",
     "health_connected": "Connected",
-    "health_on": "On",
     "health_attention": "Needs attention",
     "health_off": "Off"
   },
@@ -667,7 +633,7 @@
     "row_skill_cache_label": "Downloaded and bundled skills",
     "row_skill_cache_desc": "Deletes skills installed from the registry (reinstall them from Skills) and unedited bundled starter skills (restored at the next server start). Skills you created or imported, and any you edited in Agent Office, are kept.",
     "row_ui_settings_label": "App UI settings",
-    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project and the setup wizard draft. Office maps, layouts, decorations and your spend cap are kept.",
+    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project, pinned and expanded roster groups and the setup wizard draft. Your spend cap is kept.",
     "cleared": "Cleared",
     "failed": "Failed",
     "confirm_prompt": "Run this reset?",
@@ -692,13 +658,11 @@
     "mode_full_label": "Full",
     "mode_full_note": "Everything on. Best-looking interface, heaviest per frame.",
     "mode_lite_label": "Lite",
-    "mode_lite_note": "Flat surfaces, no PixiJS. Fast on older or throttled machines.",
+    "mode_lite_note": "Flat surfaces, no transitions or blur. Fast on older or throttled machines.",
     "mode_off_label": "Off",
     "mode_off_note": "Minimal render load. Utilitarian, no motion beyond status.",
     "matrix_title": "What each mode does",
     "matrix_sub": "override any single row without leaving your mode",
-    "feature_office_renderer_name": "Isometric office renderer",
-    "feature_office_renderer_detail": "PixiJS floor view",
     "feature_framer_motion_name": "Framer-motion transitions",
     "feature_framer_motion_detail": "panel and route animation",
     "feature_backdrop_blur_name": "Backdrop blur and shadows",

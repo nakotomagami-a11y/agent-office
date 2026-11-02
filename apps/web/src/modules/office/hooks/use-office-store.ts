@@ -3,18 +3,15 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { getUiSettings, patchUiSettings } from "@/lib/api/ui-settings";
-import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 
 /**
- * Persisted server-side to `ui_settings.office-view`, matching the tabs and
+ * Persisted server-side to `ui_settings.roster-groups`, matching the tabs and
  * theme stores. Web storage is deliberately unused here: the desktop shell
  * serves the UI from an ephemeral loopback port, and localStorage is scoped
  * per origin — so a changing port would silently reset every preference on
  * each launch.
  */
-const STORAGE_KEY = "office-view";
-
-export type OfficeView = "iso" | "cards";
+const STORAGE_KEY = "roster-groups";
 
 /**
  * Tabs surfaced by `AgentDetailsModal`. Exported here (instead of inside the
@@ -26,14 +23,6 @@ export type AgentTab = "conversation" | "customization" | "context-cost";
 type SelectOptions = { tab?: AgentTab; instanceId?: string | null };
 
 type OfficeState = {
-  view: OfficeView;
-  /**
-   * Master capability gate for the isometric renderer (dev-menu toggle). When
-   * false the iso floor is never loaded, the in-app iso/cards switch is hidden,
-   * and only the flat card grid is reachable. `view` is still remembered so
-   * re-enabling restores the user's last iso/cards choice.
-   */
-  isoEnabled: boolean;
   selectedId: string | null;
   /** Roster instance under selection (one of selectedId's `AgentInstance`s). */
   selectedInstanceId: string | null;
@@ -53,8 +42,6 @@ type OfficeState = {
    */
   pinnedGroups: Record<string, string[]>;
   hydrated: boolean;
-  setView: (next: OfficeView) => void;
-  setIsoEnabled: (next: boolean) => void;
   select: (id: string | null, opts?: SelectOptions) => void;
   consumePendingTab: () => AgentTab | null;
   closeInspector: () => void;
@@ -65,13 +52,8 @@ type OfficeState = {
   hydrate: () => void;
 };
 
-/** The subset written to `ui_settings` — mirrors the old persist partialize.
- *  `isoEnabled` is NOT persisted here: it's driven by the `iso-view` integration
- *  toggle (Settings → Integrations), mirrored into the store by useOfficeHydration. */
-type PersistShape = Pick<
-  OfficeState,
-  "view" | "expandedGroups" | "pinnedGroups"
->;
+/** The subset written to `ui_settings`. */
+type PersistShape = Pick<OfficeState, "expandedGroups" | "pinnedGroups">;
 
 function isGroupMap(v: unknown): v is Record<string, string[]> {
   return (
@@ -86,9 +68,8 @@ function parse(raw: string | undefined): Partial<PersistShape> | null {
   try {
     const obj = JSON.parse(raw) as unknown;
     if (!obj || typeof obj !== "object") return null;
-    const { view, expandedGroups, pinnedGroups } = obj as Partial<PersistShape>;
+    const { expandedGroups, pinnedGroups } = obj as Partial<PersistShape>;
     const out: Partial<PersistShape> = {};
-    if (view === "iso" || view === "cards") out.view = view;
     if (isGroupMap(expandedGroups)) out.expandedGroups = expandedGroups;
     if (isGroupMap(pinnedGroups)) out.pinnedGroups = pinnedGroups;
     return out;
@@ -98,11 +79,6 @@ function parse(raw: string | undefined): Partial<PersistShape> | null {
 }
 
 export const useOfficeStore = create<OfficeState>((set, get) => ({
-  // Cards is the default surface, and the iso renderer ships opt-in: a fresh
-  // install lands on the flat grid with the dev-menu gate off. Both are
-  // persisted, so these defaults only ever apply before the user chooses.
-  view: "cards",
-  isoEnabled: false,
   selectedId: null,
   selectedInstanceId: null,
   inspectorOpen: false,
@@ -111,15 +87,6 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
   expandedGroups: {},
   pinnedGroups: {},
   hydrated: false,
-  setView: (next) => {
-    set({ view: next });
-    persistState(get());
-  },
-  // Mirror of the `iso-view` integration toggle (see useOfficeHydration). Not
-  // persisted here — the setting is the source of truth.
-  setIsoEnabled: (next) => {
-    set({ isoEnabled: next });
-  },
   select: (id, opts) =>
     set({
       selectedId: id,
@@ -185,7 +152,6 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
 
 function persistState(s: OfficeState): void {
   const shape: PersistShape = {
-    view: s.view,
     expandedGroups: s.expandedGroups,
     pinnedGroups: s.pinnedGroups,
   };
@@ -194,16 +160,10 @@ function persistState(s: OfficeState): void {
   });
 }
 
-/** Mount in the app shell (e.g. Titlebar) so the store hydrates once on boot and
- *  the iso renderer follows the `iso-view` integration toggle. */
+/** Mount in the app shell so the store hydrates once on boot. */
 export function useOfficeHydration(): void {
   const hydrate = useOfficeStore((s) => s.hydrate);
-  const setIsoEnabled = useOfficeStore((s) => s.setIsoEnabled);
-  const isoEnabled = useIntegrationEnabled("iso-view");
   useEffect(() => {
     hydrate();
   }, [hydrate]);
-  useEffect(() => {
-    setIsoEnabled(isoEnabled);
-  }, [isoEnabled, setIsoEnabled]);
 }

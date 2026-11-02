@@ -21,19 +21,15 @@ export type UnitSpriteProps = {
   size?: number;
   /** Loop the sprite-sheet animation. Disable in very dense lists. */
   animate?: boolean;
-  /** Which action sheet to play. Each named action requires the kind to
-   *  declare the matching sheet in UNIT_DEFS (pawn does); otherwise the
-   *  sprite gracefully falls back to idle. */
-  action?: "idle" | "working" | "attack" | "axe" | "hammer" | "pickaxe" | "knife";
-  /** Mirror horizontally - used when the contextual target (e.g. a tree
-   *  being chopped) is on the pawn's left rather than its default right. */
-  flip?: boolean;
+  /** Which action sheet to play. `attack` falls back to `run` for kinds
+   *  without an attack sheet (pawn). */
+  action?: "idle" | "working" | "attack";
   /** Optional accessible label. Decorative by default. */
   label?: string;
   className?: string;
   /**
    * Fit the WHOLE character (weapon tip down to the feet) inside the box
-   * instead of the office-floor default, which scales the body to a shared
+   * instead of the default, which scales the body to a shared
    * visual weight and lets weapon-dominated units (the lancer's spear) extend
    * above the frame and get clipped. Use for previews/portraits where the
    * complete sprite must be visible with nothing cut off. Ignores
@@ -55,7 +51,6 @@ export function UnitSprite({
   size = 48,
   animate = true,
   action = "idle",
-  flip = false,
   label,
   className,
   contain = false,
@@ -86,10 +81,6 @@ export function UnitSprite({
     let sheetPreview = def.idle;
     if (action === "attack") sheetPreview = def.attack ?? def.run;
     else if (action === "working") sheetPreview = def.run;
-    else if (action === "axe"     && def.axe)     sheetPreview = def.axe;
-    else if (action === "hammer"  && def.hammer)  sheetPreview = def.hammer;
-    else if (action === "pickaxe" && def.pickaxe) sheetPreview = def.pickaxe;
-    else if (action === "knife"   && def.knife)   sheetPreview = def.knife;
     frames = sheetPreview.frames;
   }
   const ticking = !!def && animate && !reducedMotion && !perfOff && frames > 1;
@@ -111,10 +102,7 @@ export function UnitSprite({
       />
     );
   }
-  // Pick the sheet for the requested action. Each named action requires the
-  // unit kind to declare the matching sheet in UNIT_DEFS; if absent we fall
-  // back to idle so non-pawn units never end up with a missing sprite URL
-  // if a future rule routes an unsupported action their way.
+  // Pick the sheet for the requested action.
   let sheet = def.idle;
   let state: UnitSheetState = "idle";
   if (action === "attack") {
@@ -125,18 +113,6 @@ export function UnitSprite({
   } else if (action === "working") {
     sheet = def.run;
     state = "run";
-  } else if (action === "axe" && def.axe) {
-    sheet = def.axe;
-    state = "axe";
-  } else if (action === "hammer" && def.hammer) {
-    sheet = def.hammer;
-    state = "hammer";
-  } else if (action === "pickaxe" && def.pickaxe) {
-    sheet = def.pickaxe;
-    state = "pickaxe";
-  } else if (action === "knife" && def.knife) {
-    sheet = def.knife;
-    state = "knife";
   }
   const src = unitSheetSrc(unit.faction, unit.kind, state);
 
@@ -147,9 +123,8 @@ export function UnitSprite({
   // Scale the character *body* to a consistent visual weight, then feet-anchor.
   // Weapon-dominated kinds (the Lancer's spear) declare a `sizeMultiplier` so
   // their body reads at the same size as other units instead of shrinking to
-  // fit the tall spear bbox. Office-floor default: the spear then extends
-  // above the square `size`x`size` frame and is clipped by `overflow-hidden`
-  // (tiles are packed tight; that's the intended tradeoff there).
+  // fit the tall spear bbox. By default the spear then extends above the
+  // square `size`x`size` frame and is clipped by `overflow-hidden`.
   const groundY = def.groundY ?? def.bbox.y + def.bbox.h;
   const mult = def.sizeMultiplier ?? 1;
   const scale = (size / Math.max(def.bbox.w, def.bbox.h)) * mult;
@@ -163,8 +138,7 @@ export function UnitSprite({
   // weapon tip down to feet — fits with nothing clipped, at the exact same
   // scale/visual weight as every other unit. Width stays `size` so avatars
   // still line up in a row; only weapon-dominated kinds (the lancer) end up
-  // taller than they are wide. Box width==height==size for every other kind,
-  // matching the office-floor box exactly.
+  // taller than they are wide. Box width==height==size for every other kind.
   const cropH = groundY - def.bbox.y;
   const boxW = size;
   const boxH = contain ? Math.ceil(cropH * scale) : size;
@@ -184,7 +158,6 @@ export function UnitSprite({
       style={{
         width: boxW,
         height: boxH,
-        transform: flip ? "scaleX(-1)" : undefined,
       }}
       {...ariaProps}
     >

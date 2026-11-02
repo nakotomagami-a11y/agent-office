@@ -64,7 +64,7 @@ function FpsMeter() {
  * Dev console — an internal instrument panel for seeding data, inspecting the
  * DB, flipping interface modes, and (soon) simulating agent states.
  *
- * Wired: interface toggles (isometric view, rendering budget), demo-data
+ * Wired: interface toggles (rendering budget), demo-data
  * seeding, DB stats + maintenance, reload. Panels/rows tagged `soon` are UI
  * only — they get wired once the layout is signed off.
  */
@@ -441,7 +441,7 @@ export function DevMenu() {
                     <span className="text-txt-3 shrink-0"><Icon name="gauge" size={15} /></span>
                     <div className="flex-1 min-w-0">
                       <div className="text-[12.5px] font-medium text-txt">Rendering budget</div>
-                      <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">How much the UI renders. Lite/Off flatten the office to cards.</div>
+                      <div className="text-[11px] text-txt-3 mt-[3px] leading-[1.45]">How much the UI renders. Lite/Off cut animations and effects.</div>
                     </div>
                     <div className="w-[168px] shrink-0">
                       <Segmented<PerformanceMode>

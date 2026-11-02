@@ -307,15 +307,6 @@ export function seedShowcase(): void {
       for (const sid of secretIds.slice(0, 3)) { try { secrets.link(p.id, sid); } catch { /* ignore */ } }
     }
 
-    // Office positions (cheap; keeps the office tab non-empty even if unused).
-    const posMap: Record<string, { agentId: string; instanceId: string }> = {};
-    p.roster.forEach((r, i) => {
-      posMap[`${18 + (i % 4)},${10 + Math.floor(i / 4) * 3}`] = { agentId: r.agentId, instanceId: inst(r.agentId, r.suffix) };
-    });
-    db.setUiSetting(`office-agents:${p.id}`, JSON.stringify(posMap));
-    db.setUiSetting(`office-grass-color:${p.id}`, '"green"');
-    db.setUiSetting(`office-map-custom:${p.id}`, "false");
-
     // Transcripts (chat)
     for (const t of transcriptsFor(p.id)) {
       db.saveTranscript(t.agentId, t.instanceId, itemsJson(t.items), t.activeRunId, `sess-${t.instanceId}`);
@@ -382,10 +373,6 @@ export function clearShowcase(): void {
   raw.prepare(`DELETE FROM project_secrets WHERE secret_id IN (SELECT id FROM secrets WHERE name IN ('STRIPE_SECRET_KEY','OPENAI_API_KEY','DATABASE_URL','SENTRY_DSN'))`).run();
   raw.prepare("DELETE FROM secrets WHERE name IN ('STRIPE_SECRET_KEY','OPENAI_API_KEY','DATABASE_URL','SENTRY_DSN')").run();
 
-  // ui_settings: office-* per project, tabs, cleanup keys
-  for (const id of ids) {
-    raw.prepare("DELETE FROM ui_settings WHERE key IN (?,?,?)").run(`office-agents:${id}`, `office-grass-color:${id}`, `office-map-custom:${id}`);
-  }
   raw.prepare("DELETE FROM ui_settings WHERE key IN ('tabs-state','showcase:seeded')").run();
 
   // Project metadata + created folders

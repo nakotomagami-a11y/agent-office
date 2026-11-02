@@ -19,7 +19,6 @@ import { useThemeStore } from "@/lib/theme-store";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { runningRuns } from "@/modules/projects/format/run-stats";
 import { ProjectQuickView } from "./project-quick-view";
-import { useIntegrationEnabled } from "@/modules/settings/hooks/use-settings";
 import { useProcessesStore } from "@/lib/processes-store";
 import { isActiveRoute } from "./sidebar-routing";
 import { BootstrapProjectModal } from "@/modules/projects/components/bootstrap-project-modal";
@@ -49,12 +48,10 @@ import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
  */
 
 const NAV_ITEMS: ReadonlyArray<{
-  key: "office" | "project" | "analytics" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings" | "docs";
+  key: "project" | "analytics" | "agents" | "memory" | "skills" | "schedules" | "servers" | "settings" | "docs";
   icon: IconName;
   href: string;
-  exact?: boolean;
 }> = [
-  { key: "office", icon: "home", href: PAGE_ROUTES.office, exact: true },
   { key: "project", icon: "settings", href: PAGE_ROUTES.projects },
   { key: "analytics", icon: "gauge", href: PAGE_ROUTES.analytics },
   { key: "agents", icon: "templates", href: PAGE_ROUTES.agents },
@@ -78,9 +75,6 @@ export function MainTopBar() {
   const toggleTheme = useThemeStore((s) => s.toggle);
 
   const { agents, runs } = useOfficeAgents();
-  // The office page is iso-only now; hide its nav entry unless the Isometric
-  // view integration is enabled (matches OfficeView's gate).
-  const isoEnabled = useIntegrationEnabled("iso-view");
 
   // Per-tab "live agents" badge — reuses the same runs `useOfficeAgents()`
   // already fetched for the header's agent count (no extra request)
@@ -114,17 +108,15 @@ export function MainTopBar() {
 
   // The active project is the project of the currently-active tab. The "Project"
   // nav entry deep-links to it (`/projects/<id>`) and falls back to the projects
-  // list when nothing is open. Office is hidden here unless iso is enabled.
+  // list when nothing is open.
   const activeProjectId = useMemo(
     () => (activeTabId ? tabs.find((tab) => tab.id === activeTabId)?.projectId ?? null : null),
     [activeTabId, tabs],
   );
   const navItems = useMemo(() => {
     const projectHref = activeProjectId ? PAGE_ROUTES.project(activeProjectId) : PAGE_ROUTES.projects;
-    return NAV_ITEMS
-      .filter((i) => isoEnabled || i.key !== "office")
-      .map((i) => (i.key === "project" ? { ...i, href: projectHref } : i));
-  }, [isoEnabled, activeProjectId]);
+    return NAV_ITEMS.map((i) => (i.key === "project" ? { ...i, href: projectHref } : i));
+  }, [activeProjectId]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
@@ -434,7 +426,7 @@ export function MainTopBar() {
             className="p-[7px] surface-sheen rounded-[18px] shadow-[var(--lift)] z-[9999]"
           >
             {navItems.map((item) => {
-              const active = isActiveRoute(pathname, item.href, { exact: item.exact });
+              const active = isActiveRoute(pathname, item.href);
               // nav.servers doesn't exist — the shared key for this entry is
               // "processes" (see messages/en.json), reused here so the
               // Servers modal trigger and the sidebar's old ProcessesNavButton

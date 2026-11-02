@@ -12,11 +12,6 @@ import { AgentQuickView, type QuickViewTrigger } from "./agent-quick-view";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 import type { AgentStatusInfo } from "@/modules/office/derive/derive-status";
-import {
-  AGENT_DRAG_MIME,
-  useOfficeDragStore,
-  type DragRef,
-} from "@/modules/office/hooks/use-office-drag";
 
 function agentLedClass(status: AgentStatusInfo["status"]) {
   return cn(
@@ -92,16 +87,11 @@ export function RosterGroup({
   const t = useTranslations();
   const { agent, instances, instanceStatuses, expanded } = group;
   const isMulti = instances.length > 1;
-  const setDragging = useOfficeDragStore((s) => s.setDragging);
 
   const inst = instances[0];
   const singleStatus = instanceStatuses[0] ?? "idle";
   const aggregated = isMulti ? aggregateStatus(instanceStatuses) : singleStatus;
   const hasLive = instanceStatuses.some((s) => LIVE_STATUSES.includes(s));
-
-  const dragRef: DragRef = isMulti || !inst
-    ? { agentId: agent.id }
-    : { agentId: agent.id, instanceId: inst.instanceId };
 
   const isSelected = !isMulti && inst ? selectedInstanceId === inst.instanceId : false;
 
@@ -120,14 +110,6 @@ export function RosterGroup({
           "flex items-center gap-[10px] p-[6px] rounded-[8px] cursor-pointer hover:bg-bg-3 group relative",
           isSelected && "bg-acc-faint",
         )}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
-          e.dataTransfer.setData("text/plain", agent.id);
-          e.dataTransfer.effectAllowed = "move";
-          setDragging(dragRef);
-        }}
-        onDragEnd={() => setDragging(null)}
         onClick={() => isMulti ? onToggle() : (inst && onSelect(inst.instanceId))}
         role="button"
         tabIndex={0}

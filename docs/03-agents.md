@@ -55,7 +55,7 @@ unit: blue/warrior
 | `tools` | list | `[]` | Tools the agent may use (`--allowedTools`) |
 | `permission-mode` | string | unset | One of the six below (`manual` = alias for `default`). Unset = the CLI's own default |
 | `add-dirs` | list | `[]` | Extra directories the agent can read/write, passed as `--add-dir` flags |
-| `room` | string | `auto` | Which room on the office floor the agent's desk appears in |
+| `room` | string | `auto` | Category the agent is grouped under in the agent list and roster |
 | `unit` | string | `auto` | Avatar sprite: `faction/kind` e.g. `blue/warrior` |
 
 ### permission-mode values
