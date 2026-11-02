@@ -34,6 +34,7 @@ process.stdin.on("end", () => {
   }
   if (input === "HANG") {
     say({ type: "system", subtype: "init", session_id: "fresh" });
+    say({ type: "assistant", message: { content: [{ type: "text", text: "On it." }] } });
     return setInterval(() => {}, 1000);
   }
   if (input === "NOAUTH") {

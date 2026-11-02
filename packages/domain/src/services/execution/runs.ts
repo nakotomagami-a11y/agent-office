@@ -287,6 +287,7 @@ export function startRun(opts: StartRunOpts): { runId: string } {
       run.error = undefined;
       // The failed attempt reported the dead session; never hand it on again.
       run.sessionId = undefined;
+      run.pendingSessionId = undefined;
       db.setRunSessionId(run.id, null);
       // Say so: the agent now answers without the earlier conversation. Kept out
       // of run.output, which error classification reads (empty output → Sign-in).
@@ -567,6 +568,18 @@ function handleStreamLine(run: LiveRun, line: string): void {
     db.setRunModel(run.id, model);
   }
 
+  // A turn stopped, crashed or orphaned by a restart before its `result` must still hand its session
+  // on. Adopted at the first answer, not at `init`: a kill in between would hand on a session the CLI
+  // never saved. A resumed turn already has its session, unless this is the fresh retry.
+  if (evt.type === "system" && evt.subtype === "init" && isOwnText(evt) && typeof evt.session_id === "string"
+    && !run.sessionId && (run.freshSession || !run.args.includes("--resume"))) {
+    run.pendingSessionId = evt.session_id;
+  } else if (run.pendingSessionId && !run.sessionId && (evt.type === "assistant" || evt.type === "stream_event") && isOwnText(evt)) {
+    run.sessionId = run.pendingSessionId;
+    run.pendingSessionId = undefined;
+    db.setRunSessionId(run.id, run.sessionId);
+  }
+
   if (evt.type === "stream_event" && evt.event) {
     const ev = evt.event;
     if (
@@ -694,14 +707,6 @@ function handleStreamLine(run: LiveRun, line: string): void {
       }
     }
     return;
-  }
-
-  // The prompt is already in this session: a turn stopped, crashed or orphaned by
-  // a server restart before its `result` must still hand it on, or the next turn
-  // starts fresh without it. First top-level init only; `result` still overwrites.
-  if (evt.type === "system" && evt.subtype === "init" && isOwnText(evt) && typeof evt.session_id === "string" && !run.sessionId) {
-    run.sessionId = evt.session_id;
-    db.setRunSessionId(run.id, evt.session_id);
   }
 
   // An async `Task` spawn reports progress out-of-band on `system` events, not

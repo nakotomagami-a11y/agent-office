@@ -93,6 +93,8 @@ export interface LiveRun {
   missingSession?: boolean;
   freshSession?: boolean;
   sessionId?: string;
+  /** Named by `init`; becomes `sessionId` once the model answers (the CLI has saved the session by then). */
+  pendingSessionId?: string;
   proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
   subscribers: Set<SseEmit>;
   finishedAt?: number;
