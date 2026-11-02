@@ -12,7 +12,6 @@
     "agents": "Agents",
     "memory": "Memory",
     "schedules": "Schedules",
-    "limits": "Limits",
     "processes": "Servers",
     "project": "Project",
     "docs": "Docs",
@@ -604,7 +603,7 @@
     "row_skill_cache_label": "Downloaded and bundled skills",
     "row_skill_cache_desc": "Deletes skills installed from the registry (reinstall them from Skills) and unedited bundled starter skills (restored at the next server start). Skills you created or imported, and any you edited in Agent Office, are kept.",
     "row_ui_settings_label": "App UI settings",
-    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project, pinned and expanded roster groups and the setup wizard draft. Your spend cap is kept.",
+    "row_ui_settings_desc": "Resets theme, performance mode, open tabs, the active project, pinned and expanded roster groups and the setup wizard draft.",
     "cleared": "Cleared",
     "failed": "Failed",
     "confirm_prompt": "Run this reset?",
@@ -705,9 +704,6 @@
     "scroll_to_bottom": "Scroll to bottom",
     "stop_run": "Stop",
     "agent_office": "Agent Office"
-  },
-  "limits": {
-    "title": "Claude limits"
   },
   "processes_modal": {
     "title": "Running servers",

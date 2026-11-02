@@ -72,8 +72,8 @@ export function RateLimitCard({ message, resetsAt, severity = "limit", onStop, o
 }
 
 /** Monday 00:00 local time of the current week. */
-function weekStart(now = Date.now()): number {
-  const d = new Date(now);
+function weekStart(): number {
+  const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return d.getTime();

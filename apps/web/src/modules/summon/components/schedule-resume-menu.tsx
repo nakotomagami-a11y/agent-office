@@ -10,8 +10,8 @@ import { formatWeekdayTime } from "@/lib/format-date";
  * Schedule-resume control for the error / interrupted card. Expands inline
  * (no popover — so the designed DateTimePicker's own portal doesn't fight an
  * outer popover's outside-click) into two choices: the prominent, recommended
- * "resume when my limit resets" hero button (only when a rate-limit reset time is
- * known), or a specific time via the app's themed DateTimePicker. Once scheduled it locks to a static confirmation.
+ * "resume when my limit resets" hero button (only when a rate-limit reset
+ * time is known), or a specific time via the app's themed DateTimePicker. Once scheduled it locks to a static confirmation.
  */
 export function ScheduleResumeMenu({
   resetsAtMs,
@@ -87,7 +87,7 @@ export function ScheduleResumeMenu({
 
       {/* Specific time — designed picker + confirm */}
       <div className="flex items-center gap-[8px]">
-        <span className="text-[12px] text-ao-fg-2 shrink-0">Or pick a time</span>
+        <span className="text-[12px] text-ao-fg-2 shrink-0">{resetMs !== null ? "Or pick a time" : "Pick a time"}</span>
         <div className="flex-1 min-w-0">
           <DateTimePicker value={custom} onChange={setCustom} ariaLabel="Pick a resume time" />
         </div>
