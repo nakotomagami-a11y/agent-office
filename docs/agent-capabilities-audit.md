@@ -384,7 +384,7 @@ DB snapshot: schema v27, 665 runs (154 are sub-agent placeholder rows), 2,952 to
 | S4-15 | BROKEN | Add-GitHub-account tells Windows users to run POSIX `GH_CONFIG_DIR=... gh auth login` | `add-github-account-modal.tsx:61-62` |
 | S4-16 | WRONG | Review routes ignore the GitHub integration toggle (merge and close still work when it's off) | `review-route.ts:13-20` |
 | S4-17 | WRONG | Every send, including the app's own system messages, is saved as a "saved prompt", pushing the user's prompts out of the 10 slots | `summon-run.ts:170`, `user-analysis/route.ts:65` |
-| S4-18 | WASTE | Search downloads 500 runs with full output and filters in the browser, while a full-text index is kept up to date and never queried | `use-search-runs.ts:7-13`, `messages.ts:44-55` |
+| S4-18 | FIXED | Search downloads 500 runs with full output and filters in the browser, while a full-text index is kept up to date and never queried | `use-search-runs.ts:7-13`, `messages.ts:44-55` |
 | S4-19 | BROKEN | About You's analyst has no data on Windows (`sqlite3`) and runs in the server's folder (same family as S5-12, C25) | `user-analyst.md:137-160,225-236` |
 | S4-20 | WRONG | The `wl-paste` clipboard fallback runs on Windows and macOS; failures only reach the console (same as S7-17) | `use-composer-attachments.ts:112-130` |
 | S4-21 | WRONG | `slugify` drops non-ASCII, so every CJK-named folder gets the id `project`; "My App" and "my-app" collide; the later ones are unreachable | `settings.ts:62-70`, `projects.ts:415` #212 |
