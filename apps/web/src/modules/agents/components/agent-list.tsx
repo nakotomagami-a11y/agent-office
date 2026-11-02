@@ -16,6 +16,8 @@ import { categorize, categoryColor, tallyCategories } from "../form/categorize";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
 
+// Zero-height fillers keep a short last row at full-row width (no Grid: ui.flexbox-only). They wrap into
+// empty rows, so row spacing must be item margins, not gap-y. 24 covers ~4000px of content at 100% zoom.
 const LAST_ROW_SPACERS = Array.from({ length: 24 }, (_, i) => `spacer-${i}`);
 
 /**
