@@ -13,11 +13,12 @@ export type LoopAction = "stop" | "acceptAsIs" | "allowOneMore";
  *  Last-Event-ID replay, so anything emitted during a reconnect gap is lost
  *  forever — hence a slow safety net while the loop is live, and none once it
  *  has settled. Same pattern as use-conversation. */
-export function useLoop(id: string | null) {
+export function useLoop(id: string | null, initial?: LoopRow) {
   return useQuery({
     queryKey: queryKeys.loops.detail(id ?? "none"),
     queryFn: () => apiFetch<LoopRow>(API_ROUTES.loop(id as string)),
     enabled: !!id,
+    initialData: initial,
     refetchInterval: (q) => (q.state.data?.state.binding ? false : POLL.SAFETY_NET),
   });
 }
@@ -36,13 +37,14 @@ export function useLoopAction(id: string) {
 /** The seat's latest loop, for the chat header. Keyed under `loops.all`, so
  *  `loops:changed` refreshes it the moment a toggle-started loop appears; the
  *  safety net covers an event missed mid-reconnect, as in `useLoop`. */
-export function useLatestLoop(projectId: string, instanceId: string) {
+export function useLatestLoop(projectId: string | null, instanceId: string | null) {
   return useQuery({
-    queryKey: queryKeys.loops.forInstance(projectId, instanceId),
+    queryKey: queryKeys.loops.forInstance(projectId ?? "none", instanceId ?? "none"),
     queryFn: () =>
       apiFetch<LoopRow | null>(
-        `${API_ROUTES.loops}?${new URLSearchParams({ projectId, instanceId }).toString()}`,
+        `${API_ROUTES.loops}?${new URLSearchParams({ projectId: projectId ?? "", instanceId: instanceId ?? "" }).toString()}`,
       ),
+    enabled: !!projectId && !!instanceId,
     refetchInterval: POLL.SAFETY_NET,
   });
 }

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/fetch";
 import { Icon } from "@/components/ui/icon";
+import type { LoopRow } from "@agent-office/domain/services/db/loops";
 import { useLoop, useLoopAction, type LoopAction } from "../hooks/use-loop";
 import { availableActions, ceilingPressure, phaseLabel, sortedOpen } from "../format/loop-view";
 
@@ -12,8 +13,8 @@ import { availableActions, ceilingPressure, phaseLabel, sortedOpen } from "../fo
  * which models causality. Content is progress: which round, how close to the
  * binding ceiling, what is still open, and the three interventions.
  */
-export function LoopPill({ loopId }: { loopId: string }) {
-  const { data: loop } = useLoop(loopId);
+export function LoopPill({ loopId, initial }: { loopId: string; initial?: LoopRow }) {
+  const { data: loop } = useLoop(loopId, initial);
   const act = useLoopAction(loopId);
   const [open, setOpen] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
