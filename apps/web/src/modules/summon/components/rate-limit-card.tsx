@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useClaudeLimitsStore, periodStart, periodEnd } from "@/lib/claude-limits-store";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
 import { formatCountdown } from "../format/format-countdown";
 import { FlagCard, type FlagAction } from "./flag-card";
@@ -26,7 +25,7 @@ export type RateLimitCardProps = {
  * Card shown in the chat thread on a Claude rate-limit signal. An early
  * WARNING (amber, "approaching") keeps the run going — the user can dismiss
  * and continue. A hard LIMIT (red, "hit") means the run stopped. Displays
- * current budget usage and a live countdown to reset.
+ * this week's spend and a live countdown to reset.
  *
  * Action colors follow intent, not the card's severity: "Stop agent" is
  * always destructive-red, "Retry"/"Continue" is always the accent
@@ -72,25 +71,23 @@ export function RateLimitCard({ message, resetsAt, severity = "limit", onStop, o
   );
 }
 
-/**
- * Compute the current billing-period label ("used 42%" or "$0.83 spent")
- * from the runs store and the configured Claude limits.
- */
+/** Monday 00:00 local time of the current week. */
+function weekStart(now = Date.now()): number {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+/** What runs with a known cost have spent since Monday ("$0.83 spent this week"). */
 function useRateLimitUsageLabel(): string {
-  const quotaUsd = useClaudeLimitsStore((s) => s.quotaUsd);
-  const period = useClaudeLimitsStore((s) => s.period);
   const runsQ = useRuns({ limit: 500 });
   const allRuns = useMemo(() => runsQ.data ?? [], [runsQ.data]);
   return useMemo(() => {
-    const start = periodStart(period);
-    const end = periodEnd(period);
-    const cost = allRuns.filter((r) => r.ts >= start && r.ts < end).reduce((s, r) => (hasKnownCost(r) ? s + (r.cost || 0) : s), 0);
-    if (quotaUsd > 0) {
-      const pct = Math.round((cost / quotaUsd) * 100);
-      return `used ${pct}%`;
-    }
-    return `$${cost.toFixed(2)} spent`;
-  }, [allRuns, quotaUsd, period]);
+    const start = weekStart();
+    const cost = allRuns.filter((r) => r.ts >= start).reduce((s, r) => (hasKnownCost(r) ? s + (r.cost || 0) : s), 0);
+    return `$${cost.toFixed(2)} spent this week`;
+  }, [allRuns]);
 }
 
 /** Second-precision live countdown driven by resetsAt (unix seconds). */

@@ -6,7 +6,6 @@ const ALLOWED_KEYS = new Set([
   "theme",
   "active-project",
   "tabs-state",
-  "claude-limits",
   "performance-mode",
   // Auto-follow the power source (quality on AC, performance on battery).
   "performance-auto",
@@ -16,7 +15,7 @@ const ALLOWED_KEYS = new Set([
   "roster-groups",
 ]);
 
-// Generous headroom for the largest value (tabs-state, claude-limits) while
+// Generous headroom for the largest value (tabs-state) while
 // still bounding abuse.
 const MAX_VALUE_BYTES = 2 * 1024 * 1024;
 
