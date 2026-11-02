@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { Project } from "@agent-office/domain/types";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import { Icon } from "@/components/ui/icon";
@@ -8,6 +8,7 @@ import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { getPlanetParams, planetTag } from "@/lib/planet-seed";
 import { ProjectRuntimeBar, ProjectShortcutsBar } from "./project-actions";
 import { HeroRoster } from "./project-hero-roster";
+import { toast } from "@/lib/toast-store";
 
 export type ProjectHeroProps = {
   project: Project;
@@ -212,46 +213,47 @@ function DescriptionField({
 
 const TITLE_TEXT = "m-0 mt-[13px] text-[42px] leading-[1.02] tracking-[-0.035em] font-extrabold [overflow-wrap:anywhere]";
 
-// Saves are serialised: each PUT carries the cached `rev`, so two in flight would make the second a stale_write.
+// Debounced, serialised saves: each PUT carries the cached `rev`, so two in flight would make the second a stale_write.
 function TitleField({ name, onSave }: { name: string; onSave: (value: string) => Promise<unknown> }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
+  const draftRef = useRef(name);
   const original = useRef(name);
-  const lastSaved = useRef(name);
   const ref = useRef<HTMLTextAreaElement>(null);
-  const save = useSerialSave(onSave);
+  const saver = useNameSaver(onSave);
   useAutoGrow(ref, editing ? draft : null);
 
+  const setBoth = (value: string) => {
+    draftRef.current = value;
+    setDraft(value);
+  };
   const change = (value: string) => {
     const clean = value.replace(/[\r\n]+/g, " ");
-    setDraft(clean);
-    const next = clean.trim();
-    if (next && next !== lastSaved.current) {
-      lastSaved.current = next;
-      save(next);
-    }
+    setBoth(clean);
+    if (clean.trim()) saver.request(clean.trim(), NAME_SAVE_DEBOUNCE_MS);
   };
   const finish = () => {
     setEditing(false);
-    if (!draft.trim() && lastSaved.current !== original.current) {
-      lastSaved.current = original.current;
-      save(original.current);
-    }
+    saver.request(draftRef.current.trim() || original.current, 0);
+  };
+  const start = () => {
+    original.current = name;
+    saver.reset(name);
+    setBoth(name);
+    setEditing(true);
   };
 
   if (!editing) {
     return (
-      <h1
-        onClick={() => {
-          original.current = name;
-          lastSaved.current = name;
-          setDraft(name);
-          setEditing(true);
-        }}
-        title="Click to rename"
-        className={`${TITLE_TEXT} cursor-text rounded-[8px] transition-colors duration-150 hover:text-txt-2`}
-      >
-        {name}
+      <h1 className={TITLE_TEXT}>
+        <button
+          type="button"
+          onClick={start}
+          title="Click to rename"
+          className="block w-full text-left p-0 m-0 bg-transparent border-0 cursor-text rounded-[8px] transition-colors duration-150 hover:text-txt-2 focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-4 [overflow-wrap:anywhere]"
+        >
+          {name}
+        </button>
       </h1>
     );
   }
@@ -272,7 +274,7 @@ function TitleField({ name, onSave }: { name: string; onSave: (value: string) =>
           e.currentTarget.blur();
         }
         if (e.key === "Escape") {
-          change(original.current);
+          setBoth(original.current);
           e.currentTarget.blur();
         }
       }}
@@ -281,28 +283,53 @@ function TitleField({ name, onSave }: { name: string; onSave: (value: string) =>
   );
 }
 
-function useSerialSave(save: (value: string) => Promise<unknown>) {
+const NAME_SAVE_DEBOUNCE_MS = 400;
+const NAME_RETRY_MS = 800;
+
+// `confirmed` only advances on success and a failure keeps the newest wish, so a refused PUT never leaves a half-typed name.
+function useNameSaver(onSave: (value: string) => Promise<unknown>) {
+  const confirmed = useRef<string | null>(null);
+  const wanted = useRef<string | null>(null);
   const busy = useRef(false);
-  const queued = useRef<string | null>(null);
-  return useCallback(
-    (value: string) => {
-      queued.current = value;
-      if (busy.current) return;
-      busy.current = true;
-      void (async () => {
-        while (queued.current !== null) {
-          const next = queued.current;
-          queued.current = null;
-          try {
-            await save(next);
-          } catch {
-            queued.current = null;
-          }
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const pump = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
+    let retried = false;
+    while (wanted.current !== null && wanted.current !== confirmed.current) {
+      const next = wanted.current;
+      try {
+        await onSave(next);
+        confirmed.current = next;
+        retried = false;
+      } catch {
+        if (retried) {
+          toast("Couldn't save the project name — try again.");
+          break;
         }
-        busy.current = false;
-      })();
-    },
-    [save],
+        retried = true;
+        await new Promise((r) => setTimeout(r, NAME_RETRY_MS));
+      }
+    }
+    busy.current = false;
+  }, [onSave]);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  return useMemo(
+    () => ({
+      request(value: string, delayMs: number) {
+        wanted.current = value;
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => void pump(), delayMs);
+      },
+      reset(value: string) {
+        confirmed.current = value;
+        wanted.current = value;
+      },
+    }),
+    [pump],
   );
 }
 

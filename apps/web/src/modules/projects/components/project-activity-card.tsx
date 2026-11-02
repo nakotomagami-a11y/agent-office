@@ -50,7 +50,7 @@ export function ProjectActivityCard({ projectId }: { projectId: string }) {
   const isH = hover !== null && hover <= win.nowIndex;
   const hovered = isH ? buckets[hover] ?? EMPTY : null;
   const series = buckets.map((b) => (metric === "runs" ? b.runs : metric === "spend" ? b.cost : b.errors));
-  const max = Math.max(...series.slice(0, win.nowIndex + 1), 1);
+  const max = Math.max(0, ...series.slice(0, win.nowIndex + 1)) || 1;
   const color = METRIC_COLOR[metric];
 
   const runsDelta = totals && data ? delta(totals.runs, data.previous.runs, range.label, true) : null;

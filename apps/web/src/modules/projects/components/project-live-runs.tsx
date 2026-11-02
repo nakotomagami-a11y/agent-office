@@ -322,7 +322,7 @@ function ReplyCard({ projectId, target, who, sessionLabel, open, autoFocus, onOp
       {open && <Sheen background={REPLY_SHEEN} duration="5.6s" />}
       <div
         onClick={open ? undefined : onOpen}
-        onKeyDown={open ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+        onKeyDown={open ? undefined : (e) => { if (e.target !== e.currentTarget) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
         role={open ? undefined : "button"}
         tabIndex={open ? undefined : 0}
         aria-expanded={open}

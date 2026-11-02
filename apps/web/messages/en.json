@@ -471,8 +471,6 @@
     "import_success": "Imported {count, plural, one {# agent} other {# agents}} into project \"{project}\". Refresh to see changes.",
     "danger_title": "Danger zone",
     "danger_sub": "destructive actions — they cannot be undone",
-    "danger_confirm_question": "Are you sure?",
-    "danger_cancel": "Cancel",
     "danger_keep": "Keep work",
     "danger_discard": "Discard work",
     "reset_title": "Reset roster",
