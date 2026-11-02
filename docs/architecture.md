@@ -455,7 +455,26 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `~/.claude/agent-office-settings.json` | R/W | App settings (projectsRoot, excluded, firstRunComplete, integrations) |
 | `~/.claude/.credentials.json` | R | Claude auth credentials (plan detection) |
 | `<projectCwd>/.worktrees/<instanceId>/` | R/W | Git worktree per agent instance |
-| `<projectCwd>/.ao.json` | R | Per-project build/dev command overrides |
+| `<projectCwd>/.ao.json` | R | Per-project build/dev command overrides, plus a committed `name`/`description` |
+| `<projectCwd>/package.json` | R | Build/dev scripts, plus a committed `displayName`/`description` |
+
+A project's title and description resolve in that order of specificity:
+`project.md` frontmatter (this machine only) → `.ao.json` → `package.json` →
+the folder name. Only the first is per-device, so a repo that declares its own
+identity shows the same thing on every clone; clearing the local field in the UI
+writes no key and lets the repo's value through again. Anything that writes the metadata back, or
+ships it to another machine, must read it through `readStoredProject` rather than
+`readProject` — a resolved view copies the inherited text into `project.md` and
+freezes it there, which is how both an unrelated edit and a save-bundle round
+trip used to pin a title. Repo-authored text is sanitised at the read
+(`readRepoIdentity` → `inert` in `repo-text.ts`) because it reaches the system prompt of an agent running with
+`bypassPermissions`. Every repo-authored file goes through
+`readRepoFile`, which refuses a symlinked file (by `lstat`, since Windows has no
+`O_NOFOLLOW`), never blocks, and never allocates past 256 KB: a cloned `package.json -> /dev/zero` aborts the process
+inside `readFileSync` where no `catch` can see it, and a FIFO in its place wedges
+`openSync` — and the event loop — until a writer appears. Every repo-named directory
+(declared workspaces and the `frontend/`-style fallbacks) must resolve inside the
+project, root included, which also catches a symlinked or junctioned parent dir.
 
 ---
 

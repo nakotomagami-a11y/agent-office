@@ -40,7 +40,7 @@ function collectUniqueRosterAgents(project: Project): SaveBundleAgent[] {
 
 /** Build a portable bundle for a project, or null if the project doesn't exist. */
 export function exportBundle(projectId: string): SaveBundle | null {
-  const project = projects.readProject(projectId);
+  const project = projects.readStoredProject(projectId);
   if (!project) return null;
   return {
     version: 1,
@@ -100,8 +100,9 @@ function restoreProject(p: ImportBundle["project"]): void {
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
   const patch: ProjectMetaPatch = {
-    name: str("name"),
-    description: str("description"),
+    // "" in a bundle means the exporter never set one; it must not clear this device's own.
+    name: str("name") || undefined,
+    description: str("description") || undefined,
     accountId: str("accountId"),
     githubAccountId: str("githubAccountId"),
     shelved: typeof meta.shelved === "boolean" ? meta.shelved : undefined,
@@ -112,7 +113,7 @@ function restoreProject(p: ImportBundle["project"]): void {
   if (!existing) {
     projects.createProject({
       id: p.id,
-      name: patch.name ?? p.id,
+      name: patch.name ?? "",
       description: patch.description ?? "",
     });
   }
