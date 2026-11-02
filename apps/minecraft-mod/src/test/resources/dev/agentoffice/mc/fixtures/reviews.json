@@ -1,0 +1,19 @@
+{
+  "pulls": [
+    {
+      "number": 7,
+      "title": "Add WEEK",
+      "url": "https://github.com/Owner/Repo/pull/7",
+      "author": "Someone",
+      "headRef": "agent/developer-fx01-1716800000000",
+      "baseRef": "main",
+      "isDraft": false,
+      "additions": 3,
+      "deletions": 2,
+      "changedFiles": 1,
+      "reviewDecision": null,
+      "updatedAt": "2026-10-10T00:00:00Z"
+    }
+  ],
+  "truncated": false
+}

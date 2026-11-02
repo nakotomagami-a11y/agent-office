@@ -14,6 +14,7 @@
  *   node ../../scripts/run-tests.mjs                  # unit tests (no *e2e*, in every package)
  *   node ../../scripts/run-tests.mjs --e2e            # only *e2e* files
  *   node ../../scripts/run-tests.mjs src/a.test.ts    # explicit files
+ *   node ../../scripts/run-tests.mjs --update f.ts    # a fixture test rewrites its fixtures instead of comparing
  */
 import { spawnSync } from "node:child_process";
 import { globSync, mkdtempSync, rmSync } from "node:fs";
@@ -23,7 +24,8 @@ import { basename, join } from "node:path";
 
 const args = process.argv.slice(2);
 const e2e = args.includes("--e2e");
-const explicit = args.filter((a) => a !== "--e2e");
+const update = args.includes("--update");
+const explicit = args.filter((a) => a !== "--e2e" && a !== "--update");
 const files = explicit.length
   ? explicit
   : globSync("src/**/*.test.{ts,tsx}").filter((f) => basename(f).includes("e2e") === e2e).sort();
@@ -44,6 +46,8 @@ const home = mkdtempSync(join(tmpdir(), "ao-test-home-"));
 const env = { ...process.env, HOME: home, USERPROFILE: home, APPDATA: join(home, "AppData", "Roaming"), NODE_ENV: "test" };
 const dropped = ["AO_BASE_URL", "AO_RUN_ID", "AO_BUNDLE_ROOT", "PORT", "CLAUDE_CONFIG_DIR", "GH_CONFIG_DIR", "XDG_CONFIG_HOME"];
 for (const key of dropped) delete env[key];
+if (update) env.UPDATE_FIXTURES = "1";
+else delete env.UPDATE_FIXTURES;
 
 const result = spawnSync(process.execPath, [tsxCli, "--test", ...files], { stdio: "inherit", env });
 if (result.error) console.error("run-tests: could not start the test runner:", result.error);

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "alpha",
+    "name": "alpha",
+    "description": "",
+    "cwd": "/home/code/alpha",
+    "instanceCount": 1,
+    "planet": {
+      "type": "terran",
+      "seed": 569418669,
+      "paletteIdx": 3,
+      "pixels": 1000,
+      "dither": true
+    },
+    "shelved": false
+  }
+]
