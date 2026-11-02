@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
@@ -31,7 +31,7 @@ function HeaderMenu({ label, trigger, triggerClassName, panelClassName, align = 
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.isComposing || !ref.current?.contains(document.activeElement)) return;
+      if (e.key !== "Escape" || e.isComposing || !ref.current) return;
       // Capture phase, and no further: the inspector around this menu closes on Escape too.
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -61,7 +61,10 @@ function HeaderMenu({ label, trigger, triggerClassName, panelClassName, align = 
         aria-label={label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          triggerRef.current?.focus();
+          setOpen((v) => !v);
+        }}
         className={triggerClassName}
       >
         {trigger}
@@ -85,6 +88,7 @@ function HeaderMenu({ label, trigger, triggerClassName, panelClassName, align = 
 }
 
 function ToolRow({ label, hint, on, pending, onToggle }: { label: string; hint: string; on: boolean; pending: boolean; onToggle: () => void }) {
+  const labelId = useId();
   const hintId = useId();
   // aria-disabled, not disabled: a disabled button drops focus to <body>, and Escape then closes the whole inspector.
   return (
@@ -92,13 +96,14 @@ function ToolRow({ label, hint, on, pending, onToggle }: { label: string; hint: 
       type="button"
       role="switch"
       aria-checked={on}
+      aria-labelledby={labelId}
       aria-describedby={hintId}
       aria-disabled={pending}
       onClick={() => { if (!pending) onToggle(); }}
       className="flex flex-col gap-[3px] px-[10px] py-[8px] rounded-[8px] text-left text-ao-fg-1 hover:bg-ao-bg-3 aria-disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-acc transition-colors duration-[120ms]"
     >
       <span className="flex items-center w-full">
-        {label}
+        <span id={labelId}>{label}</span>
         <span className="flex-1" />
         <span className={cn("flex w-[26px] h-[14px] p-[2px] rounded-full", on ? "justify-end bg-[color-mix(in_srgb,var(--ao-ok)_70%,transparent)]" : "justify-start bg-ao-bg-3")}>
           <span className={cn("w-[10px] h-[10px] rounded-full", on ? "bg-white" : "bg-ao-fg-3")} />
@@ -165,8 +170,14 @@ export function HeaderOverflow({ projectId, instanceId, qaLoopEnabled, shell, on
   const t = useTranslations("agent_details");
   const latest = useLatestLoopShown(projectId, instanceId, qaLoopEnabled);
   const count = (latest ? 1 : 0) + (shell ? 1 : 0);
+  const dialog = useRef<HTMLElement | null>(null);
+  // Emptying the menu unmounts it; focus would fall to <body> and the next Escape close the whole inspector.
+  useLayoutEffect(() => {
+    if (!count && document.activeElement === document.body) dialog.current?.focus();
+  }, [count]);
   if (!count) return null;
   return (
+    <span ref={(el) => { if (el) dialog.current = el.closest<HTMLElement>("[role=dialog]"); }} className="contents">
     <HeaderMenu
       label={t(latest?.needsDecision ? "overflow_label_decision" : "overflow_label", { count })}
       align="end"
@@ -181,7 +192,8 @@ export function HeaderOverflow({ projectId, instanceId, qaLoopEnabled, shell, on
       }
     >
       {shell && <BackgroundTaskPill task={shell} onDismiss={onDismissShell} />}
-      {latest && <LoopPill loopId={latest.loop.id} initial={latest.loop} />}
+      {latest && <LoopPill loopId={latest.loop.id} initial={latest.loop} initialUpdatedAt={latest.updatedAt} />}
     </HeaderMenu>
+    </span>
   );
 }

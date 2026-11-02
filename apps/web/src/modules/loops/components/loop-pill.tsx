@@ -13,8 +13,8 @@ import { availableActions, ceilingPressure, phaseLabel, sortedOpen } from "../fo
  * which models causality. Content is progress: which round, how close to the
  * binding ceiling, what is still open, and the three interventions.
  */
-export function LoopPill({ loopId, initial }: { loopId: string; initial?: LoopRow }) {
-  const { data: loop } = useLoop(loopId, initial);
+export function LoopPill({ loopId, initial, initialUpdatedAt }: { loopId: string; initial?: LoopRow; initialUpdatedAt?: number }) {
+  const { data: loop } = useLoop(loopId, initial, initialUpdatedAt);
   const act = useLoopAction(loopId);
   const [open, setOpen] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);

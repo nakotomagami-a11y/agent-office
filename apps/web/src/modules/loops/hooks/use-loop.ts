@@ -13,12 +13,14 @@ export type LoopAction = "stop" | "acceptAsIs" | "allowOneMore";
  *  Last-Event-ID replay, so anything emitted during a reconnect gap is lost
  *  forever — hence a slow safety net while the loop is live, and none once it
  *  has settled. Same pattern as use-conversation. */
-export function useLoop(id: string | null, initial?: LoopRow) {
+export function useLoop(id: string | null, initial?: LoopRow, initialUpdatedAt?: number) {
   return useQuery({
     queryKey: queryKeys.loops.detail(id ?? "none"),
     queryFn: () => apiFetch<LoopRow>(API_ROUTES.loop(id as string)),
     enabled: !!id,
     initialData: initial,
+    // Without it React Query stamps the borrowed (up to a minute old) row as fresh and skips the mount fetch.
+    initialDataUpdatedAt: initialUpdatedAt,
     refetchInterval: (q) => (q.state.data?.state.binding ? false : POLL.SAFETY_NET),
   });
 }

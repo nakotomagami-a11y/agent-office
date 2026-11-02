@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "@/lib/toast-store";
 import { useUpdateInstance } from "@/modules/projects/hooks/use-projects";
 import { useLatestLoop } from "./use-loop";
-import { availableActions } from "../format/loop-view";
+import { needsDecision as loopNeedsDecision } from "../format/loop-view";
 
 /** When on, the server starts a review loop after any turn that changed files. */
 export function useQaLoopToggle(projectId: string, instanceId: string, enabled: boolean) {
@@ -27,11 +27,10 @@ export function useLatestLoopShown(
   projectId: string | null,
   instanceId: string | null,
   enabled: boolean,
-): { loop: LoopRow; needsDecision: boolean } | null {
-  const { data: loop } = useLatestLoop(projectId, instanceId);
+): { loop: LoopRow; updatedAt: number; needsDecision: boolean } | null {
+  const { data: loop, dataUpdatedAt } = useLatestLoop(projectId, instanceId);
   if (!loop) return null;
-  const can = availableActions(loop, Date.now());
-  const needsDecision = can.acceptAsIs || can.allowOneMore;
+  const needsDecision = loopNeedsDecision(loop, Date.now());
   if (!enabled && loop.state.binding && !needsDecision) return null;
-  return { loop, needsDecision };
+  return { loop, updatedAt: dataUpdatedAt, needsDecision };
 }

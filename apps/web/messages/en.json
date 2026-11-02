@@ -428,7 +428,7 @@
     "playwright_on_tooltip": "Playwright is available to this session. Click to turn it off — its browser tools won't load into context and sub-agents can't use it either.",
     "playwright_off_tooltip": "Playwright is off for this session. Click to turn it back on.",
     "qa_loop_enabled_toast": "QA loop on: a turn that changes files is followed by a review loop",
-    "qa_loop_disabled_toast": "QA loop off for new turns. A loop already running finishes on its own; stop it from its pill",
+    "qa_loop_disabled_toast": "QA loop off for new turns. A loop already running finishes on its own; stop it from the +N menu in the header",
     "qa_loop_on_tooltip": "After a turn that changes files, qa-code-review reviews it and this agent fixes what it finds: up to 3 reviews, $10, 1 hour. Click to turn it off.",
     "qa_loop_off_tooltip": "Click to have every turn that changes files reviewed and fixed in a loop.",
     "qa_loop_label": "QA loop",

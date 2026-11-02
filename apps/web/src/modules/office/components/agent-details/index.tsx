@@ -318,10 +318,11 @@ export function AgentDetailsModal() {
       >
         <div
           ref={ref}
-          className="ao-modal surface-sheen relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
+          className="ao-modal surface-sheen outline-none relative w-full max-w-[1240px] rounded-[26px] shadow-[var(--ao-shadow-modal)] flex flex-col overflow-hidden z-[1] text-[var(--ao-fg-0)] text-[14px] leading-[1.45] [-webkit-font-smoothing:antialiased]"
           style={{ height: `calc(100vh - ${CHROME_TOP + 52}px)`, maxHeight: "940px" }}
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           aria-label={`Agent: ${agent.name}`}
           onClick={(e) => e.stopPropagation()}
         >
