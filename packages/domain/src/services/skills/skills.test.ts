@@ -10,7 +10,8 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AGENTS_DIR, SKILLS_DIR } from "../infra/paths";
 import { importPastedSkill, installSkill, readInstalledSkill, writeLocalSkill } from "./skills";
@@ -209,5 +210,57 @@ test("writeLocalSkill still refuses a traversing name", () => {
       () => writeLocalSkill({ name, body: "x" }, { overwrite: true }),
       /invalid skill name/,
     );
+  }
+});
+
+test("a symlinked skill dir cannot redirect the write outside SKILLS_DIR", () => {
+  // ensureDir(dest) is an existsSync check, which FOLLOWS a symlink: the dir
+  // "exists", no mkdir happens, and writeFileAtomic then creates its temp file
+  // and renames it inside whatever the link points at. The name is validated,
+  // so this is the remaining way out of SKILLS_DIR on the write path.
+  const outside = mkdtempSync(join(tmpdir(), "ao-skill-escape-"));
+  const link = join(SKILLS_DIR, "linked-skill");
+  mkdirSync(SKILLS_DIR, { recursive: true });
+  rmSync(link, { recursive: true, force: true });
+  symlinkSync(outside, link, "dir");
+
+  try {
+    assert.throws(
+      () => writeLocalSkill({ name: "linked-skill", body: "pwned" }, { overwrite: true }),
+      /skill path escapes SKILLS_DIR/,
+    );
+    assert.equal(
+      existsSync(join(outside, "SKILL.md")),
+      false,
+      "nothing may be written through the symlink",
+    );
+  } finally {
+    // Not cleanup hygiene: a surviving link leaves SKILLS_DIR pointing into
+    // /tmp for every later test in this file, listInstalled() included.
+    rmSync(link, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("a symlinked SKILL.md cannot redirect the write either", () => {
+  const outside = mkdtempSync(join(tmpdir(), "ao-skill-file-escape-"));
+  const victim = join(outside, "victim.md");
+  writeFileSync(victim, "original");
+  const dir = join(SKILLS_DIR, "linked-file-skill");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  symlinkSync(victim, join(dir, "SKILL.md"));
+
+  // Covers two things this fix leans on but does not own: writeFileAtomic
+  // renaming OVER a link instead of through it, and readSkillFrontmatter's
+  // realpath bound — the carry read resolves to /tmp and must return nothing.
+  try {
+    writeLocalSkill({ name: "linked-file-skill", body: "new" }, { overwrite: true });
+    assert.equal(readFileSync(victim, "utf8"), "original", "the link target must be untouched");
+    assert.match(readFileSync(join(dir, "SKILL.md"), "utf8"), /new/, "the write lands inside SKILLS_DIR");
+    assert.equal(lstatSync(join(dir, "SKILL.md")).isSymbolicLink(), false, "the rename replaced the link");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 });

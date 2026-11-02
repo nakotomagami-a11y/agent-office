@@ -6,6 +6,7 @@
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -563,6 +564,31 @@ function readSkillFrontmatter(name: string): YamlMapping {
 }
 
 /**
+ * `ensureDir` asks existsSync, which FOLLOWS a symlink: a linked `_skills/<name>`
+ * read as "already there", so no mkdir ran and writeFileAtomic put its temp file
+ * and rename inside the link's target. Validating `name` cannot catch that — the
+ * escape is on disk, not in the string. lstat describes the link rather than its
+ * target, so it also catches a dangling one and a Windows junction (the realistic
+ * plant there, symlinks needing admin). The gap before the write needs openat to
+ * close, which Node lacks: this costs an attacker a race, not a plant-and-wait.
+ */
+function assertRealSkillDir(dest: string, name: string): void {
+  let st;
+  try {
+    st = lstatSync(dest);
+  } catch (e) {
+    // Only "nothing there yet" may pass; EACCES/ELOOP/ENOTDIR would fail open.
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
+    log.warn("skill.dest_unstattable", { name, err: String(e) });
+    throw new Error(`skill path unreadable: "${name}"`);
+  }
+  if (!st.isDirectory() || !isInside(dest, SKILLS_DIR)) {
+    log.warn("skill.dest_outside_skills_dir", { name });
+    throw new Error(`skill path escapes SKILLS_DIR: "${name}"`);
+  }
+}
+
+/**
  * Forge (or overwrite) a user-owned local skill. `overwrite: false` refuses to
  * clobber an existing skill of the same name (SkillExistsError); edit/fork pass
  * `overwrite: true`.
@@ -577,6 +603,7 @@ export function writeLocalSkill(
   if (!opts.overwrite && isInstalled(name)) throw new SkillExistsError(name);
 
   const dest = join(SKILLS_DIR, name);
+  assertRealSkillDir(dest, name);
   ensureDir(dest);
   // An import has no file on disk yet; its keys come from the pasted text.
   const carry = opts.carryFm ?? readSkillFrontmatter(name);
