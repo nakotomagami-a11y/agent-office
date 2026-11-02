@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.3.0"
+version = "0.3.1"
 description = "Agent Office — your Claude Code agents in one desktop app"
 authors = ["chaos and curves"]
 license = "GPL-3.0-or-later"
