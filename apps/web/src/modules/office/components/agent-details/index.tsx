@@ -375,13 +375,13 @@ export function AgentDetailsModal() {
                     {isMultiAgentSelected && selectedInst && (
                       <>
                         <span className="text-ao-fg-3 shrink-0" aria-hidden>/</span>
-                        <span className="text-ao-fg-1 text-[13px] shrink-0 whitespace-nowrap">
-                          Session {selectedInstIdx + 1}
+                        <span className="text-ao-fg-1 text-[13px] min-w-0 max-w-[50%] truncate whitespace-nowrap">
+                          {selectedInst.label || selectedInst.sessionName || `Session ${selectedInstIdx + 1}`}
                         </span>
-                        {selectedInst.label && (
+                        {selectedInst.topic && (
                           <>
                             <span className="text-ao-fg-3 shrink-0" aria-hidden>·</span>
-                            <span className="text-ao-fg-2 text-[13px] truncate">{selectedInst.label}</span>
+                            <span className="text-ao-fg-2 text-[13px] truncate" title={selectedInst.topic}>{selectedInst.topic}</span>
                           </>
                         )}
                       </>
@@ -456,7 +456,7 @@ export function AgentDetailsModal() {
                         onClick={() => {
                           setRemoveTarget({
                             instanceId: selectedInstanceId,
-                            name: rosterInstances.find((i) => i.instanceId === selectedInstanceId)?.label ?? agent.name,
+                            name: (() => { const i = rosterInstances.find((x) => x.instanceId === selectedInstanceId); return i?.label || i?.sessionName || agent.name; })(),
                           });
                           closeInspector();
                         }}

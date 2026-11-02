@@ -388,7 +388,7 @@ function GroupInstanceLine({ instance, index, status, run, spend }: {
   spend: number | undefined;
 }) {
   const t = useTranslations();
-  const label = instance.label || t("sidebar.session_default_label", { number: index + 1 });
+  const label = instance.label || instance.sessionName || t("sidebar.session_default_label", { number: index + 1 });
   const dotClass =
     status === "error" ? "bg-status-error" :
     LIVE_STATUSES.includes(status) ? "bg-status-working shadow-[0_0_4px_var(--working)]" :
@@ -512,7 +512,7 @@ function SingleInstanceCard({ agent, instance, index, headerMode, spendByInstanc
     status === "failed" ? "red" :
     "grey";
 
-  const label = instance.label || t("sidebar.session_default_label", { number: index + 1 });
+  const label = instance.label || instance.sessionName || t("sidebar.session_default_label", { number: index + 1 });
   const heading = headerMode === "instance" ? label : agentDisplayName(agent);
   const subtitle = headerMode === "instance"
     ? `${agentDisplayName(agent)} · ${model} · ${effort}`

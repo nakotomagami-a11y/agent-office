@@ -11,7 +11,8 @@
         "label": "Builder",
         "model": "sonnet",
         "effort": "low",
-        "permissionMode": "plan"
+        "permissionMode": "plan",
+        "sessionName": "Builder"
       }
     ],
     "planet": {

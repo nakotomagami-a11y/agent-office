@@ -50,8 +50,8 @@ export function useRosterDisplay(params: {
       const count = (seenSameAgent.get(inst.agentId) ?? 0) + 1;
       seenSameAgent.set(inst.agentId, count);
       const totalForAgent = project.meta.roster.filter((i) => i.agentId === inst.agentId).length;
-      const displayName = inst.label
-        ? inst.label
+      const displayName = inst.label || inst.sessionName
+        ? (inst.label || inst.sessionName)!
         : totalForAgent > 1
           ? `${a.name} #${count}`
           : a.name;

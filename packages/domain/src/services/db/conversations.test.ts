@@ -74,6 +74,20 @@ check("listConversationTurns: top-level only, oldest-first", () => {
   assert.equal(convo.latestConversationTurn(c.id)?.prompt, "second");
 });
 
+check("currentConversationFirstPrompts: first top-level prompt of the CURRENT conversation only", () => {
+  const old = convo.createConversation("dev", "topic", "p", null);
+  insertRun({ id: "tp-old", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "old thread", model: "", effort: "", startedAt: 100, conversationId: old.id });
+  const cur = convo.startNewConversation("dev", "topic", "p");
+  insertRun({ id: "tp-sys", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "You hold seat qa…", model: "", effort: "", startedAt: 120, conversationId: cur.id, origin: "system" });
+  insertRun({ id: "tp-2", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "second", model: "", effort: "", startedAt: 300, conversationId: cur.id });
+  insertRun({ id: "tp-1", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "new thread", model: "", effort: "", startedAt: 200, conversationId: cur.id });
+  insertRun({ id: "tp-sub", agentId: "dev", agentName: "Dev", instanceId: "topic", status: "done", prompt: "child", model: "", effort: "", startedAt: 150, parentRunId: "tp-1", conversationId: cur.id });
+  convo.createConversation("dev", "empty", "p", null);
+  const got = convo.currentConversationFirstPrompts([{ agentId: "dev", instanceId: "topic" }, { agentId: "dev", instanceId: "empty" }]);
+  assert.equal(got.get("topic"), "new thread");
+  assert.equal(got.has("empty"), false, "a conversation with no runs has no topic");
+});
+
 check("listConversationTurns: surfaces a run_in_background Bash command by run, oldest tool_call wins", () => {
   const c = convo.createConversation("dev", "bg", "p", null);
   insertRun({ id: "bgrun1", agentId: "dev", agentName: "Dev", instanceId: "bg", status: "done", prompt: "start a server", model: "", effort: "", startedAt: 1000, conversationId: c.id });

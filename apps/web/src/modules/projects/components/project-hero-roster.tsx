@@ -192,7 +192,7 @@ function RosterModal({ open, onClose, projectName, groups, awaiting, spendByInst
             status === "queued" ? "queued" :
             status === "done" ? "done" : "idle";
           const name = agentDisplayName(group.agent);
-          const label = group.instances.length > 1 ? inst.label || `${name} · ${t("sidebar.session_default_label", { number: idx + 1 })}` : inst.label || name;
+          const label = group.instances.length > 1 ? inst.label || `${name} · ${inst.sessionName ?? t("sidebar.session_default_label", { number: idx + 1 })}` : inst.label || name;
           const model = inst.model ?? group.agent.defaultModel ?? "default";
           const spend = spendByInstance[`${group.agentId}|${inst.instanceId}`];
           return (

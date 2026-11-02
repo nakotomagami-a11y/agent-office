@@ -206,6 +206,10 @@ export interface AgentInstance {
   };
   /** Transient: worktree dir missing on disk, shows a "needs repair" badge. */
   worktreeMissing?: boolean;
+  /** Transient: the label, else a stable pool name unique in the roster (`config/session-names`). */
+  sessionName?: string;
+  /** Transient: what the current conversation is about, from its first prompt (`config/session-names`). */
+  topic?: string;
 }
 
 export type PlanetType = "gas-giant" | "rocky" | "terran" | "ringed-terran" | "toxic" | "ice" | "islands" | "lava" | "ice-moon" | "eclipse" | "black-hole" | "galaxy" | "star" | "asteroid" | "comet";

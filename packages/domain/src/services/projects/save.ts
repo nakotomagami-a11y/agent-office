@@ -88,7 +88,7 @@ function restoreAgents(list: SaveBundleAgent[], at: string): string[] {
 }
 
 /** Another machine's checkout and worktrees: here they are missing, or someone else's folder. */
-const MACHINE_KEYS = new Set(["cwd", "worktree", "worktreeMissing"]);
+const MACHINE_KEYS = new Set(["cwd", "worktree", "worktreeMissing", "sessionName", "topic"]);
 
 function portableSeat(seat: unknown): unknown {
   if (typeof seat !== "object" || seat === null) return seat;

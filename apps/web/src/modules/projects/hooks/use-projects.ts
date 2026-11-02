@@ -44,8 +44,9 @@ export function useUpdateProject() {
     onSuccess: (project, vars) => {
       // MERGE, never replace: PUT returns a narrower shape than GET, so
       // replacing dropped runCount, lastRunAt and the repair badges.
+      // The PUT can't change the roster and returns it without the GET's annotations (names, topics).
       qc.setQueryData<Project>(queryKeys.projects.detail(vars.id), (old) =>
-        old ? { ...old, ...project } : project);
+        old ? { ...old, ...project, meta: { ...project.meta, roster: old.meta.roster } } : project);
 
       qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.id) });
       qc.invalidateQueries({ queryKey: queryKeys.projects.list() });
