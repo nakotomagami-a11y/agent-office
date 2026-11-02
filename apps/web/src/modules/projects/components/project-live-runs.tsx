@@ -148,6 +148,8 @@ export function ProjectLiveRuns({ projectId, roster, agents, onSummonAnother }: 
 
       {runsQ.isPending ? (
         <span className="flex-1" />
+      ) : runsQ.isError ? (
+        <p className="m-0 flex-1 flex items-center justify-center text-[12.5px] text-txt-3">Couldn&apos;t load runs.</p>
       ) : isEmpty ? (
         <LiveRunsEmpty crew={crew} onSummonAnother={onSummonAnother} />
       ) : (

@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readGitStatus } from "./git-status";
 
+// Keep git from finding a repo above the temp dir (e.g. a git-tracked user profile).
+process.env.GIT_CEILING_DIRECTORIES = tmpdir();
+
 test("a fresh `git init` with no commits counts as a git repo", async () => {
   const dir = mkdtempSync(join(tmpdir(), "ao-git-status-"));
   try {
