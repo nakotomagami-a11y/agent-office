@@ -1,5 +1,5 @@
-// Side-effect module, like execution/conversation-wiring.ts: posts a mission seat's outbox when
-// its run finishes. Imported once from the services barrel; returns at once for any other run.
+// Like execution/conversation-wiring.ts: posts a mission seat's outbox when its run finishes.
+// Installed by installRunListeners; returns at once for any other run.
 import { registerRunFinishedListener } from "../execution/runs";
 import { emitAppEvent } from "../infra/events";
 import { log } from "../infra/log";
@@ -10,7 +10,8 @@ declare global {
   var __agentOfficeMissionsWiringInstalled: boolean | undefined;
 }
 
-if (!globalThis.__agentOfficeMissionsWiringInstalled) {
+export function installMissionsWiring(): void {
+  if (globalThis.__agentOfficeMissionsWiringInstalled) return;
   registerRunFinishedListener((runId) => {
     void postRunOutbox(runId)
       .then((seat) => { if (seat) emitAppEvent("missions:changed"); })

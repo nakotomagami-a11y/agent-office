@@ -21,7 +21,7 @@ import { useProject, useAddInstance, useUpdateInstance } from "@/modules/project
 import { RemoveSessionModal, type RemoveSessionTarget } from "@/modules/projects/components/remove-session-modal";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi } from "@/modules/agents/form/agent-form";
-import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain";
+import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain/config/agent-opts";
 import { MODEL_TIERS, usesGateway } from "@agent-office/domain/config/providers";
 import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";

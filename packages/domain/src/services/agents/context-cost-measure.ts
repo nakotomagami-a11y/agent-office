@@ -27,23 +27,11 @@ import { estimateTokens } from "../infra/token-estimate";
 import { prepareProviderSpawn, ProviderUnavailableError, releaseProviderSpawn } from "../execution/runs/provider-spawn";
 import { spawnClaude } from "../infra/claude-bin";
 import { buildAppendedPrompt, readAgent } from "./agents";
-import { nonNativeKnownTokens, resolveReadonlyCwd } from "./context-cost";
+import { agentMcpServerNames, nonNativeKnownTokens, resolveReadonlyCwd } from "./context-sources";
 
 const PROBE_PROMPT = "Reply with only the word OK.";
 const PROBE_TIMEOUT_MS = 45_000;
 const MCP_HANDSHAKE_TIMEOUT_MS = 25_000;
-
-/** Server names this agent actually loads, parsed from its own `tools:`
- *  frontmatter (e.g. `"mcp__playwright__*"` → `"playwright"`) — NOT every
- *  globally-configured MCP server, which is the bug this feature replaces. */
-export function agentMcpServerNames(tools: string[]): string[] {
-  const names = new Set<string>();
-  for (const t of tools) {
-    const parts = t.split("__");
-    if (parts.length >= 2 && parts[0] === "mcp") names.add(parts[1]!);
-  }
-  return Array.from(names);
-}
 
 interface ProbeUsage {
   /** cache_read + cache_creation — the sum stays correct whether this prompt

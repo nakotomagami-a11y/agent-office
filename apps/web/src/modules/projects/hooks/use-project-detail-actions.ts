@@ -32,7 +32,6 @@ export function useProjectDetailActions(
   const t = useTranslations();
   const router = useRouter();
 
-  const [includeHistory, setIncludeHistory] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exported, setExported] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -57,7 +56,7 @@ export function useProjectDetailActions(
     setExportError(null);
     let blob: Blob;
     try {
-      blob = await exportProject(projectId, includeHistory);
+      blob = await exportProject(projectId);
     } catch (err) {
       setExportError(t("project_detail.export_failed", { error: err instanceof Error ? err.message : String(err) }));
       return;
@@ -127,7 +126,7 @@ export function useProjectDetailActions(
 
   return {
     backup: {
-      includeHistory, setIncludeHistory, exportError, exported, exportFileName,
+      exportError, exported, exportFileName,
       importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport, onDropFile: importFile,
     },
     danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },

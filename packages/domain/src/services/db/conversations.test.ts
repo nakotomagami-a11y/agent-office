@@ -30,23 +30,19 @@ check("create / get / ensure (ensure returns existing, not a dup)", () => {
   assert.equal(convo.ensureConversation("dev", "s1", "proj").id, c.id);
 });
 
-check("queue is strict FIFO (enqueue / list / dequeue)", () => {
+check("the queue keeps the order it was written in (replace / list)", () => {
   const c = convo.createConversation("dev", "q", "p", null);
-  convo.enqueueMessage(c.id, "a");
-  convo.enqueueMessage(c.id, "b");
-  convo.enqueueMessage(c.id, "c");
+  convo.replaceQueue(c.id, ["a", "b", "c"].map((t) => ({ id: `q-${t}`, text: t })));
   assert.deepEqual(convo.listQueue(c.id).map((m) => m.text), ["a", "b", "c"]);
   assert.equal(convo.queueLength(c.id), 3);
-  assert.equal(convo.dequeueMessage(c.id)?.text, "a");
-  assert.equal(convo.dequeueMessage(c.id)?.text, "b");
+  convo.replaceQueue(c.id, convo.listQueue(c.id).slice(2));
   assert.deepEqual(convo.listQueue(c.id).map((m) => m.text), ["c"]);
 });
 
 check("remove and clear queue", () => {
   const c = convo.createConversation("dev", "q2", "p", null);
-  const m1 = convo.enqueueMessage(c.id, "x");
-  convo.enqueueMessage(c.id, "y");
-  convo.removeQueuedMessage(c.id, m1.id);
+  convo.replaceQueue(c.id, [{ id: "q2-x", text: "x" }, { id: "q2-y", text: "y" }]);
+  convo.removeQueuedMessage(c.id, "q2-x");
   assert.deepEqual(convo.listQueue(c.id).map((m) => m.text), ["y"]);
   convo.clearQueue(c.id);
   assert.equal(convo.queueLength(c.id), 0);
@@ -55,7 +51,7 @@ check("remove and clear queue", () => {
 check("queues are isolated per conversation", () => {
   const a = convo.createConversation("dev", "iso-a", "p", null);
   const b = convo.createConversation("dev", "iso-b", "p", null);
-  convo.enqueueMessage(a.id, "only-a");
+  convo.replaceQueue(a.id, [{ id: "iso-only-a", text: "only-a" }]);
   assert.equal(convo.queueLength(a.id), 1);
   assert.equal(convo.queueLength(b.id), 0); // sibling instance cannot see it
 });
@@ -123,6 +119,10 @@ check("listConversationTurns: attaches the full tool-call trail, oldest-first", 
 });
 
 check("backfill creates a conversation per legacy slot and tags its runs", () => {
+  // v31 empties the legacy table; backfill only ever runs at v14, where it still holds rows.
+  mem.exec(`CREATE TABLE IF NOT EXISTS transcripts (agent_id TEXT NOT NULL, instance_id TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]',
+    active_run_id TEXT, session_id TEXT, updated_at INTEGER NOT NULL, queued_messages TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY(agent_id, instance_id))`);
   mem.prepare("INSERT INTO transcripts (agent_id, instance_id, items, active_run_id, session_id, queued_messages, updated_at) VALUES (?,?,?,?,?,?,?)")
     .run("legacy", "default", "[]", null, "legacy-session", "[]", 5000);
   insertRun({ id: "lrun1", agentId: "legacy", agentName: "L", instanceId: "default", status: "done", prompt: "old-1", model: "", effort: "", startedAt: 100 });
@@ -145,15 +145,9 @@ check("origin survives a queue rewrite, which is every state transition", () => 
   // `replaceQueue` is how the conversation service persists state after EVERY
   // transition. Dropping origin there relabels Agent Office's own message as
   // the user's on the next tick — invisible, because the text is unchanged.
-  //
-  // This is the LIVE path. `enqueueMessage`/`dequeueMessage` below are the
-  // pre-reducer primitives and have no production caller, so a test written
-  // against them would assert nothing about what actually runs; they are used
-  // here only to seed rows. The drain itself is covered in
-  // conversation-machine.test.ts.
+  // The drain itself is covered in conversation-machine.test.ts.
   const c = convo.createConversation("dev", "origin-rw", null, null);
-  convo.enqueueMessage(c.id, "mine");
-  convo.enqueueMessage(c.id, "wake", null, "system");
+  convo.replaceQueue(c.id, [{ id: "rw-mine", text: "mine" }, { id: "rw-wake", text: "wake", origin: "system" }]);
   const before = convo.listQueue(c.id);
   assert.deepEqual(before.map((m) => m.origin), ["user", "system"]);
 

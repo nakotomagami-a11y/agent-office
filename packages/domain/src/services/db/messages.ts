@@ -150,15 +150,3 @@ export function pushRecentPrompt(agentId: string, prompt: string): void {
     }
   })();
 }
-
-export function getAllRecentPrompts(): Record<string, string[]> {
-  const rows = getDb().prepare(
-    "SELECT agent_id, prompt FROM recent_prompts ORDER BY agent_id, used_at DESC"
-  ).all() as Array<{ agent_id: string; prompt: string }>;
-  const out: Record<string, string[]> = {};
-  for (const { agent_id, prompt } of rows) {
-    if (!out[agent_id]) out[agent_id] = [];
-    out[agent_id]!.push(prompt);
-  }
-  return out;
-}

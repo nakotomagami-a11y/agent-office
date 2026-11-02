@@ -1,7 +1,7 @@
 // Model alias/id lists now live in one place: `./models.ts` (MODEL_CATALOG is
 // the source of truth for aliases, versioned ids, pricing, and display info).
 // Re-exported here so existing `agent-opts` imports keep resolving.
-export { MODEL_FULL, MODEL_OPTS } from "./models";
+export { MODEL_OPTS } from "./models";
 
 export const EFFORT_OPTS = ["low", "medium", "high", "xhigh", "max"] as const;
 

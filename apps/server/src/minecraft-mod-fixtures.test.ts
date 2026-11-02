@@ -121,8 +121,8 @@ test("a running conversation: finished turn with tool calls, active run, queue; 
   db.updateRun("run-done", { status: "done", exitCode: 0, output: "Read it.", tokensIn: 1200, tokensOut: 34, costUsd: 0.05, durMs: 4000, endedAt: T0 });
   db.insertRun({ ...base, id: "run-live", status: "running", prompt: "Now fix it", startedAt: T0 + 1 });
   db.updateConversation(conv.id, { status: "running", activeRunId: "run-live" });
-  const queued = db.enqueueMessage(conv.id, "And test it");
-  stand.push([queued.id, "queued-1"]);
+  db.replaceQueue(conv.id, [{ id: "queued-fixture", text: "And test it" }]);
+  stand.push(["queued-fixture", "queued-1"]);
 
   const conversations = await import("./routes/conversations/route");
   await json("conversation.json", conversations.GET(req("/api/conversations?agentId=developer&instanceId=developer-fx01")));

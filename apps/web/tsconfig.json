@@ -12,9 +12,6 @@
       "@/*": [
         "./src/*"
       ],
-      "@agent-office/domain": [
-        "../../packages/domain/src/index.ts"
-      ],
       "@agent-office/domain/*": [
         "../../packages/domain/src/*"
       ],

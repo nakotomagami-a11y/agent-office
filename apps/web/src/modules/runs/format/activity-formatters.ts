@@ -6,8 +6,8 @@ export function fmtTok(n: number): string {
 
 /**
  * Presentational-only "XP" for a run — a deterministic transform of its real
- * duration + token usage, not a persisted game economy (REDESIGN_V3_PLAN §D4:
- * relabel existing metrics, no schema change). Recomputed on every render.
+ * duration + token usage, not a persisted game economy (existing metrics
+ * relabelled, no schema change). Recomputed on every render.
  */
 export function xpForRun(run: PersistedRun): number {
   const base = 10 + Math.round(run.durMs / 5000) + Math.round((run.tokensIn + run.tokensOut) / 500);

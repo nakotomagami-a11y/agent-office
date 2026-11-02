@@ -28,8 +28,6 @@ export const agentBodySchema = z.object({
   addDirs: z.array(z.string().min(1)).optional(),
 });
 
-export const agentBodyListSchema = z.array(agentBodySchema);
-
 /** PUT /api/agents/:id: only the keys sent change. With create's defaults, `{ name, model }`
  *  became an empty prompt with no tools. The path names the file, so a body `id` is ignored. */
 export const agentUpdateSchema = z.object({
@@ -252,10 +250,6 @@ export const starterAgentsImportSchema = z.object({
   agentIds: z.array(z.string()),
 });
 
-export const promptPostSchema = z.object({
-  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
-});
-
 export const summonRequestSchema = z.object({
   agentId: z.string().min(1),
   prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
@@ -365,14 +359,6 @@ export const healthQuerySchema = z.object({
     .transform((v) => v === "1" || v === "true"),
 });
 
-export const broadcastRequestSchema = z.object({
-  projectId: z.string().min(1),
-  prompt: z.string().min(1).max(MAX_PROMPT_BYTES),
-  model: z.string().optional(),
-  effort: z.string().optional(),
-  cwd: z.string().optional(),
-});
-
 /** Body payload for creating / updating a doc. Owner + slug live in the URL. */
 export const docUpsertSchema = z.object({
   title: z.string().min(1).max(200),
@@ -396,7 +382,7 @@ export const bootstrapProjectSchema = z.object({
   initGit: z.boolean().optional(),
 });
 
-// POST /api/save/import. Unknown keys (an old bundle's `office` layout) are stripped: old files still import.
+// POST /api/save/import. Unknown keys (an old bundle's `office` layout or `history`) are stripped: old files still import.
 export const saveFileSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
@@ -406,7 +392,6 @@ export const saveFileSchema = z.object({
     memory: z.string(),
   }),
   agents: z.array(z.object({ id: z.string(), content: z.string(), memory: z.string() })),
-  history: z.array(z.object({ agentId: z.string(), instanceId: z.string(), transcript: z.string() })).optional(),
 });
 
 /** MCP bridge -> host: a tool call awaiting approval. */

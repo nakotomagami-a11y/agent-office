@@ -12,6 +12,7 @@ import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getRequestListener } from "@hono/node-server";
+import { log } from "@agent-office/domain/services/infra/log";
 import { boot } from "./boot";
 import { handle } from "./index";
 
@@ -38,7 +39,7 @@ const port = Number(process.env.AO_SERVER_PORT || "3001");
 
 const server = createServer(getRequestListener(handleWithHeaders));
 server.on("error", (err) => {
-  console.error(`[server] cannot listen on 127.0.0.1:${port}:`, err.message);
+  log.error("server.listen_failed", { host: "127.0.0.1", port, err: err.message });
   process.exit(1);
 });
 server.listen(port, "127.0.0.1", () => {
@@ -47,7 +48,7 @@ server.listen(port, "127.0.0.1", () => {
   const bound = (server.address() as AddressInfo).port;
   process.env.PORT = String(bound);
   process.env.AO_BASE_URL = `http://127.0.0.1:${bound}`;
-  console.warn(`[server] Agent Office API on ${process.env.AO_BASE_URL}`);
+  log.info("server.listening", { url: process.env.AO_BASE_URL });
   void boot({ serve: true, ownBaseUrl: true });
 });
 

@@ -92,7 +92,7 @@ What reaches `developer` today, from a recorded session: agent body 1.4k tokens 
 | C28 | WASTE | **Response style is sent twice** for agents that also declare `i-have-adhd` (6.6k + pointer); it's a personal preference hard-coded in product code, with a hard-coded opt-out list | `config/response-style.ts`, `agents.ts:32` |
 | C29 | WRONG | `INLINE_MAX_CHARS=1500` ignores a skill's own `always-inline: true` | `skills.ts:774,817` |
 | C30 | WRONG | "Active project" gives the main checkout as cwd for worktree agents | `agents.ts:418` |
-| C31 | WASTE | **Project map duplicates `CLAUDE.md`** (layout, commands, "read before"), freezes a changing git count, tells mission seats to read a `CLAUDE.md` they deliberately don't load; `project-map-file.ts` (a `CLAUDE.md` writer) is dead code | `project-map.ts:94-123`, `docs/missions.md:196-201` |
+| C31 | WASTE | **Project map duplicates `CLAUDE.md`** (layout, commands, "read before"), freezes a changing git count, tells mission seats to read a `CLAUDE.md` they deliberately don't load; `project-map-file.ts` (a `CLAUDE.md` writer) is dead code | `project-map.ts:94-123`, `docs/missions.md:196-201` **Done (health batch A): `project-map-file.ts` deleted.** |
 | C32 | WRONG | **Sub-agents get none of the app's layers** (skills, style, project facts, memory): only their `.md` body | CLI behaviour for `Agent`/`Task` |
 | C33 | WASTE | **Four memory systems, three empty**: app global/agent/project memory (all empty), identity files (none exist), CLI auto-memory (empty). The real memory is `NEXT_SESSION.md`, gitignored, diverging copies per worktree, never injected | `~/.claude/agents/*.memory.md` (see S5-17), worktree copies 14.8 KB vs 7.3 KB |
 | C34 | WRONG | **Context & Cost doesn't match what's sent**: omits the agent body and listing, assumes a 9k "CC base prompt" that `--agent` replaces, calls the composer without the instance (wrong branch, no worktree), lists `CLAUDE.md` for seats that skip it; the "measured" native figure includes tool output (developer first turns avg 50k, peak 1.7M) | `context-cost.ts:49,54-57,160-171,209,232` |
@@ -125,7 +125,7 @@ Open: whether CLI 2.1.296 preloads frontmatter `skills:` for a main `--agent` ru
 
 ## Fix log (QA: test these)
 
-Per wave: what changed, the test that covers it, and a manual check for a human or QA agent. Known pre-existing failures on Windows that are not regressions: 7 domain tests (symlink/EPERM in `cleanup`, `project-map-file.security`) and `apps/server/src/routes/generated-images/generated-images-route.test.ts`.
+Per wave: what changed, the test that covers it, and a manual check for a human or QA agent. Known pre-existing failures on Windows that are not regressions: domain tests that need symlinks (EPERM in `cleanup`) and `apps/server/src/routes/generated-images/generated-images-route.test.ts`.
 
 ### Wave 0 · Stop data loss (merged a4a2fb3)
 
@@ -178,6 +178,18 @@ Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being remov
 | Paths | One `pathKey` in `paths.ts` (symlinks resolved, Windows case-folded) behind `samePath`, `isInside` and the worktree clean-up; a link out of a root is not inside it | `paths.inside.test.ts`, `worktrees.test.ts` | Junction inside the projects root to another folder: Delete folder refuses it |
 | Mod | Remove-seat confirm tells the truth (work is never lost; `.env` goes with the folder) and a 409 says why: running, N changes / M commits, or git kept the worktree | contract test, `ArchitectureTest` | Remove a seat with an edited file from the tablet: status line lists the work |
 | Import | Roster seats are merged inside the metadata write, against the roster at that moment | `projects.write-integrity.test.ts` | — |
+
+### Health batch A · retire the dead
+
+| # | Fix | Auto | Manual check |
+|---|---|---|---|
+| errors.machine-codes | Every SSE `error` event carries `remediation`, the agent-facing fix for its code: live, replayed on re-attach, and rebuilt from a stored run | `runs.resume-retry.test.ts` | Sign out of Claude, send a message, read the stream: the `error` event has `remediation` |
+| S6-1 | Routes and methods with no caller are gone (templates, prompts, docs/export, agents/bulk, body history, prompt-preview, runs/children, runs/abort-all, broadcast, dev/backfill-planets, analytics/summary, skills/compatibility, conversations/:id GET, prompts POST, upload DELETEs, bootstrap GET, runs DELETE). The four review write routes stay | `router.test.ts` (route table) | `curl .../api/broadcast`: 404 |
+| S1-12 | v31 empties `transcripts`, `pipelines` and `pipeline_steps` after copying any rows to `backups/` (dropped later: an older installed build still reads them); the save file's empty "include history" option and the transcripts cleanup row are gone | `migrations-v31.test.ts`, `cleanup.test.ts`, `save-import.test.ts` | Upgrade a db with transcript rows: `backups/transcripts-*.json` appears |
+| D7 | Dev-command detection no longer offers `flutter run` | `project-runtime.test.ts` | A repo with `pubspec.yaml` lists no Flutter command |
+| C31 | The unwired `CLAUDE.md` generator (`project-map-file.ts`) is deleted | — | — |
+| S1-15 | One `resolveStarterDataDir`; one account-usage check, CRLF-safe, used by both account kinds | `accounts.remove-dir.test.ts` | Pin a Claude account in a CRLF `project.md`, try to remove the account: refused |
+| CRLF | Docs and pasted skills parse frontmatter with the shared CRLF-safe splitter | `docs.test.ts` | Save a doc with CRLF endings: it stays listed |
 
 ## Overlap with PR #212 (AI providers mission)
 
@@ -384,8 +396,8 @@ The route table is in sync and the Minecraft mod's routes are all used. Removing
 
 | # | Sev | Finding | Evidence |
 |---|---|---|---|
-| S6-1 | WASTE | **15 routes and 7 HTTP methods with no caller**: templates, prompts, docs/export, agents/bulk, body history, prompt-preview, runs/children, conversations/:id GET, broadcast, dev/backfill-planets, the 4 review write routes, analytics/summary, skills/compatibility, runs/abort-all, runs DELETE; methods: agents prompts POST, body PUT, two upload DELETEs, roster GET, bootstrap GET (its choices are copied 3 times), flutter mirror DELETE | route files |
-| S6-2 | BROKEN | `docs/08-reference.md` lists `/api/transcripts` (doesn't exist) and omits 35 routes; `docs-export.ts` documents 57 of 139 routes and still lists `pipelines` | #212 |
+| S6-1 | WASTE | **15 routes and 7 HTTP methods with no caller**: templates, prompts, docs/export, agents/bulk, body history, prompt-preview, runs/children, conversations/:id GET, broadcast, dev/backfill-planets, the 4 review write routes, analytics/summary, skills/compatibility, runs/abort-all, runs DELETE; methods: agents prompts POST, body PUT, two upload DELETEs, roster GET, bootstrap GET (its choices are copied 3 times), flutter mirror DELETE | route files **Done (health batch A)**, except the four review write routes, kept on purpose as the Review Lectern's backend. |
+| S6-2 | BROKEN | `docs/08-reference.md` lists `/api/transcripts` (doesn't exist) and omits 35 routes; `docs-export.ts` documents 57 of 139 routes and still lists `pipelines` | #212 **Done (health batch A)**: `docs/08-reference.md` lists every live route; `docs-export.ts` is deleted. |
 | S6-3 | BROKEN | **Every web API call casts the response instead of parsing it** (`(await res.json()) as T`, 39 + 13 files), against `arch.parse-dont-cast`; 7 server routes cast request bodies (`request.json() as`); the lint rule only catches `JSON.parse` | `fetch.ts:85`; routes `dev/seed`, `flutter/mirror`, `flutter/run`, `processes/[pid]/stdin`, `projects/[id]/dev`, `runs/abort-all`, `ui-settings` |
 | S6-4 | WRONG | Two HTTP clients (`apiFetch` and axios) and 9 bare `fetch` calls despite "never bare fetch()"; the schedules one shows success on failure (S2-10) | `fetch.ts:5` |
 | S6-5 | WRONG | Response drift: `SummonResponse.warning` is never sent; the dev route's early return omits a required field; bootstrap puts a sentence in `warning` | `use-summon.ts:11`, `dev/route.ts:22`, `bootstrap/route.ts:51` |

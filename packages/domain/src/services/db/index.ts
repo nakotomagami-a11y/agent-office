@@ -13,7 +13,7 @@ export * from "./conversations";
 export * from "./loops";
 export * from "./scheduled-jobs";
 export * from "./messages";
-export * from "./transcripts";
+export * from "./drafts";
 export * from "./ui-settings";
 export * from "./loop-lease";
 export * from "./pr-links";

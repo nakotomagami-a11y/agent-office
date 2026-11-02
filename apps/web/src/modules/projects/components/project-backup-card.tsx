@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, type ChangeEvent, type DragEvent, type ReactNode, type RefObject } from "react";
+import { useState, type ChangeEvent, type DragEvent, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 
 export type ProjectBackupCardProps = {
-  includeHistory: boolean;
-  onIncludeHistoryChange: (value: boolean) => void;
   onExport: () => void;
   exportFileName: string;
   exportError: string | null;
@@ -22,24 +20,6 @@ export type ProjectBackupCardProps = {
 
 const TILE = "flex flex-col justify-center p-[16px] rounded-[16px] bg-card-2 min-w-0";
 
-function OptionCheckbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="self-start flex items-start gap-[8px] mt-[8px] cursor-pointer min-w-0">
-      <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span
-        className={cn(
-          "flex items-center justify-center shrink-0 w-[16px] h-[16px] mt-px rounded-[4px] border transition-colors duration-150",
-          "peer-focus-visible:outline-2 peer-focus-visible:outline-acc peer-focus-visible:outline-offset-2",
-          checked ? "bg-acc text-white border-acc" : "border-edge-2 text-transparent",
-        )}
-      >
-        <Icon name="check" size={10} />
-      </span>
-      <span className="text-[12px] text-txt-2">{label}</span>
-    </label>
-  );
-}
-
 function TileIcon({ src }: { src: string }) {
   return (
     <span className="w-[64px] h-[64px] flex items-center justify-center shrink-0">
@@ -49,12 +29,11 @@ function TileIcon({ src }: { src: string }) {
   );
 }
 
-function TileText({ title, sub, children }: { title: string; sub: string; children?: ReactNode }) {
+function TileText({ title, sub }: { title: string; sub: string }) {
   return (
     <div className="flex-1 min-w-0 flex flex-col gap-[2px]">
       <span className="text-[13.5px] font-bold whitespace-nowrap">{title}</span>
       <span className="font-mono text-[10.5px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">{sub}</span>
-      {children}
     </div>
   );
 }
@@ -64,8 +43,6 @@ function TileText({ title, sub, children }: { title: string; sub: string; childr
  * `importState`. A file dragged anywhere over the card can be dropped to import.
  */
 export function ProjectBackupCard({
-  includeHistory,
-  onIncludeHistoryChange,
   onExport,
   exportFileName,
   exportError,
@@ -118,9 +95,7 @@ export function ProjectBackupCard({
           <div className={cn(TILE, "flex-1 border border-edge shadow-[var(--inset-hi)]")}>
             <div className="flex items-center gap-[12px] min-w-0">
               <TileIcon src="/icons/tome-backup.png" />
-              <TileText title={t("project_detail.save_card_title")} sub={`→ ${exportFileName}`}>
-                <OptionCheckbox checked={includeHistory} onChange={onIncludeHistoryChange} label={t("project_detail.save_include_history")} />
-              </TileText>
+              <TileText title={t("project_detail.save_card_title")} sub={`→ ${exportFileName}`} />
               <button
                 type="button"
                 onClick={onExport}

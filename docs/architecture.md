@@ -130,7 +130,7 @@ Toolbox (already built — reach for these, don't reinvent):
 | App paths | API: `API_ROUTES` in `packages/api-contract/src/routes.ts`. UI pages: `apps/web/src/lib/page-routes.ts`. External URLs: `packages/domain/src/config/routes.ts` |
 | Shared / domain types | `packages/domain/src/types` |
 | Constants, catalogs, fixed value sets (error codes, templates, integrations, setting-key maps) | `packages/domain/src/config/<name>.ts` — never a hardcoded array inside a route |
-| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `execution`, `infra`, `projects`, `review`, `skills`, `docs`, `db`); re-exported through the package barrel |
+| Business logic (fs, spawn, git, db orchestration), framework-agnostic | `packages/domain/src/services/<domain>/<feature>.ts` — grouped by domain (`accounts`, `agents`, `analytics`, `db`, `docs`, `execution`, `infra`, `missions`, `projects`, `providers`, `review`, `skills`), plus `settings.ts`; re-exported through the services barrel (`services/index.ts`) |
 | HTTP plumbing and server-process state (request helpers, SSE, server-process store, OS-terminal spawn, port allocation) | `apps/server/src/lib/<feature>.ts` — **not** domain |
 | A response DTO used by only one route | Inline in the route; promote to a local `types.ts` **only when a sibling route also needs it** |
 | Tiny route-local helper | An inline function in `route.ts` is fine |
@@ -165,7 +165,8 @@ human sentence — the client owns i18n (next-intl maps the code → localized c
 Write `badRequest("agent_required")`, not `badRequest("Agent is required")`. Run
 failures are enumerated once in `packages/domain/src/config/run-errors.ts`
 (`RUN_ERROR_CODES` + `isRunErrorCode`); the SSE `error` event carries `{ code, detail? }`
-where `detail` is short raw context, never transcript prose.
+where `detail` is short raw context, never transcript prose, plus `remediation`: the
+agent-facing fix for that code (`RUN_ERROR_REMEDIATION`).
 
 > Regression that motivated this: the run-stream route once emitted a `message`
 > field the client never reads. Four hand-written sentences were silently dropped and
@@ -370,12 +371,12 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `tool-done` | `runId, toolUseId, ts, backgrounded?` | That tool call's result arrived, or its run ended without one — bounds the files an imggen card may claim |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message and on result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Run finalized (success or failure) |
-| `error` | `runId, code, detail?` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
+| `error` | `runId, code, detail?, interrupted?, remediation` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
 | `rate-limit` | `runId, message, resetsAt?, severity` | Anthropic rate limit hit **or** approaching. `severity: "warning"` = approaching (run keeps going, amber "Continue" card); `severity: "limit"` = hard limit (red "Retry" card). Derived from the CLI `rate_limit_event` status via `buildRateLimitEvent`. |
 | `subagent` | `runId` + sub-agent fields (name, prompt, status, startTs, subRunId, …) | A sub-agent spawn (`Task`/`Agent` tool) detected — drives the WorkflowPill tree |
 | `subagent-update` | `runId` + status/progress fields | Sub-agent status / token / tool progress update |
 
-**Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/workflow` which queries the `runs` table for rows where `parent_run_id = runId`.
+**Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/tree` (`API_ROUTES.runTree`), which builds it from the `runs` rows whose `parent_run_id` links back to the run.
 
 **Replay:** `chunk`, `tool`, `tool-done`, `usage`, `subagent`, `subagent-update` and `rate-limit` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
 
@@ -395,7 +396,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v30**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v31**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -406,16 +407,13 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `messages` | id, run_id, agent_id, instance_id, role, content, ts | Truncated: user ≤2000 chars, assistant ≤8000 |
 | `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
-| `transcripts` | PK(agent_id, instance_id), items, active_run_id, session_id, updated_at, queued_messages | Legacy full chat thread as a JSON array — superseded by `conversations` + `queued_messages` (below). The v14 migration (`backfillConversations`) created one `conversations` row per pre-existing (agent, instance) slot that lacked one, carrying over its session id |
-| `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to |
+| `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to. It replaced the legacy `transcripts` blob: v14 created one conversation per old (agent, instance) slot, and v31 emptied it along with the never-used `pipelines`/`pipeline_steps` (after copying any rows to `~/.claude/agent-office/backups/`); the tables stay until no installed build reads them |
 | `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at, origin | Messages typed while a run is in flight, dispatched in order once it finishes |
 | `loops` | id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round, spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at | Loop v0 state (#145/#150/#151/#153). Started by `POST /api/loops`, or by the chat header's "QA loop" toggle (`execution/qa-loop.ts`): a seat with `qaLoopEnabled` gets a loop at the review phase after any user turn that edited files, once the chat is idle. The reviewer runs on its own agent settings outside the chat; fix rounds go through the conversation as `system` messages, each capped at the loop's remaining budget. The reviewer may cite the `general.*` rules (`config/loop.ts`) plus the `## <id>` headings of the reviewed project's own `docs/conventions.md` |
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
 | `ui_settings` | key, value, updated_at | Theme, tabs, roster groups, spend cap, etc. Internal keys prefixed `_` hidden from GET |
-| `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
-| `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |
 | `github_accounts` | id, label, config_dir, created_at | GitHub accounts; each maps to a `GH_CONFIG_DIR`. `default` → system gh config |
 | `scheduled_jobs` | id, fire_at, summon_request, reason, label, status, attention, attempts, fired_run_id, repeat_every, repeat_anchor, created_at, updated_at | Serialized summon + fire time; drives manual scheduling, recurring orders and rate-limit auto-resume |
@@ -433,7 +431,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ### Indexes
 
-`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_pipeline_steps_pipeline`, `idx_pipelines_project`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`, `idx_mission_seats_instance`, `idx_mission_posts_comment`
+`idx_runs_agent`, `idx_runs_project`, `idx_runs_instance`, `idx_runs_parent`, `idx_runs_account`, `idx_runs_started_at`, `idx_messages_run_ts`, `idx_messages_ai`, `idx_tool_calls_run`, `idx_prompts_agent`, `idx_scheduled_jobs_status`, `idx_project_secrets_project`, `idx_project_secrets_secret`, `idx_mission_seats_instance`, `idx_mission_posts_comment`
 
 ---
 
@@ -484,6 +482,7 @@ Validated once at startup by `apps/server/src/lib/env.ts` (Zod schema). Read env
 | `AGENT_OFFICE_DOCS_DIR` | bundled `docs/` | Override path to the in-app docs source |
 | `AO_BASE_URL` | the bound port | This server's loopback URL, which agents use for the gateway and permission callbacks. The standalone server (`main.ts`) sets it to the port it bound. Embedded in Next, an inherited or exported value is dropped at boot and `PORT` (the port Next bound) is used: a server started from an agent's shell would otherwise point at the parent server |
 | `AO_DEBUG_TOOLS` | — | Dev-only. Any non-empty value enables verbose tool-call logging in the summon wrapper |
+| `AO_TERMINAL` | — | `none` starts dev/build/install commands headless instead of in a terminal window (the POSIX test runs) |
 | `DEFAULT_LOCALE` | `"en"` | i18n locale (next-intl) |
 | `NODE_ENV` | `"development"` | `"development"` enables React Query Devtools |
 | `NEXT_PUBLIC_POLL_SAFETY_NET` | `60000` | Reconnect safety net (ms) for queries driven by `/api/events` — SSE delivers changes instantly; this only re-fetches if an event was missed mid-reconnect |

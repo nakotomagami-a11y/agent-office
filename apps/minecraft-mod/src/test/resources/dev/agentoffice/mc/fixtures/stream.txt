@@ -26,7 +26,7 @@ event: usage
 data: {"runId":"run-stream","tokensIn":2400,"tokensOut":80,"cost":0.12}
 
 event: error
-data: {"runId":"run-stream","code":"auth_expired","detail":"Log in again"}
+data: {"runId":"run-stream","code":"auth_expired","detail":"Log in again","remediation":"Claude credentials are invalid. The user must sign in again — do not retry, and never attempt to re-authenticate yourself."}
 
 event: done
 data: {"runId":"run-stream","exitCode":1,"durationMs":9000,"tokensIn":2400,"tokensOut":80,"cost":0.12}

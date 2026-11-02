@@ -269,22 +269,6 @@ export function pruneAgentBodyHistory(id: string): void {
   }
 }
 
-/** Read one body-history snapshot. Returns null for an unsafe filename or a miss. */
-export function readAgentBodySnapshot(id: string, filename: string): string | null {
-  const prefix = bodyHistoryPrefix(id);
-  if (
-    !filename.startsWith(prefix) ||
-    !filename.endsWith(".md") ||
-    filename.includes("/") ||
-    filename.includes("\\") ||
-    filename.includes("..")
-  ) {
-    return null;
-  }
-  const path = join(AGENTS_DIR, filename);
-  return existsSync(path) ? readFileSync(path, "utf8") : null;
-}
-
 // ─── Identity files (foundational, ships with the agent) ────────────────
 
 export function identityPathFor(agent: string): string {

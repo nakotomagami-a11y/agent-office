@@ -19,7 +19,6 @@ function normalizeRunsFilter(filters: RunsFilter | undefined): Record<string, un
 
 export const queryKeys = {
   health: ["health"] as const,
-  templates: ["templates"] as const,
 
   agents: {
     all: ["agents"] as const,
@@ -55,7 +54,6 @@ export const queryKeys = {
     updates: () => [...queryKeys.skills.all, "updates"] as const,
     detail: (name: string) => [...queryKeys.skills.all, "detail", name] as const,
     manifest: () => [...queryKeys.skills.all, "manifest"] as const,
-    compatibility: () => [...queryKeys.skills.all, "compatibility"] as const,
     icons: () => [...queryKeys.skills.all, "icons"] as const,
   },
 
@@ -64,16 +62,10 @@ export const queryKeys = {
     list: (filters?: RunsFilter) =>
       [...queryKeys.runs.all, "list", normalizeRunsFilter(filters)] as const,
     detail: (id: string) => [...queryKeys.runs.all, "detail", id] as const,
-    children: (id: string) => [...queryKeys.runs.all, "children", id] as const,
     tree: (id: string) => [...queryKeys.runs.all, "tree", id] as const,
     /** Under `runs` so the "runs:changed" event refreshes it with the lists. */
     activity: (projectId: string, opts: { start: number; bucketMs: number; count: number }) =>
       [...queryKeys.runs.all, "activity", projectId, opts] as const,
-  },
-
-  prompts: {
-    all: ["prompts"] as const,
-    recent: () => [...queryKeys.prompts.all, "recent"] as const,
   },
 
   agentDocs: {

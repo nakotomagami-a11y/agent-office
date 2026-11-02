@@ -5,7 +5,6 @@ export * as history from "./projects/history";
 export * as permissions from "./execution/permissions";
 export * as projects from "./projects/projects";
 export * as projectBootstrap from "./projects/project-bootstrap";
-export * as projectMapFile from "./projects/project-map-file";
 export * as skills from "./skills/skills";
 export * as runs from "./execution/runs";
 export * as summon from "./execution/summon";
@@ -14,16 +13,9 @@ export * as conversation from "./execution/conversation";
 export * as conversationRunner from "./execution/conversation-runner";
 export * as loopRunner from "./execution/loop-runner";
 export * as loopProductionRunner from "./execution/loop-production-runner";
-// Side-effect only: installs the run-finished → conversation auto-advance
-// wiring. See conversation-wiring.ts's header comment for why this can't be
-// a plain dependency of runs.ts. Must be imported somewhere every server
-// process loads; this barrel is it (every API route imports from it).
-import "./execution/conversation-wiring";
-import "./execution/loop-wiring";
-import "./missions/wiring";
+export * as runListeners from "./execution/run-listeners";
 export * as scheduler from "./execution/scheduler";
 export * as backgroundShellWatcher from "./execution/background-shell-watcher";
-export * as templates from "./projects/templates";
 export * as health from "./infra/health";
 export * as settings from "./settings";
 export * as store from "./infra/store";
@@ -44,7 +36,6 @@ export * as githubAccounts from "./accounts/github-accounts";
 export * as secrets from "./accounts/secrets";
 export * as shellEnv from "./accounts/shell-env";
 export * as analytics from "./analytics/analytics";
-export * as analyticsSummary from "./analytics/analytics-summary";
 export * as analyticsPage from "./analytics/analytics-page";
 export * as projectActivity from "./analytics/project-activity";
 export * as providers from "./providers/index";

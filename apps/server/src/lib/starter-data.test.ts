@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, test } from "node:test";
+import { env } from "./env";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, APP_STATE_DIR } from "@agent-office/domain/services/infra/paths";
 import {
   applyAgentMigration,
@@ -28,7 +29,7 @@ const IDS = ["sd-alpha", "sd-beta", "sd-gamma", "sd-delta"];
 const agentFile = (id: string, text: string) => `---\nname: ${id}\ndescription: ${text}\n---\n\n${text}\n`;
 const hash = (s: string) => createHash("sha256").update(s.replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
 
-/** A starter bundle on disk; AGENT_OFFICE_STARTER_DATA points the server at it. */
+/** A starter bundle on disk; `env.AGENT_OFFICE_STARTER_DATA` points the server at it. */
 function bundle(version: string, agents: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), "ao-starter-"));
   mkdirSync(join(dir, "agents"));
@@ -37,7 +38,7 @@ function bundle(version: string, agents: Record<string, string>) {
     return { file: `${id}.md`, name: id, description: text, hash: hash(agentFile(id, text)) };
   });
   writeFileSync(join(dir, "agents", "MANIFEST.json"), JSON.stringify({ version, agents: entries }));
-  process.env["AGENT_OFFICE_STARTER_DATA"] = dir;
+  env.AGENT_OFFICE_STARTER_DATA = dir;
 }
 
 const install = (id: string, text: string) => writeFileSync(join(AGENTS_DIR, `${id}.md`), agentFile(id, text));
@@ -150,7 +151,7 @@ test("skips hold for the version they were made for", () => {
 
 test("an update that failed leaves the version unstamped, so it is offered again", () => {
   bundle("2026-10-11-1", { "sd-alpha": "a", "sd-beta": "b" });
-  rmSync(join(process.env["AGENT_OFFICE_STARTER_DATA"]!, "agents", "sd-alpha.md"));
+  rmSync(join(env.AGENT_OFFICE_STARTER_DATA!, "agents", "sd-alpha.md"));
   const out = applyAgentMigration(["sd-alpha", "sd-beta"], [], true);
   assert.ok(out.ok);
   assert.deepEqual(out.result.errors, [{ id: "sd-alpha", reason: "bundle_file_missing" }]);
@@ -158,7 +159,7 @@ test("an update that failed leaves the version unstamped, so it is offered again
 });
 
 test("the wizard can finish with nothing picked on a build without starter data", () => {
-  process.env["AGENT_OFFICE_STARTER_DATA"] = join(tmpdir(), "ao-no-starter-data-here");
+  env.AGENT_OFFICE_STARTER_DATA = join(tmpdir(), "ao-no-starter-data-here");
   const prevCwd = process.cwd();
   process.chdir(tmpdir());
   try {

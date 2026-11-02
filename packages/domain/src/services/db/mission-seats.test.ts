@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { backupSavedPrompts, createSchema } from "./migrations";
+import { backupTable, createSchema } from "./migrations";
 import {
   addMissionSpend,
   advanceMissionCursor,
@@ -60,9 +60,9 @@ test("a left seat drops out of the active list and its chat; claiming again star
 test("v27 writes saved Workflows to a backup file before it drops their table", () => {
   const old = new Database(":memory:");
   old.exec("CREATE TABLE saved_prompts (id TEXT PRIMARY KEY, title TEXT, body TEXT, category TEXT, created_at INTEGER, use_count INTEGER)");
-  assert.strictEqual(backupSavedPrompts(old, mkdtempSync(join(tmpdir(), "ao-bk-"))), null, "no rows, no file");
+  assert.strictEqual(backupTable(old, "saved_prompts", mkdtempSync(join(tmpdir(), "ao-bk-"))), null, "no rows, no file");
   old.prepare("INSERT INTO saved_prompts VALUES ('w1', 'Ship it', 'Run the release', 'mine', 1, 3)").run();
-  const file = backupSavedPrompts(old, mkdtempSync(join(tmpdir(), "ao-bk-")));
+  const file = backupTable(old, "saved_prompts", mkdtempSync(join(tmpdir(), "ao-bk-")));
   assert.ok(file);
   assert.deepStrictEqual(JSON.parse(readFileSync(file, "utf8")), [{ id: "w1", title: "Ship it", body: "Run the release", category: "mine", created_at: 1, use_count: 3 }]);
 });

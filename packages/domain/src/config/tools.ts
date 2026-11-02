@@ -62,8 +62,6 @@ export const KNOWN_TOOLS = [
   "Write",
 ] as const;
 
-export type KnownTool = (typeof KNOWN_TOOLS)[number];
-
 /**
  * Names that LOOK like tools, are widely declared across agent files, and do
  * NOT exist in the CLI — so declaring them grants nothing at all. Kept separate

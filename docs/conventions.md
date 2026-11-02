@@ -58,8 +58,9 @@ and `app/(app)/agents/[id]/edit/page.tsx`.
 *Fix:* add or reuse an endpoint and call it via `API_ROUTES` from
 `@agent-office/api-contract`. A pure domain function the browser genuinely needs goes on
 the browser-safe allowlist, which is checked from both sides: web may import it, and the
-module itself may value-import only the other allowlisted modules (`loop-machine`,
-`runs/errors`, `runs/reset-time` today). No `eslint-disable`.
+module itself may value-import only the other allowlisted modules. Web imports
+`loop-machine` and `runs/errors` today; `runs/reset-time` is on the list only because
+`runs/errors` imports it. No `eslint-disable`.
 
 > **enforced by** `@typescript-eslint/no-restricted-imports` in `apps/web/eslint.config.mjs`
 > and, for the allowlist, in `packages/domain/eslint.config.mjs`
@@ -90,7 +91,7 @@ guard for files.
 
 > **enforced by** `no-restricted-syntax` (`error`) in BOTH
 > `packages/domain/eslint.config.mjs` and `apps/web/eslint.config.mjs`
-> **known debt:** 12 pre-existing sites are baselined in
+> **known debt:** 11 pre-existing sites are baselined in
 > `packages/domain/eslint-suppressions.json`. `apps/web` has none — its 12
 > accumulated while the rule was a `warn` there with an empty suppressions file
 > and CI running `--max-warnings=-1`; they were fixed rather than baselined.
@@ -111,10 +112,11 @@ The client owns i18n. `badRequest("agent_required")`, not
 `detail` is short raw context, never transcript prose.
 
 Every code carries an **agent-facing remediation** — a failure should teach the
-fix at the moment it happens, not require the rule up front.
+fix at the moment it happens, not require the rule up front. Every SSE `error`
+event carries it as `remediation`, live, replayed or rebuilt from the stored run.
 
 > **enforced by** `RUN_ERROR_CODES` + `isRunErrorCode`; remediation completeness
-> asserted in `run-errors.test.ts`
+> asserted in `run-errors.test.ts`, and its delivery in `runs.resume-retry.test.ts`
 
 ---
 

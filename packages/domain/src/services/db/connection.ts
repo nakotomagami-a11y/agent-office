@@ -74,16 +74,6 @@ function reapOrphanedRuns(db: Database.Database): void {
     );
     db.transaction(() => { for (const id of orphans) mark.run({ now, id }); })();
   }
-  // Same rule for pipelines: only the ones whose owning run is gone were
-  // actually interrupted. A pipeline with any still-live run keeps going.
-  db.prepare(`
-    UPDATE pipelines SET status='error', ended_at=@now, interrupted=1
-    WHERE status='running'
-      AND NOT EXISTS (
-        SELECT 1 FROM pipeline_steps s JOIN runs r ON r.id = s.run_id
-        WHERE s.pipeline_id = pipelines.id AND r.status = 'running'
-      )
-  `).run({ now });
 }
 
 export { isPidAlive };

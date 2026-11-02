@@ -22,13 +22,13 @@ import {
   ACCOUNTS_DIR,
   CLAUDE_DIR,
   DEFAULT_ACCOUNT_ID,
-  PROJECTS_DIR,
   accountConfigDir,
   isInside,
   isValidIdSegment,
 } from "../infra/paths";
 import { getDb, isPidAlive } from "../db";
 import { log } from "../infra/log";
+import { projectsUsingAccount } from "../projects/projects";
 
 // Assets we symlink into every non-default account dir so agents/skills/etc.
 // are shared across accounts (billing is the ONLY thing that differs per
@@ -106,7 +106,7 @@ export function remove(id: string): RemoveResult {
   if (id === DEFAULT_ACCOUNT_ID) return { ok: false, reason: "default" };
   const existing = get(id);
   if (!existing) return { ok: false, reason: "not_found" };
-  const blockers = findProjectsUsingAccount(id);
+  const blockers = projectsUsingAccount("accountId", id);
   if (blockers.length > 0) return { ok: false, reason: "referenced", blocked: blockers };
 
   getDb().prepare("DELETE FROM accounts WHERE id = ?").run(id);
@@ -401,40 +401,3 @@ export function getStatus(id: string): AccountWithStatus | null {
 }
 
 // ─── Referential integrity ──────────────────────────────────────────────────
-
-/**
- * Scan `~/.claude/projects/*​/project.md` for any project whose YAML
- * frontmatter references the given accountId. Used by `remove()` to block
- * deletion when referenced (Q8 decision — no null-out fallback).
- *
- * Cheap regex parse — we only need to detect the accountId line, not
- * fully parse YAML. If a project's frontmatter format ever changes, the
- * regex simply misses and remove goes through anyway; the run-time
- * spawn integration in slice 2 will treat a stale-accountId project as
- * NULL (fall back to default), so this is fail-safe.
- */
-function findProjectsUsingAccount(accountId: string): string[] {
-  if (!existsSync(PROJECTS_DIR)) return [];
-  const out: string[] = [];
-  let entries: string[] = [];
-  try {
-    entries = readdirSync(PROJECTS_DIR);
-  } catch {
-    return [];
-  }
-  for (const entry of entries) {
-    const projectMd = join(PROJECTS_DIR, entry, "project.md");
-    if (!existsSync(projectMd)) continue;
-    try {
-      const raw = readFileSync(projectMd, "utf-8");
-      // Match `accountId: <id>` in the frontmatter (before the closing ---).
-      const fm = raw.match(/^---\n([\s\S]*?)\n---/);
-      if (!fm) continue;
-      const pattern = new RegExp(`^accountId:\\s*["']?${accountId}["']?\\s*$`, "m");
-      if (pattern.test(fm[1]!)) out.push(entry);
-    } catch {
-      // Unreadable — skip. Better to allow delete than block on garbled data.
-    }
-  }
-  return out;
-}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import type { PlanetConfig, PlanetType } from "@agent-office/domain/types";
-import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanetOfType } from "@/lib/planet-seed";
+import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanetOfType } from "@agent-office/pixel-planets";
 import { ModalShell } from "./modal-shell";
 import { PlanetCanvas } from "./planet-canvas";
 import { Icon } from "./icon";

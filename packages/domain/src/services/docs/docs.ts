@@ -29,6 +29,7 @@ import {
 import { join } from "node:path";
 import { isDocCategory, type DocCategory } from "../../config/doc-categories";
 import { DOCS_DIR, DOCS_GLOBAL_OWNER, isValidIdSegment } from "../infra/paths";
+import { parseFrontmatterDetailed, type YamlValue } from "../infra/yaml";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -37,37 +38,26 @@ export type { Doc, DocMeta, DocFrontmatter } from "../../types/index";
 
 // ─── Frontmatter parse / serialize ───────────────────────────────────────────
 
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
-
 interface ParsedDoc {
   frontmatter: Partial<DocFrontmatter>;
   body: string;
 }
 
+const str = (v: YamlValue | undefined): string | undefined => (typeof v === "string" ? v : undefined);
+
 function parseDocFile(raw: string): ParsedDoc {
-  const match = FRONTMATTER_RE.exec(raw);
-  if (!match) return { frontmatter: {}, body: raw };
-  const rawFm = match[1] ?? "";
-  const body = raw.slice(match[0].length);
-  const fm: Partial<DocFrontmatter> = {};
-  for (const line of rawFm.split("\n")) {
-    const idx = line.indexOf(":");
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    let value = line.slice(idx + 1).trim();
-    // Strip surrounding quotes on scalar values.
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (key === "title") fm.title = value;
-    else if (key === "category" && isDocCategory(value)) fm.category = value;
-    else if (key === "created") fm.created = value;
-    else if (key === "updated") fm.updated = value;
-  }
-  return { frontmatter: fm, body };
+  const { fm, body, matched } = parseFrontmatterDetailed(raw);
+  if (!matched) return { frontmatter: {}, body: raw };
+  const category = str(fm.category);
+  return {
+    frontmatter: {
+      title: str(fm.title),
+      category: category && isDocCategory(category) ? category : undefined,
+      created: str(fm.created),
+      updated: str(fm.updated),
+    },
+    body,
+  };
 }
 
 function serializeDoc(meta: DocFrontmatter, body: string): string {

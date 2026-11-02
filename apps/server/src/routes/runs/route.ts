@@ -1,10 +1,7 @@
 // GET /api/runs — list run records (filterable by agent/project/instance).
-// DELETE — clear run history.
 import { store, runs as runsService } from "@agent-office/domain/services";
 import { validateQuery } from "../../lib/validation";
 import { runsQuerySchema } from "@agent-office/api-contract";
-import { badRequest } from "../../lib/api-helpers";
-import { z } from "zod";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -40,14 +37,4 @@ export async function GET(request: Request) {
       (!q.instance || r.instanceId === q.instance),
   );
   return Response.json(filtered.slice(0, limit));
-}
-
-const deleteSchema = z.object({ agent: z.string().min(1) });
-
-export async function DELETE(request: Request) {
-  const url = new URL(request.url);
-  const parse = deleteSchema.safeParse({ agent: url.searchParams.get("agent") });
-  if (!parse.success) return badRequest("agent_required");
-  const deleted = store.deleteRunsByAgent(parse.data.agent);
-  return Response.json({ deleted });
 }

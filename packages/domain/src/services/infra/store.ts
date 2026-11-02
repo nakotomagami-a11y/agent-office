@@ -42,27 +42,11 @@ export function pushRun(run: PersistedRun): void {
   });
 }
 
-export function getChildRuns(parentRunId: string): PersistedRun[] {
-  return db.getChildRuns(parentRunId);
-}
-
-export function deleteRunsForInstance(projectId: string, instanceId: string): number {
-  return db.deleteRunsForInstance(projectId, instanceId);
-}
-
-export function deleteRunsByAgent(agentId: string): number {
-  return db.deleteRunsByAgent(agentId);
-}
-
 export function getRecentPrompts(agentId: string): string[] {
   return db.getRecentPrompts(agentId);
 }
 
 export function pushRecentPrompt(agentId: string, prompt: string): void {
   db.pushRecentPrompt(agentId, prompt);
-}
-
-export function getAllRecentPrompts(): Record<string, string[]> {
-  return db.getAllRecentPrompts();
 }
 

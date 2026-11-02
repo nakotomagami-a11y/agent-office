@@ -39,7 +39,7 @@ function cut(s: string, max: number): string {
   return s.slice(0, /[\uD800-\uDBFF]/.test(s[max - 1]!) ? max - 1 : max);
 }
 
-export function clean(s: string, max = 80): string {
+function clean(s: string, max = 80): string {
   return cut(s.replace(/[\p{Cc}\p{Cf}]/gu, " "), max).trim();
 }
 
@@ -55,7 +55,7 @@ export function readSystemGhUser(): string | null {
   }
 }
 
-export function topLevelEntries(cwd: string): string[] {
+function topLevelEntries(cwd: string): string[] {
   const SKIP = new Set([
     "node_modules", ".git", ".next", "dist", "build", "target", "out",
     ".turbo", ".cache", "coverage", ".worktrees", ".venv", "__pycache__",
@@ -71,7 +71,7 @@ export function topLevelEntries(cwd: string): string[] {
   }
 }
 
-export function conventionDocs(cwd: string): string[] {
+function conventionDocs(cwd: string): string[] {
   const candidates = [
     "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md",
     "docs/conventions.md", "docs/architecture.md",

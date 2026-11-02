@@ -1,16 +1,14 @@
-// Portable project save-file bundle: a project, its roster agents and optionally
-// transcripts. Domain-only, so both /api/save routes stay thin controllers.
+// Portable project save-file bundle: a project and its roster agents. Domain-only,
+// so both /api/save routes stay thin controllers.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as agents from "../agents/agents";
-import * as db from "../db";
 import * as projects from "./projects";
 import { AGENTS_DIR, AGENT_BACKUPS_DIR, IMPORT_BACKUPS_DIR, isValidIdSegment } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import type { Project, ProjectMetaPatch } from "../../types";
 
 export interface SaveBundleAgent { id: string; content: string; memory: string }
-export interface SaveHistoryEntry { agentId: string; instanceId: string; transcript: string }
 
 // Export produces the project's real, typed meta; import receives whatever the
 // validated save file carried (a loose record), so the two directions differ.
@@ -19,13 +17,11 @@ export interface SaveBundle {
   exportedAt: string;
   project: { id: string; meta: Project["meta"]; memory: string };
   agents: SaveBundleAgent[];
-  history?: SaveHistoryEntry[];
 }
 
 export interface ImportBundle {
   project: { id: string; meta: Record<string, unknown>; memory: string };
   agents: SaveBundleAgent[];
-  history?: SaveHistoryEntry[];
 }
 
 function collectUniqueRosterAgents(project: Project): SaveBundleAgent[] {
@@ -42,17 +38,8 @@ function collectUniqueRosterAgents(project: Project): SaveBundleAgent[] {
   return out;
 }
 
-function collectRosterHistory(project: Project): SaveHistoryEntry[] {
-  const history: SaveHistoryEntry[] = [];
-  for (const inst of project.meta.roster) {
-    const row = db.getTranscript(inst.agentId, inst.instanceId);
-    if (row?.items) history.push({ agentId: inst.agentId, instanceId: inst.instanceId, transcript: row.items });
-  }
-  return history;
-}
-
 /** Build a portable bundle for a project, or null if the project doesn't exist. */
-export function exportBundle(projectId: string, includeHistory: boolean): SaveBundle | null {
+export function exportBundle(projectId: string): SaveBundle | null {
   const project = projects.readProject(projectId);
   if (!project) return null;
   return {
@@ -60,7 +47,6 @@ export function exportBundle(projectId: string, includeHistory: boolean): SaveBu
     exportedAt: new Date().toISOString(),
     project: { id: project.id, meta: project.meta, memory: project.memory },
     agents: collectUniqueRosterAgents(project),
-    ...(includeHistory ? { history: collectRosterHistory(project) } : {}),
   };
 }
 
@@ -109,7 +95,7 @@ function portableSeat(seat: unknown): unknown {
   return Object.fromEntries(Object.entries(seat).filter(([k]) => !MACHINE_KEYS.has(k)));
 }
 
-function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<string> {
+function restoreProject(p: ImportBundle["project"]): void {
   const meta = p.meta;
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
@@ -132,23 +118,13 @@ function restoreProjectReturningAddedSeats(p: ImportBundle["project"]): Set<stri
   }
   projects.updateProject(p.id, { meta: patch, memory: p.memory || undefined }, "importBundle");
   // Unconditional would let a roster-less bundle delete every instance.
-  if (!Array.isArray(meta.roster)) return new Set();
+  if (!Array.isArray(meta.roster)) return;
   // Added to, never replaced: replacing orphaned the existing seats' worktrees and chats.
-  return projects.addToRoster(p.id, meta.roster.map(portableSeat), "importBundle");
-}
-
-/** Only into seats this import added: an existing seat's transcript and session are the user's. */
-function restoreHistory(history: SaveHistoryEntry[] | undefined, added: Set<string>): void {
-  if (!history) return;
-  for (const entry of history) {
-    if (!isValidIdSegment(entry.agentId) || !isValidIdSegment(entry.instanceId)) continue;
-    if (!added.has(entry.instanceId) || db.getTranscript(entry.agentId, entry.instanceId)) continue;
-    db.saveTranscript(entry.agentId, entry.instanceId, entry.transcript, null, null);
-  }
+  projects.addToRoster(p.id, meta.roster.map(portableSeat), "importBundle");
 }
 
 function snapshotBefore(projectId: string, at: string): string | null {
-  const before = exportBundle(projectId, true);
+  const before = exportBundle(projectId);
   if (!before) return null;
   ensureDir(IMPORT_BACKUPS_DIR);
   const file = join(IMPORT_BACKUPS_DIR, `${projectId}.${at}.agent-office.json`);
@@ -161,7 +137,6 @@ export function importBundle(bundle: ImportBundle): ImportOutcome {
   const at = new Date().toISOString().replace(/[:.]/g, "-");
   const snapshot = snapshotBefore(bundle.project.id, at);
   const backedUp = restoreAgents(bundle.agents, at);
-  const added = restoreProjectReturningAddedSeats(bundle.project);
-  restoreHistory(bundle.history, added);
+  restoreProject(bundle.project);
   return { projectId: bundle.project.id, agentCount: bundle.agents.length, backedUp, snapshot };
 }

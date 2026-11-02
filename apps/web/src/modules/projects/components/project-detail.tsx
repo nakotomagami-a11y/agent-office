@@ -92,8 +92,6 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
         </div>
 
         <ProjectBackupCard
-          includeHistory={backup.includeHistory}
-          onIncludeHistoryChange={backup.setIncludeHistory}
           onExport={() => void backup.onExport()}
           exportFileName={backup.exportFileName}
           exportError={backup.exportError}

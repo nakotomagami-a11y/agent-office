@@ -23,7 +23,6 @@ import type {
   SkillProvenance,
   SkillUpdate,
   SkillManifest,
-  SkillCompatibility,
   SkillCustomization,
   SkillCustomizationMap,
   SkillSection,
@@ -33,7 +32,6 @@ import type {
 export type {
   SkillManifest,
   SkillManifestEntry,
-  SkillCompatibility,
   SkillCustomization,
   SkillCustomizationMap,
   SkillSection,
@@ -44,7 +42,7 @@ import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { SKILLS_DIR, isInside, isValidIdSegment } from "../infra/paths";
 import { log } from "../infra/log";
 import { EXTERNAL_API } from "../../config/routes";
-import { isYamlMapping, parseFrontmatter, parseYaml, stringifyYaml, type YamlMapping } from "../infra/yaml";
+import { parseFrontmatter, parseFrontmatterDetailed, stringifyYaml, type YamlMapping } from "../infra/yaml";
 import type { SkillIconClass } from "../../config/skill-icons";
 
 const REGISTRY_CACHE = join(SKILLS_DIR, "_registry.json");
@@ -513,9 +511,7 @@ export interface WriteSkillInput {
 
 /** Return the markdown below a leading `--- … ---` block (or the input as-is). */
 function stripFrontmatter(content: string): string {
-  const normalized = content.replace(/\r\n/g, "\n");
-  const m = normalized.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
-  return (m ? m[1]! : normalized).trim();
+  return parseFrontmatterDetailed(content.replace(/\r\n/g, "\n")).body.trim();
 }
 
 /** `WriteSkillInput` owns these; carried-over keys cannot shadow them. */
@@ -622,27 +618,21 @@ export function writeLocalSkill(
 /** Import a skill from pasted SKILL.md text; the name comes from frontmatter. */
 export function importPastedSkill(content: string): InstalledSkill {
   const normalized = content.replace(/\r\n/g, "\n");
-  const fm = normalized.match(/^---\n([\s\S]*?)\n---/);
-  if (!fm) {
+  const { fm, matched, mapping } = parseFrontmatterDetailed(normalized);
+  if (!matched) {
     throw new Error("pasted content has no frontmatter — expected a `--- name/description ---` block");
   }
-  let raw: YamlMapping = {};
-  try {
-    const parsed = parseYaml(fm[1]!);
-    if (isYamlMapping(parsed)) raw = parsed;
-  } catch {
-    throw new Error("could not parse the frontmatter YAML");
-  }
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!mapping) throw new Error("could not parse the frontmatter YAML");
+  const name = typeof fm.name === "string" ? fm.name.trim() : "";
   if (!name) throw new Error("frontmatter is missing a `name`");
   return writeLocalSkill(
     {
       name,
-      description: typeof raw.description === "string" ? raw.description : "",
-      tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === "string") : [],
+      description: typeof fm.description === "string" ? fm.description : "",
+      tags: Array.isArray(fm.tags) ? fm.tags.filter((t): t is string => typeof t === "string") : [],
       body: normalized,
     },
-    { overwrite: false, carryFm: raw },
+    { overwrite: false, carryFm: fm },
   );
 }
 
@@ -888,8 +878,8 @@ interface ClassifiedSkill extends SkillBreakdownRow {
 }
 
 /** Resolves each skill once into its final prompt fragment + mode + size.
- *  `buildSkillsPrompt` and `buildSkillsBreakdown` both derive from this, so
- *  they can't drift apart. Skills with no body produce no entry. */
+ *  The prompt and the Context & Cost breakdown both derive from this, so they
+ *  can't drift apart. Skills with no body produce no entry. */
 function classifySkills(skills: string[]): ClassifiedSkill[] {
   const out: ClassifiedSkill[] = [];
   for (const name of skills) {
@@ -933,10 +923,6 @@ export function buildSkillsBundle(skills: string[]): { prompt: string; breakdown
   };
 }
 
-export function buildSkillsPrompt(skills: string[]): string {
-  return promptFromClassified(classifySkills(skills));
-}
-
 function promptFromClassified(classified: ClassifiedSkill[]): string {
   const inline = classified.filter((c) => c.mode === "inline").map((c) => c.fragment);
   const refs = classified.filter((c) => c.mode === "reference").map((c) => c.fragment);
@@ -952,13 +938,6 @@ function promptFromClassified(classified: ClassifiedSkill[]): string {
   return sections.join("\n\n---\n\n");
 }
 
-/** Per-skill sizing for the Context & Cost tab — one row per skill, derived
- *  from the same `classifySkills` walk `buildSkillsPrompt` uses. */
-export function buildSkillsBreakdown(skills: string[]): SkillBreakdownRow[] {
-  const out: SkillBreakdownRow[] = classifySkills(skills).map(({ name, chars, mode }) => ({ name, chars, mode }));
-  return out;
-}
-
 /** Declared skill names that resolve to nothing. Empty array = all resolve.
  *  Intended for badging an agent in the UI and for blocking a save that would
  *  silently ship a dead capability — neither is wired up yet; today this backs
@@ -972,14 +951,12 @@ export function registrySources(): Array<{ source: string; ref: string; builtIn:
   return allSources().map((s) => ({ source: s.source, ref: s.ref, builtIn: !users.has(`${s.source}@${s.ref}`) }));
 }
 
-// ── Static skill manifest / compatibility (curated JSON in _skills/) ──────
+// ── Static skill manifest (curated JSON in _skills/) ──────
 //
-// Both files are generated/maintained externally by the user's `_install.py`
-// tool. We expose them to the frontend so the skill picker can show
-// cost/impact info and (future) warn about conflicting selections.
+// Generated/maintained externally by the user's `_install.py` tool. We expose
+// it to the frontend so the skill picker can show cost/impact info.
 
 const MANIFEST_PATH = join(SKILLS_DIR, "_manifest.json");
-const COMPATIBILITY_PATH = join(SKILLS_DIR, "_compatibility.json");
 
 export function readManifest(): SkillManifest | null {
   if (!existsSync(MANIFEST_PATH)) return null;
@@ -987,16 +964,6 @@ export function readManifest(): SkillManifest | null {
     return JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as SkillManifest;
   } catch (e) {
     log.warn("skills.manifest_parse_failed", { err: String(e) });
-    return null;
-  }
-}
-
-export function readCompatibility(): SkillCompatibility | null {
-  if (!existsSync(COMPATIBILITY_PATH)) return null;
-  try {
-    return JSON.parse(readFileSync(COMPATIBILITY_PATH, "utf8")) as SkillCompatibility;
-  } catch (e) {
-    log.warn("skills.compatibility_parse_failed", { err: String(e) });
     return null;
   }
 }

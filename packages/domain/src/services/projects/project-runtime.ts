@@ -221,8 +221,7 @@ function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix:
 }
 
 /** Detect runnable dev commands for a project: a `.ao.json` `devCommands` override,
- *  else Flutter targets (root + apps/mobile/packages subfolders) and package.json
- *  dev scripts (root + bootstrapped subfolders, each with its own cwd). */
+ *  else package.json dev scripts (root + bootstrapped subfolders, each with its own cwd). */
 export function detectDevCommands(cwd: string): DetectedCommand[] {
   const aoPath = join(cwd, ".ao.json");
   if (existsSync(aoPath)) {
@@ -246,32 +245,6 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
   }
 
   const commands: DetectedCommand[] = [];
-
-  // Flutter: root + common monorepo subfolders (apps/*, mobile/*, packages/*).
-  const flutterCandidates: Array<{ dir: string; label: string }> = [{ dir: cwd, label: "Flutter Web" }];
-  try {
-    for (const parent of ["apps", "mobile", "packages"]) {
-      const parentDir = join(cwd, parent);
-      if (!existsSync(parentDir)) continue;
-      for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        flutterCandidates.push({ dir: join(parentDir, entry.name), label: `Flutter - ${entry.name}` });
-      }
-    }
-  } catch { /* ignore */ }
-
-  for (const { dir, label } of flutterCandidates) {
-    if (!existsSync(join(dir, "pubspec.yaml"))) continue;
-    const key = dir === cwd ? "flutter" : `flutter-${relative(cwd, dir).replace(/[\\/]/g, "-")}`;
-    const isMobileApp = existsSync(join(dir, "android")) || existsSync(join(dir, "ios"));
-    commands.push({
-      key,
-      name: label,
-      argv: isMobileApp ? ["flutter", "run"] : ["flutter", "run", "-d", "web"],
-      portMode: isMobileApp ? "device" : "flutter",
-      cwd: dir,
-    });
-  }
 
   // package.json scripts — root, the bootstrapped subfolders, and (for real
   // pnpm/npm/yarn/bun monorepos) every package the workspace config declares,

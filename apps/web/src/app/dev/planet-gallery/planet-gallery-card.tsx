@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import type { PlanetConfig } from "@agent-office/domain/types";
-import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanetOfType } from "@/lib/planet-seed";
+import { PLANET_TYPE_DEFS, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE, randomPlanetOfType } from "@agent-office/pixel-planets";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
