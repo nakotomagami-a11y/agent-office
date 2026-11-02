@@ -59,7 +59,6 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Docs viewer** - in-app browser for exported run docs
 
 ### Discovery & history
-- **Search** your recent runs
 - **Run history** - every run of an agent, by day, on its Recent runs tab
 - **Spend tracking** - cost-per-agent, cost-per-project, daily totals
 - **Analytics dashboards** - spend/runs/runtime trends, model split, per-agent and per-project rankings, tool usage, activity heatmap; per-account breakdown when multiple Claude accounts are connected
@@ -135,7 +134,7 @@ repositories, pinned by commit as git dependencies in `apps/web/package.json`:
 
 Inside `apps/web/src`:
 
-- `app/(app)/` - pages (root `/` redirects to the active project): analytics, projects, agents, runs, search, memory, skills, docs, settings
+- `app/(app)/` - pages (root `/` redirects to the active project): analytics, projects, agents, runs, memory, skills, docs, settings
 - `app/api/[...path]/` - mounts `@agent-office/server`; the endpoints themselves live in `apps/server/src/routes/`
 - `components/layout/` - window chrome, titlebar, sidebar, project switcher, mobile nav
 - `components/ui/` - design-system atoms (Icon, StatusDot, Button, Modal, Tabs, ...)
@@ -144,7 +143,7 @@ Inside `apps/web/src`:
 - `modules/missions/` - mission start/join dialog and the chat-header mission pill
 - `modules/analytics/` - spend/usage dashboards
 - `modules/accounts/`, `modules/github-accounts/` - multi-account management
-- `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/search/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
+- `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
 - `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, toast, ...), the axios `api-client`, and `api/` resource modules
 
 ## Run it

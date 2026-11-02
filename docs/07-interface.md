@@ -229,7 +229,7 @@ Sets the rendering / animation budget — `full` · `lite` · `off` — persiste
 Sweep stored data by kind (e.g. reaped error runs) via `POST /api/cleanup/:kind`, reclaiming space without touching live runs.
 
 > [!NOTE]
-> Global Memory, Skills, Analytics, and Search are top-level routes (`/memory`, `/skills`, `/analytics`, `/search`) reached from the sidebar — NOT sub-tabs of Settings.
+> Global Memory, Skills and Analytics are top-level routes (`/memory`, `/skills`, `/analytics`) reached from the sidebar — NOT sub-tabs of Settings.
 
 ### Multi-instance feature flag
 
@@ -277,10 +277,6 @@ Usage & cost dashboards, scoped by a period selector (7 / 30 / 90 days / all tim
 - **Per-account** — usage split across connected Claude accounts (`/api/analytics/per-account`).
 
 All data pulled from the `runs` table (`/api/analytics/*`). No cloud call.
-
-## Search page (top-level route `/search`)
-
-Finds a past run by its prompt or output, among your most recent 500 runs.
 
 ## Processes panel (Cmd+Shift+P)
 

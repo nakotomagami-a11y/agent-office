@@ -63,10 +63,6 @@ sqlite3 -header -column ~/.claude/agent-office/db.sqlite "
 "
 ```
 
-### Search
-
-The **Search** page finds a past run by its prompt or output, among your recent runs.
-
 ### Run tree
 
 `GET /api/runs/:id/tree` returns the full parent → sub-agent → sub-sub-agent hierarchy. The History tab renders this as a collapsible tree so you can see which orchestrator dispatched which specialists.

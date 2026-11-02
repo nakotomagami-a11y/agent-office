@@ -745,13 +745,6 @@
     "kill_error_not_found": "PID {pid} had already exited.",
     "kill_error_failed": "Couldn't stop PID {pid}."
   },
-  "search_page": {
-    "title": "Search Runs",
-    "placeholder": "Search prompts and outputs…",
-    "no_results_title": "No results",
-    "no_results_desc": "Try a different search term",
-    "results_count": "{count, plural, one {# result} other {# results}}"
-  },
   "spend_page": {
     "title": "Spend"
   },
