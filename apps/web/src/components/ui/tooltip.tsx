@@ -26,6 +26,7 @@ export type TooltipProps = {
 };
 
 const GAP = 8;
+const EDGE = 8;
 
 function calcStyle(rect: DOMRect, side: Side): CSSProperties {
   const cx = rect.left + rect.width / 2;
@@ -75,6 +76,14 @@ export function Tooltip({ content, children, side = "top", delayMs = 450, classN
     }, delayMs);
   }, [side, delayMs]);
 
+  // `translate` composes with calcStyle's `transform`, so this nudge doesn't disturb the side anchoring.
+  const keepOnScreen = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const dx = Math.min(0, window.innerWidth - EDGE - r.right) || Math.max(0, EDGE - r.left);
+    if (dx) el.style.translate = `${dx}px 0`;
+  }, []);
+
   const hide = useCallback(() => {
     clearTimeout(timer.current);
     setOpen(false);
@@ -117,6 +126,7 @@ export function Tooltip({ content, children, side = "top", delayMs = 450, classN
       {trigger}
       {open && typeof document !== "undefined" && createPortal(
         <div
+          ref={keepOnScreen}
           id={id}
           role="tooltip"
           style={style}

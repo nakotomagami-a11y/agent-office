@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Icon } from "@/components/ui/icon";
-import { ActionBar, type ActionBarItem } from "@/components/ui/action-bar";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Portal } from "@/components/ui/portal";
 import { cn } from "@/lib/cn";
@@ -40,6 +39,11 @@ const menuMaxHeight = (rect: DOMRect) => Math.min(440, window.innerHeight - rect
 const IMG_BTN = "group inline-flex items-center justify-center w-[40px] h-[40px] rounded-[7px] border border-transparent cursor-pointer select-none shrink-0";
 const IMG_ICON = "shrink-0 object-contain transition-transform duration-[150ms] ease-out group-hover:scale-[1.25]";
 
+const HERO_OUTLINE = "flex items-center gap-[8px] px-[16px] py-[11px] rounded-[13px] border border-edge-2 bg-card-2 text-txt-2 text-[13.5px] font-semibold cursor-pointer whitespace-nowrap transition-all duration-150 hover:text-txt hover:border-txt-4 disabled:cursor-default";
+const HERO_RUNNING = "flex items-center gap-[7px] px-[15px] py-[11px] rounded-[13px] border-none bg-green-soft text-green text-[13.5px] font-semibold cursor-pointer whitespace-nowrap transition-[filter] duration-150 hover:brightness-110";
+const HERO_ICON_BTN = "w-[32px] h-[32px] shrink-0 flex items-center justify-center rounded-[10px] border-none bg-transparent text-txt-4 cursor-pointer transition-all duration-[140ms] hover:bg-card-2 hover:text-txt disabled:cursor-default";
+const SPIN = "[animation:spin_1s_linear_infinite]";
+
 type InstallState = "unknown" | "needed" | "installing" | "done" | "failed";
 
 type RunState =
@@ -48,7 +52,7 @@ type RunState =
   | { phase: "running"; pid: number; port: number | null; url: string | null }
   | { phase: "stopping" };
 
-export function DevServerButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+export function DevServerButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
   const [install, setInstall] = useState<InstallState>("unknown");
   const [installError, setInstallError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -151,13 +155,9 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
     const place = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPanelStyle({
-        position: "fixed",
-        top: rect.bottom + 6,
-        right: window.innerWidth - rect.right,
-        width: 220,
-        maxHeight: menuMaxHeight(rect),
-      });
+      setPanelStyle(hero
+        ? { position: "fixed", top: rect.bottom + 8, left: rect.left, width: 200, maxHeight: menuMaxHeight(rect) }
+        : { position: "fixed", top: rect.bottom + 6, right: window.innerWidth - rect.right, width: 220, maxHeight: menuMaxHeight(rect) });
     };
     place();
     // A fixed-position panel detaches when something holding its trigger scrolls.
@@ -171,7 +171,7 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
-  }, [open]);
+  }, [open, hero]);
 
   function getState(key: string): RunState {
     return store.getRunState(projectId, key) as RunState;
@@ -292,6 +292,101 @@ export function DevServerButton({ projectId, menu = false }: { projectId: string
       </button>
     </Tooltip>
   ) : null;
+
+  if (hero) {
+    const heroInstall = install === "needed" || install === "installing" || install === "failed" ? (
+      <button
+        type="button"
+        className={cn(HERO_OUTLINE, install === "failed" && "text-red")}
+        onClick={() => { void runInstall(); }}
+        disabled={install === "installing"}
+        title={install === "failed" ? installError ?? undefined : undefined}
+      >
+        <Icon name={install === "installing" ? "refresh" : install === "failed" ? "x" : "download"} size={15} className={cn(install === "installing" && SPIN)} />
+        {install === "installing" ? "Installing…" : install === "failed" ? "Install failed — retry" : "Install"}
+      </button>
+    ) : null;
+    if (commands.length === 0) return heroInstall;
+
+    // One idle command keeps its one-click start; the dropdown only earns its
+    // extra click once there is something to choose between or to stop.
+    const only = commands.length === 1 ? commands[0]! : null;
+    const onlyPhase = only ? getState(only.key).phase : null;
+    if (only && onlyPhase !== "running") {
+      const busy = onlyPhase === "starting" || onlyPhase === "stopping";
+      return (
+        <>
+          {heroInstall}
+          <button type="button" className={HERO_OUTLINE} onClick={() => { void startCmd(only.key); }} disabled={busy || busyInstall} title={`Start ${only.name}`}>
+            <Icon name={busy ? "refresh" : "play"} size={busy ? 15 : 11} className={cn(busy && SPIN)} />
+            {onlyPhase === "starting" ? "Starting…" : onlyPhase === "stopping" ? "Stopping…" : only.name}
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {heroInstall}
+        <div ref={dropRef} className="relative">
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            disabled={busyInstall}
+            className={runningCount > 0 ? HERO_RUNNING : HERO_OUTLINE}
+          >
+            <Icon name="play" size={11} />
+            {runningCount > 0 ? `${runningCount} running` : "Dev servers"}
+            <Icon name="chevron-down" size={13} strokeWidth={2} />
+          </button>
+          {open && (
+            <Portal>
+              <div ref={panelRef} style={panelStyle} className="surface-sheen rounded-[14px] shadow-[var(--lift)] z-[9999] p-[8px] flex flex-col">
+                <div className={cn("min-h-0 overflow-y-auto flex flex-col", MENU_SCROLL)}>
+                  {commands.map((cmd) => {
+                    const s = getState(cmd.key);
+                    const busy = s.phase === "starting" || s.phase === "stopping";
+                    const running = s.phase === "running";
+                    return (
+                      <div key={cmd.key} className="group flex items-center gap-[10px] px-[9px] py-[8px] rounded-[10px] transition-colors duration-[140ms] hover:bg-card-2">
+                        <span className={cn("w-[6px] h-[6px] rounded-full shrink-0", running ? "bg-green animate-[aoPulse_1.7s_ease-in-out_infinite]" : "bg-txt-4")} />
+                        <span className={cn("flex-1 min-w-0 truncate text-[12.5px] font-semibold", running ? "text-txt" : "text-txt-3")}>{cmd.name}</span>
+                        {running && s.port !== null && (
+                          <a
+                            href={s.url ?? "#"} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10.5px] text-green bg-green-soft px-[7px] py-[2px] rounded-[6px] whitespace-nowrap shrink-0 no-underline transition-[filter] duration-150 hover:brightness-125"
+                          >
+                            :{s.port}
+                          </a>
+                        )}
+                        {busy ? (
+                          <Icon name="refresh" size={12} className={cn("text-txt-3 shrink-0", SPIN)} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { void (running ? stopCmd(cmd.key) : startCmd(cmd.key)); }}
+                            disabled={!running && busyInstall}
+                            aria-label={`${running ? "Stop" : "Start"} ${cmd.name}`}
+                            title={`${running ? "Stop" : "Start"} ${cmd.name}`}
+                            className="w-[22px] h-[22px] shrink-0 flex items-center justify-center rounded-[6px] text-txt-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 hover:text-txt hover:bg-card-3"
+                          >
+                            <Icon name={running ? "stop" : "play"} size={10} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Portal>
+          )}
+        </div>
+      </>
+    );
+  }
 
   // ── Menu layout: every command as an inline row, no nested dropdown ─────────
   if (menu) {
@@ -516,8 +611,25 @@ function useOpenProject() {
   };
 }
 
-export function OpenFolderButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+function HeroIconButton({ label, icon, onClick, className, disabled }: {
+  label: string;
+  icon: IconName;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip content={label} side="bottom">
+      <button type="button" aria-label={label} className={cn(HERO_ICON_BTN, className)} onClick={onClick} disabled={disabled}>
+        <Icon name={icon} size={15} strokeWidth={1.8} className={cn(icon === "refresh" && SPIN)} />
+      </button>
+    </Tooltip>
+  );
+}
+
+export function OpenFolderButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
   const open = useOpenProject();
+  if (hero) return <HeroIconButton label="Open project folder" icon="folder" onClick={() => open(projectId)} />;
   if (menu) {
     return (
       <button type="button" className={MROW} onClick={() => open(projectId)}>
@@ -535,8 +647,9 @@ export function OpenFolderButton({ projectId, menu = false }: { projectId: strin
   );
 }
 
-export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+export function OpenInVSCodeButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
   const open = useOpenProject();
+  if (hero) return <HeroIconButton label="Open in VS Code" icon="code" onClick={() => open(projectId, "code")} />;
   if (menu) {
     return (
       <button type="button" className={MROW} onClick={() => open(projectId, "code")}>
@@ -556,7 +669,7 @@ export function OpenInVSCodeButton({ projectId, menu = false }: { projectId: str
 
 type BuildPhase = "idle" | "building" | "done" | "error";
 
-export function ClearCacheButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+export function ClearCacheButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
   const [phase, setPhase] = useState<"idle" | "clearing" | "done" | "error">("idle");
 
   async function clearCache() {
@@ -569,6 +682,18 @@ export function ClearCacheButton({ projectId, menu = false }: { projectId: strin
       setPhase("error");
     }
     setTimeout(() => setPhase("idle"), 2500);
+  }
+
+  if (hero) {
+    return (
+      <HeroIconButton
+        label={phase === "clearing" ? "Clearing cache…" : phase === "done" ? "Cache cleared" : phase === "error" ? "Clear failed" : "Clear build cache (.next, .turbo, node_modules/.cache)"}
+        icon={phase === "clearing" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "trash"}
+        onClick={() => { void clearCache(); }}
+        disabled={phase !== "idle"}
+        className={cn("hover:bg-red-soft hover:text-red", phase === "done" && "text-green", phase === "error" && "text-red")}
+      />
+    );
   }
 
   if (menu) {
@@ -618,7 +743,7 @@ export function ClearCacheButton({ projectId, menu = false }: { projectId: strin
   );
 }
 
-export function BuildButton({ projectId, menu = false }: { projectId: string; menu?: boolean }) {
+export function BuildButton({ projectId, menu = false, hero = false }: { projectId: string; menu?: boolean; hero?: boolean }) {
   const [phase, setPhase] = useState<BuildPhase>("idle");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -657,6 +782,25 @@ export function BuildButton({ projectId, menu = false }: { projectId: string; me
   }
 
   if (!hasBuild) return null;
+
+  if (hero) {
+    return (
+      <button
+        type="button"
+        className={cn(HERO_OUTLINE, phase === "done" && "text-green", phase === "error" && "text-red")}
+        onClick={() => { void startBuild(); }}
+        disabled={phase !== "idle"}
+      >
+        <Icon
+          name={phase === "building" ? "refresh" : phase === "done" ? "check" : phase === "error" ? "x" : "zap"}
+          size={15}
+          strokeWidth={1.8}
+          className={cn(phase === "building" && SPIN)}
+        />
+        {phase === "building" ? "Building…" : phase === "done" ? "Built" : phase === "error" ? "Failed" : "Build"}
+      </button>
+    );
+  }
 
   if (menu) {
     return (
@@ -702,42 +846,36 @@ export function BuildButton({ projectId, menu = false }: { projectId: string; me
 }
 
 /**
- * Folder / VS Code / clear-cache only — the "shortcuts" segment, split out so
- * a header can place it somewhere other than next to Build/Dev server (e.g.
- * {@link ProjectHero}'s avatar row, to the left of the roster stack, instead
- * of crowding the "Add agent" row above it).
+ * Folder / VS Code / clear-cache as the project hero's ghost icon buttons, on its
+ * roster row. No ActionBar collapse: the hero row wraps instead.
  */
 export function ProjectShortcutsBar({ projectId }: { projectId: string }) {
   const hasCwd = useProjectHasCwd(projectId);
   if (!hasCwd) return null;
-  return <ActionBar items={shortcutItems(projectId)} />;
+  return (
+    <div className="flex items-center gap-[1px]">
+      <OpenFolderButton projectId={projectId} hero />
+      <OpenInVSCodeButton projectId={projectId} hero />
+      <ClearCacheButton projectId={projectId} hero />
+    </div>
+  );
 }
 
-/** Build / dev server only — the "runtime" counterpart to {@link ProjectShortcutsBar}. */
+/** Build / dev server in the hero's button style — the "runtime" counterpart to {@link ProjectShortcutsBar}. */
 export function ProjectRuntimeBar({ projectId }: { projectId: string }) {
   const hasCwd = useProjectHasCwd(projectId);
   if (!hasCwd) return null;
-  return <ActionBar items={runtimeItems(projectId)} />;
+  return (
+    <>
+      <BuildButton projectId={projectId} hero />
+      <DevServerButton projectId={projectId} hero />
+    </>
+  );
 }
 
 function useProjectHasCwd(projectId: string): boolean {
   const projectQ = useProject(projectId);
   return !!projectQ.data?.meta.cwd;
-}
-
-function shortcutItems(projectId: string): ActionBarItem[] {
-  return [
-    { key: `folder-${projectId}`, element: <OpenFolderButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
-    { key: `vscode-${projectId}`, element: <OpenInVSCodeButton projectId={projectId} />, segment: "shortcuts", priority: 10 },
-    { key: `cache-${projectId}`, element: <ClearCacheButton projectId={projectId} />, segment: "shortcuts", priority: 9 },
-  ];
-}
-
-function runtimeItems(projectId: string): ActionBarItem[] {
-  return [
-    { key: `build-${projectId}`, element: <BuildButton key={`build-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
-    { key: `dev-${projectId}`, element: <DevServerButton key={`dev-${projectId}`} projectId={projectId} />, segment: "runtime", priority: 5 },
-  ];
 }
 
 /**

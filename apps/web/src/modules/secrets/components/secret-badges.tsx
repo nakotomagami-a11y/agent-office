@@ -1,12 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/cn";
 import type { SecretWithStatus } from "../hooks/use-secrets";
 
 const DAY = 86_400_000;
 
 /** Expiry + live-validity badges shared by the settings tab and project panel. */
-export function SecretBadges({ secret }: { secret: SecretWithStatus }) {
+export function SecretBadges({ secret, pillClassName }: { secret: SecretWithStatus; pillClassName?: string }) {
   const t = useTranslations("providers");
   const badges: Array<{ text: string; tone: "bad" | "warn" | "good" | "muted" }> = [];
 
@@ -30,15 +31,16 @@ export function SecretBadges({ secret }: { secret: SecretWithStatus }) {
       {badges.map((b) => (
         <span
           key={b.text}
-          className={
-            "inline-flex items-center py-[1.5px] px-[8px] rounded-full text-[9px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap " +
+          className={cn(
+            "inline-flex items-center py-[1.5px] px-[8px] rounded-full text-[9px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap",
             {
               bad: "text-red bg-red-soft",
               warn: "text-amber bg-amber-soft",
               good: "text-green bg-green-soft",
               muted: "text-txt-3 bg-card-3",
-            }[b.tone]
-          }
+            }[b.tone],
+            pillClassName,
+          )}
         >
           {b.text}
         </span>

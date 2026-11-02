@@ -2,16 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Icon } from "@/components/ui/icon";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useAccounts } from "@/modules/accounts/hooks/use-accounts";
-import { PlanBadge } from "@/modules/accounts/components/plan-badge";
 import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { useUpdateProject } from "../hooks/use-projects";
-import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
+import type { ClaudePlan } from "@agent-office/domain/types";
+import { EnvControlTrigger, EnvPill, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
 
-const CLAUDE_ICON: EnvIcon = { src: "/icons/claude-rune.png", alt: "" };
+const CLAUDE_ICON: EnvIcon = { src: "/icons/claude-account-rune.png", alt: "" };
+
+const PlanPill = ({ plan, small }: { plan: ClaudePlan; small?: boolean }) => (
+  <EnvPill tone={plan === "max" ? "good" : "muted"} small={small}>{plan}</EnvPill>
+);
 
 /**
  * Per-project Claude-account control — a button in the project Environment bar.
@@ -51,7 +54,7 @@ export function ProjectAccountPicker({
   };
 
   const accessory = activeAccount && subscription ? (
-    <PlanBadge plan={activeAccount.plan} className="h-[15px] text-[9px] px-[5px] shrink-0" />
+    <PlanPill plan={activeAccount.plan} />
   ) : undefined;
 
   const trigger = (
@@ -72,9 +75,9 @@ export function ProjectAccountPicker({
     selected: a.id === activeId,
     indicatorStyle: "check",
     label: (
-      <span className="flex items-center gap-[8px]">
-        <span>{a.label}</span>
-        {subscription ? <PlanBadge plan={a.plan} className="h-[14px] text-[9px] px-[4px]" /> : null}
+      <span className="flex-1 flex items-center gap-[9px] min-w-0">
+        <span className="flex-1 truncate">{a.label}</span>
+        {subscription ? <PlanPill plan={a.plan} small /> : null}
       </span>
     ),
     onSelect: () => handleChange(a.id),
@@ -82,8 +85,9 @@ export function ProjectAccountPicker({
   items.push({
     key: "__settings",
     label: (
-      <span className="flex items-center gap-[6px] text-txt-2">
-        <Icon name="settings" size={12} /> Manage accounts…
+      <span className="flex items-center gap-[6px] text-txt-3 font-medium">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/cog.png" alt="" width={16} height={16} className="shrink-0 w-[16px] h-[16px] object-contain" /> Manage accounts…
       </span>
     ),
     onSelect: () => router.push(PAGE_ROUTES.settings),
@@ -97,6 +101,7 @@ export function ProjectAccountPicker({
       trigger={trigger}
       items={items}
       matchTriggerWidth
+      variant="popover"
     />
   );
 }

@@ -8,6 +8,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
 import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
+import { HEADER_SHEEN } from "./header-button";
 
 /**
  * Top-bar performance toggle — sits next to the theme toggle. Reflects the
@@ -110,7 +111,8 @@ export function PerformanceToggle() {
           aria-expanded={open}
           aria-label={t("aria", { mode: modeLabel })}
           className={cn(
-            "group surface-sheen relative h-[38px] flex items-center justify-center rounded-full shadow-[var(--lift)] transition-[transform,box-shadow,color,width] duration-200 hover:-translate-y-px active:translate-y-0 active:shadow-[var(--lift)] hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)]",
+            HEADER_SHEEN,
+            "relative justify-center",
             reduced ? "gap-[7px] pl-[12px] pr-[14px]" : "w-[38px] text-txt-2 hover:text-txt",
             reduced && TONE_TEXT[meta.tone],
             reduced && "shadow-[0_0_0_1px_var(--acc-line),var(--lift)]",

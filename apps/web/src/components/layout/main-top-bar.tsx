@@ -27,7 +27,7 @@ import { RefreshButton } from "./refresh-button";
 import { PerformanceToggle } from "./performance-toggle";
 import { SkillUpdatesBell } from "./skill-updates-bell";
 import { UpdateBell } from "./update-bell";
-import { VersionBadge } from "./version-badge";
+import { HEADER_ICON_BTN } from "./header-button";
 import { DevMenu } from "@/components/dev/dev-menu";
 import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 
@@ -285,7 +285,7 @@ export function MainTopBar() {
           drags on a direct hit of a bare region — never on a child — so the
           controls are click-safe without the Electron-style `="false"` opt-out
           (which breaks clicks on older Tauri; see TrafficDot). */}
-      <div className="surface-sheen flex items-center gap-[3px] min-w-0 p-[5px] rounded-2xl shadow-[var(--lift)]">
+      <div className="surface-sheen flex items-center gap-[3px] min-w-0 p-[5px] rounded-[16px] shadow-[var(--lift)]">
         {tabs.length === 0 ? (
           <span className="text-[12px] text-txt-4 italic px-2 select-none whitespace-nowrap">{t("tabs.empty_hint")}</span>
         ) : (
@@ -294,7 +294,7 @@ export function MainTopBar() {
             values={tabs}
             onReorder={handleReorder}
             as="div"
-            className="flex items-stretch gap-[2px] min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="flex items-stretch gap-[3px] min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {tabs.map((tab) => (
               <Reorder.Item key={tab.id} value={tab} as="div" dragElastic={0.05} dragTransition={{ bounceStiffness: 400, bounceDamping: 30 }} className="shrink-0">
@@ -324,15 +324,18 @@ export function MainTopBar() {
             aria-label={t("tabs.open_project_title")}
             aria-haspopup="menu"
             aria-expanded={pickerOpen}
-            className="w-[30px] h-[30px] flex items-center justify-center rounded-xl text-txt-4 hover:bg-card-3 hover:text-txt transition-colors duration-150"
+            className={cn(
+              "w-[30px] h-[30px] flex items-center justify-center rounded-[11px] hover:bg-card-2 hover:text-txt transition-[background,color] duration-[160ms]",
+              pickerOpen ? "bg-card-2 text-txt" : "text-txt-4",
+            )}
           >
-            <Icon name="plus" size={14} className={cn("transition-transform duration-150", pickerOpen && "rotate-45")} />
+            <Icon name="plus" size={14} strokeWidth={2.2} className={cn("size-[14px] [flex:0_0_14px]", "transition-transform duration-[180ms]", pickerOpen && "rotate-45")} />
           </button>
         </Tooltip>
 
         {pickerOpen ? (
           <Portal>
-            <div className="fixed z-[400]" style={{ top: (plusRef.current?.getBoundingClientRect().bottom ?? 0) + 8, left: (plusRef.current?.getBoundingClientRect().left ?? 0) - 10 }}>
+            <div className="fixed z-[400]" style={{ top: (plusRef.current?.getBoundingClientRect().bottom ?? 0) + 10, left: (plusRef.current?.getBoundingClientRect().left ?? 0) - 10 }}>
               <ProjectPickerDropdown
                 open={pickerOpen}
                 triggerRef={plusRef}
@@ -365,20 +368,13 @@ export function MainTopBar() {
 
       <span className="flex-1" data-tauri-drag-region />
 
-      {/* Dev affordances — kept small and muted; SkillUpdatesBell renders
-          nothing when there's nothing to report. */}
-      <div className="flex items-center gap-1 shrink-0">
-        <SkillUpdatesBell />
-        <DevMenu />
-        <RefreshButton />
-      </div>
+      {/* SkillUpdatesBell renders nothing when there's nothing to report. */}
+      <SkillUpdatesBell />
+      <DevMenu />
+      <RefreshButton />
 
-      {/* Update available — renders nothing until UpdateBell detects a
-          newer build; occupies the top-bar slot the Docs button used to. */}
+      {/* The update pill when a newer build exists, else the running version. */}
       <UpdateBell />
-
-      {/* Which build is actually running — the bell is silent when up to date. */}
-      <VersionBadge />
 
       {/* Performance toggle — reflects the rendering budget and surfaces
           auto (power-source) switches so they're never silent. */}
@@ -390,7 +386,7 @@ export function MainTopBar() {
           type="button"
           onClick={toggleTheme}
           aria-label={theme === "dark" ? t("titlebar.switch_to_light") : t("titlebar.switch_to_dark")}
-          className="group surface-sheen w-[38px] h-[38px] flex items-center justify-center rounded-full text-txt-2 hover:text-txt shadow-[var(--lift)] transition-[transform,box-shadow,color] duration-200 hover:-translate-y-px hover:shadow-[0_28px_58px_-26px_rgba(0,0,0,0.95),0_4px_16px_-4px_color-mix(in_srgb,var(--acc)_32%,transparent),inset_0_1px_0_rgba(255,255,255,0.12)] active:translate-y-0 active:shadow-[var(--lift)]"
+          className={HEADER_ICON_BTN}
         >
           <Icon
             name={theme === "dark" ? "moon" : "sun"}
@@ -415,7 +411,7 @@ export function MainTopBar() {
             <span className="block text-[12.5px] font-semibold whitespace-nowrap">{t("sidebar.me_name")}</span>
             <span className="block text-[10.5px] text-txt-4 whitespace-nowrap">{t("sidebar.me_sub")}</span>
           </span>
-          <Icon name="chevron-down" size={13} className={cn("text-txt-4 shrink-0 transition-transform duration-150", navMenuOpen ? "rotate-180" : "group-hover:translate-y-px")} />
+          <Icon name="chevron-down" size={13} className={cn("size-[13px] [flex:0_0_13px]", "text-txt-4 shrink-0 transition-transform duration-150", navMenuOpen ? "rotate-180" : "group-hover:translate-y-px")} />
         </button>
 
         {navMenuOpen ? (
@@ -423,7 +419,7 @@ export function MainTopBar() {
           <div
             ref={navMenuPanelRef}
             style={navMenuStyle}
-            className="p-[7px] surface-sheen rounded-[18px] shadow-[var(--lift)] z-[9999]"
+            className="p-[7px] surface-sheen rounded-[18px] shadow-[var(--lift)] z-[9999] animate-[aoPopIn_150ms_ease-out]"
           >
             {navItems.map((item) => {
               const active = isActiveRoute(pathname, item.href);
@@ -437,7 +433,7 @@ export function MainTopBar() {
               const content = (
                 <>
                   <span className="w-4 h-4 flex items-center justify-center shrink-0">
-                    <Icon name={item.icon} size={15} />
+                    <Icon name={item.icon} size={15} className="size-[15px] [flex:0_0_15px]" />
                   </span>
                   <span className="flex-1 text-[12.5px] whitespace-nowrap">{label}</span>
                   {badge ? (
@@ -453,7 +449,7 @@ export function MainTopBar() {
                     key={item.key}
                     type="button"
                     onClick={() => { setNavMenuOpen(false); setProcessesOpen(true); }}
-                    className={cn(shared, "w-full text-left bg-transparent border-0 font-[inherit]", active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 hover:bg-card-2")}
+                    className={cn(shared, "w-full text-left bg-transparent border-0 font-[inherit]", active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 font-medium hover:bg-card-2")}
                   >
                     {content}
                   </button>
@@ -464,7 +460,7 @@ export function MainTopBar() {
                   key={item.key}
                   href={item.href}
                   onClick={() => setNavMenuOpen(false)}
-                  className={cn(shared, active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 hover:bg-card-2")}
+                  className={cn(shared, active ? "bg-acc-soft text-acc font-bold" : "text-txt-2 font-medium hover:bg-card-2")}
                 >
                   {content}
                 </Link>
@@ -500,8 +496,8 @@ function TabPill({ tab, isActive, projectName, projectPlanet, liveCount, onActiv
     <div
       ref={trigger.ref}
       className={cn(
-        "group relative flex items-center gap-[8px] pl-[8px] pr-[6px] max-w-[220px] min-w-[110px] h-[38px] rounded-xl cursor-pointer select-none text-[12.5px] font-semibold transition-colors duration-150",
-        isActive ? "bg-card-2" : "text-txt-2 hover:bg-card-2",
+        "group relative flex items-center gap-[8px] px-[12px] py-[7px] max-w-[260px] rounded-[12px] cursor-pointer select-none text-[12.5px] transition-[background,color] duration-[160ms]",
+        isActive ? "bg-card-3 text-txt font-bold" : "text-txt-3 font-medium hover:bg-card-2",
       )}
       role="tab"
       aria-selected={isActive}
@@ -520,7 +516,7 @@ function TabPill({ tab, isActive, projectName, projectPlanet, liveCount, onActiv
           aria-label={t("tabs.live_agents_aria", { count: liveCount })}
           className="flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-green-soft text-green text-[10px] font-bold whitespace-nowrap shrink-0 pointer-events-none"
         >
-          <span className="w-[5px] h-[5px] rounded-full bg-green animate-pulse" />
+          <span className="w-[5px] h-[5px] rounded-full bg-green animate-[aoPulse_1.7s_ease-in-out_infinite]" />
           {liveCount}
         </span>
       )}
@@ -535,7 +531,7 @@ function TabPill({ tab, isActive, projectName, projectPlanet, liveCount, onActiv
             isActive || hovered ? "opacity-100" : "opacity-0",
           )}
         >
-          <Icon name="x" size={10} />
+          <Icon name="x" size={10} strokeWidth={2.4} className="size-[10px] [flex:0_0_10px]" />
         </button>
       </Tooltip>
     </div>

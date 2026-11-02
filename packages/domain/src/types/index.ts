@@ -802,6 +802,27 @@ export interface PageRange {
   projectId?: string;
 }
 
+export interface ActivityCounts {
+  runs: number;
+  errors: number;
+  /** Known cost only — `unknown`-basis runs add 0. */
+  cost: number;
+}
+
+export interface ProjectActivityRange {
+  projectId: string;
+  start: number;
+  bucketMs: number;
+  count: number;
+}
+
+export interface ProjectActivity {
+  buckets: ActivityCounts[];
+  /** Sum over [start, min(start + bucketMs·count, now)); `previous` is the same elapsed window one span earlier. */
+  totals: ActivityCounts;
+  previous: ActivityCounts;
+}
+
 export interface AnalyticsSummary {
   totalRuns: number;
   totalTokens: number;
