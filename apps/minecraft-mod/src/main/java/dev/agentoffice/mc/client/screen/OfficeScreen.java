@@ -98,7 +98,7 @@ public final class OfficeScreen extends TabletScreen {
                         }));
                 if (label.equals("Use")) {
                     placeButton.setTooltip(Tooltip.create(Component.literal("Move " + AgentNames.of(slot.agentId())
-                            + "'s body here, talking to this seat instead of " + (standing.label() != null && !standing.label().isBlank() ? standing.label() : standing.instanceId()))));
+                            + "'s body here, talking to this seat instead of " + WorkspaceScreen.sessionName(standing))));
                 }
             }
             bx -= 44;
@@ -278,7 +278,11 @@ public final class OfficeScreen extends TabletScreen {
             };
             g.fill(mx0 + 6, y + 8, mx0 + 10, y + 12, dot);
             int textW = mx1 - mx0 - buttonsW - 16;
-            String name = slot.displayName() + (slot.label() != null && !slot.label().isBlank() ? "  (" + AgentNames.of(slot.agentId()) + ")" : "");
+            boolean labelled = slot.label() != null && !slot.label().isBlank();
+            boolean named = seat.sessionName() != null && !seat.sessionName().isBlank();
+            String name = labelled || named
+                    ? (labelled ? slot.label() : seat.sessionName()) + "  (" + AgentNames.of(slot.agentId()) + ")"
+                    : slot.displayName();
             g.drawString(font, bold(name, textW), mx0 + 15, y + 6, Theme.TXT, false);
             Api.Agent def = agents.get(slot.agentId());
             String model = Text.setting(seat.model(), def == null ? null : def.defaultModel());

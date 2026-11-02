@@ -120,7 +120,7 @@ public final class AgentOfficeClient {
             for (JsonElement el : meta.getAsJsonArray("roster")) {
                 JsonObject s = el.getAsJsonObject();
                 Api.Slot slot = new Api.Slot(project.id(), project.name(), str(s, "agentId"), str(s, "instanceId"), str(s, "label"));
-                out.add(new Api.Instance(slot, str(s, "model"), str(s, "effort"), str(s, "permissionMode")));
+                out.add(new Api.Instance(slot, str(s, "model"), str(s, "effort"), str(s, "permissionMode"), str(s, "sessionName")));
             }
             return out;
         });
