@@ -71,9 +71,8 @@ export function ProjectWorkingTreeCard({
 
       {!loading && !isGit ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-[10px] text-center">
-          <span aria-hidden className="w-[44px] h-[44px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)] flex items-center justify-center text-acc">
-            <Icon name="branch" size={20} />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/empty-fox.png" alt="" width={130} height={104} className="shrink-0 [image-rendering:pixelated]" />
           <div className="flex flex-col gap-[3px]">
             <span className="text-[14px] font-semibold text-txt">{hasFolder ? "Not tracked by git yet" : "No folder linked"}</span>
             <span className="text-[12px] leading-[1.5] text-txt-3 max-w-[270px]">
