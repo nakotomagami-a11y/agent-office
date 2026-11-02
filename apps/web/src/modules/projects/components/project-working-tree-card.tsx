@@ -12,10 +12,12 @@ const num = (n: number) => n.toLocaleString("en-US");
 export function ProjectWorkingTreeCard({
   gitStatus,
   loading,
+  hasFolder,
   lastRunAt,
 }: {
   gitStatus: GitStatus | undefined;
   loading: boolean;
+  hasFolder: boolean;
   lastRunAt: number | undefined;
 }) {
   const [selected, setSelected] = useState<Kind | null>(null);
@@ -68,9 +70,15 @@ export function ProjectWorkingTreeCard({
       </div>
 
       {!loading && !isGit ? (
-        <div className="flex-1 flex flex-col justify-center gap-[4px]">
-          <span className="text-[15px] font-semibold text-txt-3">Not a git repo</span>
-          <span className="font-mono text-[10.5px] text-txt-4">no working tree to track for this project</span>
+        <div className="flex-1 flex flex-col items-center justify-center gap-[10px] text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/empty-fox.png" alt="" width={130} height={104} className="shrink-0 [image-rendering:pixelated]" />
+          <div className="flex flex-col gap-[3px]">
+            <span className="text-[14px] font-semibold text-txt">{hasFolder ? "Not tracked by git yet" : "No folder linked"}</span>
+            <span className="text-[12px] leading-[1.5] text-txt-3 max-w-[270px]">
+              {hasFolder ? <>Run <code className="px-[6px] py-[1px] rounded-[6px] bg-card-2 border border-edge font-mono text-[11px] text-txt-2">git init</code> in this project&apos;s folder to see every line your agents change.</> : "This project has no folder, so there's no working tree to track."}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="flex gap-[6px] -mx-[10px]">

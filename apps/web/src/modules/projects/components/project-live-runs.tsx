@@ -11,6 +11,7 @@ import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
 import { formatDuration, formatMoney } from "@/components/layout/quick-view-format";
 import { questionOf, runningRuns, runsAwaitingReply } from "../format/run-stats";
 import { relativeTime } from "../format/format";
+import { LiveRunsEmpty } from "./project-live-runs-empty";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { Icon } from "@/components/ui/icon";
@@ -23,6 +24,7 @@ import type { AgentInstance, PersistedRun } from "@agent-office/domain/types";
 // "First 2, load more for the rest" per the dashboard's own scope — this is
 // a glance-at-it-in-passing panel, not the place to browse every run.
 const VISIBLE_CAP = 2;
+const CREW_CAP = 3;
 
 const LIVE_SHEEN = "linear-gradient(90deg,transparent,rgba(139,123,255,.07) 45%,rgba(196,186,255,.10) 50%,rgba(139,123,255,.07) 55%,transparent)";
 const REPLY_SHEEN = "linear-gradient(90deg,transparent,rgba(251,191,36,.09) 45%,rgba(255,236,180,.12) 50%,rgba(251,191,36,.09) 55%,transparent)";
@@ -86,6 +88,12 @@ export function ProjectLiveRuns({ projectId, roster, agents, onSummonAnother }: 
     { tokens: 0, cost: 0 },
   );
   const isEmpty = live.length === 0 && awaiting.length === 0;
+  const crew = useMemo(
+    () => [...new Set(roster.map((i) => i.agentId))]
+      .slice(0, CREW_CAP)
+      .map((id) => agents.find((a) => a.id === id)?.unitChoice ?? unitForAgent(id)),
+    [roster, agents],
+  );
   const who = (run: PersistedRun) => {
     const agent = agents.find((a) => a.id === run.agentId);
     return {
@@ -138,8 +146,12 @@ export function ProjectLiveRuns({ projectId, roster, agents, onSummonAnother }: 
         </div>
       )}
 
-      {isEmpty ? (
-        <EmptyState onSummonAnother={onSummonAnother} />
+      {runsQ.isPending ? (
+        <span className="flex-1" />
+      ) : runsQ.isError ? (
+        <p className="m-0 flex-1 flex items-center justify-center text-[12.5px] text-txt-3">Couldn&apos;t load runs.</p>
+      ) : isEmpty ? (
+        <LiveRunsEmpty crew={crew} onSummonAnother={onSummonAnother} />
       ) : (
         <>
           <span className="flex-1" />
@@ -173,21 +185,6 @@ function CountPill({ tone, label }: { tone: "green" | "amber"; label: string }) 
       />
       {label}
     </span>
-  );
-}
-
-function EmptyState({ onSummonAnother }: { onSummonAnother: () => void }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-[10px] py-[28px] text-center">
-      <p className="m-0 text-[13px] text-txt-3">No agents running right now.</p>
-      <button
-        type="button"
-        onClick={onSummonAnother}
-        className="flex items-center gap-[7px] px-[14px] py-[8px] rounded-[11px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[12.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_12px_26px_-12px_rgba(139,123,255,0.8)] transition-transform duration-150 hover:-translate-y-[1px]"
-      >
-        <Icon name="plus" size={13} /> Summon agent
-      </button>
-    </div>
   );
 }
 
