@@ -345,6 +345,12 @@ export const runsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
+export const projectActivityQuerySchema = z.object({
+  start: z.coerce.number().int().min(0).max(8.64e15),
+  bucketMs: z.coerce.number().int().min(60_000).max(8.64e13),
+  count: z.coerce.number().int().min(1).max(100),
+});
+
 export const skillsRegistryQuerySchema = z.object({
   refresh: z
     .string()

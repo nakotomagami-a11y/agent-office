@@ -273,7 +273,8 @@
     "new_project_placeholder": "Project name",
     "new_project_create": "Create",
     "new_project_cancel": "Cancel",
-    "new_project_creating": "Creating…"
+    "new_project_creating": "Creating…",
+    "switch_hint": "{mod}1–9 switches"
   },
   "tabs": {
     "empty_hint": "Click + to open a project",
@@ -455,9 +456,6 @@
   },
   "project_detail": {
     "no_description": "(no description)",
-    "memory_card_title": "Memory",
-    "memory_card_sub": "composes into every roster summon for {project}",
-    "memory_placeholder": "Project-wide context that prepends to every agent prompt.",
     "roster_card_title": "Roster",
     "roster_card_sub": "{count, plural, one {# agent} other {# agents}}",
     "chat_button": "Chat",
@@ -473,8 +471,6 @@
     "import_success": "Imported {count, plural, one {# agent} other {# agents}} into project \"{project}\". Refresh to see changes.",
     "danger_title": "Danger zone",
     "danger_sub": "destructive actions — they cannot be undone",
-    "danger_confirm_question": "Are you sure?",
-    "danger_cancel": "Cancel",
     "danger_keep": "Keep work",
     "danger_discard": "Discard work",
     "reset_title": "Reset roster",
@@ -485,9 +481,25 @@
     "delete_detail": "forgets this project's Agent Office settings, roster, memory and uploads. Conversation history, the files in {path} and any session worktree holding work stay. The folder is still in your projects root, so it comes back as a new, empty project",
     "delete_confirm": "Delete",
     "delete_failed": "Could not delete the project: {error}",
+    "reset_tooltip": "Remove every session, with its worktree and branch",
+    "reset_tooltip_empty": "No sessions to reset",
+    "delete_tooltip": "Forget this project. Its files on disk stay",
     "import_backed_up": "{count, plural, one {# agent you already had ({ids}) was replaced; the previous copy is} other {# agents you already had ({ids}) were replaced; the previous copies are}} in ~/.claude/agent-office/backups/agents/.",
     "import_snapshot": "The project as it was before is saved in {path}.",
-    "export_failed": "Export failed: {error}"
+    "export_failed": "Export failed: {error}",
+    "backup_status_none": "no backups yet",
+    "backup_status_exported": "exported just now",
+    "import_card_title": "Import project",
+    "import_card_sub": "drop a save file, or click to browse",
+    "import_drop_title": "Drop to import",
+    "import_drop_sub": "restore a .agent-office.json save file",
+    "reset_sub": "{project} · {count, plural, one {# session} other {# sessions}}",
+    "reset_leave": "{count, plural, one {# session leaves} other {# sessions leave}} the office",
+    "reset_hint": "enter to confirm",
+    "reset_choice_hint": "pick what happens to that work",
+    "delete_type_confirm": "Type <name>{project}</name> to confirm",
+    "delete_hint": "esc to cancel",
+    "delete_working": "Deleting…"
   },
   "session_removal": {
     "title": "Remove session",

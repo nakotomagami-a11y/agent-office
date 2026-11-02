@@ -2,28 +2,33 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { UnitSprite } from "@/components/ui/unit-sprite";
-import { unitForAgent } from "@/components/ui/unit-sprite-registry";
-import { StatusDot } from "@/components/ui/status-dot";
 import { useRuns } from "@/modules/runs/hooks/use-runs";
+import { useAgentUnits } from "@/modules/runs/hooks/use-agent-units";
+import { RunAvatar } from "@/modules/runs/components/run-avatar";
+import type { UnitSelection } from "@/components/ui/unit-sprite-registry";
 import { useOfficeStore } from "@/modules/office/hooks/use-office-store";
-import { formatDuration, formatRelative, runStatusToDotStatus } from "@/modules/runs/format/format-run-meta";
+import { formatDuration, formatRelative } from "@/modules/runs/format/format-run-meta";
+import { costDisplay } from "@/modules/providers/format/provider-format";
 import { formatRunCost } from "@/modules/providers/format/run-cost";
 import { useCostWords } from "@/modules/providers/hooks/use-cost-words";
+import { cn } from "@/lib/cn";
 import type { PersistedRun } from "@agent-office/domain/types";
 
 export type ProjectRecentRunsProps = { projectId: string };
 
 const PAGE_SIZE = 5;
 
-/**
- * "Recent runs" dashboard card — full run history for the project, newest
- * first. Renamed from the old `ProjectActivity` now that it's a self-contained
- * card (header, count pill, and rows) instead of a bare list the page wrapped.
- */
+const STATUS_DOT: Record<PersistedRun["status"], string> = {
+  running: "bg-status-working",
+  done: "bg-green",
+  error: "bg-red",
+};
+
+/** "Recent runs" dashboard card — the project's run history, newest first; a row opens its conversation. */
 export function ProjectRecentRuns({ projectId }: ProjectRecentRunsProps) {
   const t = useTranslations();
   const select = useOfficeStore((s) => s.select);
+  const unitByAgent = useAgentUnits();
   const { data, isLoading } = useRuns({ projectId, limit: 100 });
   const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -48,7 +53,7 @@ export function ProjectRecentRuns({ projectId }: ProjectRecentRunsProps) {
           <button
             type="button"
             onClick={() => setVisible(runs.length)}
-            className="text-[12.5px] font-semibold text-acc cursor-pointer bg-transparent border-none whitespace-nowrap"
+            className="text-[12.5px] font-semibold text-acc cursor-pointer bg-transparent border-none p-0 whitespace-nowrap rounded-[6px] hover:text-txt transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2"
           >
             View all
           </button>
@@ -62,10 +67,12 @@ export function ProjectRecentRuns({ projectId }: ProjectRecentRunsProps) {
       ) : (
         <>
           <ColumnHeader />
-          {shown.map((run) => (
+          {shown.map((run, i) => (
             <RunRow
               key={run.id}
               run={run}
+              striped={i % 2 === 0}
+              unitByAgent={unitByAgent}
               onOpen={() => select(run.agentId, { tab: "conversation", instanceId: run.instanceId ?? null })}
             />
           ))}
@@ -77,7 +84,7 @@ export function ProjectRecentRuns({ projectId }: ProjectRecentRunsProps) {
 
 function ColumnHeader() {
   return (
-    <div className="flex items-center gap-[12px] px-[16px] pb-[9px] border-b border-edge text-[11px] font-semibold tracking-[0.04em] uppercase text-txt-4">
+    <div className="flex items-center gap-[12px] px-[16px] pb-[9px] text-[11px] font-semibold tracking-[0.04em] uppercase text-txt-4">
       <span className="w-[186px] shrink-0">Agent</span>
       <span className="flex-1 min-w-0">Prompt</span>
       <span className="w-[84px] shrink-0 text-right">Elapsed</span>
@@ -87,26 +94,42 @@ function ColumnHeader() {
   );
 }
 
-function RunRow({ run, onOpen }: { run: PersistedRun; onOpen: () => void }) {
+function RunRow({
+  run,
+  striped,
+  unitByAgent,
+  onOpen,
+}: {
+  run: PersistedRun;
+  striped: boolean;
+  unitByAgent: Map<string, UnitSelection>;
+  onOpen: () => void;
+}) {
   const costWords = useCostWords();
-  const status = runStatusToDotStatus(run.status);
-  const unit = unitForAgent(run.agentId);
-  const costTone = run.status === "error" ? "bg-red-soft text-red" : "bg-card-3 text-txt-2";
+  const shown = costDisplay(run.cost, run.costBasis);
+  const zero = shown.kind === "unknown" || shown.kind === "free" || !run.cost;
+  const costTone = zero ? "bg-card-3 text-txt-4" : run.status === "error" ? "bg-red-soft text-red" : "bg-green-soft text-green";
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full flex items-center gap-[12px] px-[16px] py-[11px] rounded-[14px] bg-transparent border-none text-left cursor-pointer font-[inherit] transition-colors duration-150 hover:bg-card-2"
+      className={cn(
+        "w-full flex items-center gap-[12px] px-[16px] py-[7px] rounded-[14px] border-none text-left text-txt cursor-pointer font-[inherit] transition-[background-color] duration-[160ms] ease-[ease] hover:bg-card-2 focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2",
+        striped ? "bg-[color-mix(in_srgb,var(--txt)_2.2%,transparent)]" : "bg-transparent",
+      )}
     >
       <span className="w-[186px] shrink-0 flex items-center gap-[10px] min-w-0">
-        <span className="relative shrink-0 rounded-[10px] overflow-hidden bg-card-3 border border-edge">
-          <UnitSprite unit={unit} size={30} />
-          <StatusDot
-            status={status}
-            hideLabel
-            size={9}
-            className="absolute -bottom-[2px] -right-[2px] rounded-full border-2 border-card"
+        <span className="relative shrink-0">
+          <RunAvatar
+            run={run}
+            unitByAgent={unitByAgent}
+            size={40}
+            className="block rounded-none object-contain [filter:drop-shadow(0_4px_8px_rgba(0,0,0,.45))]"
+          />
+          <span
+            className={cn("absolute bottom-0 right-0 w-[10px] h-[10px] rounded-full border-2 border-card", STATUS_DOT[run.status])}
+            title={run.status}
           />
         </span>
         <span className="text-[13px] font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{run.agentName}</span>
@@ -116,9 +139,11 @@ function RunRow({ run, onOpen }: { run: PersistedRun; onOpen: () => void }) {
       </span>
       <span className="w-[84px] shrink-0 font-mono text-[11.5px] text-txt-2 text-right">{formatDuration(run.durMs)}</span>
       <span className="w-[78px] shrink-0 text-right">
-        <span className={`text-[11px] font-bold px-[8px] py-[3px] rounded-full ${costTone}`}>{formatRunCost(run.cost, run.costBasis, costWords)}</span>
+        <span className={cn("text-[11px] font-bold px-[8px] py-[3px] rounded-full whitespace-nowrap", costTone)}>
+          {formatRunCost(run.cost, run.costBasis, costWords)}
+        </span>
       </span>
-      <span className="w-[58px] shrink-0 text-[11.5px] text-txt-4 text-right">{formatRelative(run.ts)}</span>
+      <span className="w-[58px] shrink-0 text-[11.5px] text-txt-4 text-right whitespace-nowrap">{formatRelative(run.ts)}</span>
     </button>
   );
 }

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { HoverCard, type HoverCardTrigger } from "@/components/ui/hover-card";
+import { HoverCard, type HoverCardPlacement, type HoverCardTrigger } from "@/components/ui/hover-card";
 import { LiveSweep } from "@/components/ui/live-sweep";
 import { cn } from "@/lib/cn";
 import { agentDisplayName } from "@/lib/agent-display-name";
@@ -58,14 +58,16 @@ export interface AgentQuickViewProps {
   spendByInstance: Record<string, number>;
   onSelect: (instanceId: string) => void;
   onSpawn: (agentId: string) => void;
+  placement?: HoverCardPlacement;
   children: (trigger: QuickViewTrigger) => ReactNode;
 }
 
 /** Thin `HoverCard` wrapper — see `components/ui/hover-card.tsx` for the
  *  actual show/hide/position fundamentals, shared with `ProjectQuickView`. */
-export function AgentQuickView({ subject, spendByInstance, onSelect, onSpawn, children }: AgentQuickViewProps) {
+export function AgentQuickView({ subject, spendByInstance, onSelect, onSpawn, placement, children }: AgentQuickViewProps) {
   return (
     <HoverCard
+      placement={placement}
       panel={({ close, maxHeight }) => (
         <QuickViewCard
           subject={subject}
