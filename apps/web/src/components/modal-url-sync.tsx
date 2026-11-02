@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { assertNever } from "@/lib/assert-never";
 import { useProcessesStore } from "@/lib/processes-store";
-import { useCompareStore } from "@/lib/compare-store";
 import { useOfficeStore, type AgentTab } from "@/modules/office/hooks/use-office-store";
 
 const AGENT_TABS: AgentTab[] = ["conversation", "context-cost", "customization"];
@@ -22,7 +21,6 @@ function clearPayload(sp: URLSearchParams, keep: readonly string[] = []) {
 // from the independent modal stores.
 type ModalState =
   | { kind: "processes" }
-  | { kind: "compare"; runId: string }
   | { kind: "agent"; agentId: string; instanceId: string | null; tab: AgentTab | null }
   | { kind: "none" };
 
@@ -32,7 +30,6 @@ type ModalState =
 function modalKey(s: ModalState): string {
   switch (s.kind) {
     case "processes": return "processes";
-    case "compare": return `compare:${s.runId}`;
     case "agent": return `agent:${s.agentId}:${s.instanceId ?? ""}:${s.tab ?? "conversation"}`;
     case "none": return "none";
     default: return assertNever(s);
@@ -42,10 +39,6 @@ function modalKey(s: ModalState): string {
 function modalStateFromUrl(sp: URLSearchParams): ModalState {
   const modal = sp.get("modal");
   if (modal === "processes") return { kind: "processes" };
-  if (modal === "compare") {
-    const runId = sp.get("run");
-    return runId ? { kind: "compare", runId } : { kind: "none" };
-  }
   if (modal === "agent") {
     const agentId = sp.get("agent");
     if (!agentId) return { kind: "none" };
@@ -78,11 +71,6 @@ export function ModalUrlSync() {
   const processesOpen    = useProcessesStore((s) => s.open);
   const setProcessesOpen = useProcessesStore((s) => s.setOpen);
 
-  const compareOpen   = useCompareStore((s) => s.open);
-  const compareRunId  = useCompareStore((s) => s.baseRunId);
-  const openCompare   = useCompareStore((s) => s.openWith);
-  const closeCompare  = useCompareStore((s) => s.close);
-
   const inspectorOpen       = useOfficeStore((s) => s.inspectorOpen);
   const selectedId          = useOfficeStore((s) => s.selectedId);
   const selectedInstanceId  = useOfficeStore((s) => s.selectedInstanceId);
@@ -97,7 +85,6 @@ export function ModalUrlSync() {
   useEffect(() => {
     const storeState: ModalState =
       processesOpen ? { kind: "processes" }
-      : compareOpen && compareRunId ? { kind: "compare", runId: compareRunId }
       : inspectorOpen && selectedId
         ? {
             kind: "agent",
@@ -123,8 +110,8 @@ export function ModalUrlSync() {
 
     if (urlMoved || firstRun) {
       applyUrlToStore(urlState, {
-        processesOpen, compareOpen, inspectorOpen,
-        setProcessesOpen, openCompare, closeCompare, select, closeInspector, setActiveTab,
+        processesOpen, inspectorOpen,
+        setProcessesOpen, select, closeInspector, setActiveTab,
       });
     } else {
       applyStoreToUrl(storeState, params, router);
@@ -134,9 +121,9 @@ export function ModalUrlSync() {
     prevStoreKey.current = storeKey;
   }, [
     params, router,
-    processesOpen, compareOpen, compareRunId, inspectorOpen,
+    processesOpen, inspectorOpen,
     selectedId, selectedInstanceId, activeTab,
-    setProcessesOpen, openCompare, closeCompare, select, closeInspector, setActiveTab,
+    setProcessesOpen, select, closeInspector, setActiveTab,
   ]);
 
   return null;
@@ -145,11 +132,8 @@ export function ModalUrlSync() {
 // ── URL → store ─────────────────────────────────────────────────────────────
 type UrlToStoreCtx = {
   processesOpen: boolean;
-  compareOpen: boolean;
   inspectorOpen: boolean;
   setProcessesOpen: (v: boolean) => void;
-  openCompare: (runId: string) => void;
-  closeCompare: () => void;
   select: ReturnType<typeof useOfficeStore.getState>["select"];
   closeInspector: () => void;
   setActiveTab: (tab: AgentTab) => void;
@@ -157,23 +141,16 @@ type UrlToStoreCtx = {
 
 function applyUrlToStore(next: ModalState, ctx: UrlToStoreCtx) {
   const {
-    processesOpen, compareOpen, inspectorOpen,
-    setProcessesOpen, openCompare, closeCompare, select, closeInspector, setActiveTab,
+    processesOpen, inspectorOpen,
+    setProcessesOpen, select, closeInspector, setActiveTab,
   } = ctx;
   switch (next.kind) {
     case "processes":
-      if (compareOpen) closeCompare();
       if (inspectorOpen) closeInspector();
       setProcessesOpen(true);
       return;
-    case "compare":
-      if (processesOpen) setProcessesOpen(false);
-      if (inspectorOpen) closeInspector();
-      openCompare(next.runId);
-      return;
     case "agent":
       if (processesOpen) setProcessesOpen(false);
-      if (compareOpen) closeCompare();
       select(next.agentId, { tab: next.tab ?? undefined, instanceId: next.instanceId });
       // Set activeTab directly (not just pendingTab) so the store key matches
       // the URL immediately and the effect settles in a single pass.
@@ -181,7 +158,6 @@ function applyUrlToStore(next: ModalState, ctx: UrlToStoreCtx) {
       return;
     case "none":
       if (processesOpen) setProcessesOpen(false);
-      if (compareOpen) closeCompare();
       if (inspectorOpen) closeInspector();
       return;
     default:
@@ -203,11 +179,6 @@ function applyStoreToUrl(
     case "processes":
       sp.set("modal", "processes");
       clearPayload(sp);
-      break;
-    case "compare":
-      sp.set("modal", "compare");
-      sp.set("run", state.runId);
-      clearPayload(sp, ["run"]);
       break;
     case "agent":
       sp.set("modal", "agent");

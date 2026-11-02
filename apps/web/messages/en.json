@@ -756,13 +756,6 @@
   "spend_page": {
     "title": "Spend"
   },
-  "compare": {
-    "title": "Compare Runs",
-    "base_run": "Base run",
-    "compare_with": "Compare with…",
-    "pick_run": "Pick a run",
-    "close": "Done"
-  },
   "errors": {
     "claude_unavailable": "Claude CLI is not available.",
     "rate_limited": "Too many requests — try again in a moment.",

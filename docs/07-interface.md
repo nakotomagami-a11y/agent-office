@@ -10,7 +10,7 @@ This page is long. Here's the lay of the land — every section below, grouped:
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
 - **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
 - **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface)
-- **Modals & panels** — [Compare runs](#/interface) · [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
+- **Modals & panels** — [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
 
 ## Layout — the app window shell
@@ -162,17 +162,6 @@ For work across devices or days: several agents, on several machines, coordinati
 
 - **Start / Join** — the **Missions** button in the composer toolbar (`Ctrl+P`, inside a project chat). *Start* opens the hub with a coordinator seat on this device; *Join* lists the project's open missions, and *Claim* takes a seat on this device. The lead accepts every claim.
 - **The pill** — a mission chat shows a pill in its header: seats and their devices, claims and questions waiting on you, this device's spend per seat (*Allow +$5*), *Leave*, and for the lead *Pause / Resume / Close*. It turns red if routing stopped because the hub's history changed.
-
-## Compare runs modal
-
-Select 2 or more runs from the History tab, then click **Compare**. Opens a side-by-side view:
-
-- Left column — Run A
-- Right column — Run B
-- Deltas — cost, tokens, duration, exit code, tool calls
-- Diff view of prompt + output for quick visual comparison
-
-Useful for A/B testing model choices or reproducing a regression.
 
 ## Usage & spend modal
 

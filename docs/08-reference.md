@@ -648,7 +648,6 @@ Client-only state stores (persisted where noted):
 | `theme-store` | server via `ui_settings.theme` | `light` \| `dark` |
 | `performance-store` | server via `ui_settings.performance-mode` | `full` \| `lite` \| `off` |
 | `claude-limits-store` | server via `ui_settings.claude-limits` | Spend-cap config |
-| `compare-store` | localStorage | Runs selected for compare across route transitions |
 | `dev-server-store` | in-memory | Dev server states per project |
 | `branch-store` | in-memory | Cached git branch per project |
 | `draft-store` | server via `/api/drafts` | Composer drafts (per agent + instance) |
