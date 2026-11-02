@@ -242,10 +242,10 @@ public final class ChatSession {
             Api.Instance shown = read.seat();
             // A click not sent yet is newer than what the server had: keep showing it.
             if (shown != null && unsentSeat.has("model")) {
-                shown = new Api.Instance(shown.slot(), unsentSeat.get("model").getAsString(), shown.effort(), shown.permissionMode());
+                shown = new Api.Instance(shown.slot(), unsentSeat.get("model").getAsString(), shown.effort(), shown.permissionMode(), shown.sessionName());
             }
             if (shown != null && unsentSeat.has("effort")) {
-                shown = new Api.Instance(shown.slot(), shown.model(), unsentSeat.get("effort").getAsString(), shown.permissionMode());
+                shown = new Api.Instance(shown.slot(), shown.model(), unsentSeat.get("effort").getAsString(), shown.permissionMode(), shown.sessionName());
             }
             seat = shown;
             agent = read.agent();
@@ -464,8 +464,8 @@ public final class ChatSession {
     public void changeSeat(String field, String value) {
         if (seat == null) return;
         seat = "model".equals(field)
-                ? new Api.Instance(seat.slot(), value, seat.effort(), seat.permissionMode())
-                : new Api.Instance(seat.slot(), seat.model(), value, seat.permissionMode());
+                ? new Api.Instance(seat.slot(), value, seat.effort(), seat.permissionMode(), seat.sessionName())
+                : new Api.Instance(seat.slot(), seat.model(), value, seat.permissionMode(), seat.sessionName());
         unsentSeat.addProperty(field, value);
         seatPatchIn = SEAT_PATCH_DELAY_TICKS;
     }

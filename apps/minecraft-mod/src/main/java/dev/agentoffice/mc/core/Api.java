@@ -15,8 +15,9 @@ public final class Api {
         }
     }
 
-    /** A seat with its own overrides; null = falls back to the agent definition. */
-    public record Instance(Slot slot, String model, String effort, String permissionMode) {}
+    /** A seat with its own overrides; null = falls back to the agent definition. {@code sessionName}: the
+     *  server's name for the session (its label, else a pool name like "Elda"); null from an older server. */
+    public record Instance(Slot slot, String model, String effort, String permissionMode, String sessionName) {}
 
     /** {@code id} is the agent's file, {@code ~/.claude/agents/<id>.md}: what seats, spawns and routes name it by. */
     public record Agent(String id, String description, String defaultModel, String defaultEffort) {}

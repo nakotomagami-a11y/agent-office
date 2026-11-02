@@ -110,7 +110,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
         mc.setScreen(new ChatScreen(null, c, slot));
     }
 
-    /** "Session N" by roster order unless labelled. Agent Office now shows the roster's `sessionName` (Elda, …), which the mod does not read yet. */
+    /** The name Agent Office shows: the label, else the server's sessionName (Elda, …), else "Session N" by roster order. */
     static String sessionName(Api.Slot slot) {
         if (slot.label() != null && !slot.label().isBlank()) return slot.label();
         List<Api.Instance> roster = WorkspaceStore.roster(slot.projectId());
@@ -119,7 +119,8 @@ public abstract class WorkspaceScreen extends TabletScreen {
             for (Api.Instance i : roster) {
                 if (!i.slot().agentId().equals(slot.agentId())) continue;
                 n++;
-                if (i.slot().instanceId().equals(slot.instanceId())) return "Session " + n;
+                if (!i.slot().instanceId().equals(slot.instanceId())) continue;
+                return i.sessionName() != null && !i.sessionName().isBlank() ? i.sessionName() : "Session " + n;
             }
         }
         return slot.instanceId();

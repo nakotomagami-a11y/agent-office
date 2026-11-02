@@ -88,6 +88,7 @@ class FixturesTest {
         Api.Instance seat = client.instances(ALPHA).getFirst();
         assertEquals(new Api.Slot("alpha", "alpha", "developer", "developer-fx01", "Builder"), seat.slot());
         assertEquals(List.of("sonnet", "low", "plan"), List.of(seat.model(), seat.effort(), seat.permissionMode()));
+        assertEquals("Builder", seat.sessionName());
         assertEquals("developer-fx01", client.addInstance("alpha", "developer", false));
     }
 
