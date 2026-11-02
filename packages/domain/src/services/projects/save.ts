@@ -100,8 +100,9 @@ function restoreProject(p: ImportBundle["project"]): void {
   const str = (k: string): string | undefined =>
     typeof meta[k] === "string" ? (meta[k] as string) : undefined;
   const patch: ProjectMetaPatch = {
-    name: str("name"),
-    description: str("description"),
+    // "" in a bundle means the exporter never set one; it must not clear this device's own.
+    name: str("name") || undefined,
+    description: str("description") || undefined,
     accountId: str("accountId"),
     githubAccountId: str("githubAccountId"),
     shelved: typeof meta.shelved === "boolean" ? meta.shelved : undefined,

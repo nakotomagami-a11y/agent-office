@@ -17,7 +17,9 @@ const MAX_REPO_FILE_BYTES = 256 * 1024;
 export function readRepoFile(path: string): string | undefined {
   let fd: number | undefined;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    // Windows has neither flag (both are undefined there), so the lstat is the guard; O_NOFOLLOW closes the race where it exists.
+    if (lstatSync(path).isSymbolicLink()) return undefined;
+    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     if (!fstatSync(fd).isFile()) return undefined;
     const buf = Buffer.allocUnsafe(MAX_REPO_FILE_BYTES + 1);
     let n = 0;
@@ -116,25 +118,23 @@ function readWorkspaceGlobs(cwd: string): string[] {
 /** Resolve workspace globs to actual directories. Only supports a single
  *  trailing `*` segment (`apps/*`) or an exact path — covers the globs every
  *  real-world pnpm/npm/yarn/bun workspace we've seen actually uses. */
+/** A REPO names these dirs: `../..` walks out and a symlink or junction resolves out
+ *  (a whole parent dir, which O_NOFOLLOW on the last component never sees), so every
+ *  repo-named dir is checked. `isInside` is strictly below, so glob `*` (the root
+ *  itself) needs the equality arm. */
+function confinedTo(cwd: string, dir: string): boolean {
+  try {
+    const realCwd = realpathSync(cwd);
+    const real = realpathSync(dir);
+    return real === realCwd || isInside(real, realCwd);
+  } catch {
+    return false;
+  }
+}
+
 function resolveWorkspacePackageDirs(cwd: string): string[] {
   const dirs = new Set<string>();
-  let realCwd: string;
-  try {
-    realCwd = realpathSync(cwd);
-  } catch {
-    return [];
-  }
-  // A REPO names these: `../..` walks out and a symlink resolves out, so BOTH
-  // branches check — the unguarded one ran a foreign repo's script. `isInside`
-  // is strictly below, so glob `*` (the root itself) needs the equality arm.
-  const confined = (dir: string): boolean => {
-    try {
-      const real = realpathSync(dir);
-      return real === realCwd || isInside(real, realCwd);
-    } catch {
-      return false;
-    }
-  };
+  const confined = (dir: string): boolean => confinedTo(cwd, dir);
   for (const glob of readWorkspaceGlobs(cwd)) {
     const clean = glob.replace(/\/$/, "");
     if (clean.includes("*")) {
@@ -162,7 +162,7 @@ const IDENTITY_FILES = [".ao.json", "package.json"] as const;
 const MAX_IDENTITY_NAME = 80;
 const MAX_IDENTITY_DESCRIPTION = 160;
 
-/** Same floor as the generated CLAUDE.md, because this lands in the system
+/** Sanitised with `inert`, because this lands in the system
  *  prompt of an agent holding Bash; `max` is instruction budget, so it is low. */
 function identityText(v: unknown, max: number): string | undefined {
   const s = str(v);
@@ -258,7 +258,7 @@ export function resolvePackageDirs(cwd: string): string[] {
   if (existsSync(join(cwd, "package.json"))) return [cwd];
   return SUBFOLDERS
     .map((sub) => join(cwd, sub))
-    .filter((dir) => existsSync(join(dir, "package.json")));
+    .filter((dir) => existsSync(join(dir, "package.json")) && confinedTo(cwd, dir));
 }
 
 /**
@@ -353,7 +353,7 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
   commands.push(...collectPkgCommands(cwd));
   const rootPm = detectPackageManager(cwd);
   const workspaceDirs = new Set(resolveWorkspacePackageDirs(cwd));
-  const subDirs = new Set<string>([...SUBFOLDERS.map((sub) => join(cwd, sub)), ...workspaceDirs]);
+  const subDirs = new Set<string>([...SUBFOLDERS.map((sub) => join(cwd, sub)).filter((dir) => confinedTo(cwd, dir)), ...workspaceDirs]);
   for (const subDir of subDirs) {
     if (subDir === cwd || !existsSync(join(subDir, "package.json"))) continue;
     const rel = basename(subDir);

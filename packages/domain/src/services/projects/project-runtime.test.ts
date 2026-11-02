@@ -13,6 +13,18 @@ import { join, relative, sep } from "node:path";
 import { detectBuildCommand, detectDevCommands, readRepoIdentity } from "./project-runtime";
 import { isInside } from "../infra/paths";
 
+
+/** File symlinks need admin or Developer Mode on Windows; skip rather than fail there. */
+function tryLink(target: string, path: string): boolean {
+  try {
+    symlinkSync(target, path);
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "EPERM") return false;
+    throw e;
+  }
+}
+
 test("workspace subfolder commands get slash-free keys and labels", () => {
   const root = mkdtempSync(join(tmpdir(), "ao-runtime-"));
   try {
@@ -100,7 +112,7 @@ test("repo identity ignores symlinked and oversized identity files", () => {
   const root = identityRepo({});
   try {
     writeFileSync(join(outside, "secret.json"), JSON.stringify({ name: "LEAKED", description: "not the repo's" }));
-    symlinkSync(join(outside, "secret.json"), join(root, ".ao.json"));
+    tryLink(join(outside, "secret.json"), join(root, ".ao.json"));
     if (existsSync("/dev/zero")) symlinkSync("/dev/zero", join(root, "package.json"));
     assert.deepStrictEqual(readRepoIdentity(root), {});
 
@@ -182,7 +194,8 @@ test("a workspace declaration cannot reach outside the project", () => {
     writeFileSync(join(outside, "pkg", "package.json"), JSON.stringify({ scripts: { dev: "vite --evil" } }));
     mkdirSync(join(root, "inside"), { recursive: true });
     writeFileSync(join(root, "inside", "package.json"), JSON.stringify({ scripts: { dev: "vite" } }));
-    symlinkSync(join(outside, "pkg"), join(root, "linked"));
+    symlinkSync(join(outside, "pkg"), join(root, "linked"), "junction");
+    symlinkSync(join(outside, "pkg"), join(root, "frontend"), "junction");
 
     mkdirSync(join(root, "toplevel"), { recursive: true });
     writeFileSync(join(root, "toplevel", "package.json"), JSON.stringify({ scripts: { dev: "vite" } }));
@@ -191,6 +204,7 @@ test("a workspace declaration cannot reach outside the project", () => {
     assert.ok(cmds.some((c) => c.cwd === join(root, "inside")), JSON.stringify(cmds));
     assert.ok(cmds.some((c) => c.cwd === join(root, "toplevel")), JSON.stringify(cmds));
     for (const c of cmds) assert.ok(!c.cwd || isInside(c.cwd, root), JSON.stringify(c));
+    assert.ok(!cmds.some((c) => c.cwd === join(root, "frontend")), "a junctioned fallback subfolder is not followed");
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });

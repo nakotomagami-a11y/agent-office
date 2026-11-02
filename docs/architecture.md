@@ -467,14 +467,14 @@ ships it to another machine, must read it through `readStoredProject` rather tha
 `readProject` — a resolved view copies the inherited text into `project.md` and
 freezes it there, which is how both an unrelated edit and a save-bundle round
 trip used to pin a title. Repo-authored text is sanitised at the read
-(`readRepoIdentity` → `inert` in `repo-text.ts`, the same floor the generated
-`CLAUDE.md` uses) because it reaches the system prompt of an agent running with
+(`readRepoIdentity` → `inert` in `repo-text.ts`) because it reaches the system prompt of an agent running with
 `bypassPermissions`. Every repo-authored file goes through
-`readRepoFile`, which guarantees that no path a repo names is followed, blocks,
-or allocates past 256 KB: a cloned `package.json -> /dev/zero` aborts the process
+`readRepoFile`, which refuses a symlinked file (by `lstat`, since Windows has no
+`O_NOFOLLOW`), never blocks, and never allocates past 256 KB: a cloned `package.json -> /dev/zero` aborts the process
 inside `readFileSync` where no `catch` can see it, and a FIFO in its place wedges
-`openSync` — and the event loop — until a writer appears. A declared workspace
-directory is likewise confined to the project, root included.
+`openSync` — and the event loop — until a writer appears. Every repo-named directory
+(declared workspaces and the `frontend/`-style fallbacks) must resolve inside the
+project, root included, which also catches a symlinked or junctioned parent dir.
 
 ---
 
