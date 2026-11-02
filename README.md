@@ -3,9 +3,9 @@
 > [!WARNING]
 > **🚧 Heavily under active development.** Agent Office is pre-1.0 and changes fast. Expect breaking changes, half-built features, rough edges, and undocumented behaviour. Data formats and the on-disk layout under `~/.claude/` may change without migration. **Back up your data, and don't rely on it for anything critical.**
 
-> Your Claude Code agents, visualized as a living isometric office. Summon, orchestrate, and watch them work in real time.
+> Your Claude Code agents in one desktop app. Summon, orchestrate, and watch them work in real time.
 
-Personal multi-agent IDE for developers running 3+ Claude Code subagents on real projects. Pick a project, scope a roster, drop a prompt, see streamed output - all inside a dark desktop shell with a pixel-art office floor.
+Personal multi-agent IDE for developers running 3+ Claude Code subagents on real projects. Pick a project, scope a roster, drop a prompt, see streamed output - all inside a dark desktop shell.
 
 ## Screenshots
 
@@ -48,18 +48,9 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **ADHD-friendly replies** - every agent leads with the next action, numbers its steps and skips filler (built-in response style; say "normal mode" to drop it for a conversation)
 - **Rate-limit warning** - dedicated card in the chat thread when a run hits API rate limits
 
-### The office
-- **Isometric pixel-art floor** rendered with Pixi.js - drag agents from the sidebar onto grass tiles, decorate the scene, persist to SQLite
+### Look & feel
 - **Animated unit sprites** - 5 factions × 5 unit kinds (Pawn, Warrior, Archer, Monk, Lancer); each agent gets a sprite set by its `unit` frontmatter field
-- **Pawn action animations** - working pawns switch sprite sheets based on surroundings: axe near trees, pickaxe on rocks, knife near sheep, hammer otherwise
-- **5 grass color themes** - Meadow (yellow), Forest (green), Spring (light), Marsh (olive), Frost (teal); per-scene choice
-- **Cards view** - toggle between isometric grid and compact card layout from the office toolbar
-- **Build mode** - paint terrain, flood-fill (F), place 60+ decorations, swap grass colour, full undo/redo (Cmd+Z), decoration search
-- **Auto-tiling path tiles** - dirt paths connect to cardinal neighbours automatically; drawn via PixiJS Graphics (no PNG dependency)
-- **Bridges** - place horizontal/vertical bridge planks on water; end-caps auto-render on adjacent land tiles; agents stand elevated on bridges
-- **Voronoi water shader** - animated teal cellular water pattern behind the island
 - **Pixel-planet project icons** - each project gets a deterministic procedural WebGL2 planet icon (15 types: gas giant, rocky, terran, toxic, ice, islands, lava, ice moon, eclipse, black hole, galaxy, star, asteroid, comet, ringed terran)
-- **Smooth pan/zoom** - Ctrl+Scroll zooms to cursor; arrow keys / drag to pan
 
 ### Knowledge & memory
 - **Per-agent memory editor** - edit `~/.claude/agents/<id>.md` definitions inline
@@ -94,7 +85,7 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 ### Platform
 - **Browser** at `localhost:3000` for daily use
 - **Tauri desktop bundle** with a custom titlebar (traffic-light window controls)
-- **Mobile bottom nav** - navigate between pages on a phone (the isometric office itself is desktop-first, not yet responsive)
+- **Mobile bottom nav** - navigate between pages on a phone
 - **i18n** via next-intl (English shipped, structure for more)
 
 ## Safety
@@ -111,7 +102,6 @@ origins (see [the security model](docs/architecture.md#csrf--security-model)).
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS v4** + custom design system (dark "Obsidian" theme, violet accent `#7c6af5`)
-- **Pixi.js v8** for the isometric office canvas (GPU-accelerated; PixiJS Graphics for procedural path tiles)
 - **`@agent-office/pixel-planets`** and **`@agent-office/pixel-icons`** — own-authored procedural renderers, kept as separate repos: WebGL2 planet icons (one shared GL context for all of them) and canvas-2D weapon/shield icons
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules)
 - **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, mission seats, UI state
@@ -146,11 +136,11 @@ repositories, pinned by commit as git dependencies in `apps/web/package.json`:
 
 Inside `apps/web/src`:
 
-- `app/(app)/` - pages: office (root `/`), analytics, projects, agents, runs, search, memory, skills, docs, settings
+- `app/(app)/` - pages (root `/` redirects to the active project): analytics, projects, agents, runs, search, memory, skills, docs, settings
 - `app/api/[...path]/` - mounts `@agent-office/server`; the endpoints themselves live in `apps/server/src/routes/`
 - `components/layout/` - window chrome, titlebar, sidebar, project switcher, mobile nav
 - `components/ui/` - design-system atoms (Icon, StatusDot, Button, Modal, Tabs, ...)
-- `modules/office/` - isometric scene, Pixi canvas, build toolbar, map overlay
+- `modules/office/` - agent details modal (chat, customization, context & cost), selection + roster-group store, roster hooks
 - `modules/summon/` - chat panel, transcript thread, composer, live status
 - `modules/missions/` - mission start/join dialog and the chat-header mission pill
 - `modules/analytics/` - spend/usage dashboards
@@ -268,4 +258,4 @@ the originals are worth your time.
   JavaScript. The other four — `axes`, `staffs`, `tridents`, `shields` — are
   original to
   [`pixel-weapons-generator`](https://github.com/nakotomagami-a11y/pixel-weapons-generator).
-- **Unit, tile & decoration sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0), also distributed on the [Unity Asset Store](https://assetstore.unity.com/packages/2d/environments/tiny-swords-352566).
+- **Unit sprites** and the pixel-icon art style — [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by [Pixel Frog](https://pixelfrog-assets.itch.io/) (CC0), also distributed on the [Unity Asset Store](https://assetstore.unity.com/packages/2d/environments/tiny-swords-352566).

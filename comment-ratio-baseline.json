@@ -1529,125 +1529,10 @@
     "code": 514,
     "comment": 42
   },
-  "apps/web/src/modules/office/components/agent-select-menu.tsx": {
-    "ratio": 0.0649,
-    "code": 77,
-    "comment": 5
-  },
-  "apps/web/src/modules/office/components/deco-select-menu.tsx": {
-    "ratio": 0.036,
-    "code": 139,
-    "comment": 5
-  },
-  "apps/web/src/modules/office/components/decorations.ts": {
-    "ratio": 0.3822,
-    "code": 662,
-    "comment": 253
-  },
-  "apps/web/src/modules/office/components/grass-colors.ts": {
-    "ratio": 0.413,
-    "code": 46,
-    "comment": 19
-  },
-  "apps/web/src/modules/office/components/move-control.tsx": {
-    "ratio": 0.1795,
-    "code": 39,
-    "comment": 7
-  },
-  "apps/web/src/modules/office/components/office-build-toolbar-parts.tsx": {
-    "ratio": 0.0114,
-    "code": 176,
-    "comment": 2
-  },
-  "apps/web/src/modules/office/components/office-build-toolbar-styles.ts": {
-    "ratio": 0.1765,
-    "code": 17,
-    "comment": 3
-  },
-  "apps/web/src/modules/office/components/office-build-toolbar-terrain.tsx": {
-    "ratio": 0.0061,
-    "code": 163,
-    "comment": 1
-  },
-  "apps/web/src/modules/office/components/office-build-toolbar.tsx": {
-    "ratio": 0.0312,
-    "code": 321,
-    "comment": 10
-  },
-  "apps/web/src/modules/office/components/office-hud.tsx": {
-    "ratio": 0,
-    "code": 67,
-    "comment": 0
-  },
-  "apps/web/src/modules/office/components/office-map-overlay.tsx": {
-    "ratio": 0.0916,
-    "code": 491,
-    "comment": 45
-  },
-  "apps/web/src/modules/office/components/office-map.tsx": {
-    "ratio": 0.4265,
-    "code": 211,
-    "comment": 90
-  },
-  "apps/web/src/modules/office/components/office-pixi-canvas.tsx": {
-    "ratio": 0.1667,
-    "code": 6,
-    "comment": 1
-  },
-  "apps/web/src/modules/office/components/office-scene-hud.tsx": {
-    "ratio": 0.0551,
-    "code": 254,
-    "comment": 14
-  },
-  "apps/web/src/modules/office/components/office-scene.tsx": {
-    "ratio": 0.1296,
-    "code": 540,
-    "comment": 70
-  },
-  "apps/web/src/modules/office/components/office-toolbar.tsx": {
-    "ratio": 0.0793,
-    "code": 769,
-    "comment": 61
-  },
-  "apps/web/src/modules/office/components/office-view.tsx": {
-    "ratio": 0.1149,
-    "code": 87,
-    "comment": 10
-  },
-  "apps/web/src/modules/office/components/reset-canvas-modal.tsx": {
-    "ratio": 0.1522,
-    "code": 46,
-    "comment": 7
-  },
-  "apps/web/src/modules/office/derive/agent-action.ts": {
-    "ratio": 0.3056,
-    "code": 36,
-    "comment": 11
-  },
-  "apps/web/src/modules/office/derive/apply-cell-click.ts": {
-    "ratio": 0.2559,
-    "code": 211,
-    "comment": 54
-  },
   "apps/web/src/modules/office/derive/derive-status.ts": {
     "ratio": 0.475,
     "code": 40,
     "comment": 19
-  },
-  "apps/web/src/modules/office/derive/land-generator.ts": {
-    "ratio": 0.1208,
-    "code": 149,
-    "comment": 18
-  },
-  "apps/web/src/modules/office/derive/office-map-storage.ts": {
-    "ratio": 0.2029,
-    "code": 69,
-    "comment": 14
-  },
-  "apps/web/src/modules/office/derive/office-scene-data.ts": {
-    "ratio": 0.131,
-    "code": 168,
-    "comment": 22
   },
   "apps/web/src/modules/office/derive/sprite-palette.ts": {
     "ratio": 0.5,
@@ -1659,50 +1544,10 @@
     "code": 18,
     "comment": 5
   },
-  "apps/web/src/modules/office/hooks/use-build-toolbar.ts": {
-    "ratio": 0.1048,
-    "code": 105,
-    "comment": 11
-  },
-  "apps/web/src/modules/office/hooks/use-canvas-editing.ts": {
-    "ratio": 0.0594,
-    "code": 286,
-    "comment": 17
-  },
   "apps/web/src/modules/office/hooks/use-office-agents.ts": {
     "ratio": 0.0274,
     "code": 73,
     "comment": 2
-  },
-  "apps/web/src/modules/office/hooks/use-office-camera.ts": {
-    "ratio": 0.0595,
-    "code": 168,
-    "comment": 10
-  },
-  "apps/web/src/modules/office/hooks/use-office-drag.ts": {
-    "ratio": 0.7778,
-    "code": 18,
-    "comment": 14
-  },
-  "apps/web/src/modules/office/hooks/use-office-keyboard-shortcuts.ts": {
-    "ratio": 0,
-    "code": 71,
-    "comment": 0
-  },
-  "apps/web/src/modules/office/hooks/use-office-map-sync.ts": {
-    "ratio": 0.16,
-    "code": 150,
-    "comment": 24
-  },
-  "apps/web/src/modules/office/hooks/use-office-painting.ts": {
-    "ratio": 0.1375,
-    "code": 80,
-    "comment": 11
-  },
-  "apps/web/src/modules/office/hooks/use-office-pixi.ts": {
-    "ratio": 0.3421,
-    "code": 228,
-    "comment": 78
   },
   "apps/web/src/modules/office/hooks/use-office-store.ts": {
     "ratio": 0.2548,
@@ -1718,51 +1563,6 @@
     "ratio": 0.0392,
     "code": 51,
     "comment": 2
-  },
-  "apps/web/src/modules/office/pixi/build-agent-layer.ts": {
-    "ratio": 0.2199,
-    "code": 191,
-    "comment": 42
-  },
-  "apps/web/src/modules/office/pixi/build-static-layers.ts": {
-    "ratio": 0.2712,
-    "code": 306,
-    "comment": 83
-  },
-  "apps/web/src/modules/office/pixi/constants.ts": {
-    "ratio": 0.4615,
-    "code": 13,
-    "comment": 6
-  },
-  "apps/web/src/modules/office/pixi/elevation.ts": {
-    "ratio": 0.6289,
-    "code": 97,
-    "comment": 61
-  },
-  "apps/web/src/modules/office/pixi/glow.ts": {
-    "ratio": 0.3182,
-    "code": 22,
-    "comment": 7
-  },
-  "apps/web/src/modules/office/pixi/path/classify.ts": {
-    "ratio": 0.292,
-    "code": 113,
-    "comment": 33
-  },
-  "apps/web/src/modules/office/pixi/path/materials.ts": {
-    "ratio": 0.2051,
-    "code": 117,
-    "comment": 24
-  },
-  "apps/web/src/modules/office/pixi/path/noise.ts": {
-    "ratio": 0.3478,
-    "code": 23,
-    "comment": 8
-  },
-  "apps/web/src/modules/office/pixi/path/path-texture.ts": {
-    "ratio": 0.1563,
-    "code": 32,
-    "comment": 5
   },
   "apps/web/src/modules/onboarding/components/first-run-gate.tsx": {
     "ratio": 0.7222,
@@ -2623,11 +2423,6 @@
     "ratio": 0.4157,
     "code": 89,
     "comment": 37
-  },
-  "packages/domain/src/config/office.ts": {
-    "ratio": 0.4286,
-    "code": 7,
-    "comment": 3
   },
   "packages/domain/src/config/project-templates.ts": {
     "ratio": 0.1667,

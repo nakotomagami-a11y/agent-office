@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api/fetch";
 import { API_ROUTES } from "@agent-office/api-contract";
+import { PAGE_ROUTES } from "@/lib/page-routes";
 import { exportProject, importState } from "@/lib/api/save";
 import { resetRoster, sessionConflictOf, type SessionConflict } from "@/lib/api/roster";
 import type { WorkChoice } from "@agent-office/domain/config/sessions";
@@ -33,7 +34,6 @@ export function useProjectDetailActions(
 
   const [includeHistory, setIncludeHistory] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [restoreOffice, setRestoreOffice] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -76,12 +76,11 @@ export function useProjectDetailActions(
     try {
       const text = await file.text();
       const json = JSON.parse(text) as unknown;
-      const data = await importState(json, restoreOffice);
+      const data = await importState(json);
       const msg = [
         t("project_detail.import_success", { count: data.agentCount ?? 0, project: data.projectId ?? "" }),
         data.backedUp?.length ? t("project_detail.import_backed_up", { count: data.backedUp.length, ids: data.backedUp.join(", ") }) : null,
         data.snapshot ? t("project_detail.import_snapshot", { path: data.snapshot }) : null,
-        data.officeRestored ? t("project_detail.import_office_restored") : null,
       ].filter(Boolean).join(" ");
       setImportStatus({ ok: true, msg });
     } catch (err) {
@@ -106,7 +105,7 @@ export function useProjectDetailActions(
     try {
       if (pendingDanger === "delete") {
         await apiFetch(API_ROUTES.project(projectId), { method: "DELETE" });
-        router.push("/");
+        router.push(PAGE_ROUTES.projects);
         return;
       }
       await resetRoster(projectId, work);
@@ -125,7 +124,7 @@ export function useProjectDetailActions(
 
   return {
     backup: {
-      includeHistory, setIncludeHistory, exportError, restoreOffice, setRestoreOffice,
+      includeHistory, setIncludeHistory, exportError,
       importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport, onDropFile: importFile,
     },
     danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },

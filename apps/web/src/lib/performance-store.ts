@@ -6,12 +6,10 @@ import { setUnitClockFps } from "@/components/ui/unit-sprite.clock";
 /**
  * Rendering / animation budget.
  *
- *   - `full` (default)  — everything on: iso office renderer via PixiJS,
- *                         framer-motion transitions, CSS keyframes,
+ *   - `full` (default)  — everything on: framer-motion transitions, CSS keyframes,
  *                         backdrop-blur, drop shadows, procedural planet
  *                         icons, hover transitions.
- *   - `lite`            — office view forced to `cards`. Non-essential CSS
- *                         animations off. Framer-motion transitions set to
+ *   - `lite`            — non-essential CSS animations off. Framer-motion transitions set to
  *                         0 ms. Backdrop-blur removed. Planet icons render
  *                         as a flat color fallback. Status LEDs still
  *                         animate (essential feedback). Sprite clock slowed.

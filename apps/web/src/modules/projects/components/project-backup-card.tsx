@@ -11,8 +11,6 @@ export type ProjectBackupCardProps = {
   onIncludeHistoryChange: (value: boolean) => void;
   onExport: () => void;
   exportError: string | null;
-  restoreOffice: boolean;
-  onRestoreOfficeChange: (value: boolean) => void;
   importing: boolean;
   importStatus: { ok: boolean; msg: string } | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -48,8 +46,6 @@ export function ProjectBackupCard({
   onIncludeHistoryChange,
   onExport,
   exportError,
-  restoreOffice,
-  onRestoreOfficeChange,
   importing,
   importStatus,
   fileInputRef,
@@ -128,7 +124,6 @@ export function ProjectBackupCard({
             </span>
             <span className="font-mono text-[11px] whitespace-nowrap">drop a save file, or click to browse</span>
           </div>
-          <OptionCheckbox checked={restoreOffice} onChange={onRestoreOfficeChange} label={t("project_detail.import_restore_office")} />
           {importStatus && (
             <span className={`text-[12px] ${importStatus.ok ? "text-green" : "text-red"}`}>{importStatus.msg}</span>
           )}

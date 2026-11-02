@@ -32,61 +32,47 @@ import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 
 /**
  * Integrations — the single surface for every external system the office
- * talks to: the Claude engine, per-project git identities, and optional
- * capability toggles. Toggle state is the real settings.integrations
- * (persisted via usePatchSettings, defaulting from the INTEGRATIONS
- * registry). Claude is the always-on engine and has no registry entry / no
+ * talks to: the Claude engine and per-project git identities. Toggle state
+ * is the real settings.integrations (persisted via usePatchSettings,
+ * defaulting from the INTEGRATIONS registry). Claude is the always-on engine and has no registry entry / no
  * toggle. Flexbox only (house rule) — no grid.
  */
 
-type Category = "engine" | "connections" | "capabilities";
-type Kind = "claude" | "github" | "capability";
+type Category = "engine" | "connections";
+type Kind = "claude" | "github";
 
 interface CardDef {
   id: string;
   name: string;
   tagline: string;
-  icon: IconName;
-  /** Optional PNG override for the icon glyph (e.g. iso-view gets custom art). */
-  image?: string;
   category: Category;
   kind: Kind;
   required?: boolean;
-  experimental?: boolean;
 }
-
-const CARD_IMAGE: Record<string, string> = {
-  "iso-view": "/icons/isomap.png",
-};
 
 const CLAUDE_DEF: CardDef = {
   id: "claude",
   name: "Claude",
   tagline: "The model behind every agent · one account per project",
-  icon: "sparkle",
   category: "engine",
   kind: "claude",
   required: true,
 };
 
-// Registry is the source of truth for the optional integrations; adding an
-// entry there adds a card here automatically.
-const REGISTRY_CARDS: CardDef[] = INTEGRATIONS.map((def) => ({
+// An unknown registry entry renders no card rather than a GitHub-shaped one.
+const REGISTRY_CARDS: CardDef[] = INTEGRATIONS.filter((def) => def.id === "github").map((def) => ({
   id: def.id,
   name: def.label,
   tagline: def.description,
-  icon: def.icon as IconName,
-  image: CARD_IMAGE[def.id],
-  category: def.id === "github" ? "connections" : "capabilities",
-  kind: def.id === "github" ? "github" : "capability",
-  experimental: def.status === "experimental",
+  category: "connections",
+  kind: "github",
 }));
 
 const ALL_CARDS: CardDef[] = [CLAUDE_DEF, ...REGISTRY_CARDS];
 
-const GROUP_KEYS: Category[] = ["engine", "connections", "capabilities"];
+const GROUP_KEYS: Category[] = ["engine", "connections"];
 
-type Health = "connected" | "on" | "attention" | "off";
+type Health = "connected" | "attention" | "off";
 
 export function IntegrationsTab({ onNavigate }: { onNavigate?: (tab: "provider") => void } = {}) {
   const t = useTranslations("integrations_tab");
@@ -113,8 +99,7 @@ export function IntegrationsTab({ onNavigate }: { onNavigate?: (tab: "provider")
     const enabled = enabledOf(def.id);
     if (!enabled && !def.required) return "off";
     if (def.kind === "claude") return subscription && claudeAccounts.some((a) => !a.ready) ? "attention" : "connected";
-    if (def.kind === "github") return githubAccounts.some((a) => !a.ready) ? "attention" : "connected";
-    return "on";
+    return githubAccounts.some((a) => !a.ready) ? "attention" : "connected";
   };
 
   const stats = useMemo(() => {
@@ -168,71 +153,57 @@ export function IntegrationsTab({ onNavigate }: { onNavigate?: (tab: "provider")
               <span className="flex-1 h-px bg-edge" aria-hidden />
             </div>
 
-            {key === "capabilities" ? (
-              <div className="flex flex-wrap gap-[12px]">
-                {items.map((def) => (
-                  <CapabilityCard
-                    key={def.id}
-                    def={def}
-                    enabled={enabledOf(def.id)}
-                    busy={patchMut.isPending}
-                    onToggle={(next) => patchMut.mutate({ integrations: { [def.id]: next } })}
+            {items.map((def) => (
+              <div key={def.id} className="rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden">
+                <div className="flex items-center gap-[13px] px-[20px] py-[16px]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={def.kind === "claude" ? "/icons/claude-rune.png" : "/icons/github.png"}
+                    alt=""
+                    width={38}
+                    height={38}
+                    className="shrink-0 object-contain"
                   />
-                ))}
-              </div>
-            ) : (
-              items.map((def) => (
-                <div key={def.id} className="rounded-[22px] surface-sheen shadow-[var(--lift)] overflow-hidden">
-                  <div className="flex items-center gap-[13px] px-[20px] py-[16px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={def.kind === "claude" ? "/icons/claude-rune.png" : "/icons/github.png"}
-                      alt=""
-                      width={38}
-                      height={38}
-                      className="shrink-0 object-contain"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-[9px]">
-                        <span className="text-[15px] font-bold whitespace-nowrap">{def.name}</span>
-                        {def.required ? <TagChip icon="lock" label={t("required_tag")} /> : null}
-                      </div>
-                      <span className="text-[11.5px] text-txt-4 whitespace-nowrap">
-                        {def.id === "claude" ? t("claude_tagline") : def.tagline}
-                      </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-[9px]">
+                      <span className="text-[15px] font-bold whitespace-nowrap">{def.name}</span>
+                      {def.required ? <TagChip icon="lock" label={t("required_tag")} /> : null}
                     </div>
-                    <div className="flex items-center gap-[12px] shrink-0">
-                      <HealthPill health={healthOf(def)} />
-                      {def.required ? null : (
-                        <Switch
-                          checked={enabledOf(def.id)}
-                          onChange={(next) => patchMut.mutate({ integrations: { [def.id]: next } })}
-                          disabled={patchMut.isPending}
-                          label={t("enable_aria", { name: def.name })}
-                        />
-                      )}
-                    </div>
+                    <span className="text-[11.5px] text-txt-4 whitespace-nowrap">
+                      {def.id === "claude" ? t("claude_tagline") : def.tagline}
+                    </span>
                   </div>
-
-                  {(def.required || enabledOf(def.id)) &&
-                    (def.kind === "claude" ? (
-                      <ClaudeAccountsPanel
-                        accounts={claudeAccounts}
-                        providerId={providerId}
-                        onOpenProvider={onNavigate ? () => onNavigate("provider") : undefined}
-                        onAdd={() => setAddClaude(true)}
-                        onDelete={setDelClaude}
+                  <div className="flex items-center gap-[12px] shrink-0">
+                    <HealthPill health={healthOf(def)} />
+                    {def.required ? null : (
+                      <Switch
+                        checked={enabledOf(def.id)}
+                        onChange={(next) => patchMut.mutate({ integrations: { [def.id]: next } })}
+                        disabled={patchMut.isPending}
+                        label={t("enable_aria", { name: def.name })}
                       />
-                    ) : def.kind === "github" ? (
-                      <GithubAccountsPanel
-                        accounts={githubAccounts}
-                        onAdd={() => setAddGithub(true)}
-                        onDelete={setDelGithub}
-                      />
-                    ) : null)}
+                    )}
+                  </div>
                 </div>
-              ))
-            )}
+
+                {(def.required || enabledOf(def.id)) &&
+                  (def.kind === "claude" ? (
+                    <ClaudeAccountsPanel
+                      accounts={claudeAccounts}
+                      providerId={providerId}
+                      onOpenProvider={onNavigate ? () => onNavigate("provider") : undefined}
+                      onAdd={() => setAddClaude(true)}
+                      onDelete={setDelClaude}
+                    />
+                  ) : (
+                    <GithubAccountsPanel
+                      accounts={githubAccounts}
+                      onAdd={() => setAddGithub(true)}
+                      onDelete={setDelGithub}
+                    />
+                  ))}
+              </div>
+            ))}
           </div>
         );
       })}
@@ -254,52 +225,6 @@ function HeroStat({ value, label, dot }: { value: number; label: string; dot: st
       <span className="font-mono text-[12px] font-bold">{value}</span>
       <span className="text-[10.5px] font-semibold text-txt-4">{label}</span>
     </span>
-  );
-}
-
-// ── Capability card ─────────────────────────────────────────────────────────
-
-function CapabilityCard({
-  def,
-  enabled,
-  busy,
-  onToggle,
-}: {
-  def: CardDef;
-  enabled: boolean;
-  busy: boolean;
-  onToggle: (next: boolean) => void;
-}) {
-  const t = useTranslations("integrations_tab");
-  return (
-    <div className="flex-1 basis-[300px] min-w-0 flex items-start gap-[13px] rounded-[22px] surface-sheen shadow-[var(--lift)] px-[18px] py-[16px]">
-      <span
-        className={cn(
-          "w-[38px] h-[38px] shrink-0 flex items-center justify-center",
-          def.image
-            ? undefined
-            : cn(
-                "rounded-[12px] overflow-hidden",
-                enabled ? "bg-acc-soft text-acc shadow-[inset_0_0_0_1px_var(--acc-line)]" : "bg-card-2 text-txt-4 shadow-[inset_0_0_0_1px_var(--edge)]",
-              ),
-        )}
-      >
-        {def.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={def.image} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <Icon name={def.icon} size={17} />
-        )}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-[8px]">
-          <span className="text-[13.5px] font-bold whitespace-nowrap">{def.name}</span>
-          {def.experimental ? <TagChip label={t("experimental_tag")} tone="warn" /> : null}
-        </div>
-        <div className="text-[11.5px] leading-[1.5] text-txt-4 mt-[4px] text-pretty">{def.tagline}</div>
-      </div>
-      <Switch checked={enabled} onChange={onToggle} disabled={busy} label={t("enable_aria", { name: def.name })} />
-    </div>
   );
 }
 
@@ -557,7 +482,6 @@ function HealthPill({ health }: { health: Health }) {
   const t = useTranslations("integrations_tab");
   const map = {
     connected: { label: t("health_connected"), dot: "bg-green", text: "text-txt-2" },
-    on: { label: t("health_on"), dot: "bg-green", text: "text-txt-2" },
     attention: { label: t("health_attention"), dot: "bg-red", text: "text-red" },
     off: { label: t("health_off"), dot: "bg-txt-4", text: "text-txt-4" },
   } as const;
@@ -570,14 +494,9 @@ function HealthPill({ health }: { health: Health }) {
   );
 }
 
-function TagChip({ label, icon, tone = "neutral" }: { label: string; icon?: IconName; tone?: "neutral" | "warn" }) {
+function TagChip({ label, icon }: { label: string; icon?: IconName }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-[4px] py-[1.5px] px-[8px] rounded-full text-[9px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap",
-        tone === "warn" ? "bg-amber-soft text-amber" : "bg-card-3 text-txt-4",
-      )}
-    >
+    <span className="inline-flex items-center gap-[4px] py-[1.5px] px-[8px] rounded-full text-[9px] font-extrabold uppercase tracking-[0.06em] whitespace-nowrap bg-card-3 text-txt-4">
       {icon ? <Icon name={icon} size={9} /> : null}
       {label}
     </span>

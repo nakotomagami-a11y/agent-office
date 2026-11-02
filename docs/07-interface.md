@@ -20,7 +20,7 @@ The whole app runs inside a custom Tauri window:
 - **Titlebar** (top, 38 px) — window controls (traffic lights on Tauri), workspace name, dev menu, refresh, theme toggle. Always visible; sits above every modal so it stays clickable.
 - **Tab strip** (below titlebar, 36 px) — Chrome-style project tabs. See "Project tabs" below.
 - **Sidebar** (left, resizable) — pinned agents grouped by room, memory + skills + settings entry points.
-- **Main pane** — current route (Office / Projects / History / Docs / Settings / etc.).
+- **Main pane** — current route (Projects / History / Docs / Settings / etc.).
 - **Mobile bottom nav** — appears on narrow viewports; replaces the sidebar.
 - **Resize handles** — grab any window edge to resize (Tauri desktop only).
 
@@ -42,7 +42,7 @@ Each agent line shows:
 
 - Tiny Swords sprite avatar (colored by faction)
 - Human-readable display name (e.g. `cs-ceo` → **CEO**)
-- Status LED (see [Office → Status LEDs](#/usage))
+- Status LED (see [Usage → Roster status LEDs](#/usage))
 - Instance count badge (if the agent has multiple instances)
 
 Right-click an agent for:
@@ -58,7 +58,7 @@ If an agent has 2+ instances in the active project, its line becomes expandable 
 
 ## Agent details modal
 
-Click any agent (in the sidebar, on the office floor, or in the agent list) to open the details modal. Four tabs across the top:
+Click any agent (in the sidebar or in the agent list) to open the details modal. Four tabs across the top:
 
 ### Conversation tab
 
@@ -233,7 +233,7 @@ Register GitHub identities (`/api/github-accounts`) so worktree/PR work can be a
 
 ### Performance
 
-Sets the rendering / animation budget — `full` · `lite` · `off` — persisted to `ui_settings.performance-mode`. `lite`/`off` reduce or disable canvas animation and can force the Office into cards view on low-power machines.
+Sets the rendering / animation budget — `full` · `lite` · `off` — persisted to `ui_settings.performance-mode`. `lite`/`off` reduce or disable animations and effects on low-power machines.
 
 ### Cleanup
 
@@ -254,15 +254,6 @@ Scaffolds a fresh project directory from a framework template.
 - **Backend choice** — enumerated on the modal (Fastify / Hono / Express / Django / FastAPI / none).
 - **Name + directory** — where to write the scaffold.
 - **Confirm** — hits `POST /api/projects/bootstrap`; scaffold runs, project row is created, sidebar refreshes.
-
-## Office view — iso vs cards
-
-Two rendering modes for the Office floor, toggled from the office toolbar and persisted in `useOfficeStore.view` (backed by `ui_settings.office-view` on the server):
-
-- `iso` — full isometric floor via PixiJS. Interactive drag-drop, decorations, room walls, agent avatars.
-- `cards` — flat grid of agent cards. No isometric transform, no PixiJS renderer. Faster on low-power machines.
-
-The Performance settings can force-select `cards` — see the Performance section below.
 
 ## Global Memory page (the `/memory` route)
 
@@ -342,8 +333,8 @@ Global setting persisted to `ui_settings.performance-mode`. Three levels:
 
 | Mode | Effect |
 |---|---|
-| `full` (default) | Everything on: iso office renderer + PixiJS, framer-motion transitions, CSS keyframes, backdrop-blur, drop shadows, procedural planet icons, hover transitions. |
-| `lite` | Office view forced to `cards`. Non-essential CSS animations off. Framer-motion transitions set to 0 ms. Backdrop-blur removed. Planet icons render as flat color fallback. Status LEDs still animate (essential feedback). |
+| `full` (default) | Everything on: framer-motion transitions, CSS keyframes, backdrop-blur, drop shadows, procedural planet icons, hover transitions. |
+| `lite` | Non-essential CSS animations off. Framer-motion transitions set to 0 ms. Backdrop-blur removed. Planet icons render as flat color fallback. Status LEDs still animate (essential feedback). |
 | `off` | Everything from `lite` PLUS: no hover transitions, no shimmer, no chat message-in animations, no auto-scroll smoothing. Utilitarian rendering. |
 
 Auto-detect: on first launch, if the browser reports `prefers-reduced-motion: reduce`, the default flips to `lite` and a small notice surfaces on the Performance tab (not blocking).

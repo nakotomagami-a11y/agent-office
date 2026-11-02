@@ -35,8 +35,7 @@ export type AgentAvatarProps = {
 /**
  * Static portrait-style avatar from the Tiny Swords Human Avatars set. Picks
  * the portrait that matches the agent's chosen unit faction+kind, so the
- * sidebar bust and the office-floor full-body sprite are always the same
- * character.
+ * sidebar bust and the full-body sprite are always the same character.
  */
 export function AgentAvatar({ unit, size = 32, label, className }: AgentAvatarProps) {
   const slot = slotFor(unit);

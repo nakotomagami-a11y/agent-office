@@ -1,7 +1,6 @@
 /**
- * Importing a save file overwrote agent files and memory with no backup, replaced the roster
- * (orphaning worktrees, bringing in another machine's paths) and replaced the global office
- * layout without asking (S4-7, S1-12).
+ * Importing a save file overwrote agent files and memory with no backup and replaced the roster
+ * (orphaning worktrees, bringing in another machine's paths) (S4-7, S1-12).
  *
  *   pnpm --filter @agent-office/domain test src/services/projects/save-import.test.ts
  */
@@ -24,25 +23,20 @@ const { AGENTS_DIR, AGENT_BACKUPS_DIR, IMPORT_BACKUPS_DIR } = await import("../i
 const projects = await import("./projects");
 const db = await import("../db");
 const save = await import("./save");
-const { OFFICE_SETTING_KEYS } = await import("../../config/office");
-
-const office = { grid: "imported-grid", decorations: null, agents: null, grassColor: null };
 
 function bundle(roster: unknown[]) {
   return {
     project: { id: "imp", meta: { name: "Imported", roster }, memory: "imported memory" },
     agents: [{ id: "imp-dev", content: "---\nname: imp-dev\ndescription: theirs\n---\n\ntheirs\n", memory: "" }],
-    office,
   };
 }
 
-test("import backs up what it replaces, keeps the local roster, strips machine paths, leaves the office alone", () => {
+test("import backs up what it replaces, keeps the local roster, strips machine paths", () => {
   mkdirSync(AGENTS_DIR, { recursive: true });
   writeFileSync(join(AGENTS_DIR, "imp-dev.md"), "---\nname: imp-dev\ndescription: mine\n---\n\nmine\n");
   writeFileSync(join(AGENTS_DIR, "imp-dev.memory.md"), "my memory");
   projects.createProject({ id: "imp", name: "Local" });
   projects.replaceRoster("imp", [{ instanceId: "imp-dev-local", agentId: "imp-dev" }]);
-  db.setUiSetting(OFFICE_SETTING_KEYS.grid, "my-grid");
 
   const out = save.importBundle(bundle([
     { instanceId: "imp-dev-local", agentId: "imp-dev", cwd: "/elsewhere" },
@@ -61,18 +55,9 @@ test("import backs up what it replaces, keeps the local roster, strips machine p
   assert.equal(roster[1]!.cwd, undefined);
   assert.equal(roster[1]!.worktree, undefined);
 
-  assert.equal(out.officeRestored, false);
-  assert.equal(db.getAllUiSettings()[OFFICE_SETTING_KEYS.grid], "my-grid");
-
   assert.ok(out.snapshot && existsSync(out.snapshot));
   assert.ok(out.snapshot.startsWith(IMPORT_BACKUPS_DIR));
   assert.match(readFileSync(out.snapshot, "utf8"), /imp-dev-local/);
-});
-
-test("the office layout is replaced only when asked", () => {
-  const out = save.importBundle(bundle([]), { restoreOffice: true });
-  assert.equal(out.officeRestored, true);
-  assert.equal(db.getAllUiSettings()[OFFICE_SETTING_KEYS.grid], "imported-grid");
 });
 
 test("history goes only into seats the import added; a local transcript and session are never overwritten", () => {

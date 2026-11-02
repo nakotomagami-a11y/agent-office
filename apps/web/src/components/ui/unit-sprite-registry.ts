@@ -30,20 +30,9 @@ interface UnitDef {
   frameH: number;
   idle: SheetSpec;
   run: SheetSpec;
-  /** Chopping-wood animation. Pawn-only for now; absent on other units. */
-  axe?: SheetSpec;
-  /** Hammer-build animation. Pawn-only; used as the "generic working"
-   *  sheet when no resource (tree/rock) is co-located with the agent. */
-  hammer?: SheetSpec;
-  /** Mining-rock animation. Pawn-only. */
-  pickaxe?: SheetSpec;
-  /** Sheep-shearing / knife animation. Pawn-only; routed when an agent
-   *  is co-located with a sheep decoration while working. */
-  knife?: SheetSpec;
   /** Combat / signature action sheet — warrior sword swing, archer shoot,
    *  monk heal, lancer spear thrust. Used as the "working" animation in
-   *  headers where present. Absent on the pawn (which has the tool anims
-   *  above as its working states). Right-facing, same frame box as idle/run. */
+   *  headers where present. Absent on the pawn. Right-facing, same frame box as idle/run. */
   attack?: SheetSpec;
   /**
    * Character bounding box inside one frame, in native sprite pixels. We crop
@@ -54,11 +43,11 @@ interface UnitDef {
   /** Human-readable name shown in the unit picker. */
   label: string;
   /**
-   * Canvas size multiplier relative to the default AGENT_SIZE (96 px).
-   * Units whose bbox is dominated by a weapon extension (e.g. the lancer's
-   * spear) look tiny at 1×; boost them so the character body reads at the
-   * right visual weight on the tile. All units are feet-anchored so they
-   * stand on the same ground line regardless of this value. Default: 1.
+   * Body scale multiplier. Units whose bbox is dominated by a weapon
+   * extension (e.g. the lancer's spear) look tiny at 1×; boost them so the
+   * character body reads at the same visual weight as the others. All units
+   * are feet-anchored so they stand on the same ground line regardless of
+   * this value. Default: 1.
    */
   sizeMultiplier?: number;
   /**
@@ -77,10 +66,6 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     frameH: 192,
     idle: { frames: 8 },
     run: { frames: 6 },
-    axe: { frames: 6 },
-    hammer: { frames: 3 },
-    pickaxe: { frames: 6 },
-    knife: { frames: 4 },
     // Pixel-verified across every idle + run frame (native 192x192): content
     // spans y:58-134, x:65-130.
     bbox: { x: 65, y: 58, w: 65, h: 76 },
@@ -126,7 +111,7 @@ export const UNIT_DEFS: Record<UnitKind, UnitDef> = {
     // bbox.x/w are pixel-verified to the character's body only (helmet to
     // boots, x:128-183) so `bodyCenterX` centres on the human, not the spear.
     // bbox.h is intentionally the spear-inflated 272 (not the body's ~72px)
-    // so `scale` + sizeMultiplier fill the tile at warrior/archer's weight.
+    // so `scale` + sizeMultiplier fill the box at warrior/archer's weight.
     bbox: { x: 128, y: 24, w: 55, h: 272 },
     label: "Lancer",
     // 3.0 matches the body's visual weight to warrior/archer; the spear tip
@@ -167,7 +152,7 @@ export function formatUnit(u: UnitSelection): string {
   return `${u.faction}/${u.kind}`;
 }
 
-export type UnitSheetState = "idle" | "run" | "axe" | "hammer" | "pickaxe" | "knife" | "attack";
+export type UnitSheetState = "idle" | "run" | "attack";
 
 export function unitSheetSrc(
   faction: UnitFaction,

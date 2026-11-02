@@ -7,7 +7,7 @@ import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon } from "@/components/ui/icon";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { planetTag } from "@/lib/planet-seed";
-import { ProjectRuntimeBar, ProjectShortcutsBar } from "@/modules/office/components/office-toolbar";
+import { ProjectRuntimeBar, ProjectShortcutsBar } from "./project-actions";
 
 export type ProjectHeroProps = {
   project: Project;

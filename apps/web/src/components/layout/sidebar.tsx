@@ -15,11 +15,6 @@ import {
 import { useProjectSpend } from "@/modules/projects/hooks/use-project-spend";
 import { useFilter } from "@/hooks/use-filter";
 import { useSettings } from "@/modules/settings/hooks/use-settings";
-import {
-  AGENT_DRAG_MIME,
-  useOfficeDragStore,
-  type DragRef,
-} from "@/modules/office/hooks/use-office-drag";
 import { isTauri, closeWindow, minimizeWindow, toggleMaximizeWindow } from "@/lib/tauri-window";
 import { RosterGroup, type RosterGroupData } from "./roster-group";
 import { splitRoster } from "@/modules/office/derive/split-roster";
@@ -351,21 +346,7 @@ function RosterEntry({
   onRemove: () => void;
 }) {
   const t = useTranslations();
-  const { agent, instance, displayName } = row;
-  const setDragging = useOfficeDragStore((s) => s.setDragging);
-
-  const dragRef: DragRef = instance
-    ? { agentId: agent.id, instanceId: instance.instanceId }
-    : { agentId: agent.id };
-
-  const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.setData(AGENT_DRAG_MIME, JSON.stringify(dragRef));
-    e.dataTransfer.setData("text/plain", agent.id);
-    e.dataTransfer.effectAllowed = "move";
-    setDragging(dragRef);
-  };
-
-  const onDragEnd = () => setDragging(null);
+  const { agent, displayName } = row;
 
   const ledClass = cn(
     "absolute -bottom-[2px] -right-[2px] w-[8px] h-[8px] rounded-full border-2 border-canvas",
@@ -378,12 +359,9 @@ function RosterEntry({
   return (
     <div
       className={cn(
-        "group relative cursor-grab flex items-center gap-[9px] rounded-[10px] px-[7px] py-[6px] transition-colors duration-150 hover:bg-card-3",
+        "group relative cursor-pointer flex items-center gap-[9px] rounded-[10px] px-[7px] py-[6px] transition-colors duration-150 hover:bg-card-3",
         selected && "bg-acc-faint",
       )}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
       onClick={onSelect}
       role="button"
       tabIndex={0}

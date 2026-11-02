@@ -11,7 +11,7 @@
 | `packages/domain` | `@agent-office/domain` — **the brains**: types, DB layer, services, fixed value sets. Knows nothing about HTTP |
 | `packages/api-contract` | `@agent-office/api-contract` — the wire contract: `API_ROUTES` and the request schemas the server validates against. Pure (zod + domain config), so any client can import it |
 | `apps/server` | `@agent-office/server` — the HTTP API + SSE runner: route handlers, boot tasks, the origin guard. One web-standard `handle(Request): Response` |
-| `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/`; the isometric office scene renders via PixiJS in `src/modules/office/pixi/` |
+| `apps/web` | `@agent-office/web` — the UI (Next.js) and the desktop shell (Tauri). Mounts `apps/server` under `/api`. Design-system primitives live in `src/components/ui/` |
 | `apps/minecraft-mod` | NeoForge 1.21.1 mod, a second client of the same API. Gradle, not part of the pnpm workspace (`docs/minecraft-mod.md`) |
 
 ```
@@ -27,8 +27,7 @@ Dependencies point one way, and lint holds the line (`docs/conventions.md`):
 its embedding seam (below). `@agent-office/pixel-planets` and
 `@agent-office/pixel-icons` are still used — they moved out of `packages/` into
 standalone repos and are pinned by commit as git dependencies in
-`apps/web/package.json`. The office *scene* is PixiJS inside `apps/web`; those
-two packages render the planet and weapon icons, not the scene.
+`apps/web/package.json`. They render the project planet and skill weapon icons.
 
 ---
 
@@ -396,7 +395,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v29**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v30**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -414,7 +413,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |
 | `drafts` | PK(agent_id, instance_id), text, updated_at | Composer draft persistence |
-| `ui_settings` | key, value, updated_at | Office layout, theme, etc. Internal keys prefixed `_` hidden from GET |
+| `ui_settings` | key, value, updated_at | Theme, tabs, roster groups, spend cap, etc. Internal keys prefixed `_` hidden from GET |
 | `pipelines` | id, project_id, status, created_at, ended_at, interrupted | Unused: left by an earlier version |
 | `pipeline_steps` | PK(pipeline_id, step_index), parallel_group, agent_id, run_id, status, output, exit_code | Unused: left by an earlier version |
 | `accounts` | id, label, config_dir, created_at | Claude accounts; each maps to a `CLAUDE_CONFIG_DIR`. `default` → `~/.claude`; its row is created by the first status read or default sign-in when the migration found no credentials |

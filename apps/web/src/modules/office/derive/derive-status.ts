@@ -17,7 +17,6 @@ const STICKY_MS = 90_000;
 export interface AgentStatusInfo {
   status: AgentStatus;
   task?: string;
-  taskKind?: string;
 }
 
 /**
@@ -29,9 +28,9 @@ export interface AgentStatusInfo {
 function statusInfoFromRunStatus(status: PersistedRun["status"], prompt: string): AgentStatusInfo {
   const task = truncate(prompt, 32);
   switch (status) {
-    case "running": return { status: "working", task, taskKind: "Running" };
-    case "done": return { status: "done", task, taskKind: "Done" };
-    case "error": return { status: "error", task, taskKind: "Error" };
+    case "running": return { status: "working", task };
+    case "done": return { status: "done", task };
+    case "error": return { status: "error", task };
     default: return assertNever(status);
   }
 }

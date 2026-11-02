@@ -27,7 +27,7 @@ import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
 import { UnitSprite } from "@/components/ui/unit-sprite";
-import { ProjectActionsMenu } from "../office-toolbar";
+import { ProjectActionsMenu } from "@/modules/projects/components/project-actions";
 import { agentDisplayName } from "@/lib/agent-display-name";
 import type { AgentInstance } from "@agent-office/domain/types";
 import { statusFromRuns, statusFromRunsForInstance } from "../../derive/derive-status";

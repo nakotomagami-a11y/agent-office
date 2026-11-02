@@ -10,7 +10,7 @@
  * every pointer move near the scrollbar to decide whether the hover style
  * applies, instead of scrolling purely on the compositor thread. That reads
  * as laggy/stuttery scrolling, most visible when the main thread already has
- * work queued (React re-renders, the office scene ticking) and on weaker
+ * work queued (React re-renders, sprite animation) and on weaker
  * GPU/driver stacks (reported on Linux + Intel Arc iGPU).
  *
  * `scrollbar-width` / `scrollbar-color` are natively Chromium 121+ (Jan

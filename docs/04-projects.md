@@ -37,7 +37,7 @@ Anything after the closing `---` is the **project memory** (see [Memory](#/memor
 | Field | Purpose |
 |---|---|
 | `agent` | Slug of the agent definition to instantiate. |
-| `instance` | Unique ID for this instance (auto-generated on drop). |
+| `instance` | Unique ID for this instance (auto-generated when it is added). |
 | `label` | Optional human-readable name — shown next to the avatar. |
 | `unit` | Optional avatar override — `faction/kind`. Defaults derived from agent slug. |
 | `model` | Optional per-instance model override. Uses the agent default if unset. |
@@ -82,7 +82,7 @@ Manage secrets from the **Environment bar** on the project detail page, alongsid
 
 ### Git status widget
 
-A compact git status shows on the Project card **and** on the Office header's project chip: current branch, ahead/behind arrows (`↑`/`↓` vs upstream), and an uncommitted-file count (`·N`). Data comes from `GET /api/projects/:id/git-status`, polled every 30s.
+A compact git status shows on the Project card **and** in the project quick view: current branch, ahead/behind arrows (`↑`/`↓` vs upstream), and an uncommitted-file count (`·N`). Data comes from `GET /api/projects/:id/git-status`, polled every 30s.
 
 - **Branch** — `git rev-parse --abbrev-ref HEAD` in the project's `cwd` (the base checkout, not the per-agent worktrees).
 - **`·N`** — changed-file count from `git status --porcelain --untracked-files=all`, so it **includes untracked files and matches VS Code's Source Control badge**. (The `+N` / `-N` line churn on the project detail page is separate — that comes from `git diff --shortstat`, tracked lines only.)

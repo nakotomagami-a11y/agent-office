@@ -1,7 +1,7 @@
 [package]
 name = "app"
 version = "0.2.0"
-description = "Agent Office — your Claude Code agents, visualized as a living isometric office"
+description = "Agent Office — your Claude Code agents in one desktop app"
 authors = ["chaos and curves"]
 license = "GPL-3.0-or-later"
 repository = "https://github.com/nakotomagami-a11y/agent-office"

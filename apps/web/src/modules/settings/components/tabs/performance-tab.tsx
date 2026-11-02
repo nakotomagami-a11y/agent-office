@@ -38,7 +38,6 @@ interface FeatureRow {
 }
 
 const FEATURES: FeatureRow[] = [
-  { key: "office_renderer", supported: [true, false, false] },
   { key: "framer_motion", supported: [true, false, false] },
   { key: "backdrop_blur", supported: [true, false, false] },
   { key: "planet_icons", supported: [true, true, false] },

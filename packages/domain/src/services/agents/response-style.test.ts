@@ -25,7 +25,7 @@ test("saving the projects root keeps integrations and feature flags", () => {
     excluded: ["a"],
     firstRunComplete: false,
     features: { multiInstance: true },
-    integrations: { "iso-view": true },
+    integrations: { github: false },
   };
   const next = withProjectsConfig(current, { projectsRoot: " /new ", excluded: [] });
   assert.deepEqual(next, { ...current, projectsRoot: "/new", excluded: [], firstRunComplete: true });

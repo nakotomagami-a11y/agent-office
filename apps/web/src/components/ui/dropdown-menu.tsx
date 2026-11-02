@@ -154,7 +154,7 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
   const onTriggerKey = (e: React.KeyboardEvent) => {
     if (open && (e.key === "Escape" || e.key === "Tab")) closeToTrigger(e);
     else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      // Keys the menu handles stop here: the office camera pans on window-level arrow keys.
+      // Keys the menu handles stop here, before any window-level listener.
       e.preventDefault();
       e.stopPropagation();
       const dir = e.key === "ArrowDown" ? 1 : -1;

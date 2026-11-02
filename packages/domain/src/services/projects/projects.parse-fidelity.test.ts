@@ -115,10 +115,6 @@ test("replaceRoster refuses a non-array instead of emptying the roster", () => {
 
 // --- bundle import must not empty a live roster -----------------------------
 
-// All null so restoreOffice's `if (value != null)` skips the DB entirely —
-// this test is about the roster, not office settings.
-const EMPTY_OFFICE = { grid: null, decorations: null, agents: null, grassColor: null } as never;
-
 test("importing a bundle with no roster leaves the existing roster alone", async () => {
   // replaceRoster used to be called unconditionally, and normalizeRoster
   // coerces a missing roster to [] — so a roster-less bundle deleted every
@@ -128,7 +124,6 @@ test("importing a bundle with no roster leaves the existing roster alone", async
   save.importBundle({
     project: { id, meta: { name: "From Bundle" }, memory: "" },
     agents: [],
-    office: EMPTY_OFFICE,
   });
   const p = projects.readProject(id)!;
   assert.equal(p.meta.name, "From Bundle", "precondition: the import did apply");
@@ -142,7 +137,6 @@ test("importing a bundle WITH a roster adds its seats and keeps the existing one
   save.importBundle({
     project: { id, meta: { name: "X", roster: [{ instanceId: "developer-zzz", agentId: "developer" }] }, memory: "" },
     agents: [],
-    office: EMPTY_OFFICE,
   });
   assert.deepEqual(projects.readProject(id)!.meta.roster.map((i) => i.instanceId), ["developer-aaa", "developer-bbb", "developer-zzz"]);
 });

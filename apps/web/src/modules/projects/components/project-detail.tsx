@@ -99,8 +99,6 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
           onIncludeHistoryChange={backup.setIncludeHistory}
           onExport={() => void backup.onExport()}
           exportError={backup.exportError}
-          restoreOffice={backup.restoreOffice}
-          onRestoreOfficeChange={backup.setRestoreOffice}
           importing={backup.importing}
           importStatus={backup.importStatus}
           fileInputRef={backup.fileRef}

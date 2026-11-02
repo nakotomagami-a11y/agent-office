@@ -18,7 +18,7 @@ export default async function AgentsPage() {
             href={PAGE_ROUTES.agentNew}
             className={`inline-flex items-center gap-[6px] ${ACCENT_BTN} font-semibold px-[14px] py-[8px] rounded-[9px] text-[13px] no-underline`}
           >
-            <Icon name="hammer" size={13} /> {t("office.new_agent")}
+            <Icon name="hammer" size={13} /> {t("agent_list.new_agent")}
           </Link>
         }
       />
