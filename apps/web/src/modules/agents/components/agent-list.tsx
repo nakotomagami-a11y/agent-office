@@ -16,6 +16,10 @@ import { categorize, categoryColor, tallyCategories } from "../form/categorize";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useSpawnInstance } from "@/modules/office/hooks/use-spawn-instance";
 
+// Zero-height fillers keep a short last row at full-row width (no Grid: ui.flexbox-only). They wrap into
+// empty rows, so row spacing must be item margins, not gap-y. 24 covers ~4000px of content at 100% zoom.
+const LAST_ROW_SPACERS = Array.from({ length: 24 }, (_, i) => `spacer-${i}`);
+
 /**
  * Agent gallery. Cards show the standing unit sprite, name/slug, category
  * tag, and model/effort badges — no description or persistent buttons, both
@@ -123,7 +127,7 @@ export function AgentList() {
           {t("agent_list.no_matches")}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-[12px] [&>*]:[flex:1_1_150px] [&>*]:max-w-[220px] max-[900px]:[&>*]:[flex:1_1_calc(33%-8px)] max-[600px]:[&>*]:[flex:1_1_calc(50%-6px)]">
+        <div className="-mb-[12px] flex flex-wrap gap-x-[12px] [&>*]:mb-[12px] [&>*]:[flex:1_1_150px] [&>*]:max-w-[220px] max-[900px]:[&>*]:[flex:1_1_calc(33%-8px)] max-[600px]:[&>*]:[flex:1_1_calc(50%-6px)]">
           {visible.map((a) => (
             <AgentCard
               key={a.id}
@@ -133,6 +137,7 @@ export function AgentList() {
               onEdit={() => select(a.id, { tab: "customization" })}
             />
           ))}
+          {LAST_ROW_SPACERS.map((k) => <div key={k} aria-hidden className="h-0 mb-0!" />)}
         </div>
       )}
     </div>
