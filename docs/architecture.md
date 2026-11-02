@@ -427,7 +427,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 ### Virtual table
 
-`messages_fts` — FTS5 virtual table over `messages`, kept in sync by triggers. Powers the `/search` route and `Cmd+K` palette.
+`messages_fts` — FTS5 virtual table over `messages`, kept in sync by triggers. Queried only by the `deep` context profile (`searchMessagesForAgent` ← `projects/history.ts`), which no UI selects (audit C27); kept in sync on every message insert regardless.
 
 ### Indexes
 

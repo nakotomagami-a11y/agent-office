@@ -9,7 +9,7 @@ This page is long. Here's the lay of the land — every section below, grouped:
 - **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface)
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
 - **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
-- **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface)
+- **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface)
 - **Modals & panels** — [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
 
@@ -229,7 +229,7 @@ Sets the rendering / animation budget — `full` · `lite` · `off` — persiste
 Sweep stored data by kind (e.g. reaped error runs) via `POST /api/cleanup/:kind`, reclaiming space without touching live runs.
 
 > [!NOTE]
-> Global Memory, Skills, Analytics, and Search are top-level routes (`/memory`, `/skills`, `/analytics`, `/search`) reached from the sidebar — NOT sub-tabs of Settings.
+> Global Memory, Skills and Analytics are top-level routes (`/memory`, `/skills`, `/analytics`) reached from the sidebar — NOT sub-tabs of Settings.
 
 ### Multi-instance feature flag
 
@@ -277,10 +277,6 @@ Usage & cost dashboards, scoped by a period selector (7 / 30 / 90 days / all tim
 - **Per-account** — usage split across connected Claude accounts (`/api/analytics/per-account`).
 
 All data pulled from the `runs` table (`/api/analytics/*`). No cloud call.
-
-## Search page (top-level route `/search`)
-
-Finds a past run by its prompt or output, among your most recent 500 runs.
 
 ## Processes panel (Cmd+Shift+P)
 

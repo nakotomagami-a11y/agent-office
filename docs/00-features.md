@@ -15,7 +15,7 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 | **Cost** | Untracked | Per-run cost tracked; spend dashboards, per-instance/per-project breakdowns, plan-usage meters |
 | **Multi-step work** | Manual | Orchestrator agents spawn sub-agents; broadcast one prompt to a whole project |
 | **Scope** | Current terminal directory | Per-project rosters, multi-instance with git-worktree isolation |
-| **Finding past work** | Scrollback | Run history with search + parent→sub-agent run tree |
+| **Finding past work** | Scrollback | Run history with a parent→sub-agent run tree |
 | **Memory** | Manual paste | Three memory tiers injected automatically |
 | **Agents** | One, ad-hoc | A curated roster of specialists you can edit, plus your own `.md` files |
 | **Interface** | Text only | Project tabs, a live-runs panel per project |
@@ -27,7 +27,6 @@ The raw `claude` CLI gives you one agent in one terminal, and when you close it 
 ### Nothing is ever lost
 
 - **Every run saved and searchable** — full transcript, tokens, cost, and tool calls in local SQLite. See [Usage → Run history](#/usage).
-- **Search** — find a past run by what you asked or what it answered, on the Search page. See [Interface → Search page](#/interface).
 - **Run tree** — see which orchestrator dispatched which sub-agents, as a collapsible hierarchy — proof of real orchestration. See [Usage → Run tree](#/usage).
 - **Reconnect-safe streaming** — output streams live via SSE and keeps flowing in background tabs; return mid-token. See [Interface → Project tabs](#/interface).
 

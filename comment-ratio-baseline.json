@@ -819,11 +819,6 @@
     "code": 4,
     "comment": 0
   },
-  "apps/web/src/app/(app)/search/page.tsx": {
-    "ratio": 0,
-    "code": 18,
-    "comment": 0
-  },
   "apps/web/src/app/(app)/settings/page.tsx": {
     "ratio": 0,
     "code": 21,
@@ -2199,11 +2194,6 @@
     "code": 23,
     "comment": 0
   },
-  "apps/web/src/modules/runs/components/run-row.tsx": {
-    "ratio": 0,
-    "code": 56,
-    "comment": 0
-  },
   "apps/web/src/modules/runs/components/status-badge.tsx": {
     "ratio": 0.1731,
     "code": 52,
@@ -2318,16 +2308,6 @@
     "ratio": 0.0351,
     "code": 57,
     "comment": 2
-  },
-  "apps/web/src/modules/search/components/search-view.tsx": {
-    "ratio": 0,
-    "code": 69,
-    "comment": 0
-  },
-  "apps/web/src/modules/search/hooks/use-search-runs.ts": {
-    "ratio": 0,
-    "code": 14,
-    "comment": 0
   },
   "apps/web/src/modules/secrets/components/secret-badges.tsx": {
     "ratio": 0.0244,
