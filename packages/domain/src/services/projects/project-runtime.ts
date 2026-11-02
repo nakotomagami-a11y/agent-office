@@ -1,21 +1,51 @@
 // How a project is built and run, from what is on disk. In domain so the prompt
 // assembler can reach it (RULE arch.domain-no-app-imports).
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readSync, readdirSync, realpathSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import type { DetectedCommand } from "../../types/index";
+import { isInside } from "../infra/paths";
+import { inert } from "./repo-text";
 
-/** Subfolders the project bootstrapper emits / common monorepo layouts. Only
- *  a fallback for projects that don't declare a real workspace config — see
- *  `resolveWorkspacePackageDirs` for the general case (pnpm/npm/yarn/bun). */
+const MAX_REPO_FILE_BYTES = 256 * 1024;
+
+/** The ONE door for repo-authored files; every flag is a crash a clone caused.
+ *  `O_NOFOLLOW`: a `-> /dev/zero` symlink grows the read buffer until the
+ *  allocator ABORTS, uncatchably. `O_NONBLOCK`: a FIFO blocks `openSync` and
+ *  wedges the event loop on the project poll. Our own buffer: `readFileSync(fd)`
+ *  re-stats, so it would allocate whatever the file grew to after the check. */
+export function readRepoFile(path: string): string | undefined {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    if (!fstatSync(fd).isFile()) return undefined;
+    const buf = Buffer.allocUnsafe(MAX_REPO_FILE_BYTES + 1);
+    let n = 0;
+    while (n <= MAX_REPO_FILE_BYTES) {
+      const read = readSync(fd, buf, n, MAX_REPO_FILE_BYTES + 1 - n, n);
+      if (read === 0) break;
+      n += read;
+    }
+    // Refuse rather than truncate: half a package.json is not a package.json.
+    if (n > MAX_REPO_FILE_BYTES) return undefined;
+    return buf.subarray(0, n).toString("utf8");
+  } catch {
+    return undefined;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 /**
  * Read a JSON file as `unknown`. RULE arch.parse-dont-cast: these files are
  * user-editable (`package.json`, `.ao.json`) and have no obligation to match a
  * shape, so callers narrow with the guards below instead of asserting.
  */
 function readJson(path: string): unknown {
+  const raw = readRepoFile(path);
+  if (raw === undefined) return undefined;
   try {
-    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+    return JSON.parse(raw) as unknown;
   } catch {
     return undefined;
   }
@@ -42,6 +72,7 @@ function strArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
+/** Fallback layouts for projects with no real workspace config. */
 const SUBFOLDERS = ["frontend", "backend", "web", "client", "server", "api"] as const;
 
 /** Extract the `packages:` block-list from a pnpm-workspace.yaml body. */
@@ -62,13 +93,11 @@ function parsePnpmWorkspaceGlobs(yamlText: string): string[] {
 /** `packages:` globs from pnpm-workspace.yaml, or the npm/yarn/bun
  *  `workspaces` package.json field (`string[]` or `{ packages: string[] }`). */
 function readWorkspaceGlobs(cwd: string): string[] {
-  const pnpmPath = join(cwd, "pnpm-workspace.yaml");
-  try {
-    if (existsSync(pnpmPath)) {
-      const globs = parsePnpmWorkspaceGlobs(readFileSync(pnpmPath, "utf8"));
-      if (globs.length > 0) return globs;
-    }
-  } catch { /* ignore */ }
+  const pnpmYaml = readRepoFile(join(cwd, "pnpm-workspace.yaml"));
+  if (pnpmYaml !== undefined) {
+    const globs = parsePnpmWorkspaceGlobs(pnpmYaml);
+    if (globs.length > 0) return globs;
+  }
 
   const pkgPath = join(cwd, "package.json");
   try {
@@ -89,22 +118,93 @@ function readWorkspaceGlobs(cwd: string): string[] {
  *  real-world pnpm/npm/yarn/bun workspace we've seen actually uses. */
 function resolveWorkspacePackageDirs(cwd: string): string[] {
   const dirs = new Set<string>();
+  let realCwd: string;
+  try {
+    realCwd = realpathSync(cwd);
+  } catch {
+    return [];
+  }
+  // A REPO names these: `../..` walks out and a symlink resolves out, so BOTH
+  // branches check — the unguarded one ran a foreign repo's script. `isInside`
+  // is strictly below, so glob `*` (the root itself) needs the equality arm.
+  const confined = (dir: string): boolean => {
+    try {
+      const real = realpathSync(dir);
+      return real === realCwd || isInside(real, realCwd);
+    } catch {
+      return false;
+    }
+  };
   for (const glob of readWorkspaceGlobs(cwd)) {
     const clean = glob.replace(/\/$/, "");
     if (clean.includes("*")) {
       const prefix = clean.slice(0, clean.indexOf("*")).replace(/\/$/, "");
       const parentDir = join(cwd, prefix);
+      if (!confined(parentDir)) continue;
       try {
         for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
           if (entry.isDirectory()) dirs.add(join(parentDir, entry.name));
         }
       } catch { /* not a real dir, e.g. an unsupported deeper glob */ }
-    } else {
-      const dir = join(cwd, clean);
-      if (existsSync(dir)) dirs.add(dir);
+    } else if (confined(join(cwd, clean))) {
+      dirs.add(join(cwd, clean));
     }
   }
   return [...dirs];
+}
+
+export interface RepoIdentity {
+  name?: string;
+  description?: string;
+}
+
+const IDENTITY_FILES = [".ao.json", "package.json"] as const;
+const MAX_IDENTITY_NAME = 80;
+const MAX_IDENTITY_DESCRIPTION = 160;
+
+/** Same floor as the generated CLAUDE.md, because this lands in the system
+ *  prompt of an agent holding Bash; `max` is instruction budget, so it is low. */
+function identityText(v: unknown, max: number): string | undefined {
+  const s = str(v);
+  if (!s) return undefined;
+  return inert(s, max) || undefined;
+}
+
+/** Cache stamp only; `readRepoFile` owns refusing what must not be read. */
+function identityStamp(path: string): string {
+  try {
+    const st = lstatSync(path);
+    return st.isFile() ? `${st.mtimeMs}:${st.size}` : "-";
+  } catch {
+    return "-";
+  }
+}
+
+/** `size` joins `mtimeMs`: a same-millisecond rewrite shares an mtime. */
+const identityCache = new Map<string, { stamp: string; identity: RepoIdentity }>();
+
+/** What the repo says it is called, committed so every device reads one value.
+ *  `.ao.json` first (a non-JS repo has nothing else), then `package.json`
+ *  `displayName` — VS Code's spelling, npm `name` being a slug. Local wins. */
+export function readRepoIdentity(cwd: string): RepoIdentity {
+  const stamp = IDENTITY_FILES.map((f) => identityStamp(join(cwd, f))).join(",");
+  const cached = identityCache.get(cwd);
+  if (cached && cached.stamp === stamp) return cached.identity;
+
+  const identity: RepoIdentity = {};
+  for (const file of IDENTITY_FILES) {
+    const parsed = obj(readJson(join(cwd, file)));
+    if (!parsed) continue;
+    const name = identityText(file === ".ao.json" ? parsed.name : parsed.displayName, MAX_IDENTITY_NAME);
+    const description = identityText(parsed.description, MAX_IDENTITY_DESCRIPTION);
+    if (name && !identity.name) identity.name = name;
+    if (description && !identity.description) identity.description = description;
+  }
+
+  // Oldest out, not a full clear: projectsRoot can change mid-session.
+  if (identityCache.size >= 500) identityCache.delete(identityCache.keys().next().value!);
+  identityCache.set(cwd, { stamp, identity });
+  return identity;
 }
 
 export function detectPackageManager(dir: string): string {
