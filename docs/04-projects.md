@@ -77,6 +77,7 @@ Manage secrets from the **Environment bar** on the project detail page, alongsid
 | List / create secrets | `GET` / `POST /api/secrets` |
 | Update / delete a secret | `PUT` / `DELETE /api/secrets/:id` |
 | Test a secret | `POST /api/secrets/:id/test` |
+| Test an unsaved form | `POST /api/secrets/test` |
 | List / attach for a project | `GET` / `POST /api/projects/:id/secrets` |
 | Detach from a project | `DELETE /api/projects/:id/secrets/:secretId` |
 

@@ -44,8 +44,9 @@ export function sessionConflictOf(err: unknown): SessionConflict | null {
 
 export const workQuery = (work?: WorkChoice): string => (work ? `?${new URLSearchParams({ work }).toString()}` : "");
 
-export function removeSession(projectId: string, instanceId: string, work?: WorkChoice): Promise<Project> {
-  return apiFetch<Project>(`${API_ROUTES.projectRosterItem(projectId, instanceId)}${workQuery(work)}`, { method: "DELETE" });
+export function removeSession(projectId: string, instanceId: string, work?: WorkChoice, deleteConversation = false): Promise<Project> {
+  const query = new URLSearchParams({ ...(work ? { work } : {}), ...(deleteConversation ? { conversation: "delete" } : {}) }).toString();
+  return apiFetch<Project>(`${API_ROUTES.projectRosterItem(projectId, instanceId)}${query ? `?${query}` : ""}`, { method: "DELETE" });
 }
 
 export function resetRoster(projectId: string, work?: WorkChoice): Promise<Project> {

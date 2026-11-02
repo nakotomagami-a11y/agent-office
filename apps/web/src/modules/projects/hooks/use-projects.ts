@@ -126,8 +126,8 @@ export function useUpdateInstance() {
 export function useRemoveInstance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, instanceId, work }: { projectId: string; instanceId: string; work?: WorkChoice }) =>
-      removeSession(projectId, instanceId, work),
+    mutationFn: ({ projectId, instanceId, work, deleteConversation }: { projectId: string; instanceId: string; work?: WorkChoice; deleteConversation?: boolean }) =>
+      removeSession(projectId, instanceId, work, deleteConversation),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.projects.all });
       qc.invalidateQueries({ queryKey: queryKeys.projects.detail(vars.projectId) });

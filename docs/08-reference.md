@@ -142,7 +142,7 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `DELETE` | `/api/projects/:id/roster` | Remove every instance (reset; `?work=keep\|discard`) |
 | `GET` | `/api/projects/:id/roster/:instanceId` | Get instance + USD spend |
 | `PATCH` | `/api/projects/:id/roster/:instanceId` | Update instance settings |
-| `DELETE` | `/api/projects/:id/roster/:instanceId` | Remove instance (cleans worktree) |
+| `DELETE` | `/api/projects/:id/roster/:instanceId` | Remove instance (cleans worktree; `?work=keep\|discard`, `&conversation=delete` also deletes its conversation) |
 | `POST` | `/api/projects/:id/roster/:instanceId/repair-worktree` | Regenerate a broken worktree |
 | `GET` | `/api/projects/:id/spend` | USD spend breakdown by instance |
 | `GET` | `/api/projects/:id/git-status` | Git branch/diff/ahead/behind |
@@ -326,6 +326,7 @@ Named environment variables injected into runs of the projects they are attached
 | `PATCH` | `/api/secrets/:id` | Update a secret |
 | `DELETE` | `/api/secrets/:id` | Delete a secret |
 | `POST` | `/api/secrets/:id/test` | Run its test command with the secret in env (`{ skipped: true }` without one) |
+| `POST` | `/api/secrets/test` | Run an unsaved form's test command (`{ name, value?, testCmd, id? }`; a blank value uses the stored one of `id`); nothing is persisted |
 | `GET` | `/api/projects/:id/secrets` | Secrets attached to a project (no values) |
 | `POST` | `/api/projects/:id/secrets` | Attach a secret to a project (idempotent) |
 | `DELETE` | `/api/projects/:id/secrets/:secretId` | Detach it; the secret stays for other projects |

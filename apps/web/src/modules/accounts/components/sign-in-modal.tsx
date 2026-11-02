@@ -2,7 +2,7 @@
 
 import { ModalShell } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
-import { SignInPanel } from "./sign-in-panel";
+import { SignInPanel, SignInStatus } from "./sign-in-panel";
 import { cancelLogin } from "../hooks/use-account-login";
 
 interface SignInModalProps {
@@ -37,15 +37,19 @@ export function SignInModal({
       open={open}
       onClose={handleClose}
       title={accountLabel ? `Sign in — ${accountLabel}` : "Sign in to Claude"}
-      size="md"
+      maxWidth={440}
       footer={
-        <Button size="sm" variant="ghost" onClick={handleClose}>
-          Cancel
-        </Button>
+        <>
+          <SignInStatus accountId={accountId} />
+          <Button variant="ghost" className="min-w-[72px] justify-center" onClick={handleClose}>
+            Cancel
+          </Button>
+        </>
       }
     >
       {open ? (
         <SignInPanel
+          showStatus={false}
           accountId={accountId}
           onSuccess={() => {
             onSuccess?.();

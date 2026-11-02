@@ -23,12 +23,23 @@ const PLAN_CLASS: Record<BadgePlan, string> = {
   unknown: "border-line text-txt-3 bg-bg-2",
 };
 
-export function PlanBadge({ plan, className }: { plan: BadgePlan; className?: string }) {
+const SOLID_CLASS: Record<BadgePlan, string> = {
+  max: "bg-green text-[#06140d]",
+  pro: "bg-acc text-acc-ink",
+  free: "bg-card-3 text-txt-3",
+  api: "bg-card-3 text-txt-3",
+  custom: "bg-card-3 text-txt-3",
+  unknown: "bg-card-3 text-txt-3",
+};
+
+export function PlanBadge({ plan, solid, className }: { plan: BadgePlan; solid?: boolean; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center h-[18px] px-[6px] rounded-[4px] border font-mono text-[10.5px] uppercase tracking-[0.06em] leading-none",
-        PLAN_CLASS[plan],
+        solid
+          ? "inline-flex items-center shrink-0 h-[20px] px-[8px] rounded-full font-mono text-[10px] font-bold uppercase tracking-[0.06em] leading-none"
+          : "inline-flex items-center h-[18px] px-[6px] rounded-[4px] border font-mono text-[10.5px] uppercase tracking-[0.06em] leading-none",
+        solid ? SOLID_CLASS[plan] : PLAN_CLASS[plan],
         className,
       )}
     >

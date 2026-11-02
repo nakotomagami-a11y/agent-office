@@ -95,7 +95,7 @@ Non-git projects display a warning banner and prevent adding more than one insta
 - **Add** — `POST /api/projects/:id/roster` creates the instance + worktree.
 - **List** — `GET /api/projects/:id/roster` returns all instances.
 - **Update** — `PATCH /api/projects/:id/roster/:instanceId` — change label, unit, model override, effort override.
-- **Remove** — `DELETE /api/projects/:id/roster/:instanceId` — cleans worktree and archives history.
+- **Remove** — `DELETE /api/projects/:id/roster/:instanceId` — cleans worktree and archives history (`?conversation=delete` deletes it instead).
 - **Repair worktree** — `POST /api/projects/:id/roster/:instanceId/repair-worktree` — recovers a broken worktree by regenerating it from the current branch.
 
 ### Boot reconciliation

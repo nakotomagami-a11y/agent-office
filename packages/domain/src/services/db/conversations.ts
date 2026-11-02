@@ -5,7 +5,8 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
-import { asOrigin, rowToRun, type RunRow } from "./runs";
+import { emitAppEvent } from "../infra/events";
+import { asOrigin, deleteRunsWhere, rowToRun, type RunRow } from "./runs";
 import type { MessageOrigin, PersistedRun, SubAgentStatus, SubRun } from "../../types/index";
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
@@ -130,6 +131,34 @@ export function updateConversation(id: string, patch: ConversationPatch): void {
   if (patch.projectId !== undefined) { sets.push("project_id = @projectId"); params.projectId = patch.projectId; }
   if (sets.length === 0) return;
   getDb().prepare(`UPDATE conversations SET ${sets.join(", ")}, updated_at = @updatedAt WHERE id = @id`).run(params);
+}
+
+/** Delete every conversation of a project's slot with its turns, their sub-runs, queue and loops. Returns how many went. */
+export function deleteSlotConversations(agentId: string, instanceId: string, projectId: string): number {
+  const db = getDb();
+  const where = "agent_id = ? AND instance_id = ? AND (project_id = ? OR project_id IS NULL)";
+  const slot = `SELECT id FROM conversations WHERE ${where}`;
+  const args = [agentId, instanceId, projectId];
+  let deleted = 0;
+  db.transaction(() => {
+    // Ids first: deleteRunsWhere un-parents children before deleting, so a parent_run_id filter would miss them.
+    const ids = (db.prepare(
+      `SELECT id FROM runs WHERE conversation_id IN (${slot})
+       UNION SELECT id FROM runs WHERE parent_run_id IN (SELECT id FROM runs WHERE conversation_id IN (${slot}))`,
+    ).all(...args, ...args) as Array<{ id: string }>).map((r) => r.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      deleteRunsWhere(`id IN (${chunk.map(() => "?").join(",")})`, ...chunk);
+    }
+    db.prepare(`DELETE FROM queued_messages WHERE conversation_id IN (${slot})`).run(...args);
+    db.prepare(`DELETE FROM loops WHERE conversation_id IN (${slot})`).run(...args);
+    deleted = db.prepare(`DELETE FROM conversations WHERE ${where}`).run(...args).changes;
+  })();
+  if (deleted > 0) {
+    emitAppEvent("conversations:changed");
+    emitAppEvent("loops:changed");
+  }
+  return deleted;
 }
 
 // ─── Queue (durable FIFO) ─────────────────────────────────────────────────────

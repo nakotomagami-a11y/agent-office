@@ -250,3 +250,32 @@ test("two sessions on the same unmerged commit do not vouch for each other in a 
     (e: unknown) => e instanceof projects.SessionRemovalError && e.code === "session_has_work" && e.sessions.length === 2,
   );
 });
+
+test("removing a session keeps its conversation unless asked to delete it", async () => {
+  const db = await import("../db");
+  gitProject("convo");
+  const seed = (instanceId: string) => {
+    const c = db.createConversation("developer", instanceId, "convo");
+    const base = { agentId: "developer", agentName: "developer", instanceId, status: "done", prompt: "hi", model: "m", effort: "e", startedAt: Date.now() };
+    db.insertRun({ ...base, id: `${instanceId}-turn`, conversationId: c.id });
+    db.insertRun({ ...base, id: `${instanceId}-sub`, parentRunId: `${instanceId}-turn` });
+    return c.id;
+  };
+  const runCount = (instanceId: string) =>
+    (db.getDb().prepare("SELECT COUNT(*) AS n FROM runs WHERE instance_id = ?").get(instanceId) as { n: number }).n;
+
+  const kept = sessionWithWorktree("convo");
+  const keptConvo = seed(kept.instanceId);
+  projects.removeInstance("convo", kept.instanceId);
+  assert.ok(db.getConversation(keptConvo), "conversation stays archived by default");
+  assert.strictEqual(runCount(kept.instanceId), 2);
+
+  const gone = sessionWithWorktree("convo");
+  const goneConvo = seed(gone.instanceId);
+  const otherProject = db.createConversation("developer", gone.instanceId, "elsewhere");
+  projects.removeInstance("convo", gone.instanceId, undefined, true);
+  assert.ok(db.getConversation(otherProject.id), "the same slot id in another project is untouched");
+  assert.strictEqual(db.getConversation(goneConvo), null);
+  assert.strictEqual(runCount(gone.instanceId), 0, "turns and their sub-runs go with it");
+  assert.ok(db.getConversation(keptConvo), "another session's conversation is untouched");
+});

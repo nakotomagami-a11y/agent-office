@@ -67,19 +67,20 @@ export function RemoveProjectModal({
           </Button>
           <Button
             variant="danger"
+            className="gap-[6px] shadow-none disabled:opacity-45 disabled:cursor-not-allowed"
             onClick={() => void handleConfirm()}
             disabled={!matches || remove.isPending}
           >
-            <Icon name="trash" size={13} />
-            <span className="ml-[6px]">{remove.isPending ? "Deleting…" : "Delete folder"}</span>
+            <Icon name="trash" size={13} className="w-[13px] h-[13px] [flex:0_0_13px]" />
+            {remove.isPending ? "Deleting…" : "Delete folder"}
           </Button>
         </>
       }
     >
       {project ? (
         <div className="flex flex-col gap-[12px]">
-          <div className="flex items-start gap-[10px] rounded-[8px] border border-[color-mix(in_srgb,var(--error)_35%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] p-[10px]">
-            <Icon name="shield" size={15} className="text-status-error shrink-0 mt-[1px]" />
+          <div className="flex items-center gap-[12px] rounded-[10px] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] p-[12px]">
+            <Icon name="shield" size={28} className="w-[28px] h-[28px] [flex:0_0_28px] text-status-error shrink-0" />
             <p className="m-0 text-[12.5px] text-txt-2 leading-[1.5]">
               This permanently deletes the folder and <b>all of its contents</b> from disk. It does
               not go to trash and <b>cannot be undone</b>.
@@ -89,7 +90,7 @@ export function RemoveProjectModal({
           <p className="m-0 text-[12.5px] text-txt-3 leading-[1.5]">
             Deleting <span className="font-semibold text-txt">{project.name}</span> at:
           </p>
-          <code className="block font-mono text-[11.5px] text-txt-2 bg-bg-2 border border-line rounded-[6px] px-[10px] py-[8px] break-all">
+          <code className="block font-mono text-[11.5px] text-txt-2 bg-card-2 rounded-[12px] px-[14px] py-[12px] break-all">
             {project.fullPath}
           </code>
 
@@ -98,6 +99,8 @@ export function RemoveProjectModal({
               Type <span className="font-mono font-semibold text-txt">{project.name}</span> to confirm
             </span>
             <TextInput
+              variant="soft"
+              className="h-[42px]"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               onKeyDown={(e) => {

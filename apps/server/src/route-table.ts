@@ -106,24 +106,25 @@ import * as r102 from "./routes/schedules/route";
 import * as r103 from "./routes/secrets/[id]/route";
 import * as r104 from "./routes/secrets/[id]/test/route";
 import * as r105 from "./routes/secrets/route";
-import * as r106 from "./routes/settings/route";
-import * as r107 from "./routes/settings/scan/route";
-import * as r108 from "./routes/skills/[name]/customization/route";
-import * as r109 from "./routes/skills/[name]/route";
-import * as r110 from "./routes/skills/[name]/update/route";
-import * as r111 from "./routes/skills/create/route";
-import * as r112 from "./routes/skills/icons/route";
-import * as r113 from "./routes/skills/import/route";
-import * as r114 from "./routes/skills/install/route";
-import * as r115 from "./routes/skills/installed/route";
-import * as r116 from "./routes/skills/manifest/route";
-import * as r117 from "./routes/skills/registry/route";
-import * as r118 from "./routes/skills/sources/route";
-import * as r119 from "./routes/skills/updates/route";
-import * as r120 from "./routes/starter/agent-diff/route";
-import * as r121 from "./routes/starter/agents/route";
-import * as r122 from "./routes/summon/route";
-import * as r123 from "./routes/ui-settings/route";
+import * as r106 from "./routes/secrets/test/route";
+import * as r107 from "./routes/settings/route";
+import * as r108 from "./routes/settings/scan/route";
+import * as r109 from "./routes/skills/[name]/customization/route";
+import * as r110 from "./routes/skills/[name]/route";
+import * as r111 from "./routes/skills/[name]/update/route";
+import * as r112 from "./routes/skills/create/route";
+import * as r113 from "./routes/skills/icons/route";
+import * as r114 from "./routes/skills/import/route";
+import * as r115 from "./routes/skills/install/route";
+import * as r116 from "./routes/skills/installed/route";
+import * as r117 from "./routes/skills/manifest/route";
+import * as r118 from "./routes/skills/registry/route";
+import * as r119 from "./routes/skills/sources/route";
+import * as r120 from "./routes/skills/updates/route";
+import * as r121 from "./routes/starter/agent-diff/route";
+import * as r122 from "./routes/starter/agents/route";
+import * as r123 from "./routes/summon/route";
+import * as r124 from "./routes/ui-settings/route";
 
 export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/account", module: r0 },
@@ -232,22 +233,23 @@ export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/secrets/[id]", module: r103 },
   { path: "/api/secrets/[id]/test", module: r104 },
   { path: "/api/secrets", module: r105 },
-  { path: "/api/settings", module: r106 },
-  { path: "/api/settings/scan", module: r107 },
-  { path: "/api/skills/[name]/customization", module: r108 },
-  { path: "/api/skills/[name]", module: r109 },
-  { path: "/api/skills/[name]/update", module: r110 },
-  { path: "/api/skills/create", module: r111 },
-  { path: "/api/skills/icons", module: r112 },
-  { path: "/api/skills/import", module: r113 },
-  { path: "/api/skills/install", module: r114 },
-  { path: "/api/skills/installed", module: r115 },
-  { path: "/api/skills/manifest", module: r116 },
-  { path: "/api/skills/registry", module: r117 },
-  { path: "/api/skills/sources", module: r118 },
-  { path: "/api/skills/updates", module: r119 },
-  { path: "/api/starter/agent-diff", module: r120 },
-  { path: "/api/starter/agents", module: r121 },
-  { path: "/api/summon", module: r122 },
-  { path: "/api/ui-settings", module: r123 },
+  { path: "/api/secrets/test", module: r106 },
+  { path: "/api/settings", module: r107 },
+  { path: "/api/settings/scan", module: r108 },
+  { path: "/api/skills/[name]/customization", module: r109 },
+  { path: "/api/skills/[name]", module: r110 },
+  { path: "/api/skills/[name]/update", module: r111 },
+  { path: "/api/skills/create", module: r112 },
+  { path: "/api/skills/icons", module: r113 },
+  { path: "/api/skills/import", module: r114 },
+  { path: "/api/skills/install", module: r115 },
+  { path: "/api/skills/installed", module: r116 },
+  { path: "/api/skills/manifest", module: r117 },
+  { path: "/api/skills/registry", module: r118 },
+  { path: "/api/skills/sources", module: r119 },
+  { path: "/api/skills/updates", module: r120 },
+  { path: "/api/starter/agent-diff", module: r121 },
+  { path: "/api/starter/agents", module: r122 },
+  { path: "/api/summon", module: r123 },
+  { path: "/api/ui-settings", module: r124 },
 ];

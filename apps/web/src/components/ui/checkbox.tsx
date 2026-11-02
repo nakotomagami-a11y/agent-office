@@ -6,6 +6,7 @@ import { Icon } from "./icon";
 
 export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "children"> & {
   label?: ReactNode;
+  tone?: "acc" | "error";
 };
 
 export function Checkbox({
@@ -15,6 +16,7 @@ export function Checkbox({
   checked,
   defaultChecked,
   onChange,
+  tone = "acc",
   ...rest
 }: CheckboxProps) {
   const isControlled = checked !== undefined;
@@ -40,16 +42,20 @@ export function Checkbox({
             onChange?.(e);
           }}
           className={cn(
-            "appearance-none w-4 h-4 m-0 rounded-md border-2 border-line-2 bg-bg-1",
+            "appearance-none w-4 h-4 m-0 rounded-[4px] border border-edge-2 bg-transparent transition-colors duration-[140ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc",
             disabled ? "cursor-not-allowed" : "cursor-pointer",
           )}
           {...rest}
         />
-        {on && (
-          <span className="absolute inset-0 inline-flex items-center justify-center rounded-md border-2 border-acc bg-acc pointer-events-none">
-            <Icon name="check" size={11} className="text-white" />
-          </span>
-        )}
+        <span
+          className={cn(
+            "absolute inset-0 inline-flex items-center justify-center rounded-[4px] border pointer-events-none transition-opacity duration-[140ms]",
+            tone === "error" ? "border-status-error bg-status-error" : "border-acc bg-acc",
+            !on && "opacity-0",
+          )}
+        >
+          <Icon name="check" size={10} className="w-[10px] h-[10px] [flex:0_0_10px] text-white" />
+        </span>
       </span>
       {label}
     </label>
