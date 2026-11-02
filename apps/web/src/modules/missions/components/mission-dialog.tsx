@@ -9,7 +9,7 @@ import { Portal } from "@/components/ui/portal";
 import { CHROME_LEFT_CLASS, CHROME_TOP } from "@/lib/chrome";
 import { cn } from "@/lib/cn";
 import { useMissionShortcut } from "../hooks/use-mission-shortcut";
-import { arrowKeys, FOCUS_RING } from "./mission-fields";
+import { arrowKeys, CTA_FILL, FOCUS_RING } from "./mission-fields";
 import { MissionJoinList } from "./mission-join-list";
 import { MissionStartForm } from "./mission-start-form";
 import { MissionStarted, type StartedMission } from "./mission-started";
@@ -19,28 +19,35 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), in
 const MODES = ["start", "join"] as const;
 type Mode = (typeof MODES)[number];
 
-function DialogHeader({ mode, onMode, onClose, showModes, ids }: {
-  mode: Mode; onMode: (m: Mode) => void; onClose: () => void; showModes: boolean; ids: Record<Mode, string>;
+type Subline = "no_project" | "start" | "started" | "join";
+
+function DialogHeader({ mode, onMode, onClose, showModes, ids, subline }: {
+  mode: Mode; onMode: (m: Mode) => void; onClose: () => void; showModes: boolean; ids: Record<Mode, string>; subline: Subline;
 }) {
   const t = useTranslations("missions.dialog");
   const shortcut = useMissionShortcut();
   return (
-    <div className="flex shrink-0 items-center gap-[10px] border-b border-edge pt-4 pr-4 pb-[14px] pl-[22px]">
-      <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] border border-acc-line bg-acc-soft text-acc">
-        <Icon name="sparkle" size={14} />
+    <div className="flex shrink-0 items-center gap-3 pt-5 pr-[18px] pb-2 pl-6">
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] shadow-[0_12px_28px_-12px_color-mix(in_srgb,var(--acc)_95%,transparent)]", CTA_FILL)}>
+        <Icon name="sparkle" size={18} className="h-[18px] w-[18px] [flex:0_0_18px]" />
       </span>
-      <span className="text-[16px] font-extrabold tracking-[-0.02em] text-txt">{t("title")}</span>
-      <kbd className="rounded-[6px] bg-card-3 px-[7px] py-[2px] font-[family-name:var(--font-mono)] text-[10px] text-txt-4">
-        {t("shortcut", { mac: String(shortcut.mac) })}
-      </kbd>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center gap-2">
+          <span className="text-[18px] font-extrabold tracking-[-0.02em] text-txt">{t("title")}</span>
+          <kbd className="rounded-[6px] bg-card-3 px-[7px] py-[2px] font-[family-name:var(--font-mono)] text-[10px] text-txt-4">
+            {t("shortcut", { mac: String(shortcut.mac) })}
+          </kbd>
+        </span>
+        <span className="truncate font-[family-name:var(--font-mono)] text-[11px] text-txt-4">{t(`subline_${subline}`)}</span>
+      </div>
       <span className="flex-1" />
       {showModes && (
         <div role="tablist" aria-label={t("mode_aria")} onKeyDown={arrowKeys(MODES, mode, onMode)}
-          className="flex gap-[2px] rounded-[11px] border border-edge bg-card-2 p-[3px]">
+          className="flex gap-[2px] rounded-[12px] bg-card-2 p-[3px]">
           {MODES.map((m) => (
             <button key={m} id={`${ids[m]}-tab`} type="button" role="tab" data-value={m} aria-selected={mode === m}
               aria-controls={ids[m]} tabIndex={mode === m ? 0 : -1} onClick={() => onMode(m)}
-              className={cn("rounded-[8px] px-[13px] py-[6px] text-[12px] font-bold transition-all duration-[140ms] hover:text-txt", FOCUS_RING,
+              className={cn("inline-flex h-8 items-center rounded-[9px] px-[14px] text-[12.5px] font-bold transition-all duration-[140ms] hover:text-txt", FOCUS_RING,
                 mode === m ? "bg-card-3 text-txt shadow-[var(--inset-hi)]" : "text-txt-4")}>
               {t(`mode_${m}`)}
             </button>
@@ -48,8 +55,8 @@ function DialogHeader({ mode, onMode, onClose, showModes, ids }: {
         </div>
       )}
       <button type="button" aria-label={t("close")} onClick={onClose}
-        className={cn("flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-[10px] text-txt-3 hover:bg-card-3 hover:text-txt", FOCUS_RING)}>
-        <Icon name="x" size={15} />
+        className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-txt-3 hover:bg-card-3 hover:text-txt", FOCUS_RING)}>
+        <Icon name="x" size={15} className="h-[15px] w-[15px] [flex:0_0_15px]" />
       </button>
     </div>
   );
@@ -58,11 +65,12 @@ function DialogHeader({ mode, onMode, onClose, showModes, ids }: {
 function NoProject({ onClose }: { onClose: () => void }) {
   const t = useTranslations("missions.dialog");
   return (
-    <div className="flex flex-col items-center gap-[10px] px-14 pt-12 pb-[52px] text-center">
-      <span className="text-[15px] font-bold text-txt">{t("no_project_title")}</span>
-      <span className="max-w-[440px] text-[12.5px] leading-[1.6] text-txt-3 [text-wrap:pretty]">{t("no_project_body")}</span>
+    <div className="flex flex-col items-center gap-3 px-14 pt-12 pb-[52px] text-center motion-safe:animate-[lrIn_260ms_ease_both]">
+      <Icon name="folder" size={40} className="h-10 w-10 [flex:0_0_40px] text-acc" />
+      <span className="text-[16px] font-extrabold text-txt">{t("no_project_title")}</span>
+      <span className="max-w-[440px] text-[13px] leading-[1.6] text-txt-3 [text-wrap:pretty]">{t("no_project_body")}</span>
       <Link href="/projects" onClick={onClose}
-        className={cn("mt-[10px] rounded-[11px] border border-edge-2 bg-card-3 px-4 py-[9px] text-[12.5px] font-bold text-txt hover:border-acc-line", FOCUS_RING)}>
+        className={cn("mt-1.5 inline-flex h-9 items-center rounded-[11px] px-4 text-[13px] font-bold hover:brightness-90", CTA_FILL, FOCUS_RING)}>
         {t("choose_project")}
       </Link>
     </div>
@@ -132,6 +140,7 @@ export function MissionDialog({ open, onClose, projectId }: { open: boolean; onC
   if (open && !mounted) setMounted(true);
   if (!mounted) return null;
   const pickMode = (m: Mode) => { setMode(m); if (m === "join") setJoinSeen(true); };
+  const subline: Subline = !projectId ? "no_project" : mode === "join" ? "join" : started ? "started" : "start";
   return (
     <Portal>
       <div
@@ -151,9 +160,9 @@ export function MissionDialog({ open, onClose, projectId }: { open: boolean; onC
           aria-modal="true"
           aria-label={t("title")}
           tabIndex={-1}
-          className="relative flex max-h-[min(900px,calc(100%-16px))] w-full max-w-[780px] flex-col overflow-hidden rounded-[22px] border border-transparent leading-[normal] text-txt outline-none [background:var(--card-bg)_padding-box,var(--sheen)_border-box] shadow-[var(--lift)] motion-safe:animate-[ao-modal-in_220ms_cubic-bezier(.2,.9,.3,1)]"
+          className="relative flex max-h-[min(900px,calc(100%-16px))] w-full max-w-[780px] flex-col overflow-hidden rounded-[24px] border border-transparent leading-[normal] text-txt outline-none [background:var(--card-bg)_padding-box,var(--sheen)_border-box] shadow-[var(--lift)] motion-safe:animate-[ao-modal-in_220ms_cubic-bezier(.2,.9,.3,1)]"
         >
-          <DialogHeader mode={mode} onMode={pickMode} onClose={onClose} showModes={!!projectId} ids={ids} />
+          <DialogHeader mode={mode} onMode={pickMode} onClose={onClose} showModes={!!projectId} ids={ids} subline={subline} />
           {!projectId && <NoProject onClose={onClose} />}
           {projectId && (
             <div id={ids.start} role="tabpanel" aria-labelledby={`${ids.start}-tab`} hidden={mode !== "start"} className="flex min-h-0 flex-1 flex-col">
