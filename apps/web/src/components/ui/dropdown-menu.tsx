@@ -9,6 +9,8 @@ import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 /** Focus is in an open menu, or on the trigger of one: the menu owns Escape, Enter, Space, Tab and the arrows there. */
 export const OPEN_MENU_SELECTOR = "[role=menu], [aria-haspopup=menu][aria-expanded=true]";
 const ITEM_SELECTOR = "[role^=menuitem]";
+// Ends mid-row: a half-cut label is the only "it scrolls" cue where scrollbars are overlay-hidden.
+const MAX_MENU_H = 330;
 
 export type DropdownItem = {
   key: string;
@@ -59,14 +61,14 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
     // Flip upward when there isn't room below the trigger (e.g. a dropdown at
     // the bottom of a modal), and cap the height to the available space so the
     // menu scrolls instead of spilling off-screen in either direction.
-    const menuH = items.length * 34 + 12; // fixed 34px rows + padding
+    const menuH = Math.min(items.length * 34 + 12, MAX_MENU_H); // fixed 34px rows + padding
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < menuH + 8 && rect.top > spaceBelow;
     const gap = popover ? 6 : 4;
     setStyle({
       position: "fixed",
       ...(matchTriggerWidth ? { width: rect.width } : {}),
-      maxHeight: `${Math.max(120, (openUp ? rect.top : spaceBelow) - 12)}px`,
+      maxHeight: `${Math.min(MAX_MENU_H, Math.max(120, (openUp ? rect.top : spaceBelow) - 12))}px`,
       overflowY: "auto",
       ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
       ...(align === "end" ? { right: window.innerWidth - rect.right } : { left: rect.left }),

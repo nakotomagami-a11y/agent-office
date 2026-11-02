@@ -57,3 +57,9 @@ export function availableActions(loop: LoopRow, now: number): { stop: boolean; a
     allowOneMore: phase === "escalated" && binding === "max_rounds" && open.length > 0 && timeLeft,
   };
 }
+
+/** acceptAsIs is also allowed mid-review, so "an action is available" is not "the loop is waiting on the human". */
+export function needsDecision(loop: LoopRow, now: number): boolean {
+  const can = availableActions(loop, now);
+  return loop.state.phase === "escalated" && (can.acceptAsIs || can.allowOneMore);
+}
