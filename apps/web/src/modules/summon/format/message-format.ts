@@ -104,7 +104,8 @@ export function extractImages(text: string): string[] {
   }
   // The folder name contains a space, which the pattern above splits on. Anchored on the
   // literal: a leading `[^\s]*` made this quadratic on long slash-heavy tokens.
-  const genRe = /\/Generated Images\/\d{4}-\d{2}-\d{2}\/[^\s,'"`*<>()[\]]{1,255}/g;
+  // Either separator: imggen on Windows prints `C:\Users\…\Generated Images\<date>\…`.
+  const genRe = /[\\/]Generated Images[\\/]\d{4}-\d{2}-\d{2}[\\/][^\s,'"`*<>()[\]\\/]{1,255}/g;
   while ((m = genRe.exec(text)) !== null) {
     let end = m[0].length;
     // A loop, not /[.:;!?]+$/: that regex is quadratic on a long run of dots mid-token.

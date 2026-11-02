@@ -177,6 +177,7 @@ export interface UsagePayload {
 
 export interface StreamEvent {
   type?: string;
+  subtype?: string;
   event?: { type?: string; delta?: { type?: string; text?: string }; content_block?: { type?: string; id?: string; name?: string; input?: unknown } };
   message?: { content?: Array<{ type: string; id?: string; text?: string; name?: string; input?: unknown; tool_use_id?: string; content?: unknown; is_error?: boolean }>; usage?: UsagePayload };
   usage?: UsagePayload;
