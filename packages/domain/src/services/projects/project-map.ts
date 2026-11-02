@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { AgentInstance, Project } from "../../types/index";
 import { SYSTEM_GH_CONFIG_DIR } from "../infra/paths";
 import { detectBuildCommand, detectDevCommands, detectPackageManager } from "./project-runtime";
+import { clean } from "./repo-text";
 
 /** Git with the REPO'S OWN CONFIG NEUTRALISED. `git status` executes
  *  `core.fsmonitor` from `.git/config`, and this runs on every prompt
@@ -30,17 +31,6 @@ function git(args: string[], cwd: string): string | null {
   } catch {
     return null; // not a repo, or git unavailable — the caller omits the line
   }
-}
-
-/** Repo text is DATA: a name with a newline could forge a prompt section. */
-/** At most `max` UTF-16 units, never splitting a surrogate pair. */
-function cut(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, /[\uD800-\uDBFF]/.test(s[max - 1]!) ? max - 1 : max);
-}
-
-function clean(s: string, max = 80): string {
-  return cut(s.replace(/[\p{Cc}\p{Cf}]/gu, " "), max).trim();
 }
 
 /** The login `gh`/`git push` will use. Reads only the `user:` key — no network,

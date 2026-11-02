@@ -1,5 +1,7 @@
 {
   "name": "agent-office",
+  "displayName": "Agent Office",
+  "description": "Personal multi-agent IDE: run Claude Code agents against real projects, see the output streamed, keep the history.",
   "version": "0.3.1",
   "private": true,
   "license": "GPL-3.0-or-later",

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const bundle = save.exportBundle(projectId);
   if (!bundle) return notFound();
 
-  const slug = (bundle.project.meta.name as string | undefined)?.toLowerCase().replace(/[^a-z0-9]+/g, "-") ?? projectId;
+  const slug = bundle.project.meta.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || projectId;
   return new Response(JSON.stringify(bundle, null, 2), {
     headers: {
       "Content-Type": "application/json",

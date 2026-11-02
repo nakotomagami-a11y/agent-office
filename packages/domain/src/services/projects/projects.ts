@@ -4,7 +4,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { dirname, join, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
 import { expandTilde, isInside, PROJECTS_DIR, samePath } from "../infra/paths";
 import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
@@ -29,6 +29,7 @@ import {
   WorktreeRemoveError,
   type WorktreeWork,
 } from "./worktrees";
+import { readRepoIdentity } from "./project-runtime";
 
 function metadataFile(id: string): string {
   return join(PROJECTS_DIR, id, "project.md");
@@ -351,7 +352,8 @@ function mutateMetadata(
   // hide an edit and defeat the expectedRev check below.
   metadataCache.delete(metadataFile(id));
   const md = readMetadata(id);
-  const existing = readProject(id);
+  // STORED, not resolved: seeding from inherited text copies it into project.md.
+  const existing = readStoredProject(id);
   if (!existing) throw new Error(`project '${id}' not found`);
   // The merge base would be empty, and the rev check would pass anyway
   // (the rev hashes raw bytes, which read fine).
@@ -367,14 +369,32 @@ function mutateMetadata(
   const next = apply({ meta: existing.meta, memory: existing.memory, rev: currentRev });
   const memory = next.memory ?? existing.memory;
   const rev = writeMetadata(id, next.meta, memory, reason, md?.raw ?? {});
-  return { id, meta: next.meta, memory, rev };
+  // rev stays THIS write's: a re-read would return a concurrent writer's.
+  return { id, meta: { ...next.meta, ...resolvedFor(next.meta) }, memory, rev };
 }
 
-function projectFromScan(entry: ScannedEntry): Project {
+/** LEGACY `name:` = a folder name an older version persisted; honouring it would
+ *  mask the repo's title forever. TODO retire via a boot sweep + `in md.raw`. */
+function storedName(name: string | undefined, folderName: string): string {
+  return name === folderName ? "" : name ?? "";
+}
+
+/** The ONE resolution rule, so a write's answer matches the next read. */
+function resolveIdentity(stored: { name: string; description: string }, folderName: string, cwd: string) {
+  const repo = readRepoIdentity(cwd);
+  return {
+    name: stored.name || repo.name || folderName,
+    description: stored.description || repo.description || "",
+  };
+}
+
+/** `inheritRepo: false` = STORED only, the merge base for writes: `name` is ""
+ *  when unset, which keeps a display fallback out of `project.md`. */
+function projectFromScan(entry: ScannedEntry, inheritRepo = true): Project {
   const md = readMetadata(entry.id);
+  const stored = { name: storedName(md?.meta.name, entry.name), description: md?.meta.description ?? "" };
   const meta: ProjectMeta = {
-    name: md?.meta.name ?? entry.name,
-    description: md?.meta.description ?? "",
+    ...(inheritRepo ? resolveIdentity(stored, entry.name, entry.fullPath) : stored),
     cwd: entry.fullPath,
     roster: normalizeRoster(md?.meta.roster),
   };
@@ -429,12 +449,34 @@ export function listProjectSummaries(): ProjectSummary[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function readProject(id: string): Project | null {
+function scannedEntry(id: string): ScannedEntry | undefined {
   const settings = readSettings();
-  if (!settings) return null;
-  const scanned = scanProjects(settings.projectsRoot, settings.excluded).find((e) => e.id === id);
-  if (!scanned) return null;
-  return projectFromScan(scanned);
+  if (!settings) return undefined;
+  return scanProjects(settings.projectsRoot, settings.excluded).find((e) => e.id === id);
+}
+
+/** No cwd means no repo to ask — `join("", ".ao.json")` reads process.cwd(). */
+function resolvedFor(meta: ProjectMeta): { name: string; description: string } {
+  if (!meta.cwd) return { name: meta.name, description: meta.description };
+  const folderName = basename(meta.cwd);
+  return resolveIdentity(
+    { name: storedName(meta.name, folderName), description: meta.description },
+    folderName,
+    meta.cwd,
+  );
+}
+
+export function readProject(id: string): Project | null {
+  const scanned = scannedEntry(id);
+  return scanned ? projectFromScan(scanned) : null;
+}
+
+/** STORED metadata, no repo-inherited identity merged in — for callers that
+ *  write it back or ship it to another machine. `meta.name` is "" when the user
+ *  never set one, so never display this. */
+export function readStoredProject(id: string): Project | null {
+  const scanned = scannedEntry(id);
+  return scanned ? projectFromScan(scanned, false) : null;
 }
 
 /** PARTIAL update: only present keys apply, `null` clears. No roster here. */
@@ -1138,7 +1180,8 @@ export function createProject(input: CreateProjectInput): Project {
     return updateProject(id, { meta: patch }, "createProject.adopt");
   }
   const meta: ProjectMeta = {
-    name: input.name ?? scanned.name,
+    // No display fallback: persisting one is what minted the legacy `name:` key.
+    name: input.name ?? "",
     description: input.description ?? "",
     cwd: scanned.fullPath,
     roster: normalizeRoster(input.roster),
@@ -1146,5 +1189,5 @@ export function createProject(input: CreateProjectInput): Project {
   };
   const rev = writeMetadata(id, meta, "", "createProject");
   log.info("project.metadata_created", { id });
-  return { id, meta, memory: "", rev };
+  return { id, meta: { ...meta, ...resolvedFor(meta) }, memory: "", rev };
 }
