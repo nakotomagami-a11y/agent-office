@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import type { PlanetConfig, PlanetType } from "@agent-office/domain/types";
-import { PLANET_TYPE_DEFS, FREEFORM_TYPES, CANVAS_SCALE } from "@/lib/planet-seed";
+import { PLANET_TYPE_DEFS, FREEFORM_TYPES, CANVAS_SCALE } from "@agent-office/pixel-planets";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";

@@ -8,135 +8,122 @@ import * as r4 from "./routes/accounts/[id]/status/route";
 import * as r5 from "./routes/accounts/route";
 import * as r6 from "./routes/agent-docs/[owner]/[slug]/route";
 import * as r7 from "./routes/agent-docs/route";
-import * as r8 from "./routes/agents/[id]/body/history/[filename]/route";
-import * as r9 from "./routes/agents/[id]/body/history/route";
-import * as r10 from "./routes/agents/[id]/body/route";
-import * as r11 from "./routes/agents/[id]/context-cost/measure/route";
-import * as r12 from "./routes/agents/[id]/context-cost/route";
-import * as r13 from "./routes/agents/[id]/memory/route";
-import * as r14 from "./routes/agents/[id]/prompt-preview/route";
-import * as r15 from "./routes/agents/[id]/prompts/route";
-import * as r16 from "./routes/agents/[id]/route";
-import * as r17 from "./routes/agents/[id]/uploads/[filename]/route";
-import * as r18 from "./routes/agents/[id]/uploads/route";
-import * as r19 from "./routes/agents/bulk/route";
-import * as r20 from "./routes/agents/route";
-import * as r21 from "./routes/analytics/page/route";
-import * as r22 from "./routes/analytics/per-account/route";
-import * as r23 from "./routes/analytics/summary/route";
-import * as r24 from "./routes/broadcast/route";
-import * as r25 from "./routes/cleanup/[kind]/route";
-import * as r26 from "./routes/clipboard-image/route";
-import * as r27 from "./routes/conversations/[id]/messages/route";
-import * as r28 from "./routes/conversations/[id]/new/route";
-import * as r29 from "./routes/conversations/[id]/queue/[messageId]/route";
-import * as r30 from "./routes/conversations/[id]/queue/route";
-import * as r31 from "./routes/conversations/[id]/resume/route";
-import * as r32 from "./routes/conversations/[id]/retry/route";
-import * as r33 from "./routes/conversations/[id]/route";
-import * as r34 from "./routes/conversations/[id]/skip/route";
-import * as r35 from "./routes/conversations/route";
-import * as r36 from "./routes/dev/backfill-planets/route";
-import * as r37 from "./routes/dev/loop-ids/route";
-import * as r38 from "./routes/dev/planet-gallery/route";
-import * as r39 from "./routes/dev/seed/route";
-import * as r40 from "./routes/docs/content/route";
-import * as r41 from "./routes/docs/export/route";
-import * as r42 from "./routes/drafts/route";
-import * as r43 from "./routes/events/route";
-import * as r44 from "./routes/gateway/v1/messages/count_tokens/route";
-import * as r45 from "./routes/gateway/v1/messages/route";
-import * as r46 from "./routes/generated-images/[date]/[filename]/route";
-import * as r47 from "./routes/generated-images/route";
-import * as r48 from "./routes/github-accounts/[id]/route";
-import * as r49 from "./routes/github-accounts/[id]/status/route";
-import * as r50 from "./routes/github-accounts/route";
-import * as r51 from "./routes/health/route";
-import * as r52 from "./routes/loops/[id]/route";
-import * as r53 from "./routes/loops/route";
-import * as r54 from "./routes/memory/global/route";
-import * as r55 from "./routes/missions/[id]/act/route";
-import * as r56 from "./routes/missions/[id]/asks/[commentId]/route";
-import * as r57 from "./routes/missions/[id]/cap/route";
-import * as r58 from "./routes/missions/[id]/claims/[commentId]/route";
-import * as r59 from "./routes/missions/[id]/leave/route";
-import * as r60 from "./routes/missions/[id]/route";
-import * as r61 from "./routes/missions/claim/route";
-import * as r62 from "./routes/missions/route";
-import * as r63 from "./routes/missions/seat/route";
-import * as r64 from "./routes/model-prices/refresh/route";
-import * as r65 from "./routes/model-prices/route";
-import * as r66 from "./routes/model-prices/settings/route";
-import * as r67 from "./routes/power/route";
-import * as r68 from "./routes/processes/[pid]/route";
-import * as r69 from "./routes/processes/route";
-import * as r70 from "./routes/projects/[id]/build/route";
-import * as r71 from "./routes/projects/[id]/clear-cache/route";
-import * as r72 from "./routes/projects/[id]/dev/route";
-import * as r73 from "./routes/projects/[id]/folder/route";
-import * as r74 from "./routes/projects/[id]/git-status/route";
-import * as r75 from "./routes/projects/[id]/install/route";
-import * as r76 from "./routes/projects/[id]/memory/route";
-import * as r77 from "./routes/projects/[id]/open-folder/route";
-import * as r78 from "./routes/projects/[id]/reviews/[number]/link/route";
-import * as r79 from "./routes/projects/[id]/reviews/[number]/merge/route";
-import * as r80 from "./routes/projects/[id]/reviews/[number]/reject/route";
-import * as r81 from "./routes/projects/[id]/reviews/[number]/review/route";
-import * as r82 from "./routes/projects/[id]/reviews/[number]/route";
-import * as r83 from "./routes/projects/[id]/reviews/route";
-import * as r84 from "./routes/projects/[id]/roster/[instanceId]/repair-worktree/route";
-import * as r85 from "./routes/projects/[id]/roster/[instanceId]/route";
-import * as r86 from "./routes/projects/[id]/roster/route";
-import * as r87 from "./routes/projects/[id]/route";
-import * as r88 from "./routes/projects/[id]/secrets/[secretId]/route";
-import * as r89 from "./routes/projects/[id]/secrets/route";
-import * as r90 from "./routes/projects/[id]/spend/route";
-import * as r91 from "./routes/projects/[id]/uploads/[filename]/route";
-import * as r92 from "./routes/projects/[id]/uploads/route";
-import * as r93 from "./routes/projects/bootstrap/route";
-import * as r94 from "./routes/projects/route";
-import * as r95 from "./routes/prompts/route";
-import * as r96 from "./routes/providers/[id]/key/route";
-import * as r97 from "./routes/providers/[id]/route";
-import * as r98 from "./routes/providers/[id]/test/route";
-import * as r99 from "./routes/providers/route";
-import * as r100 from "./routes/providers/selected/route";
-import * as r101 from "./routes/runs/[id]/abort/route";
-import * as r102 from "./routes/runs/[id]/children/route";
-import * as r103 from "./routes/runs/[id]/permission/route";
-import * as r104 from "./routes/runs/[id]/route";
-import * as r105 from "./routes/runs/[id]/stream/route";
-import * as r106 from "./routes/runs/[id]/tree/route";
-import * as r107 from "./routes/runs/abort-all/route";
-import * as r108 from "./routes/runs/route";
-import * as r109 from "./routes/save/export/route";
-import * as r110 from "./routes/save/import/route";
-import * as r111 from "./routes/schedules/[id]/route";
-import * as r112 from "./routes/schedules/[id]/run/route";
-import * as r113 from "./routes/schedules/route";
-import * as r114 from "./routes/secrets/[id]/route";
-import * as r115 from "./routes/secrets/[id]/test/route";
-import * as r116 from "./routes/secrets/route";
-import * as r117 from "./routes/settings/route";
-import * as r118 from "./routes/settings/scan/route";
-import * as r119 from "./routes/skills/[name]/customization/route";
-import * as r120 from "./routes/skills/[name]/route";
-import * as r121 from "./routes/skills/[name]/update/route";
-import * as r122 from "./routes/skills/compatibility/route";
-import * as r123 from "./routes/skills/create/route";
-import * as r124 from "./routes/skills/icons/route";
-import * as r125 from "./routes/skills/import/route";
-import * as r126 from "./routes/skills/install/route";
-import * as r127 from "./routes/skills/installed/route";
-import * as r128 from "./routes/skills/manifest/route";
-import * as r129 from "./routes/skills/registry/route";
-import * as r130 from "./routes/skills/sources/route";
-import * as r131 from "./routes/skills/updates/route";
-import * as r132 from "./routes/starter/agent-diff/route";
-import * as r133 from "./routes/starter/agents/route";
-import * as r134 from "./routes/summon/route";
-import * as r135 from "./routes/templates/route";
-import * as r136 from "./routes/ui-settings/route";
+import * as r8 from "./routes/agents/[id]/body/route";
+import * as r9 from "./routes/agents/[id]/context-cost/measure/route";
+import * as r10 from "./routes/agents/[id]/context-cost/route";
+import * as r11 from "./routes/agents/[id]/memory/route";
+import * as r12 from "./routes/agents/[id]/prompts/route";
+import * as r13 from "./routes/agents/[id]/route";
+import * as r14 from "./routes/agents/[id]/uploads/[filename]/route";
+import * as r15 from "./routes/agents/[id]/uploads/route";
+import * as r16 from "./routes/agents/route";
+import * as r17 from "./routes/analytics/page/route";
+import * as r18 from "./routes/analytics/per-account/route";
+import * as r19 from "./routes/cleanup/[kind]/route";
+import * as r20 from "./routes/clipboard-image/route";
+import * as r21 from "./routes/conversations/[id]/messages/route";
+import * as r22 from "./routes/conversations/[id]/new/route";
+import * as r23 from "./routes/conversations/[id]/queue/[messageId]/route";
+import * as r24 from "./routes/conversations/[id]/queue/route";
+import * as r25 from "./routes/conversations/[id]/resume/route";
+import * as r26 from "./routes/conversations/[id]/retry/route";
+import * as r27 from "./routes/conversations/[id]/skip/route";
+import * as r28 from "./routes/conversations/route";
+import * as r29 from "./routes/dev/loop-ids/route";
+import * as r30 from "./routes/dev/planet-gallery/route";
+import * as r31 from "./routes/dev/seed/route";
+import * as r32 from "./routes/docs/content/route";
+import * as r33 from "./routes/drafts/route";
+import * as r34 from "./routes/events/route";
+import * as r35 from "./routes/gateway/v1/messages/count_tokens/route";
+import * as r36 from "./routes/gateway/v1/messages/route";
+import * as r37 from "./routes/generated-images/[date]/[filename]/route";
+import * as r38 from "./routes/generated-images/route";
+import * as r39 from "./routes/github-accounts/[id]/route";
+import * as r40 from "./routes/github-accounts/[id]/status/route";
+import * as r41 from "./routes/github-accounts/route";
+import * as r42 from "./routes/health/route";
+import * as r43 from "./routes/loops/[id]/route";
+import * as r44 from "./routes/loops/route";
+import * as r45 from "./routes/memory/global/route";
+import * as r46 from "./routes/missions/[id]/act/route";
+import * as r47 from "./routes/missions/[id]/asks/[commentId]/route";
+import * as r48 from "./routes/missions/[id]/cap/route";
+import * as r49 from "./routes/missions/[id]/claims/[commentId]/route";
+import * as r50 from "./routes/missions/[id]/leave/route";
+import * as r51 from "./routes/missions/[id]/route";
+import * as r52 from "./routes/missions/claim/route";
+import * as r53 from "./routes/missions/route";
+import * as r54 from "./routes/missions/seat/route";
+import * as r55 from "./routes/model-prices/refresh/route";
+import * as r56 from "./routes/model-prices/route";
+import * as r57 from "./routes/model-prices/settings/route";
+import * as r58 from "./routes/power/route";
+import * as r59 from "./routes/processes/[pid]/route";
+import * as r60 from "./routes/processes/route";
+import * as r61 from "./routes/projects/[id]/activity/route";
+import * as r62 from "./routes/projects/[id]/build/route";
+import * as r63 from "./routes/projects/[id]/clear-cache/route";
+import * as r64 from "./routes/projects/[id]/dev/route";
+import * as r65 from "./routes/projects/[id]/folder/route";
+import * as r66 from "./routes/projects/[id]/git-status/route";
+import * as r67 from "./routes/projects/[id]/install/route";
+import * as r68 from "./routes/projects/[id]/memory/route";
+import * as r69 from "./routes/projects/[id]/open-folder/route";
+import * as r70 from "./routes/projects/[id]/reviews/[number]/link/route";
+import * as r71 from "./routes/projects/[id]/reviews/[number]/merge/route";
+import * as r72 from "./routes/projects/[id]/reviews/[number]/reject/route";
+import * as r73 from "./routes/projects/[id]/reviews/[number]/review/route";
+import * as r74 from "./routes/projects/[id]/reviews/[number]/route";
+import * as r75 from "./routes/projects/[id]/reviews/route";
+import * as r76 from "./routes/projects/[id]/roster/[instanceId]/repair-worktree/route";
+import * as r77 from "./routes/projects/[id]/roster/[instanceId]/route";
+import * as r78 from "./routes/projects/[id]/roster/route";
+import * as r79 from "./routes/projects/[id]/route";
+import * as r80 from "./routes/projects/[id]/secrets/[secretId]/route";
+import * as r81 from "./routes/projects/[id]/secrets/route";
+import * as r82 from "./routes/projects/[id]/spend/route";
+import * as r83 from "./routes/projects/[id]/uploads/[filename]/route";
+import * as r84 from "./routes/projects/[id]/uploads/route";
+import * as r85 from "./routes/projects/bootstrap/route";
+import * as r86 from "./routes/projects/route";
+import * as r87 from "./routes/providers/[id]/key/route";
+import * as r88 from "./routes/providers/[id]/route";
+import * as r89 from "./routes/providers/[id]/test/route";
+import * as r90 from "./routes/providers/route";
+import * as r91 from "./routes/providers/selected/route";
+import * as r92 from "./routes/runs/[id]/abort/route";
+import * as r93 from "./routes/runs/[id]/permission/route";
+import * as r94 from "./routes/runs/[id]/route";
+import * as r95 from "./routes/runs/[id]/stream/route";
+import * as r96 from "./routes/runs/[id]/tree/route";
+import * as r97 from "./routes/runs/route";
+import * as r98 from "./routes/save/export/route";
+import * as r99 from "./routes/save/import/route";
+import * as r100 from "./routes/schedules/[id]/route";
+import * as r101 from "./routes/schedules/[id]/run/route";
+import * as r102 from "./routes/schedules/route";
+import * as r103 from "./routes/secrets/[id]/route";
+import * as r104 from "./routes/secrets/[id]/test/route";
+import * as r105 from "./routes/secrets/route";
+import * as r106 from "./routes/settings/route";
+import * as r107 from "./routes/settings/scan/route";
+import * as r108 from "./routes/skills/[name]/customization/route";
+import * as r109 from "./routes/skills/[name]/route";
+import * as r110 from "./routes/skills/[name]/update/route";
+import * as r111 from "./routes/skills/create/route";
+import * as r112 from "./routes/skills/icons/route";
+import * as r113 from "./routes/skills/import/route";
+import * as r114 from "./routes/skills/install/route";
+import * as r115 from "./routes/skills/installed/route";
+import * as r116 from "./routes/skills/manifest/route";
+import * as r117 from "./routes/skills/registry/route";
+import * as r118 from "./routes/skills/sources/route";
+import * as r119 from "./routes/skills/updates/route";
+import * as r120 from "./routes/starter/agent-diff/route";
+import * as r121 from "./routes/starter/agents/route";
+import * as r122 from "./routes/summon/route";
+import * as r123 from "./routes/ui-settings/route";
 
 export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/account", module: r0 },
@@ -147,133 +134,120 @@ export const ROUTES: readonly RouteEntry[] = [
   { path: "/api/accounts", module: r5 },
   { path: "/api/agent-docs/[owner]/[slug]", module: r6 },
   { path: "/api/agent-docs", module: r7 },
-  { path: "/api/agents/[id]/body/history/[filename]", module: r8 },
-  { path: "/api/agents/[id]/body/history", module: r9 },
-  { path: "/api/agents/[id]/body", module: r10 },
-  { path: "/api/agents/[id]/context-cost/measure", module: r11 },
-  { path: "/api/agents/[id]/context-cost", module: r12 },
-  { path: "/api/agents/[id]/memory", module: r13 },
-  { path: "/api/agents/[id]/prompt-preview", module: r14 },
-  { path: "/api/agents/[id]/prompts", module: r15 },
-  { path: "/api/agents/[id]", module: r16 },
-  { path: "/api/agents/[id]/uploads/[filename]", module: r17 },
-  { path: "/api/agents/[id]/uploads", module: r18 },
-  { path: "/api/agents/bulk", module: r19 },
-  { path: "/api/agents", module: r20 },
-  { path: "/api/analytics/page", module: r21 },
-  { path: "/api/analytics/per-account", module: r22 },
-  { path: "/api/analytics/summary", module: r23 },
-  { path: "/api/broadcast", module: r24 },
-  { path: "/api/cleanup/[kind]", module: r25 },
-  { path: "/api/clipboard-image", module: r26 },
-  { path: "/api/conversations/[id]/messages", module: r27 },
-  { path: "/api/conversations/[id]/new", module: r28 },
-  { path: "/api/conversations/[id]/queue/[messageId]", module: r29 },
-  { path: "/api/conversations/[id]/queue", module: r30 },
-  { path: "/api/conversations/[id]/resume", module: r31 },
-  { path: "/api/conversations/[id]/retry", module: r32 },
-  { path: "/api/conversations/[id]", module: r33 },
-  { path: "/api/conversations/[id]/skip", module: r34 },
-  { path: "/api/conversations", module: r35 },
-  { path: "/api/dev/backfill-planets", module: r36 },
-  { path: "/api/dev/loop-ids", module: r37 },
-  { path: "/api/dev/planet-gallery", module: r38 },
-  { path: "/api/dev/seed", module: r39 },
-  { path: "/api/docs/content", module: r40 },
-  { path: "/api/docs/export", module: r41 },
-  { path: "/api/drafts", module: r42 },
-  { path: "/api/events", module: r43 },
-  { path: "/api/gateway/v1/messages/count_tokens", module: r44 },
-  { path: "/api/gateway/v1/messages", module: r45 },
-  { path: "/api/generated-images/[date]/[filename]", module: r46 },
-  { path: "/api/generated-images", module: r47 },
-  { path: "/api/github-accounts/[id]", module: r48 },
-  { path: "/api/github-accounts/[id]/status", module: r49 },
-  { path: "/api/github-accounts", module: r50 },
-  { path: "/api/health", module: r51 },
-  { path: "/api/loops/[id]", module: r52 },
-  { path: "/api/loops", module: r53 },
-  { path: "/api/memory/global", module: r54 },
-  { path: "/api/missions/[id]/act", module: r55 },
-  { path: "/api/missions/[id]/asks/[commentId]", module: r56 },
-  { path: "/api/missions/[id]/cap", module: r57 },
-  { path: "/api/missions/[id]/claims/[commentId]", module: r58 },
-  { path: "/api/missions/[id]/leave", module: r59 },
-  { path: "/api/missions/[id]", module: r60 },
-  { path: "/api/missions/claim", module: r61 },
-  { path: "/api/missions", module: r62 },
-  { path: "/api/missions/seat", module: r63 },
-  { path: "/api/model-prices/refresh", module: r64 },
-  { path: "/api/model-prices", module: r65 },
-  { path: "/api/model-prices/settings", module: r66 },
-  { path: "/api/power", module: r67 },
-  { path: "/api/processes/[pid]", module: r68 },
-  { path: "/api/processes", module: r69 },
-  { path: "/api/projects/[id]/build", module: r70 },
-  { path: "/api/projects/[id]/clear-cache", module: r71 },
-  { path: "/api/projects/[id]/dev", module: r72 },
-  { path: "/api/projects/[id]/folder", module: r73 },
-  { path: "/api/projects/[id]/git-status", module: r74 },
-  { path: "/api/projects/[id]/install", module: r75 },
-  { path: "/api/projects/[id]/memory", module: r76 },
-  { path: "/api/projects/[id]/open-folder", module: r77 },
-  { path: "/api/projects/[id]/reviews/[number]/link", module: r78 },
-  { path: "/api/projects/[id]/reviews/[number]/merge", module: r79 },
-  { path: "/api/projects/[id]/reviews/[number]/reject", module: r80 },
-  { path: "/api/projects/[id]/reviews/[number]/review", module: r81 },
-  { path: "/api/projects/[id]/reviews/[number]", module: r82 },
-  { path: "/api/projects/[id]/reviews", module: r83 },
-  { path: "/api/projects/[id]/roster/[instanceId]/repair-worktree", module: r84 },
-  { path: "/api/projects/[id]/roster/[instanceId]", module: r85 },
-  { path: "/api/projects/[id]/roster", module: r86 },
-  { path: "/api/projects/[id]", module: r87 },
-  { path: "/api/projects/[id]/secrets/[secretId]", module: r88 },
-  { path: "/api/projects/[id]/secrets", module: r89 },
-  { path: "/api/projects/[id]/spend", module: r90 },
-  { path: "/api/projects/[id]/uploads/[filename]", module: r91 },
-  { path: "/api/projects/[id]/uploads", module: r92 },
-  { path: "/api/projects/bootstrap", module: r93 },
-  { path: "/api/projects", module: r94 },
-  { path: "/api/prompts", module: r95 },
-  { path: "/api/providers/[id]/key", module: r96 },
-  { path: "/api/providers/[id]", module: r97 },
-  { path: "/api/providers/[id]/test", module: r98 },
-  { path: "/api/providers", module: r99 },
-  { path: "/api/providers/selected", module: r100 },
-  { path: "/api/runs/[id]/abort", module: r101 },
-  { path: "/api/runs/[id]/children", module: r102 },
-  { path: "/api/runs/[id]/permission", module: r103 },
-  { path: "/api/runs/[id]", module: r104 },
-  { path: "/api/runs/[id]/stream", module: r105 },
-  { path: "/api/runs/[id]/tree", module: r106 },
-  { path: "/api/runs/abort-all", module: r107 },
-  { path: "/api/runs", module: r108 },
-  { path: "/api/save/export", module: r109 },
-  { path: "/api/save/import", module: r110 },
-  { path: "/api/schedules/[id]", module: r111 },
-  { path: "/api/schedules/[id]/run", module: r112 },
-  { path: "/api/schedules", module: r113 },
-  { path: "/api/secrets/[id]", module: r114 },
-  { path: "/api/secrets/[id]/test", module: r115 },
-  { path: "/api/secrets", module: r116 },
-  { path: "/api/settings", module: r117 },
-  { path: "/api/settings/scan", module: r118 },
-  { path: "/api/skills/[name]/customization", module: r119 },
-  { path: "/api/skills/[name]", module: r120 },
-  { path: "/api/skills/[name]/update", module: r121 },
-  { path: "/api/skills/compatibility", module: r122 },
-  { path: "/api/skills/create", module: r123 },
-  { path: "/api/skills/icons", module: r124 },
-  { path: "/api/skills/import", module: r125 },
-  { path: "/api/skills/install", module: r126 },
-  { path: "/api/skills/installed", module: r127 },
-  { path: "/api/skills/manifest", module: r128 },
-  { path: "/api/skills/registry", module: r129 },
-  { path: "/api/skills/sources", module: r130 },
-  { path: "/api/skills/updates", module: r131 },
-  { path: "/api/starter/agent-diff", module: r132 },
-  { path: "/api/starter/agents", module: r133 },
-  { path: "/api/summon", module: r134 },
-  { path: "/api/templates", module: r135 },
-  { path: "/api/ui-settings", module: r136 },
+  { path: "/api/agents/[id]/body", module: r8 },
+  { path: "/api/agents/[id]/context-cost/measure", module: r9 },
+  { path: "/api/agents/[id]/context-cost", module: r10 },
+  { path: "/api/agents/[id]/memory", module: r11 },
+  { path: "/api/agents/[id]/prompts", module: r12 },
+  { path: "/api/agents/[id]", module: r13 },
+  { path: "/api/agents/[id]/uploads/[filename]", module: r14 },
+  { path: "/api/agents/[id]/uploads", module: r15 },
+  { path: "/api/agents", module: r16 },
+  { path: "/api/analytics/page", module: r17 },
+  { path: "/api/analytics/per-account", module: r18 },
+  { path: "/api/cleanup/[kind]", module: r19 },
+  { path: "/api/clipboard-image", module: r20 },
+  { path: "/api/conversations/[id]/messages", module: r21 },
+  { path: "/api/conversations/[id]/new", module: r22 },
+  { path: "/api/conversations/[id]/queue/[messageId]", module: r23 },
+  { path: "/api/conversations/[id]/queue", module: r24 },
+  { path: "/api/conversations/[id]/resume", module: r25 },
+  { path: "/api/conversations/[id]/retry", module: r26 },
+  { path: "/api/conversations/[id]/skip", module: r27 },
+  { path: "/api/conversations", module: r28 },
+  { path: "/api/dev/loop-ids", module: r29 },
+  { path: "/api/dev/planet-gallery", module: r30 },
+  { path: "/api/dev/seed", module: r31 },
+  { path: "/api/docs/content", module: r32 },
+  { path: "/api/drafts", module: r33 },
+  { path: "/api/events", module: r34 },
+  { path: "/api/gateway/v1/messages/count_tokens", module: r35 },
+  { path: "/api/gateway/v1/messages", module: r36 },
+  { path: "/api/generated-images/[date]/[filename]", module: r37 },
+  { path: "/api/generated-images", module: r38 },
+  { path: "/api/github-accounts/[id]", module: r39 },
+  { path: "/api/github-accounts/[id]/status", module: r40 },
+  { path: "/api/github-accounts", module: r41 },
+  { path: "/api/health", module: r42 },
+  { path: "/api/loops/[id]", module: r43 },
+  { path: "/api/loops", module: r44 },
+  { path: "/api/memory/global", module: r45 },
+  { path: "/api/missions/[id]/act", module: r46 },
+  { path: "/api/missions/[id]/asks/[commentId]", module: r47 },
+  { path: "/api/missions/[id]/cap", module: r48 },
+  { path: "/api/missions/[id]/claims/[commentId]", module: r49 },
+  { path: "/api/missions/[id]/leave", module: r50 },
+  { path: "/api/missions/[id]", module: r51 },
+  { path: "/api/missions/claim", module: r52 },
+  { path: "/api/missions", module: r53 },
+  { path: "/api/missions/seat", module: r54 },
+  { path: "/api/model-prices/refresh", module: r55 },
+  { path: "/api/model-prices", module: r56 },
+  { path: "/api/model-prices/settings", module: r57 },
+  { path: "/api/power", module: r58 },
+  { path: "/api/processes/[pid]", module: r59 },
+  { path: "/api/processes", module: r60 },
+  { path: "/api/projects/[id]/activity", module: r61 },
+  { path: "/api/projects/[id]/build", module: r62 },
+  { path: "/api/projects/[id]/clear-cache", module: r63 },
+  { path: "/api/projects/[id]/dev", module: r64 },
+  { path: "/api/projects/[id]/folder", module: r65 },
+  { path: "/api/projects/[id]/git-status", module: r66 },
+  { path: "/api/projects/[id]/install", module: r67 },
+  { path: "/api/projects/[id]/memory", module: r68 },
+  { path: "/api/projects/[id]/open-folder", module: r69 },
+  { path: "/api/projects/[id]/reviews/[number]/link", module: r70 },
+  { path: "/api/projects/[id]/reviews/[number]/merge", module: r71 },
+  { path: "/api/projects/[id]/reviews/[number]/reject", module: r72 },
+  { path: "/api/projects/[id]/reviews/[number]/review", module: r73 },
+  { path: "/api/projects/[id]/reviews/[number]", module: r74 },
+  { path: "/api/projects/[id]/reviews", module: r75 },
+  { path: "/api/projects/[id]/roster/[instanceId]/repair-worktree", module: r76 },
+  { path: "/api/projects/[id]/roster/[instanceId]", module: r77 },
+  { path: "/api/projects/[id]/roster", module: r78 },
+  { path: "/api/projects/[id]", module: r79 },
+  { path: "/api/projects/[id]/secrets/[secretId]", module: r80 },
+  { path: "/api/projects/[id]/secrets", module: r81 },
+  { path: "/api/projects/[id]/spend", module: r82 },
+  { path: "/api/projects/[id]/uploads/[filename]", module: r83 },
+  { path: "/api/projects/[id]/uploads", module: r84 },
+  { path: "/api/projects/bootstrap", module: r85 },
+  { path: "/api/projects", module: r86 },
+  { path: "/api/providers/[id]/key", module: r87 },
+  { path: "/api/providers/[id]", module: r88 },
+  { path: "/api/providers/[id]/test", module: r89 },
+  { path: "/api/providers", module: r90 },
+  { path: "/api/providers/selected", module: r91 },
+  { path: "/api/runs/[id]/abort", module: r92 },
+  { path: "/api/runs/[id]/permission", module: r93 },
+  { path: "/api/runs/[id]", module: r94 },
+  { path: "/api/runs/[id]/stream", module: r95 },
+  { path: "/api/runs/[id]/tree", module: r96 },
+  { path: "/api/runs", module: r97 },
+  { path: "/api/save/export", module: r98 },
+  { path: "/api/save/import", module: r99 },
+  { path: "/api/schedules/[id]", module: r100 },
+  { path: "/api/schedules/[id]/run", module: r101 },
+  { path: "/api/schedules", module: r102 },
+  { path: "/api/secrets/[id]", module: r103 },
+  { path: "/api/secrets/[id]/test", module: r104 },
+  { path: "/api/secrets", module: r105 },
+  { path: "/api/settings", module: r106 },
+  { path: "/api/settings/scan", module: r107 },
+  { path: "/api/skills/[name]/customization", module: r108 },
+  { path: "/api/skills/[name]", module: r109 },
+  { path: "/api/skills/[name]/update", module: r110 },
+  { path: "/api/skills/create", module: r111 },
+  { path: "/api/skills/icons", module: r112 },
+  { path: "/api/skills/import", module: r113 },
+  { path: "/api/skills/install", module: r114 },
+  { path: "/api/skills/installed", module: r115 },
+  { path: "/api/skills/manifest", module: r116 },
+  { path: "/api/skills/registry", module: r117 },
+  { path: "/api/skills/sources", module: r118 },
+  { path: "/api/skills/updates", module: r119 },
+  { path: "/api/starter/agent-diff", module: r120 },
+  { path: "/api/starter/agents", module: r121 },
+  { path: "/api/summon", module: r122 },
+  { path: "/api/ui-settings", module: r123 },
 ];

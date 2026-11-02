@@ -43,7 +43,7 @@ test("v30 drops the office rows and keeps the roster groups", () => {
   const listBackups = () => { try { return readdirSync(BACKUPS_DIR); } catch { return []; } };
   const before = new Set(listBackups());
   createSchema(db);
-  assert.equal(db.pragma("user_version", { simple: true }), 30);
+  assert.ok((db.pragma("user_version", { simple: true }) as number) >= 30);
   const added = listBackups().filter((f) => !before.has(f) && f.startsWith("office-ui-settings-"));
   assert.equal(added.length, 1, "the migration itself must write the backup");
   assert.match(readFileSync(join(BACKUPS_DIR, added[0]!), "utf8"), /office-grid/);

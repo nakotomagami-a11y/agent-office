@@ -16,6 +16,9 @@ test("v29 adds the repeat columns and leaves old jobs one-shot", () => {
   db.exec(`
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_every;
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_anchor;
+    CREATE TABLE IF NOT EXISTS transcripts (agent_id TEXT, instance_id TEXT);
+    CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS pipeline_steps (pipeline_id TEXT REFERENCES pipelines(id));
   `);
   db.pragma("user_version = 28");
   db.prepare(`INSERT INTO scheduled_jobs (id, fire_at, summon_request, created_at, updated_at)

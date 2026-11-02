@@ -157,6 +157,10 @@ export function setRunModel(id: string, model: string): void {
   getDb().prepare("UPDATE runs SET model = @model WHERE id = @id").run({ id, model });
 }
 
+export function setRunSessionId(id: string, sessionId: string | null): void {
+  getDb().prepare("UPDATE runs SET session_id = @sessionId WHERE id = @id").run({ id, sessionId });
+}
+
 export function setRunRateLimitResetsAt(id: string, resetsAt: number): void {
   getDb().prepare("UPDATE runs SET rate_limited_resets_at = @resetsAt WHERE id = @id").run({ id, resetsAt });
 }
@@ -208,12 +212,4 @@ export function deleteRunsWhere(filter: string, ...params: unknown[]): number {
     emitAppEvent("loops:changed");
   }
   return changes;
-}
-
-export function deleteRunsForInstance(projectId: string, instanceId: string): number {
-  return deleteRunsWhere("project_id = ? AND instance_id = ?", projectId, instanceId);
-}
-
-export function deleteRunsByAgent(agentId: string): number {
-  return deleteRunsWhere("agent_id = ?", agentId);
 }

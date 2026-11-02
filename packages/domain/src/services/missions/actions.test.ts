@@ -131,7 +131,7 @@ test("the human answers a seat's question from the seat's own device", async () 
   assert.strictEqual(state(missionId).asks.length, 1);
   mac.use();
   // Posted by the Mac seat's outbox, which logs it; unlogged, the Mac would call it a forgery of itself.
-  db.recordOwnMissionPost(missionId, askId);
+  db.confirmMissionPost(missionId, db.reserveMissionPost(missionId), askId);
   const r = await actions.answerAsk(missionId, askId, "Yes, use a throwaway profile.", mac.deps);
   assert.ok(r.ok, JSON.stringify(r));
   assert.deepStrictEqual(state(missionId).asks, []);
@@ -143,7 +143,7 @@ test("a ruling reaches the coordinator at the click, as the user's own message, 
   assert.ok(req.ok);
   const askId = github.addComment(req.body);
   lead.use();
-  db.recordOwnMissionPost(missionId, askId);
+  db.confirmMissionPost(missionId, db.reserveMissionPost(missionId), askId);
   mac.use();
   assert.strictEqual((await actions.answerAsk(missionId, askId, "Yes.", mac.deps)).ok, false, "only the lead rules");
   lead.use();

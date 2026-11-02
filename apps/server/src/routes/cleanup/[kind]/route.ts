@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { cleanup } from "@agent-office/domain/services";
 import { isCleanupKind } from "@agent-office/domain/config/cleanup";
 import { badRequest, conflict } from "../../../lib/api-helpers";
-import { resolveStarterDataDir } from "../../../lib/starter-data";
+import { resolveStarterDataDir } from "../../../lib/starter-data-dir";
 import { log } from "@agent-office/domain/services/infra/log";
 
 type Params = { params: Promise<{ kind: string }> };

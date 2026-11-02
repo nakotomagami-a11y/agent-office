@@ -2,9 +2,7 @@
  * Showcase seed — populates the app with a fully invented, leak-free world for
  * marketing screenshots. NO local/private data: fake identity (`dev`),
  * `~/code/<project>` paths, invented brands. Seeds 3 projects (3 open tabs),
- * rich chat transcripts (agent summoning, tool calls, sub-agents, rate-limit /
- * interrupted cards), activity/runs, accounts, GitHub identities, secrets, and
- * scheduled jobs. `clearShowcase()` fully removes everything it created.
+ * activity/runs, accounts, GitHub identities, secrets, and scheduled jobs. `clearShowcase()` fully removes everything it created.
  *
  * Deliberately does NOT call writeGlobalMemory — that would overwrite the real
  * machine's global memory.
@@ -13,7 +11,6 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { db, projects, accounts, githubAccounts, secrets, scheduler, agents, paths } from "@agent-office/domain/services";
-import type { ThreadItem } from "@agent-office/domain/types";
 import { parseJson } from "@agent-office/api-contract";
 
 const now = () => Date.now();
@@ -84,99 +81,6 @@ const PROJECTS: ProjectDef[] = [
 ];
 
 const inst = (agentId: string, suffix: string) => `${agentId}-${suffix}`;
-
-function itemsJson(items: ThreadItem[]): string {
-  return JSON.stringify(items);
-}
-
-// ── Chat transcripts (the star of the show) ─────────────────────────────────
-function nebulaDeveloperThread(): ThreadItem[] {
-  return [
-    { kind: "you", id: "u1", text: "Add Stripe checkout to the cart flow with webhook handling for payment confirmation. Keep it edge-safe." },
-    { kind: "agent-thinking", id: "t1", text: "Let me inspect the current cart + checkout structure and how env/secrets are wired before touching Stripe." },
-    { kind: "agent-text", id: "a1", text: "I'll add a Checkout Session endpoint, a signature-verified webhook, and wire the cart CTA to redirect. First, reading the current structure.", streaming: false },
-    { kind: "agent-tool", id: "tool1", name: "Read", arg: `${CODE_ROOT}/nebula-commerce/app/(shop)/cart/page.tsx` },
-    { kind: "agent-tool", id: "tool2", name: "Read", arg: `${CODE_ROOT}/nebula-commerce/lib/stripe.ts` },
-    { kind: "agent-tool", id: "tool3", name: "Bash", arg: "grep -r STRIPE_ .env.example" },
-    { kind: "agent-text", id: "a2", text: "The cart posts to a placeholder route. I'll create `/api/checkout` and `/api/webhooks/stripe`, then delegate a QA pass on the payment race conditions.", streaming: false },
-    { kind: "agent-subagent", id: "sub1", name: "qa-codebase", prompt: "Audit the new checkout flow for double-charge races and missing webhook idempotency", status: "done", startTs: now() - 6 * MIN, durationMs: 142_000, subRunId: "sub-neb-qa-1", tokensIn: 48_200, tokensOut: 3_900, cost: 0.61, lastOutputLine: "Found 1 race on rapid CTA clicks — recommend idempotency key." },
-    { kind: "agent-tool", id: "tool4", name: "Write", arg: `${CODE_ROOT}/nebula-commerce/app/api/checkout/route.ts` },
-    { kind: "agent-tool", id: "tool5", name: "Write", arg: `${CODE_ROOT}/nebula-commerce/app/api/webhooks/stripe/route.ts` },
-    { kind: "agent-tool", id: "tool6", name: "Edit", arg: `${CODE_ROOT}/nebula-commerce/app/(shop)/cart/page.tsx` },
-    { kind: "agent-text", id: "a3", text: "Done. Added:\n\n- `/api/checkout` — creates a Stripe Checkout Session from the cart\n- `/api/webhooks/stripe` — verifies the signature and marks the order paid (idempotent via `event.id`)\n- Cart CTA now redirects to Checkout\n\nThe QA sub-agent caught a double-charge race on rapid clicks; I added an idempotency key so repeat clicks reuse the same session. Type-checks clean.", streaming: false },
-    { kind: "system-done", id: "done1", exitCode: 0, durationMs: 512_000, tokensIn: 128_400, tokensOut: 11_200, cost: 2.14 },
-  ];
-}
-
-function nebulaFrontendThread(): ThreadItem[] {
-  return [
-    { kind: "you", id: "u1", text: "Redesign the product card grid — masonry layout, hover quick-add, and skeleton loading states." },
-    { kind: "agent-text", id: "a1", text: "On it. I'll build a responsive masonry grid with a quick-add overlay and shimmer skeletons while products load.", streaming: false },
-    { kind: "agent-tool", id: "tool1", name: "Read", arg: `${CODE_ROOT}/nebula-commerce/components/product-grid.tsx` },
-    { kind: "agent-tool", id: "tool2", name: "Write", arg: `${CODE_ROOT}/nebula-commerce/components/product-card.tsx` },
-    { kind: "agent-text", id: "a2", text: "Grid + card done. Adding the skeleton state now…", streaming: false },
-    { kind: "system-rate-limit", id: "rl1", message: "You've hit your usage limit. Resets at 4:20 PM.", resetsAt: Math.floor((now() + 3 * HR) / 1000), severity: "limit" },
-  ];
-}
-
-function nebulaBackendThread(): ThreadItem[] {
-  return [
-    { kind: "you", id: "u1", text: "Add inventory reservation so two buyers can't purchase the last unit. Use a short-lived hold on checkout start." },
-    { kind: "agent-text", id: "a1", text: "I'll add a `reservations` table with a TTL and reserve stock when a Checkout Session is created, releasing on expiry or on webhook completion.", streaming: false },
-    { kind: "agent-tool", id: "tool1", name: "Bash", arg: "psql $DATABASE_URL -c '\\d products'" },
-    { kind: "agent-tool", id: "tool2", name: "Write", arg: `${CODE_ROOT}/nebula-commerce/db/migrations/0007_reservations.sql` },
-    { kind: "system-error", id: "err1", code: "stopped", interrupted: true },
-  ];
-}
-
-function nebulaOrchestratorThread(): ThreadItem[] {
-  return [
-    { kind: "you", id: "u1", text: "Ship the checkout epic: implement Stripe, add inventory holds, QA the flow, and polish the cart UI. Coordinate the team." },
-    { kind: "agent-text", id: "a1", text: "Breaking this into a 4-agent plan and dispatching. I'll fan out implementation + QA, then hand the UI polish to frontend once the flow is green.", streaming: false },
-    { kind: "agent-subagent", id: "s1", name: "developer", prompt: "Implement Stripe checkout session + webhook", status: "done", startTs: now() - 22 * MIN, durationMs: 512_000, subRunId: "sub-neb-dev-1", tokensIn: 128_400, tokensOut: 11_200, cost: 2.14, lastOutputLine: "Checkout + webhook landed, type-checks clean." },
-    { kind: "agent-subagent", id: "s2", name: "backend-builder", prompt: "Add inventory reservation with TTL holds", status: "running", startTs: now() - 4 * MIN, subRunId: "sub-neb-be-1", currentTool: "Write", tokensIn: 41_000, tokensOut: 2_100, cost: 0.72, lastOutputLine: "Writing 0007_reservations.sql…" },
-    { kind: "agent-subagent", id: "s3", name: "qa-codebase", prompt: "Audit checkout + reservation for races", status: "done", startTs: now() - 8 * MIN, durationMs: 142_000, subRunId: "sub-neb-qa-1", tokensIn: 48_200, tokensOut: 3_900, cost: 0.61, lastOutputLine: "1 race found and fixed via idempotency key." },
-    { kind: "agent-subagent", id: "s4", name: "frontend-craftsman", prompt: "Polish cart + product grid UI", status: "queued", startTs: now(), subRunId: "sub-neb-fe-1" },
-    { kind: "agent-text", id: "a2", text: "Status: Stripe flow ✅, QA ✅ (race fixed). Inventory holds in progress. UI polish queued behind the backend work so it lands on the final schema.", streaming: false },
-  ];
-}
-
-// Per-project transcripts: [agentId, suffix, items]
-function transcriptsFor(projectId: string): Array<{ agentId: string; instanceId: string; items: ThreadItem[]; activeRunId: string | null }> {
-  if (projectId === "nebula-commerce") {
-    return [
-      { agentId: "developer", instanceId: inst("developer", "neb"), items: nebulaDeveloperThread(), activeRunId: null },
-      { agentId: "frontend-craftsman", instanceId: inst("frontend-craftsman", "neb"), items: nebulaFrontendThread(), activeRunId: null },
-      { agentId: "backend-builder", instanceId: inst("backend-builder", "neb"), items: nebulaBackendThread(), activeRunId: null },
-      { agentId: "orchestrator", instanceId: inst("orchestrator", "neb"), items: nebulaOrchestratorThread(), activeRunId: null },
-    ];
-  }
-  if (projectId === "atlas-api") {
-    return [
-      {
-        agentId: "backend-builder", instanceId: inst("backend-builder", "atl"), activeRunId: null,
-        items: [
-          { kind: "you", id: "u1", text: "Add a gRPC health check + graceful shutdown to the orders service." },
-          { kind: "agent-text", id: "a1", text: "Adding the standard gRPC health service and wiring SIGTERM to drain in-flight streams before exit.", streaming: false },
-          { kind: "agent-tool", id: "tool1", name: "Read", arg: `${CODE_ROOT}/atlas-api/services/orders/main.go` },
-          { kind: "agent-tool", id: "tool2", name: "Edit", arg: `${CODE_ROOT}/atlas-api/services/orders/main.go` },
-          { kind: "system-done", id: "d1", exitCode: 0, durationMs: 268_000, tokensIn: 74_000, tokensOut: 6_400, cost: 1.21 },
-        ],
-      },
-    ];
-  }
-  return [
-    {
-      agentId: "frontend-craftsman", instanceId: inst("frontend-craftsman", "pul"), activeRunId: null,
-      items: [
-        { kind: "you", id: "u1", text: "Build the workout summary screen with a weekly activity ring and HealthKit steps." },
-        { kind: "agent-text", id: "a1", text: "I'll compose the summary screen with an animated activity ring and pull steps from HealthKit via the native module.", streaming: false },
-        { kind: "agent-tool", id: "tool1", name: "Write", arg: `${CODE_ROOT}/pulse-mobile/app/(tabs)/summary.tsx` },
-        { kind: "system-done", id: "d1", exitCode: 0, durationMs: 331_000, tokensIn: 88_000, tokensOut: 7_300, cost: 1.44 },
-      ],
-    },
-  ];
-}
 
 // ── Activity / runs ─────────────────────────────────────────────────────────
 const MODEL_OPUS = "claude-opus-4-5";
@@ -307,10 +211,6 @@ export function seedShowcase(): void {
       for (const sid of secretIds.slice(0, 3)) { try { secrets.link(p.id, sid); } catch { /* ignore */ } }
     }
 
-    // Transcripts (chat)
-    for (const t of transcriptsFor(p.id)) {
-      db.saveTranscript(t.agentId, t.instanceId, itemsJson(t.items), t.activeRunId, `sess-${t.instanceId}`);
-    }
 
     // Running runs
     for (const r of RUNNING[p.id] ?? []) {
@@ -360,9 +260,6 @@ export function clearShowcase(): void {
   }
   raw.prepare(`UPDATE runs SET parent_run_id = NULL WHERE parent_run_id IN (${scoped})`).run(...ids);
   raw.prepare(`DELETE FROM runs WHERE project_id IN (${placeholders})`).run(...ids);
-
-  // Transcripts by instance suffix
-  raw.prepare("DELETE FROM transcripts WHERE instance_id LIKE '%-neb' OR instance_id LIKE '%-atl' OR instance_id LIKE '%-pul'").run();
 
   // Scheduled jobs referencing showcase projects
   raw.prepare(`DELETE FROM scheduled_jobs WHERE summon_request LIKE '%nebula-commerce%' OR summon_request LIKE '%atlas-api%' OR summon_request LIKE '%pulse-mobile%'`).run();

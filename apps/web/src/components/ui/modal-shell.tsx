@@ -88,7 +88,7 @@ export function ModalShell({
         return;
       }
       const { onEnter } = handlers.current;
-      if (e.key === "Enter" && onEnter) {
+      if (e.key === "Enter" && onEnter && !e.repeat) {
         const el = document.activeElement as HTMLElement | null;
         const tag = el?.tagName;
         const isTextEntry =

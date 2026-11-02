@@ -184,3 +184,64 @@ test("Stop stays 'stopped' even when the gateway then sees its upstream request 
     delete process.env.STUB_HANG;
   }
 });
+
+const INITS = [
+  { type: "system", subtype: "init", apiKeySource: "none", model: "m", session_id: "child", parent_tool_use_id: "t1" },
+  { type: "system", subtype: "init", apiKeySource: "none", model: "m", session_id: "first-turn" },
+];
+const ANSWER = { type: "assistant", message: { content: [{ type: "text", text: "On it." }] } };
+
+test("the result's session id wins over init", async () => {
+  store.setSelection("subscription", "chosen");
+  process.env.STUB_LINES = JSON.stringify(INITS);
+  try {
+    const { runId } = await run();
+    assert.equal(getRun(runId)?.sessionId, "s");
+  } finally {
+    delete process.env.STUB_LINES;
+  }
+});
+
+test("Stop before the result still hands on the session, once the model has answered", async () => {
+  store.setSelection("subscription", "chosen");
+  process.env.STUB_LINES = JSON.stringify([...INITS, ANSWER]);
+  process.env.STUB_HANG = "1";
+  const { abortRun } = await import("./runs");
+  let handedOn: string | null | undefined;
+  const off = registerRunFinishedListener((_id, _ok, sessionId) => { handedOn = sessionId; });
+  try {
+    const { runId } = startRun({ agentId: "t", agentName: "T", prompt: "hi", model: "m", effort: "e", args: ["-p"], stdin: "hi" });
+    const done = new Promise<void>((resolve) => attachEmit(runId, (e) => { if (e.name === "done") resolve(); }));
+    for (let i = 0; i < 200 && getLiveRunAsPersistedRun(runId)?.sessionId !== "first-turn"; i++) await new Promise((r) => setTimeout(r, 10));
+    const onDiskMidTurn = getRun(runId)?.sessionId;
+    abortRun(runId);
+    await done;
+    assert.equal(onDiskMidTurn, "first-turn", "on disk before the turn ends, so a server restart keeps it too");
+    assert.deepStrictEqual([getRun(runId)?.errorCode, getRun(runId)?.sessionId, handedOn], ["stopped", "first-turn", "first-turn"]);
+  } finally {
+    off();
+    delete process.env.STUB_LINES;
+    delete process.env.STUB_HANG;
+  }
+});
+
+test("Stop between init and the first answer hands on no session: the CLI may not have saved it", async () => {
+  store.setSelection("subscription", "chosen");
+  process.env.STUB_LINES = JSON.stringify(INITS);
+  process.env.STUB_HANG = "1";
+  const { abortRun } = await import("./runs");
+  let handedOn: string | null | undefined = "unset";
+  const off = registerRunFinishedListener((_id, _ok, sessionId) => { handedOn = sessionId; });
+  try {
+    const { runId } = startRun({ agentId: "t", agentName: "T", prompt: "hi", model: "m", effort: "e", args: ["-p"], stdin: "hi" });
+    const done = new Promise<void>((resolve) => attachEmit(runId, (e) => { if (e.name === "done") resolve(); }));
+    await new Promise((r) => setTimeout(r, 300));
+    abortRun(runId);
+    await done;
+    assert.deepStrictEqual([getRun(runId)?.sessionId ?? null, handedOn ?? null], [null, null]);
+  } finally {
+    off();
+    delete process.env.STUB_LINES;
+    delete process.env.STUB_HANG;
+  }
+});

@@ -62,7 +62,6 @@ Personal multi-agent IDE for developers running 3+ Claude Code subagents on real
 - **Search** your recent runs
 - **Run history** - every run of an agent, by day, on its Recent runs tab
 - **Spend tracking** - cost-per-agent, cost-per-project, daily totals
-- **Run detail pages** - full transcript with cost, tokens, model, duration
 - **Analytics dashboards** - spend/runs/runtime trends, model split, per-agent and per-project rankings, tool usage, activity heatmap; per-account breakdown when multiple Claude accounts are connected
 
 ### Integrations
@@ -104,7 +103,7 @@ origins (see [the security model](docs/architecture.md#csrf--security-model)).
 - **Tailwind CSS v4** + custom design system (dark "Obsidian" theme, violet accent `#7c6af5`)
 - **`@agent-office/pixel-planets`** and **`@agent-office/pixel-icons`** — own-authored procedural renderers, kept as separate repos: WebGL2 planet icons (one shared GL context for all of them) and canvas-2D weapon/shield icons
 - **Zustand** for client stores, **TanStack Query** + **axios** for server state (API calls live in `src/lib/api/` modules)
-- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, transcripts, drafts, mission seats, UI state
+- **better-sqlite3** at `~/.claude/agent-office/db.sqlite` - runs, messages, conversations, drafts, mission seats, UI state
 - **framer-motion** for page + modal transitions
 - **zod** for validation at every trust boundary
 - **Tauri v2** for desktop bundling
@@ -146,7 +145,7 @@ Inside `apps/web/src`:
 - `modules/analytics/` - spend/usage dashboards
 - `modules/accounts/`, `modules/github-accounts/` - multi-account management
 - `modules/processes/`, `modules/limits/`, `modules/memory/`, `modules/skills/`, `modules/projects/`, `modules/agents/`, `modules/runs/`, `modules/search/`, `modules/settings/`, `modules/docs/`, `modules/onboarding/`
-- `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, compare, toast, ...), the axios `api-client`, and `api/` resource modules
+- `lib/` - Zustand stores (theme, active-project, tabs, claude-limits, processes, dev-server, branch, performance, toast, ...), the axios `api-client`, and `api/` resource modules
 
 ## Run it
 

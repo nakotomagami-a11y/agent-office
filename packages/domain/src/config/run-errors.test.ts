@@ -5,7 +5,7 @@
  */
 import assert from "node:assert";
 import { test } from "node:test";
-import { RUN_ERROR_CODES, RUN_ERROR_REMEDIATION, remediationFor } from "./run-errors";
+import { RUN_ERROR_CODES, RUN_ERROR_REMEDIATION } from "./run-errors";
 
 test("every run error code has a remediation", () => {
   const missing = RUN_ERROR_CODES.filter((c) => !RUN_ERROR_REMEDIATION[c]?.trim());
@@ -20,7 +20,3 @@ test("remediations are actionable, not restatements of the code", () => {
   }
 });
 
-test("remediationFor ignores unknown codes", () => {
-  assert.equal(remediationFor("not_a_real_code"), undefined);
-  assert.ok(remediationFor("auth_expired"));
-});

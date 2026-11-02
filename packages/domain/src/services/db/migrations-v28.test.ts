@@ -20,6 +20,9 @@ function v27WithARun(): Database.Database {
     ALTER TABLE runs DROP COLUMN cost_basis;
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_every;
     ALTER TABLE scheduled_jobs DROP COLUMN repeat_anchor;
+    CREATE TABLE IF NOT EXISTS transcripts (agent_id TEXT, instance_id TEXT);
+    CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS pipeline_steps (pipeline_id TEXT REFERENCES pipelines(id));
   `);
   db.pragma("user_version = 27");
   db.prepare("INSERT INTO runs (id, agent_id, agent_name, prompt, started_at, cost_usd) VALUES ('r1', 'a', 'A', 'hi', 1, 0.5)").run();

@@ -2,7 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
 import { openReleasesPage } from "@/lib/updater";
+import { HEADER_SHEEN } from "./header-button";
 
 /**
  * The running build, always visible.
@@ -16,7 +18,7 @@ import { openReleasesPage } from "@/lib/updater";
  * next.config.mjs), which is the same value `tauri.conf.json` ships, so it
  * names the installed build and not the repo it was built from.
  */
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 const GIT_SHA = process.env.NEXT_PUBLIC_GIT_SHA ?? "";
 
 export function VersionBadge() {
@@ -28,7 +30,7 @@ export function VersionBadge() {
         type="button"
         onClick={() => openReleasesPage()}
         aria-label={t("titlebar.version_aria", { version: label })}
-        className="shrink-0 font-[var(--font-mono)] text-[10px] tracking-[0.06em] text-txt-4 hover:text-txt-2 bg-transparent border-0 px-[6px] py-[2px] cursor-pointer transition-colors duration-150"
+        className={cn(HEADER_SHEEN, "px-[14px] font-[var(--font-mono)] text-[11px] tracking-[0.04em] text-txt-3 hover:text-txt")}
       >
         {label}
       </button>

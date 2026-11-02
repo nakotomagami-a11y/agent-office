@@ -16,14 +16,13 @@
  * network — see readHostsUser).
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { GithubAccount, GithubAccountWithStatus } from "../../types/index";
 import {
   GITHUB_ACCOUNTS_DIR,
   DEFAULT_GITHUB_ACCOUNT_ID,
-  PROJECTS_DIR,
   SYSTEM_GH_CONFIG_DIR,
   githubAccountConfigDir,
   isInside,
@@ -32,6 +31,7 @@ import {
 import { isYamlMapping, parseYaml } from "../infra/yaml";
 import { getDb } from "../db";
 import { log } from "../infra/log";
+import { projectsUsingAccount } from "../projects/projects";
 
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ export function remove(id: string): RemoveResult {
   if (id === DEFAULT_GITHUB_ACCOUNT_ID) return { ok: false, reason: "default" };
   const existing = get(id);
   if (!existing) return { ok: false, reason: "not_found" };
-  const blockers = findProjectsUsingAccount(id);
+  const blockers = projectsUsingAccount("githubAccountId", id);
   if (blockers.length > 0) return { ok: false, reason: "referenced", blocked: blockers };
 
   getDb().prepare("DELETE FROM github_accounts WHERE id = ?").run(id);
@@ -176,38 +176,3 @@ export function getStatus(id: string): GithubAccountWithStatus | null {
 }
 
 // ─── Referential integrity ──────────────────────────────────────────────────
-
-/**
- * Scan `~/.claude/projects/*​/project.md` for any project whose YAML
- * frontmatter references the given githubAccountId. Used by `remove()` to block
- * deletion when referenced. Cheap regex parse — fail-safe: a miss lets the
- * delete through, and resolveSpawnEnv treats a stale id as "no injection".
- */
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function findProjectsUsingAccount(githubAccountId: string): string[] {
-  if (!existsSync(PROJECTS_DIR)) return [];
-  const out: string[] = [];
-  let entries: string[] = [];
-  try {
-    entries = readdirSync(PROJECTS_DIR);
-  } catch {
-    return [];
-  }
-  for (const entry of entries) {
-    const projectMd = join(PROJECTS_DIR, entry, "project.md");
-    if (!existsSync(projectMd)) continue;
-    try {
-      const raw = readFileSync(projectMd, "utf-8");
-      const fm = raw.match(/^---\n([\s\S]*?)\n---/);
-      if (!fm) continue;
-      const pattern = new RegExp(`^githubAccountId:\\s*["']?${escapeRegExp(githubAccountId)}["']?\\s*$`, "m");
-      if (pattern.test(fm[1]!)) out.push(entry);
-    } catch {
-      // Unreadable — skip. Better to allow delete than block on garbled data.
-    }
-  }
-  return out;
-}

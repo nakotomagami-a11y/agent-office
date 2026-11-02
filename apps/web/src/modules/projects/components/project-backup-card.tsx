@@ -6,11 +6,11 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 
 export type ProjectBackupCardProps = {
-  projectName: string;
-  includeHistory: boolean;
-  onIncludeHistoryChange: (value: boolean) => void;
   onExport: () => void;
+  exportFileName: string;
   exportError: string | null;
+  /** Session-local: true once an export succeeded since the page mounted. */
+  exported: boolean;
   importing: boolean;
   importStatus: { ok: boolean; msg: string } | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -18,34 +18,35 @@ export type ProjectBackupCardProps = {
   onDropFile: (file: File) => void;
 };
 
-function OptionCheckbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+const TILE = "flex flex-col justify-center p-[16px] rounded-[16px] bg-card-2 min-w-0";
+
+function TileIcon({ src }: { src: string }) {
   return (
-    <label className="flex items-center gap-[9px] px-[12px] py-[9px] rounded-[11px] bg-card-2 border border-edge shadow-[var(--inset-hi)] cursor-pointer">
-      <input type="checkbox" className="hidden" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span
-        className={cn(
-          "flex items-center justify-center shrink-0 w-[16px] h-[16px] rounded-[4px] border",
-          checked ? "bg-acc text-white border-acc" : "border-edge-2 text-transparent",
-        )}
-      >
-        <Icon name="check" size={10} />
-      </span>
-      <span className="text-[12px] text-txt-2">{label}</span>
-    </label>
+    <span className="w-[64px] h-[64px] flex items-center justify-center shrink-0">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="max-w-full max-h-full object-contain [image-rendering:pixelated]" />
+    </span>
+  );
+}
+
+function TileText({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="flex-1 min-w-0 flex flex-col gap-[2px]">
+      <span className="text-[13.5px] font-bold whitespace-nowrap">{title}</span>
+      <span className="font-mono text-[10.5px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">{sub}</span>
+    </div>
   );
 }
 
 /**
- * Export/import card — a two-column real capability, not a mock: export
- * writes an `.agent-office.json` save file, import restores one via the
- * existing `importState` API.
+ * Export/import card: export writes an `.agent-office.json` save file, import restores one through
+ * `importState`. A file dragged anywhere over the card can be dropped to import.
  */
 export function ProjectBackupCard({
-  projectName,
-  includeHistory,
-  onIncludeHistoryChange,
   onExport,
+  exportFileName,
   exportError,
+  exported,
   importing,
   importStatus,
   fileInputRef,
@@ -54,10 +55,18 @@ export function ProjectBackupCard({
 }: ProjectBackupCardProps) {
   const t = useTranslations();
   const [dragging, setDragging] = useState(false);
+  const browse = () => {
+    if (!importing) fileInputRef.current?.click();
+  };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
     e.preventDefault();
-    setDragging(true);
+    if (!dragging) setDragging(true);
+  };
+  // dragleave also fires when the pointer moves onto a child; only leaving the card counts.
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
   };
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -67,83 +76,83 @@ export function ProjectBackupCard({
   };
 
   return (
-    <div className="rounded-[24px] surface-sheen shadow-[var(--lift)] p-[22px]">
-      <div className="flex items-center gap-[10px] mb-[18px]">
+    <div
+      onDragEnter={handleDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="relative rounded-[24px] surface-sheen shadow-[var(--lift)] px-[22px] py-[20px] flex flex-col gap-[16px]"
+    >
+      <div className="flex items-center gap-[12px]">
         <span className="text-[16px] font-bold whitespace-nowrap">Backup &amp; portability</span>
+        <span className="font-mono text-[11px] font-semibold px-[8px] py-[3px] rounded-full bg-card-3 text-txt-3 whitespace-nowrap">
+          {t(exported ? "project_detail.backup_status_exported" : "project_detail.backup_status_none")}
+        </span>
       </div>
-      <div className="flex flex-wrap gap-[22px]">
-        <div className="flex-1 min-w-[260px] flex flex-col gap-[14px]">
-          <div className="flex items-center gap-[13px]">
-            <span className="w-[44px] h-[44px] rounded-[13px] flex items-center justify-center shrink-0 text-white shadow-[0_10px_22px_-10px_rgba(139,123,255,0.75)] bg-[linear-gradient(150deg,var(--acc-cta),var(--acc-2))]">
-              <Icon name="download" size={19} />
-            </span>
-            <div className="flex-1 min-w-0 leading-tight">
-              <div className="text-[14.5px] font-bold whitespace-nowrap">{t("project_detail.save_card_title")}</div>
-              <div className="font-mono text-[10.5px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">
-                → {projectName}.agent-office.json
-              </div>
+
+      <div className="flex flex-wrap gap-[12px]">
+        <div className="flex-1 basis-[340px] min-w-0 flex flex-col gap-[8px]">
+          <div className={cn(TILE, "flex-1 border border-edge shadow-[var(--inset-hi)]")}>
+            <div className="flex items-center gap-[12px] min-w-0">
+              <TileIcon src="/icons/tome-backup.png" />
+              <TileText title={t("project_detail.save_card_title")} sub={`→ ${exportFileName}`} />
+              <button
+                type="button"
+                onClick={onExport}
+                className="shrink-0 h-[32px] px-[14px] flex items-center gap-[7px] border-none rounded-[10px] bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white font-[inherit] text-[12.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_12px_26px_-12px_rgba(139,123,255,.8)] transition-[filter] duration-150 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2"
+              >
+                <Icon name="download" size={13} />
+                {t("project_detail.save_export_button")}
+              </button>
             </div>
           </div>
-          <OptionCheckbox checked={includeHistory} onChange={onIncludeHistoryChange} label={t("project_detail.save_include_history")} />
-          <button
-            type="button"
-            onClick={onExport}
-            className="self-start flex items-center gap-[8px] px-[18px] py-[10px] rounded-[12px] border-none bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] text-white text-[12.5px] font-bold cursor-pointer whitespace-nowrap shadow-[0_12px_26px_-12px_rgba(139,123,255,0.8)] transition-transform duration-150 hover:-translate-y-[2px]"
-          >
-            <Icon name="download" size={13} /> {t("project_detail.save_export_button")}
-          </button>
-          {exportError && <span role="alert" className="text-[12px] text-red">{exportError}</span>}
+          {exportError && <p role="alert" className="m-0 px-[4px] text-[12px] leading-[1.5] text-red">{exportError}</p>}
         </div>
 
-        <span className="w-px self-stretch bg-edge" />
-
-        <div className="flex-1 min-w-[260px] flex flex-col gap-[14px]">
-          <div className="flex items-center gap-[13px]">
-            <span className="w-[44px] h-[44px] rounded-[13px] flex items-center justify-center shrink-0 text-cyan bg-[rgba(34,211,238,.14)]">
-              <Icon name="upload" size={19} />
-            </span>
-            <div className="flex-1 min-w-0 leading-tight">
-              <div className="text-[14.5px] font-bold whitespace-nowrap">Import project</div>
-              <div className="font-mono text-[10.5px] text-txt-4 overflow-hidden text-ellipsis whitespace-nowrap">
-                restore a .agent-office.json save file
-              </div>
-            </div>
-          </div>
+        <div className="flex-1 basis-[340px] min-w-0 flex flex-col gap-[8px]">
           <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
+            onClick={browse}
             className={cn(
-              "flex-1 flex flex-col items-center justify-center gap-[8px] p-[18px] rounded-[13px] bg-card-2 border border-dashed border-edge-2 text-txt-4 cursor-pointer transition-colors duration-150 hover:border-acc-line hover:text-acc hover:bg-acc-soft",
-              dragging && "border-acc-line text-acc bg-acc-soft",
+              TILE,
+              "flex-1 border border-dashed border-edge-2 cursor-pointer transition-all duration-150 hover:border-acc-line hover:bg-acc-soft",
+              importing && "cursor-progress",
             )}
           >
-            <span className="w-[32px] h-[32px] rounded-[10px] flex items-center justify-center bg-card-3">
-              <Icon name="upload" size={16} />
-            </span>
-            <span className="font-mono text-[11px] whitespace-nowrap">drop a save file, or click to browse</span>
+            <div className="flex items-center gap-[12px] min-w-0">
+              <TileIcon src="/icons/tome-import.png" />
+              <TileText title={t("project_detail.import_card_title")} sub={t("project_detail.import_card_sub")} />
+              <button
+                type="button"
+                disabled={importing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  browse();
+                }}
+                className="shrink-0 h-[32px] px-[14px] flex items-center gap-[7px] rounded-[10px] border border-edge-2 bg-card text-txt-2 font-[inherit] text-[12.5px] font-semibold cursor-pointer whitespace-nowrap transition-colors duration-150 hover:text-txt hover:border-txt-4 disabled:opacity-60 disabled:cursor-progress focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2"
+              >
+                <Icon name="folder" size={13} />
+                {importing ? t("common.loading") : t("project_detail.save_import_button")}
+              </button>
+            </div>
           </div>
           {importStatus && (
-            <span className={`text-[12px] ${importStatus.ok ? "text-green" : "text-red"}`}>{importStatus.msg}</span>
+            <p role={importStatus.ok ? "status" : "alert"} className={cn("m-0 px-[4px] text-[12px] leading-[1.5]", importStatus.ok ? "text-green" : "text-red")}>
+              {importStatus.msg}
+            </p>
           )}
-          <button
-            type="button"
-            disabled={importing}
-            onClick={() => fileInputRef.current?.click()}
-            className="self-start flex items-center gap-[8px] px-[16px] py-[9px] rounded-[11px] border border-edge-2 bg-card text-txt-2 text-[12.5px] font-semibold cursor-pointer whitespace-nowrap transition-colors duration-150 hover:text-txt hover:border-txt-4 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Icon name="folder" size={13} /> {importing ? t("common.loading") : t("project_detail.save_import_button")}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={onImportFile}
-          />
+          <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={onImportFile} />
         </div>
       </div>
+
+      {dragging && (
+        <div className="absolute inset-[6px] rounded-[19px] border-[1.5px] border-dashed border-acc bg-[color-mix(in_srgb,var(--acc)_14%,var(--card))] flex flex-col items-center justify-center gap-[10px] pointer-events-none animate-[aoFade_120ms_ease-out]">
+          <span className="w-[44px] h-[44px] rounded-[14px] flex items-center justify-center bg-acc text-white">
+            <Icon name="upload" size={20} />
+          </span>
+          <span className="text-[14px] font-bold">{t("project_detail.import_drop_title")}</span>
+          <span className="font-mono text-[10.5px] text-txt-3">{t("project_detail.import_drop_sub")}</span>
+        </div>
+      )}
     </div>
   );
 }

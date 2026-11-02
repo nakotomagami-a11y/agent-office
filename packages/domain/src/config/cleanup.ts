@@ -1,7 +1,6 @@
 // Cleanup-kind catalog — the reset operations exposed by /api/cleanup/<kind>.
 // Runtime const + derived type + guard together (mirrors config/run-errors).
 export const CLEANUP_KINDS = [
-  "transcripts",
   "drafts",
   "orphaned-runs",
   "agent-memory",

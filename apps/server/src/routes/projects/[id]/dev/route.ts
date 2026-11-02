@@ -52,20 +52,16 @@ export async function POST(req: Request, { params }: Params) {
   const command = (body.commandKey ? commands.find((c) => c.key === body.commandKey) : null) ?? commands[0];
   if (!command) return badRequest("no_dev_command");
 
-  const needsPort = command.portMode !== "device";
-  const port = needsPort ? await findFreePort(3001) : 0;
-  const argv = [...command.argv];
-  // "next" portMode uses the PORT env var (exported by spawnInTerminal) — appending
+  const port = await findFreePort(3001);
+  // The port reaches the command as the PORT env var (exported by spawnInTerminal): appending
   // `-- -p port` breaks Next.js ≥ v13, which treats `--` as a directory argument.
-  if (command.portMode === "flutter") argv.push("--web-port", String(port));
-
-  const pid = await spawnInTerminal(command.name, command.cwd ?? cwd, argv, needsPort ? port : null);
+  const pid = await spawnInTerminal(command.name, command.cwd ?? cwd, command.argv, port);
   if (pid === null) return serverError("terminal_start_failed");
 
   return Response.json({
     key: command.key,
-    port: needsPort ? port : null,
-    url: needsPort ? `http://localhost:${port}` : null,
+    port,
+    url: `http://localhost:${port}`,
     pid,
   });
 }

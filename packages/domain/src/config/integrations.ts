@@ -27,8 +27,6 @@ export const INTEGRATIONS = [
   },
 ] as const satisfies readonly IntegrationDef[];
 
-export type IntegrationId = (typeof INTEGRATIONS)[number]["id"];
-
 export function getIntegration(id: string): IntegrationDef | undefined {
   return INTEGRATIONS.find((i) => i.id === id);
 }

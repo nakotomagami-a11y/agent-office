@@ -1,0 +1,13 @@
+{
+  "pending": [
+    {
+      "id": "perm-1",
+      "runId": "run-live",
+      "tool": "Bash",
+      "input": {
+        "command": "rm -rf build"
+      },
+      "createdAt": 1767225600000
+    }
+  ]
+}

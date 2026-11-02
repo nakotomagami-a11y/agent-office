@@ -46,9 +46,9 @@ function dayStats(runs: PersistedRun[], day: string): DayStats {
   };
 }
 
-// V3 relabels the stat rail as "mana/gold/win-rate/time-in-field" — a
-// presentational skin over the same real metrics (tokens/cost/success/
-// duration), no new schema or persisted XP economy. See REDESIGN_V3_PLAN §D4.
+// The stat rail reads "mana/gold/win-rate/time-in-field": a presentational
+// skin over the same real metrics (tokens/cost/success/duration), with no new
+// schema or persisted XP economy.
 export function buildStatTiles(runs: PersistedRun[]): StatTile[] {
   const t = dayStats(runs, todayIso());
   const y = dayStats(runs, yesterdayIso());

@@ -39,11 +39,6 @@ export function formatWeekdayTime(value: number | Date): string {
   return formatter({ weekday: "short", hour: "2-digit", minute: "2-digit" }).format(value);
 }
 
-/** "10:30:45 AM" — locale time only. */
-export function formatTime(value: number | Date): string {
-  return formatter({ hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(value);
-}
-
 /** "just now" / "5m ago" / "3h ago" / "2d ago". */
 export function formatRelative(value: number | Date): string {
   const ms = typeof value === "number" ? value : value.getTime();
@@ -53,15 +48,4 @@ export function formatRelative(value: number | Date): string {
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
-}
-
-/** "Today" / "Yesterday" / "Jan 15, 2024". */
-export function formatDayLabel(value: number | Date): string {
-  const d = typeof value === "number" ? new Date(value) : value;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return formatter({ month: "short", day: "numeric", year: "numeric" }).format(d);
 }

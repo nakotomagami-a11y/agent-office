@@ -9,6 +9,8 @@ import { scrollMovesAnchor } from "@/lib/scroll-moves-anchor";
 /** Focus is in an open menu, or on the trigger of one: the menu owns Escape, Enter, Space, Tab and the arrows there. */
 export const OPEN_MENU_SELECTOR = "[role=menu], [aria-haspopup=menu][aria-expanded=true]";
 const ITEM_SELECTOR = "[role^=menuitem]";
+// Ends mid-row: a half-cut label is the only "it scrolls" cue where scrollbars are overlay-hidden.
+const MAX_MENU_H = 330;
 
 export type DropdownItem = {
   key: string;
@@ -36,9 +38,12 @@ export type DropdownMenuProps = {
   matchTriggerWidth?: boolean;
   /** The trigger button's accessible name, when its visible text alone doesn't say what it picks. */
   triggerAriaLabel?: string;
+  /** `"popover"`: the project page's roomier menu (pops in 6px below, rows slide right on hover). */
+  variant?: "default" | "popover";
 };
 
-export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className, matchTriggerWidth, triggerAriaLabel }: DropdownMenuProps) {
+export function DropdownMenu({ trigger, items, ariaLabel, align = "end", triggerClassName, className, matchTriggerWidth, triggerAriaLabel, variant = "default" }: DropdownMenuProps) {
+  const popover = variant === "popover";
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [style, setStyle] = useState<CSSProperties>({});
@@ -56,18 +61,19 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
     // Flip upward when there isn't room below the trigger (e.g. a dropdown at
     // the bottom of a modal), and cap the height to the available space so the
     // menu scrolls instead of spilling off-screen in either direction.
-    const menuH = items.length * 34 + 12; // fixed 34px rows + padding
+    const menuH = Math.min(items.length * 34 + 12, MAX_MENU_H); // fixed 34px rows + padding
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < menuH + 8 && rect.top > spaceBelow;
+    const gap = popover ? 6 : 4;
     setStyle({
       position: "fixed",
       ...(matchTriggerWidth ? { width: rect.width } : {}),
-      maxHeight: `${Math.max(120, (openUp ? rect.top : spaceBelow) - 12)}px`,
+      maxHeight: `${Math.min(MAX_MENU_H, Math.max(120, (openUp ? rect.top : spaceBelow) - 12))}px`,
       overflowY: "auto",
-      ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
       ...(align === "end" ? { right: window.innerWidth - rect.right } : { left: rect.left }),
     });
-  }, [open, align, items.length, matchTriggerWidth]);
+  }, [open, align, items.length, matchTriggerWidth, popover]);
 
   useEffect(() => {
     if (!open) return;
@@ -216,7 +222,11 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
             aria-label={ariaLabel}
             onKeyDown={onKey}
             onKeyUp={preventSpaceKeyUp}
-            className={cn("surface-sheen rounded-md shadow-[var(--lift)] p-1 z-[9999]", !matchTriggerWidth && "min-w-[180px]")}
+            className={cn(
+              "surface-sheen rounded-md shadow-[var(--lift)] p-1 z-[9999]",
+              !matchTriggerWidth && "min-w-[180px]",
+              popover && "rounded-[14px] p-[6px] animate-[aoPopIn_140ms_ease-out]",
+            )}
             style={style}
           >
             {items.map((item, i) => {
@@ -238,7 +248,9 @@ export function DropdownMenu({ trigger, items, ariaLabel, align = "end", trigger
                   // `--txt` reads correctly on the accent fill in both themes;
                   // `[&_*]` forces nested label spans/icons to inherit it too.
                   fillSelected && "bg-acc text-txt [&_*]:!text-txt",
-                  !fillSelected && i === activeIndex && "bg-bg-3 text-txt"
+                  !fillSelected && i === activeIndex && "bg-bg-3 text-txt",
+                  popover && "h-auto gap-[9px] px-[9px] py-[8px] rounded-[10px] text-[12.5px] font-semibold text-txt [transition:background-color_140ms_ease,padding_160ms_ease] active:bg-card-3",
+                  popover && !fillSelected && i === activeIndex && "bg-card-2 pl-[12px]",
                 )}
                 >
                   {checkIndicator ? (

@@ -1,8 +1,6 @@
 "use client";
 
 import { StatusDot } from "@/components/ui/status-dot";
-import { Button } from "@/components/ui/button";
-import { useCompareStore } from "@/lib/compare-store";
 import type { PersistedRun } from "@agent-office/domain/types";
 import { formatCost, formatDuration, formatRelative, runStatusToDotStatus } from "../format/format-run-meta";
 
@@ -11,8 +9,6 @@ export type RunRowProps = {
 };
 
 export function RunRow({ run }: RunRowProps) {
-  const openCompare = useCompareStore((s) => s.openWith);
-
   const status = runStatusToDotStatus(run.status);
 
   return (
@@ -41,21 +37,6 @@ export function RunRow({ run }: RunRowProps) {
         <span className="font-[var(--font-mono)] text-[11px] text-txt-3 min-w-[56px] text-right">
           {formatRelative(run.ts)}
         </span>
-      </div>
-
-      {/* Fork button - outside the link so click doesn't navigate */}
-      <div className="pr-3 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="opacity-0 transition-opacity duration-[120ms] group-hover:opacity-100 group-focus-within:opacity-100"
-          title="Fork run"
-          aria-label={`Fork run ${run.id}`}
-          onClick={() => openCompare(run.id)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/fork.png" alt="" width={16} height={16} className="shrink-0 object-contain" />
-        </Button>
       </div>
     </div>
   );

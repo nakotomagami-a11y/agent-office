@@ -26,7 +26,9 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { log } from "@agent-office/domain/services/infra/log";
 import { logEnvDiagnostics } from "./lib/env";
+import { resolveStarterDataDir } from "./lib/starter-data-dir";
 
 export interface BootOptions {
   /** False during `next build`: a build is not a server, so it neither advertises itself
@@ -46,23 +48,6 @@ export function forgetInheritedBaseUrl(env: NodeJS.ProcessEnv, ownBaseUrl: boole
 }
 
 const SKILLS_DIR = join(homedir(), ".claude", "agents", "_skills");
-
-function resolveStarterDataDir(): string | null {
-  const candidates: string[] = [];
-  if (process.env["AGENT_OFFICE_STARTER_DATA"]) {
-    candidates.push(process.env["AGENT_OFFICE_STARTER_DATA"]!);
-  }
-  candidates.push(join(process.cwd(), "starter-data"));
-  candidates.push(join(process.cwd(), "apps", "web", "starter-data"));
-  for (const c of candidates) {
-    try {
-      if (existsSync(c) && statSync(c).isDirectory()) return c;
-    } catch {
-      /* keep trying */
-    }
-  }
-  return null;
-}
 
 function isDir(p: string): boolean {
   try {
@@ -95,9 +80,9 @@ function readSeeded(skillsDir: string): Set<string> | null {
   try {
     const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
     if (Array.isArray(raw)) return new Set(raw.filter((n): n is string => typeof n === "string"));
-    console.warn("[starter-bootstrap] _seeded.json is not a list; rebuilding it");
+    log.warn("boot.seeded_marker_invalid", { reason: "not a list; rebuilding it" });
   } catch (err) {
-    console.warn("[starter-bootstrap] unreadable _seeded.json; rebuilding it (uninstalled bundled skills may return):", err);
+    log.warn("boot.seeded_marker_unreadable", { err: String(err), note: "rebuilding it; uninstalled bundled skills may return" });
   }
   return null;
 }
@@ -141,13 +126,13 @@ export function seedStarterSkills(skillsDir: string = SKILLS_DIR, starterDirOver
         skills += copyIn(from, join(skillsDir, name), join(skillsDir, `_seeding-${name}-${process.pid}`)) ? 1 : 0;
         seeded.add(name);
       } catch (err) {
-        console.warn(`[starter-bootstrap] could not seed ${name}; will retry next boot:`, err);
+        log.warn("boot.skill_seed_failed", { skill: name, err: String(err), note: "retried next boot" });
       }
     }
     if (!marker || seeded.size !== before) writeSeeded(skillsDir, seeded);
-    if (skills > 0) console.log(`[starter-bootstrap] seeded ${skills} skill(s)`);
+    if (skills > 0) log.info("boot.skills_seeded", { skills });
   } catch (err) {
-    console.warn("[starter-bootstrap] skipped:", err);
+    log.warn("boot.starter_skills_skipped", { err: String(err) });
   }
 }
 
@@ -166,10 +151,12 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     domainServices = await import("@agent-office/domain/services");
   } catch (err) {
-    console.warn("[domain-services] failed to load:", err);
+    log.error("boot.domain_services_failed", { err: String(err) });
     return;
   }
   const { projects, scheduler, settings, shellEnv, backgroundShellWatcher, discovery, db, missions, providers } = domainServices;
+  // Before anything can finish a run: chats, loops and mission seats act on a run's finish.
+  domainServices.runListeners.installRunListeners();
 
   // Before any run reads the selection: an install from before providers keeps its subscription.
   // Pins older than the 6 h prompt-file prune belong to dead runs; the run cap is 4 h, and another
@@ -178,7 +165,7 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     providers.sweepPinFiles(6 * 60 * 60_000);
   } catch (err) {
-    console.warn("[providers] pin sweep failed:", err);
+    log.warn("boot.pin_sweep_failed", { err: String(err) });
   }
   providers.startPriceRefresh();
 
@@ -191,7 +178,7 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
       try {
         discovery.writeDiscoveryFile(undefined, advertised);
       } catch (err) {
-        console.warn("[discovery] heartbeat failed:", err);
+        log.warn("boot.discovery_heartbeat_failed", { err: String(err) });
       }
     }, discovery.HEARTBEAT_MS).unref();
     process.once("exit", () => {
@@ -201,11 +188,11 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
       try {
         db.releaseLoopLeases();
       } catch (err) {
-        console.warn("[loops] could not release leases on exit:", err);
+        log.warn("boot.loop_lease_release_failed", { err: String(err) });
       }
     });
   } catch (err) {
-    console.warn("[discovery] failed to advertise this server:", err);
+    log.warn("boot.discovery_advertise_failed", { err: String(err) });
   }
 
   // Prime the terminal env mirror (~/.claude/agent-office/shell-env.sh) from
@@ -214,7 +201,7 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     shellEnv.writeActiveShellEnv(shellEnv.activeProjectIdFromTabs());
   } catch (err) {
-    console.warn("[shell-env] failed to prime:", err);
+    log.warn("boot.shell_env_prime_failed", { err: String(err) });
   }
 
   // Removes orphan .worktrees/ directories for projects whose roster no longer
@@ -222,7 +209,7 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     projects.reconcileAllWorktrees(settings.readSettings());
   } catch (err) {
-    console.warn("[worktree-reconcile] skipped:", err);
+    log.warn("boot.worktree_reconcile_skipped", { err: String(err) });
   }
 
   // Rate-limit auto-resume + scheduled tasks. A no-op if a previous HMR worker
@@ -230,7 +217,7 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     scheduler.startScheduler();
   } catch (err) {
-    console.warn("[scheduler] failed to start:", err);
+    log.warn("boot.scheduler_start_failed", { err: String(err) });
   }
 
   // Nudges an agent back into its conversation when a `run_in_background` Bash
@@ -238,12 +225,12 @@ export async function boot({ serve, ownBaseUrl = false }: BootOptions): Promise<
   try {
     backgroundShellWatcher.startBackgroundShellWatcher();
   } catch (err) {
-    console.warn("[background-shell-watcher] failed to start:", err);
+    log.warn("boot.background_shell_watcher_start_failed", { err: String(err) });
   }
   // Routes hub comments into the mission seats this device holds (docs/missions.md).
   try {
     missions.startMissionPoller();
   } catch (err) {
-    console.warn("[missions] failed to start:", err);
+    log.warn("boot.mission_poller_start_failed", { err: String(err) });
   }
 }

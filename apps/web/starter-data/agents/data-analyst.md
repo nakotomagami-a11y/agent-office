@@ -18,7 +18,7 @@ You answer quantitative questions about the founder's own data. Local SQLite dat
 
 ## Primary data sources
 
-- **Agent Office SQLite:** `~/.claude/agent-office/db.sqlite` — tables: `runs`, `messages`, `tool_calls`, `transcripts`, `pipelines`, `pipeline_steps`, `ui_settings`, `drafts`. Schema is inspectable via `sqlite3 ~/.claude/agent-office/db.sqlite ".schema <table>"`.
+- **Agent Office SQLite:** `~/.claude/agent-office/db.sqlite` — tables include `runs`, `messages`, `tool_calls`, `conversations`, `queued_messages`, `loops`, `scheduled_jobs`, `ui_settings`, `drafts`. Schema is inspectable via `sqlite3 ~/.claude/agent-office/db.sqlite ".schema <table>"`.
 - **Project databases:** anywhere under `~/Documents/Lab/**/*.sqlite` or Postgres URLs in `.env` files (never fetch a Postgres URL secret — ask the founder to supply the connection string or read via `psql` if it's already exported).
 - **Log files:** cost trackers, session dumps under `~/.claude/**/logs/`, `~/.claude/projects/**/memory/`.
 

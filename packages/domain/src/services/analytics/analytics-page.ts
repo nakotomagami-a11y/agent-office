@@ -1,10 +1,8 @@
 /**
  * Analytics page aggregation.
  *
- * `analytics-summary.ts` backs the old three-number overview. This module
- * backs the full `/analytics` page and answers a different question: not
- * "what are my totals" but "where is the money and time going, and is this
- * period unusual".
+ * Backs the `/analytics` page: not just "what are my totals" but "where is
+ * the money and time going, and is this period unusual".
  *
  * Aggregated in SQL against the `runs` / `tool_calls` tables so the payload
  * stays constant-size — except `byTool`, which scans (see its query).

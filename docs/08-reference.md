@@ -26,7 +26,7 @@ Everything Agent Office writes to disk is under `~/.claude/`. Nothing else, nowh
 │       └── _uploads/                  # Per-project file attachments
 │
 ├── agent-office/
-│   ├── db.sqlite                      # All runs, messages, transcripts
+│   ├── db.sqlite                      # Runs, messages, conversations, schedules
 │   ├── agent-manifest-version         # Last bundled roster version applied
 │   └── agent-manifest-skipped.json    # Per-version skip choices from the migration modal
 │
@@ -51,17 +51,15 @@ Agent Office can export a project as a self-contained JSON file. This captures e
 |---|---|
 | Project metadata | `id`, meta (name, description, cwd, roster), memory body |
 | Agent definitions | Full `.md` file content + per-agent memory for each rostered agent (deduplicated) |
-| Conversation history | Optional — pass `?history=1` to include transcripts for all roster instances |
 
 ### What is NOT exported
 
-The SQLite database (`db.sqlite`) is not included. Run records, token usage, and cost history stay on the originating machine.
+The SQLite database (`db.sqlite`) is not included. Conversations, run records, token usage, and cost history stay on the originating machine. A save file from an older version that carries `history` still imports; the history is ignored.
 
 ### Export
 
 ```bash
 GET /api/save/export?projectId=<id>
-GET /api/save/export?projectId=<id>&history=1   # include transcripts
 
 # Response: JSON attachment named "<project-slug>-agent-office.json"
 ```
@@ -78,7 +76,7 @@ Content-Type: application/json
 
 ### Cross-machine migration
 
-1. **Export on source machine** — `GET /api/save/export?projectId=<id>&history=1` — save the JSON file.
+1. **Export on source machine** — `GET /api/save/export?projectId=<id>` — save the JSON file.
 2. **Copy to destination** — transfer the JSON file to the target machine (scp, USB, cloud storage).
 3. **Import on destination** — `POST /api/save/import`. Agents, project metadata and memory files are restored. Run the first-run wizard first if it is a fresh install.
 
@@ -92,17 +90,13 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 |---|---|---|
 | `GET` | `/api/agents` | List all agent definitions |
 | `POST` | `/api/agents` | Create agent (body: `agentBodySchema`) |
-| `POST` | `/api/agents/bulk` | Bulk-create agents |
 | `GET` | `/api/agents/:id` | Get agent frontmatter |
 | `PUT` | `/api/agents/:id` | Update an existing agent (404 if missing); only the keys sent change; a changed body is snapshotted |
 | `DELETE` | `/api/agents/:id` | Delete agent and its sessions (`?work=keep` or `discard`); its files are copied to `backups/agents/` first |
 | `GET` | `/api/agents/:id/body` | Raw markdown body (text/plain) |
-| `GET` | `/api/agents/:id/body/history` | List body backup snapshots |
-| `GET` | `/api/agents/:id/body/history/:filename` | Read one snapshot |
 | `GET` | `/api/agents/:id/memory` | Per-agent memory file |
 | `PUT` | `/api/agents/:id/memory` | Write per-agent memory (max 256 KB) |
 | `GET` | `/api/agents/:id/prompts` | Recent prompts for agent |
-| `POST` | `/api/agents/:id/prompts` | Push a recent prompt |
 | `GET` | `/api/agents/:id/uploads` | List agent uploads |
 | `POST` | `/api/agents/:id/uploads` | Upload file (multipart/form-data) |
 | `GET` | `/api/agents/:id/uploads/:filename` | Download agent upload |
@@ -122,13 +116,14 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 |---|---|---|
 | `POST` | `/api/summon` | Spawn `claude` subprocess for one agent |
 | `GET` | `/api/runs` | List runs (`?agent=&project=&instance=&limit=`) |
-| `DELETE` | `/api/runs` | Delete all runs for an agent (`?agent=`) |
 | `GET` | `/api/runs/:id` | Get single run |
 | `GET` | `/api/runs/:id/stream` | SSE stream — live or replay finished |
 | `POST` | `/api/runs/:id/abort` | SIGKILL the claude subprocess |
-| `POST` | `/api/runs/abort-all` | Bulk-abort every in-flight run |
-| `GET` | `/api/runs/:id/children` | Direct sub-agent runs (one level deep) |
 | `GET` | `/api/runs/:id/tree` | Full parent→child run hierarchy |
+| `POST` | `/api/runs/:id/permission` | From the MCP permission bridge: park a tool call until the user answers |
+| `PATCH` | `/api/runs/:id/permission` | From the chat: answer a parked request |
+| `GET` | `/api/runs/:id/permission` | Requests still parked for this run (recovery after a reload) |
+| `GET` | `/api/events` | App-wide SSE stream of coarse domain events (see "App-wide events" below) |
 
 ### Projects
 
@@ -140,29 +135,52 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 | `GET` | `/api/projects/:id` | Get project + run stats |
 | `PUT` | `/api/projects/:id` | Update project metadata |
 | `DELETE` | `/api/projects/:id` | Delete project |
+| `DELETE` | `/api/projects/:id/folder` | Delete the project's folder from disk and its metadata (`?path=` must be the folder the id names under the projects root) |
 | `GET` | `/api/projects/:id/memory` | Project memory |
 | `PUT` | `/api/projects/:id/memory` | Write project memory (max 256 KB) |
-| `GET` | `/api/projects/:id/roster` | List rostered instances |
-| `POST` | `/api/projects/:id/roster` | Add agent instance |
+| `POST` | `/api/projects/:id/roster` | Add agent instance (typed 409 at the instance cap) |
+| `DELETE` | `/api/projects/:id/roster` | Remove every instance (reset; `?work=keep\|discard`) |
 | `GET` | `/api/projects/:id/roster/:instanceId` | Get instance + USD spend |
 | `PATCH` | `/api/projects/:id/roster/:instanceId` | Update instance settings |
 | `DELETE` | `/api/projects/:id/roster/:instanceId` | Remove instance (cleans worktree) |
 | `POST` | `/api/projects/:id/roster/:instanceId/repair-worktree` | Regenerate a broken worktree |
 | `GET` | `/api/projects/:id/spend` | USD spend breakdown by instance |
 | `GET` | `/api/projects/:id/git-status` | Git branch/diff/ahead/behind |
+| `GET` | `/api/projects/:id/dev` | Detected dev commands |
 | `POST` | `/api/projects/:id/dev` | Spawn dev server in terminal |
+| `GET` | `/api/projects/:id/build` | Whether a build command is detectable |
 | `POST` | `/api/projects/:id/build` | Run build script in terminal |
 | `POST` | `/api/projects/:id/install` | Run package manager install |
 | `POST` | `/api/projects/:id/clear-cache` | Wipe `.next/`, `dist/`, `.turbo/` |
 | `POST` | `/api/projects/:id/open-folder` | Open project directory in the OS file manager, or VS Code with `?app=code` |
 | `GET` | `/api/projects/:id/uploads` | List project uploads |
 | `POST` | `/api/projects/:id/uploads` | Upload file for project |
+| `GET` | `/api/projects/:id/uploads/:filename` | Download project upload |
 
-### Broadcast
+### Conversations
+
+Server-authoritative chat threads, one per (agent, instance) slot — see `docs/chat-refactor.md`.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/broadcast` | Fan-out prompt to all roster instances (202) |
+| `GET` | `/api/conversations?agentId=&instanceId=` | The slot's current conversation, or null |
+| `POST` | `/api/conversations` | Get or create the slot's current conversation `{ agentId, instanceId?, projectId? }` |
+| `POST` | `/api/conversations/:id/messages` | Send a message `{ text }`: starts a turn when idle, queues it otherwise |
+| `POST` | `/api/conversations/:id/new` | New thread for the same slot, with a fresh session; the old one is kept |
+| `POST` | `/api/conversations/:id/resume` | `needs_attention`: continue the session as a new turn |
+| `POST` | `/api/conversations/:id/retry` | `needs_attention`: re-run the prompt that failed |
+| `POST` | `/api/conversations/:id/skip` | `needs_attention`: drop the failed turn and move to the next queued message |
+| `DELETE` | `/api/conversations/:id/queue` | Clear the pending queue |
+| `DELETE` | `/api/conversations/:id/queue/:messageId` | Remove one queued message |
+
+### Loops
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/loops?projectId=&instanceId=` | That seat's latest loop, or null |
+| `POST` | `/api/loops` | Start a loop; its ceilings are validated here |
+| `GET` | `/api/loops/:id` | Current state (reconciles a stale active run first) |
+| `PATCH` | `/api/loops/:id` | The user's interventions |
 
 ### Schedules
 
@@ -189,7 +207,8 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/settings` | Read app settings |
-| `PUT` | `/api/settings` | Write app settings |
+| `PUT` | `/api/settings` | Replace the core app settings |
+| `PATCH` | `/api/settings` | Merge a partial update |
 | `GET` | `/api/settings/scan` | Scan filesystem for projects (`?root=&excluded=`) |
 | `GET` | `/api/ui-settings` | All UI settings from SQLite |
 | `PATCH` | `/api/ui-settings` | Write allowed UI settings |
@@ -200,16 +219,21 @@ Scheduled work — manual timed tasks and rate-limit auto-resume. See [Schedules
 |---|---|---|
 | `GET` | `/api/skills/installed` | List installed skills |
 | `GET` | `/api/skills/manifest` | Flat manifest of installed skills (name, description, category, cost tier) |
-| `GET` | `/api/skills/compatibility` | Skill-vs-skill conflict data (powers the warning UI) |
 | `GET` | `/api/skills/icons` | Resolve icons for skills |
+| `POST` | `/api/skills/icons` | Set a skill's icon |
 | `POST` | `/api/skills/install` | Install skill from GitHub |
+| `POST` | `/api/skills/create` | Forge, edit or fork a local skill |
+| `POST` | `/api/skills/import` | Import a skill from pasted `SKILL.md` text |
 | `GET` | `/api/skills/registry` | Fetch skill registry (`?refresh=1` to bypass cache) |
 | `GET` | `/api/skills/updates` | Check installed skills for updates |
 | `GET` | `/api/skills/sources` | List registry sources |
-| `POST` | `/api/skills/sources` | Add / remove registry sources |
+| `POST` | `/api/skills/sources` | Add a registry source |
+| `DELETE` | `/api/skills/sources` | Remove a registry source (`?source=&ref=`) |
 | `GET` | `/api/skills/:name` | Get single installed skill |
 | `DELETE` | `/api/skills/:name` | Uninstall skill |
 | `POST` | `/api/skills/:name/update` | Update skill to latest SHA |
+| `GET` | `/api/skills/:name/customization` | The skill's `##` sections and which are switched off |
+| `PUT` | `/api/skills/:name/customization` | Replace the switched-off set (applies wherever the skill is used) |
 
 ### Missions
 
@@ -228,32 +252,23 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 | `POST` | `/api/missions/:id/leave` | Give up a seat this device holds |
 | `POST` | `/api/missions/:id/cap` | Raise this device's spend cap for a seat |
 
-### Prompts & drafts
+### Drafts
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/prompts` | Recent prompts across all agents (autocomplete history) |
 | `GET` | `/api/drafts` | Read drafts (per-agent, per-instance) |
 | `PUT` | `/api/drafts` | Write / update a draft |
-| `DELETE` | `/api/drafts` | Clear a draft |
-
-### Transcripts
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/transcripts` | Direct transcript listing (bypasses run scoping) |
 
 ### Save / import / starter
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/save/export` | Export project save file (`?projectId=&history=1`) |
+| `GET` | `/api/save/export` | Export project save file (`?projectId=`) |
 | `POST` | `/api/save/import` | Import project save file |
 | `GET` | `/api/starter/agents` | List bundled starter agents |
 | `POST` | `/api/starter/agents` | Import selected starter agents |
 | `GET` | `/api/starter/agent-diff` | Diff bundled MANIFEST vs installed (used by migration modal) |
 | `POST` | `/api/starter/agent-diff` | Apply accept / skip choices + stamp version |
-| `GET` | `/api/templates` | List agent creation templates |
 
 ### Docs
 
@@ -261,7 +276,6 @@ Agents on several devices coordinating through a GitHub draft PR — see `docs/m
 |---|---|---|
 | `GET` | `/api/docs/content` | Docs tab config (from `_index.json`) |
 | `GET` | `/api/docs/content?file=<f>` | Raw markdown body of one docs file |
-| `GET` | `/api/docs/export` | Bundle all docs pages as a single export |
 
 ### Account & clipboard
 
@@ -301,6 +315,34 @@ Agents run on the one provider chosen here: `subscription`, `anthropic_api`, `op
 | `POST` | `/api/gateway/v1/messages` | The agents' gateway for every provider but `subscription`. Accepts only a running agent's per-run token; no UI calls it |
 | `POST` | `/api/gateway/v1/messages/count_tokens` | Always 404, so the CLI counts locally |
 
+### Secrets
+
+Named environment variables injected into runs of the projects they are attached to. Values are encrypted at rest and never returned.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/secrets` | List secrets (no values) |
+| `POST` | `/api/secrets` | Create a secret |
+| `PATCH` | `/api/secrets/:id` | Update a secret |
+| `DELETE` | `/api/secrets/:id` | Delete a secret |
+| `POST` | `/api/secrets/:id/test` | Run its test command with the secret in env (`{ skipped: true }` without one) |
+| `GET` | `/api/projects/:id/secrets` | Secrets attached to a project (no values) |
+| `POST` | `/api/projects/:id/secrets` | Attach a secret to a project (idempotent) |
+| `DELETE` | `/api/projects/:id/secrets/:secretId` | Detach it; the secret stays for other projects |
+
+### Pull-request review (the Review Lectern)
+
+Runs `gh` as the project's GitHub identity — see `docs/minecraft-review-lectern.md`. Errors are `{ error, hint, detail? }`.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/projects/:id/reviews` | The project's open pull requests |
+| `GET` | `/api/projects/:id/reviews/:number` | One PR: parsed diff, checks, notes, and the seat its feedback goes to |
+| `POST` | `/api/projects/:id/reviews/:number/review` | Submit one review (verdict, body, line comments) and tell the agent |
+| `POST` | `/api/projects/:id/reviews/:number/merge` | Squash-merge the reviewed head (checks must be green) |
+| `POST` | `/api/projects/:id/reviews/:number/reject` | Close the PR unmerged (branch kept) with a reason |
+| `PUT` | `/api/projects/:id/reviews/:number/link` | Pick the roster seat that gets this PR's feedback |
+
 ### GitHub accounts
 
 | Method | Path | Description |
@@ -315,7 +357,6 @@ Agents run on the one provider chosen here: `subscription`, `anthropic_api`, `op
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/analytics/summary` | Aggregate spend / runs / runtime for a period; `unknownCostRuns` counts runs whose cost is unknown and left out of the spend |
 | `GET` | `/api/analytics/page` | Full analytics-page payload (trend, rankings, tools, heatmap); `totals.unknownCostRuns` as above |
 | `GET` | `/api/analytics/per-account` | Usage split by connected Claude account |
 
@@ -334,8 +375,14 @@ Agents run on the one provider chosen here: `subscription`, `anthropic_api`, `op
 |---|---|---|
 | `GET` | `/api/health` | Claude CLI availability check (`?force=1` to bypass cache) |
 | `POST` | `/api/cleanup/:kind` | Sweep stored data by kind (e.g. reaped error runs, orphaned records) |
-| `POST` | `/api/dev/seed` | (dev-only) Seed dev data |
-| `POST` | `/api/dev/backfill-planets` | (dev-only) Backfill planet icons for existing projects |
+| `GET` | `/api/power` | Is the machine on AC or battery (`{ onAc: null }` where the OS exposes no power supply) |
+| `GET` | `/api/generated-images?name=&since=` | Which images of one `imggen` job exist so far |
+| `GET` | `/api/generated-images/:date/:filename` | Serve one image `imggen` wrote |
+| `GET` | `/api/dev/seed` | (dev-only) Seed status |
+| `POST` | `/api/dev/seed` | (dev-only) Seed the showcase world or run db maintenance |
+| `GET` | `/api/dev/loop-ids` | (dev-only) Ids of recorded loops, for the `/dev/loop` harness |
+| `GET` | `/api/dev/planet-gallery` | (dev-only) The planet gallery's working set |
+| `PUT` | `/api/dev/planet-gallery` | (dev-only) Save it |
 
 ## SSE event reference
 
@@ -354,7 +401,7 @@ data: <json>
 | `tool-done` | `runId, toolUseId, ts, backgrounded?` | That call's result arrived, or its run ended without one |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message usage update and final result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Process exit — run finalised in SQLite |
-| `error` | `runId, message` | Spawn error, rate limit, or `is_error` result |
+| `error` | `runId, code, detail?, interrupted?, remediation` | Spawn error or `is_error` result. `code` is a `RunErrorCode`; `remediation` is the agent-facing fix for it |
 
 ### Replay behaviour
 
@@ -455,15 +502,10 @@ Indexed by `(status, fire_at)` for the scheduler's due-job scan.
 
 Chat-format history. One row per assistant / user message. Full-text-indexed via `messages_fts`.
 
-### `pipelines` & `pipeline_steps`
-
-Unused: left by an earlier version's migrations.
-
 ### Other tables
 
 - `tool_calls` — one row per tool_use content block
-- `transcripts` — legacy per-`tKey` (`<agentId>::<instanceId>`) chat state row (full thread items, `active_run_id`, `session_id`, `updated_at`). Superseded by `conversations` + `queued_messages` (below) — migration v14 backfilled one `conversations` row per pre-existing slot.
-- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`.
+- `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v31 emptied that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`. The empty tables stay until no installed build reads them.
 - `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
 - `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
 - `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.
@@ -602,16 +644,13 @@ Client-only state stores (persisted where noted):
 | `use-summon-store` | in-memory | Per-instance chat state — message queue, streaming buffers |
 | `active-project-store` | server via `ui_settings.active-project` | Currently-active project slug — mirrored from the active tab by `tabs-router-sync` |
 | `tabs-store` | server via `ui_settings.tabs-state` | Open project tabs, active tab, closed-tab LRU stack (Chrome-style shell) |
-| `chat-state-registry` | in-memory (per-`tKey`) | Preserves thread, active run id, session id, queued messages, composer seed, phase override, context profile, transcript-loaded flag, run splice index — so switching project tabs doesn't wipe the conversation. Cold-loaded from the `transcripts` table on first mount. |
 | `run-stream-registry` | in-memory (per run id) | Keeps SSE `EventSource` connections alive across component unmount so runs streaming in a tab you left don't drop tokens. |
 | `theme-store` | server via `ui_settings.theme` | `light` \| `dark` |
 | `performance-store` | server via `ui_settings.performance-mode` | `full` \| `lite` \| `off` |
 | `claude-limits-store` | server via `ui_settings.claude-limits` | Spend-cap config |
-| `compare-store` | localStorage | Runs selected for compare across route transitions |
 | `dev-server-store` | in-memory | Dev server states per project |
 | `branch-store` | in-memory | Cached git branch per project |
 | `draft-store` | server via `/api/drafts` | Composer drafts (per agent + instance) |
-| `transcript-store` | in-memory | Current transcript playback state |
 | `processes-store` | in-memory | Processes panel snapshot |
 
 ### Dev-only tools

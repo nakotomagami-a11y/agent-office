@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useRefresh } from "@/hooks/use-refresh";
+import { HEADER_ICON_BTN } from "./header-button";
 
 /**
  * Titlebar refresh affordance — the in-app equivalent of the browser's
@@ -22,17 +23,12 @@ export function RefreshButton() {
   const tooltip = t("titlebar.refresh_tooltip");
 
   return (
-    <Tooltip content={tooltip} side="bottom" delayMs={400}>
-      <button
-        type="button"
-        onClick={refresh}
-        aria-label={label}
-        className="h-[24px] w-[24px] inline-flex items-center justify-center bg-transparent border border-transparent rounded-sm text-txt-2 cursor-pointer hover:bg-bg-2 hover:border-line disabled:opacity-60"
-      >
+    <Tooltip content={tooltip} side="bottom" delayMs={400} className="shrink-0">
+      <button type="button" onClick={refresh} aria-label={label} className={HEADER_ICON_BTN}>
         <Icon
           name="refresh"
-          size={13}
-          className={refreshing ? "[animation:spin_0.7s_linear]" : undefined}
+          size={16}
+          className={refreshing ? "[animation:spin_0.7s_linear]" : "transition-transform duration-300 ease-out group-hover:rotate-45"}
         />
       </button>
     </Tooltip>

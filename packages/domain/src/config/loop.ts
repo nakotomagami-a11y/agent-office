@@ -12,7 +12,6 @@ export const GENERAL_LOOP_RULES = [
   "general.performance",
   "general.maintainability",
 ] as const;
-export type GeneralLoopRule = (typeof GENERAL_LOOP_RULES)[number];
 
 /** A turn that called one of these changed files, so it has work to review. */
 export const FILE_EDIT_TOOLS = ["Edit", "MultiEdit", "Write", "NotebookEdit"] as const;

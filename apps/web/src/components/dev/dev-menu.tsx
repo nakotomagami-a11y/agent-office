@@ -7,6 +7,8 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 import { ACCENT_BTN } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
+import { HEADER_ICON_BTN } from "@/components/layout/header-button";
 import { getDbStats, runSeed, type DbStats, type SeedAction } from "@/lib/api/dev-seed";
 import { usePerformanceStore, type PerformanceMode } from "@/lib/performance-store";
 import { useFpsMeterStore } from "@/lib/fps-meter-store";
@@ -367,14 +369,11 @@ export function DevMenu() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="h-[24px] px-[10px] inline-flex items-center gap-[6px] bg-transparent border border-transparent rounded-sm text-txt-2 font-[inherit] text-[12.5px] cursor-pointer hover:bg-bg-2 hover:border-line"
-      >
-        <Icon name="terminal" size={12} />
-        Dev
-      </button>
+      <Tooltip content="Dev" side="bottom" className="shrink-0">
+        <button type="button" onClick={() => setOpen(true)} aria-label="Dev" className={HEADER_ICON_BTN}>
+          <Icon name="terminal" size={16} className="transition-transform duration-300 ease-out group-hover:scale-110" />
+        </button>
+      </Tooltip>
 
       {fpsEnabled ? <FpsMeter /> : null}
 

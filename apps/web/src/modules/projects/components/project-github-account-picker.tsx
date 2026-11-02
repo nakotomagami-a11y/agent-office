@@ -1,14 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/ui/icon";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { PAGE_ROUTES } from "@/lib/page-routes";
 import { useGithubAccounts } from "@/modules/github-accounts/hooks/use-github-accounts";
 import { useUpdateProject } from "../hooks/use-projects";
 import { EnvControlTrigger, ENV_CONTROL_TRIGGER, type EnvIcon } from "./env-control";
 
-const GITHUB_ICON: EnvIcon = { src: "/icons/github.png", alt: "" };
+const GITHUB_ICON: EnvIcon = { src: "/icons/github-rune.png", alt: "" };
 
 /**
  * Per-project GitHub-account control — a button in the project Environment bar.
@@ -41,7 +40,7 @@ export function ProjectGithubAccountPicker({
   };
 
   const accessory = activeAccount?.username ? (
-    <span className="text-[11px] text-txt-3 font-[var(--font-mono)] shrink-0">
+    <span className="text-[11px] text-txt-3 font-mono shrink-0">
       @{activeAccount.username}
     </span>
   ) : undefined;
@@ -63,11 +62,9 @@ export function ProjectGithubAccountPicker({
     selected: a.id === activeId,
     indicatorStyle: "check",
     label: (
-      <span className="flex items-center gap-[8px]">
-        <span>{a.label}</span>
-        {a.username ? (
-          <span className="text-txt-3 font-[var(--font-mono)] text-[10.5px]">@{a.username}</span>
-        ) : null}
+      <span className="flex-1 flex items-center gap-[9px] min-w-0">
+        <span className="truncate">{a.label}</span>
+        {a.username ? <span className="text-txt-3 font-mono font-normal text-[10.5px] truncate">@{a.username}</span> : null}
       </span>
     ),
     onSelect: () => handleChange(a.id),
@@ -75,8 +72,9 @@ export function ProjectGithubAccountPicker({
   items.push({
     key: "__settings",
     label: (
-      <span className="flex items-center gap-[6px] text-txt-2">
-        <Icon name="settings" size={12} /> Manage GitHub accounts…
+      <span className="flex items-center gap-[6px] text-txt-3 font-medium">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/cog.png" alt="" width={16} height={16} className="shrink-0 w-[16px] h-[16px] object-contain" /> Manage GitHub accounts…
       </span>
     ),
     onSelect: () => router.push(PAGE_ROUTES.settings),
@@ -90,6 +88,7 @@ export function ProjectGithubAccountPicker({
       trigger={trigger}
       items={items}
       matchTriggerWidth
+      variant="popover"
     />
   );
 }

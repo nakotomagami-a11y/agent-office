@@ -12,10 +12,7 @@ class ClipboardTooLarge extends Error {}
 
 function wlPasteAsync(): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const child = spawn("wl-paste", ["--no-newline", "-t", "image/png"], {
-      timeout: 3000,
-      env: process.env,
-    });
+    const child = spawn("wl-paste", ["--no-newline", "-t", "image/png"], { timeout: 3000 });
 
     // Cap the read: a large clipboard image (or a compositor offering a huge
     // image/png) otherwise buffers unbounded, and Buffer.concat doubles peak.

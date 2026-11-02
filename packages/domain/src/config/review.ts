@@ -16,8 +16,6 @@ export const REVIEW_ERROR_CODES = [
   "seat_not_found",
 ] as const;
 export type ReviewErrorCode = (typeof REVIEW_ERROR_CODES)[number];
-export const isReviewErrorCode = (v: unknown): v is ReviewErrorCode =>
-  typeof v === "string" && (REVIEW_ERROR_CODES as readonly string[]).includes(v);
 
 /** RULE errors.machine-codes: every code says what fixes it. */
 export const REVIEW_ERROR_REMEDIATION: Record<ReviewErrorCode, string> = {

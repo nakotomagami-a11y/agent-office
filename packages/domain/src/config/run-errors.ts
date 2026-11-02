@@ -71,9 +71,3 @@ export const RUN_ERROR_REMEDIATION: Record<RunErrorCode, string> = {
 export function isInterruptionCode(code: RunErrorCode): boolean {
   return code === "stopped" || code === "server_restart";
 }
-
-/** Agent-facing fix for a code, or undefined when the code is unknown. */
-export function remediationFor(code: string): string | undefined {
-  return isRunErrorCode(code) ? RUN_ERROR_REMEDIATION[code] : undefined;
-}
-

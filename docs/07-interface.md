@@ -10,7 +10,7 @@ This page is long. Here's the lay of the land — every section below, grouped:
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
 - **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
 - **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface) · [Search](#/interface)
-- **Modals & panels** — [Compare runs](#/interface) · [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
+- **Modals & panels** — [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
 
 ## Layout — the app window shell
@@ -163,17 +163,6 @@ For work across devices or days: several agents, on several machines, coordinati
 - **Start / Join** — the **Missions** button in the composer toolbar (`Ctrl+P`, inside a project chat). *Start* opens the hub with a coordinator seat on this device; *Join* lists the project's open missions, and *Claim* takes a seat on this device. The lead accepts every claim.
 - **The pill** — a mission chat shows a pill in its header: seats and their devices, claims and questions waiting on you, this device's spend per seat (*Allow +$5*), *Leave*, and for the lead *Pause / Resume / Close*. It turns red if routing stopped because the hub's history changed.
 
-## Compare runs modal
-
-Select 2 or more runs from the History tab, then click **Compare**. Opens a side-by-side view:
-
-- Left column — Run A
-- Right column — Run B
-- Deltas — cost, tokens, duration, exit code, tool calls
-- Diff view of prompt + output for quick visual comparison
-
-Useful for A/B testing model choices or reproducing a regression.
-
 ## Usage & spend modal
 
 Toolbar → ⚡ icon opens the usage & spend modal. It's read-only analytics — it
@@ -245,6 +234,10 @@ Sweep stored data by kind (e.g. reaped error runs) via `POST /api/cleanup/:kind`
 ### Multi-instance feature flag
 
 `AppSettings.features.multiInstance` (optional, defaults off) toggles whether an agent can be dropped onto the same project more than once. Enable to unlock the multi-instance workflow (per-instance labels, worktrees, chat panels).
+
+### Session names
+
+Each session of an agent gets a stable name (*Elda*, *Tamsin*, …) instead of "Session 2": picked from a fixed pool by its instance id and unique among the project's pool names, and replaced by your own label when you rename it. It holds while the roster does; removing a session, or giving another one its name as a label, can move a session whose pick collided onto the next free name. Next to it the sidebar and the conversation header show the session's **topic**, the first sentence of the first prompt you wrote in its current conversation; *New* starts a fresh topic. Both are computed when the project is read (`packages/domain/src/config/session-names.ts`) and never stored.
 
 ## Bootstrap Project modal (`/projects` → New Project)
 

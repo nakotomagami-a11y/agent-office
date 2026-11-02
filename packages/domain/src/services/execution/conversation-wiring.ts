@@ -1,7 +1,7 @@
 /**
- * Side-effect module: connects the run engine to the conversation service.
- * Importing this file registers the listener that drives the conversation
- * queue's auto-advance — this is the ONLY place that happens.
+ * Connects the run engine to the conversation service: `installConversationWiring`
+ * registers the listener that drives the conversation queue's auto-advance —
+ * this is the ONLY place that happens.
  *
  * Deliberately kept separate from `runs.ts` (which must not import this file,
  * or `conversation.ts`, or `summon-run.ts` — `summon-run.ts` already imports
@@ -9,10 +9,8 @@
  * would be a cycle). `runs.ts` only exposes a plain callback registry
  * (`registerRunFinishedListener`); this module is what actually connects it.
  *
- * Loaded for its side effect from the services barrel (`services/index.ts`),
- * so anything that imports `@agent-office/domain/services` — which every API
- * route does — guarantees this wiring is installed before a request can reach
- * `startSummonRun`.
+ * Installed by `installRunListeners` (run-listeners.ts), which every server's
+ * `boot()` calls before it serves runs.
  */
 import { registerRunFinishedListener } from "./runs";
 import { onRunFinished } from "./conversation";
@@ -30,7 +28,8 @@ declare global {
   var __agentOfficeConversationWiringInstalled: boolean | undefined;
 }
 
-if (!globalThis.__agentOfficeConversationWiringInstalled) {
+export function installConversationWiring(): void {
+  if (globalThis.__agentOfficeConversationWiringInstalled) return;
   registerRunFinishedListener((runId, ok, sessionId) => {
     void onRunFinished(runId, ok, sessionId, productionConversationRunner).catch((err) => {
       log.error("conversation.on_run_finished_failed", { runId, err: String(err) });

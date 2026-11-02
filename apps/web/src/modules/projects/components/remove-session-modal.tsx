@@ -8,20 +8,29 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import { sessionConflictOf, type SessionAtRisk, type SessionConflict } from "@/lib/api/roster";
 import { useRemoveInstance } from "../hooks/use-projects";
 
+type RemovalT = ReturnType<typeof useTranslations>;
+
+/** What is at stake in one session ("3 uncommitted changes · 1 commit on no other branch"). */
+export const sessionStakes = (t: RemovalT, s: SessionAtRisk): string =>
+  [
+    s.uncommitted ? t("uncommitted", { count: s.uncommitted }) : null,
+    s.unmerged ? t("unmerged", { count: s.unmerged }) : null,
+    s.unknown ? t("unknown") : null,
+  ].filter(Boolean).join(" · ");
+
+/** The sentence that opens a refusal: sessions still running, work at stake, or git's refusal. */
+export const sessionConflictLead = (t: RemovalT, conflict: SessionConflict): string => {
+  const count = conflict.sessions.length;
+  return conflict.code === "session_running" ? t("running", { count })
+    : conflict.code === "session_has_work" ? t("has_work", { count })
+    : t("remove_failed", { count });
+};
+
 /** What a refused removal is about, session by session: the running ones, the work at stake, or git's refusal. */
 export function SessionConflictNotice({ conflict }: { conflict: SessionConflict }) {
   const t = useTranslations("session_removal");
-  const count = conflict.sessions.length;
-  const stakes = (s: SessionAtRisk) =>
-    [
-      s.uncommitted ? t("uncommitted", { count: s.uncommitted }) : null,
-      s.unmerged ? t("unmerged", { count: s.unmerged }) : null,
-      s.unknown ? t("unknown") : null,
-    ].filter(Boolean).join(" · ");
-  const lead =
-    conflict.code === "session_running" ? t("running", { count })
-    : conflict.code === "session_has_work" ? t("has_work", { count })
-    : t("remove_failed", { count });
+  const stakes = (s: SessionAtRisk) => sessionStakes(t, s);
+  const lead = sessionConflictLead(t, conflict);
   return (
     <div className="flex flex-col gap-[6px] text-[12.5px] leading-[1.5] text-txt-2" role="alert">
       <p className="m-0">{lead}</p>

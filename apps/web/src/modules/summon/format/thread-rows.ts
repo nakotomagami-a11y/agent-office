@@ -15,12 +15,6 @@ export function looksLikeQuestion(text: string): boolean {
   return nonEmpty.slice(-5).some((l) => l.trimEnd().endsWith("?"));
 }
 
-export function isAgentRow(row: RenderRow): boolean {
-  if (row.kind === "tool-chain") return true;
-  const k = row.item.kind;
-  return k === "agent-text" || k === "agent-tool" || k === "agent-thinking" || k === "agent-subagent";
-}
-
 export function groupRows(items: ThreadItem[]): RenderRow[] {
   const rows: RenderRow[] = [];
   for (const item of items) {

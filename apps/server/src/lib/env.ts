@@ -25,6 +25,9 @@ const EnvSchema = z.object({
    *  Dev-only. Any non-empty value enables it. */
   AO_DEBUG_TOOLS: z.string().optional(),
 
+  /** `none` runs `spawnInTerminal` headless: no window, no display needed (tests on POSIX). */
+  AO_TERMINAL: z.string().optional(),
+
   /** i18n default locale (defaults to `en`). Used by next-intl. */
   DEFAULT_LOCALE: z.string().optional(),
 });

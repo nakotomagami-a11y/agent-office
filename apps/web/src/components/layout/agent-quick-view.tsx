@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { HoverCard, type HoverCardTrigger } from "@/components/ui/hover-card";
+import { HoverCard, type HoverCardPlacement, type HoverCardTrigger } from "@/components/ui/hover-card";
 import { LiveSweep } from "@/components/ui/live-sweep";
 import { cn } from "@/lib/cn";
 import { agentDisplayName } from "@/lib/agent-display-name";
@@ -58,14 +58,16 @@ export interface AgentQuickViewProps {
   spendByInstance: Record<string, number>;
   onSelect: (instanceId: string) => void;
   onSpawn: (agentId: string) => void;
+  placement?: HoverCardPlacement;
   children: (trigger: QuickViewTrigger) => ReactNode;
 }
 
 /** Thin `HoverCard` wrapper — see `components/ui/hover-card.tsx` for the
  *  actual show/hide/position fundamentals, shared with `ProjectQuickView`. */
-export function AgentQuickView({ subject, spendByInstance, onSelect, onSpawn, children }: AgentQuickViewProps) {
+export function AgentQuickView({ subject, spendByInstance, onSelect, onSpawn, placement, children }: AgentQuickViewProps) {
   return (
     <HoverCard
+      placement={placement}
       panel={({ close, maxHeight }) => (
         <QuickViewCard
           subject={subject}
@@ -386,7 +388,7 @@ function GroupInstanceLine({ instance, index, status, run, spend }: {
   spend: number | undefined;
 }) {
   const t = useTranslations();
-  const label = instance.label || t("sidebar.session_default_label", { number: index + 1 });
+  const label = instance.label || instance.sessionName || t("sidebar.session_default_label", { number: index + 1 });
   const dotClass =
     status === "error" ? "bg-status-error" :
     LIVE_STATUSES.includes(status) ? "bg-status-working shadow-[0_0_4px_var(--working)]" :
@@ -510,7 +512,7 @@ function SingleInstanceCard({ agent, instance, index, headerMode, spendByInstanc
     status === "failed" ? "red" :
     "grey";
 
-  const label = instance.label || t("sidebar.session_default_label", { number: index + 1 });
+  const label = instance.label || instance.sessionName || t("sidebar.session_default_label", { number: index + 1 });
   const heading = headerMode === "instance" ? label : agentDisplayName(agent);
   const subtitle = headerMode === "instance"
     ? `${agentDisplayName(agent)} · ${model} · ${effort}`

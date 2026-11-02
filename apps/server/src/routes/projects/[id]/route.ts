@@ -22,12 +22,7 @@ export async function GET(_request: Request, { params }: Params) {
     runCount = row.count;
     lastRunAt = row.last_run ?? undefined;
   } catch { /* db not ready */ }
-  // Annotate roster with transient worktree health so the UI can flag instances
-  // that need repair. Not persisted — stripped on the next metadata read/write.
-  const roster = p.meta.roster.map((inst) => {
-    const missing = projects.instanceWorktreeMissing(p, inst);
-    return missing ? { ...inst, worktreeMissing: true } : inst;
-  });
+  const roster = projects.annotateRoster(p);
   return Response.json({ ...p, meta: { ...p.meta, roster }, runCount, lastRunAt });
 }
 

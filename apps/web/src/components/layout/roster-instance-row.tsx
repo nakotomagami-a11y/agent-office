@@ -51,7 +51,7 @@ export function RosterInstanceRow({
 }: RosterInstanceRowProps) {
   const t = useTranslations();
   const inputRef = useRef<HTMLInputElement>(null);
-  const displayLabel = label || t("sidebar.session_default_label", { number: instanceNumber });
+  const displayLabel = label || instance.sessionName || t("sidebar.session_default_label", { number: instanceNumber });
   const isLive = LIVE_STATUSES.includes(status);
 
   useEffect(() => {
@@ -75,10 +75,10 @@ export function RosterInstanceRow({
           defaultValue={label ?? ""}
           onKeyDown={handleKeyDown}
           onBlur={() => onRenameCommit(inputRef.current?.value.trim() ?? "")}
-          placeholder={t("sidebar.session_default_label", { number: instanceNumber })}
+          placeholder={instance.sessionName ?? t("sidebar.session_default_label", { number: instanceNumber })}
           aria-label={t("sidebar.rename_instance_aria", { number: instanceNumber })}
           onClick={(e) => e.stopPropagation()}
-          className="flex-1 min-w-0 bg-bg-1 border border-line-2 rounded-[4px] px-[6px] py-[2px] text-[12px] text-txt outline-none focus:border-acc"
+          className="flex-1 min-w-0 bg-card-2 border border-edge-2 rounded-[6px] px-[6px] py-[2px] text-[11.5px] text-txt outline-none focus:border-acc"
         />
       </RosterSessionRow>
     );
@@ -99,27 +99,28 @@ export function RosterInstanceRow({
           onMouseEnter={trigger.onMouseEnter}
           onMouseLeave={trigger.onMouseLeave}
         >
-          {/* Session name */}
-          <span className={cn(
-            "flex-1 min-w-0 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap",
-            isSelected ? "font-semibold text-txt" : "font-medium text-txt-2",
-          )}>
-            {displayLabel}
+          <span className="flex-1 min-w-0 flex items-baseline gap-[5px] text-[11.5px] whitespace-nowrap" title={instance.topic ? `${displayLabel} · ${instance.topic}` : undefined}>
+            <span className={cn("shrink-0 max-w-full overflow-hidden text-ellipsis", isSelected ? "font-semibold text-txt" : "text-txt-2")}>
+              {displayLabel}
+            </span>
+            {instance.topic && (
+              <span className="min-w-0 overflow-hidden text-ellipsis text-[10.5px] text-txt-4">· {instance.topic}</span>
+            )}
           </span>
 
           {/* Cost — fixed-width reserve so the LED dot lands in a straight
               column across rows regardless of whether a row has spend to show. */}
           <span className={cn(
-            "w-[44px] shrink-0 text-right font-[var(--font-mono)] text-[10.5px] tracking-[0.02em]",
-            isSelected ? "text-acc" : "text-txt-3",
+            "w-[44px] shrink-0 text-right font-[var(--font-mono)] text-[10px] whitespace-nowrap",
+            isSelected ? "text-acc" : "text-txt-4",
           )}>
             {spend !== undefined ? `$${spend.toFixed(2)}` : ""}
           </span>
 
           {/* LED dot */}
           <span className={cn(
-            "w-[6px] h-[6px] rounded-full shrink-0",
-            isLive ? "bg-status-working shadow-[0_0_4px_var(--working)]" : "bg-txt-4",
+            "w-[5px] h-[5px] rounded-full shrink-0",
+            isLive ? "bg-green" : "bg-txt-4",
           )} />
 
           <RosterSessionActions>
@@ -129,7 +130,7 @@ export function RosterInstanceRow({
                 aria-label={t("sidebar.rename_button_aria", { number: instanceNumber })}
                 data-instance-id={instanceId}
               >
-                <Icon name="edit" size={11} />
+                <Icon name="edit" size={11} className="size-[11px] [flex:0_0_11px]" />
               </RosterSessionActionButton>
             </Tooltip>
             <Tooltip content={t("sidebar.remove_from_project_title")} side="top" delayMs={300}>
@@ -139,7 +140,7 @@ export function RosterInstanceRow({
                 aria-label={t("sidebar.remove_instance_aria", { number: instanceNumber, label: label ?? "" })}
                 data-instance-id={instanceId}
               >
-                <Icon name="x" size={11} />
+                <Icon name="x" size={11} className="size-[11px] [flex:0_0_11px]" />
               </RosterSessionActionButton>
             </Tooltip>
           </RosterSessionActions>

@@ -38,6 +38,7 @@ in `docs/conventions.md`.
 | Server words: statuses, stream events, conversation actions, review and API error codes, PR link sources | `core/Protocol` (one nested class per TypeScript vocabulary) | contract test: every value is one the server sends |
 | Run error codes and their titles | `core/RunErrors` (the web's `errors.run.*.title`) | contract test: exactly `RUN_ERROR_CODES`, titles equal the web's |
 | Values copied from the server/web: model, effort and permission lists, 50 MB upload cap, gh timeout, attachments intro, agent-name variants | `core/ServerMirror` | contract test reads each source |
+| JSON field names the mod reads | the parsing in `core/` | `apps/server/src/minecraft-mod-fixtures.test.ts` keeps the real routes' answers in `src/test/resources/.../fixtures`; `FixturesTest` reads every field from them |
 | Mod id, logger, daemon threads | `core/Ids` | — |
 | Files and dirs: lecterns JSON, skins dir, temp paste file, home, SavedData name | `ModPaths` (root package: it needs `FMLPaths`) | — |
 | Timing: status report every 5 s, server floor 1 s, "working" holds 30 s, 1 work XP per 5 min | `Tuning` | — |
@@ -49,7 +50,10 @@ in `docs/conventions.md`.
 Single-use constants stay next to the one place that uses them, sizes and row heights included.
 
 The API copy is hand-written (≈20 endpoints, lenient Gson parsing): generating Java from zod would add a toolchain to
-two builds. The TS-side contract test makes a server rename fail `pnpm -r test`.
+two builds. The TS-side contract test makes a server rename fail `pnpm -r test`. Field names get the same guard in two
+halves: the fixtures test calls the route handlers against a seeded home and fails while a fixture differs from what
+they answer (`pnpm --filter @agent-office/server mod-fixtures` rewrites them); `FixturesTest` then serves those
+fixtures to the client and fails on any field it reads as null or 0.
 
 ## Client side
 

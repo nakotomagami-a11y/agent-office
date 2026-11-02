@@ -32,8 +32,8 @@ export function useProjectDetailActions(
   const t = useTranslations();
   const router = useRouter();
 
-  const [includeHistory, setIncludeHistory] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exported, setExported] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -49,25 +49,27 @@ export function useProjectDetailActions(
     setPendingDangerRaw(action);
   };
 
+  const exportFileName = `${(project?.meta.name ?? projectId).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-agent-office.json`;
+
   const handleExport = async () => {
     if (!project) return;
     setExportError(null);
     let blob: Blob;
     try {
-      blob = await exportProject(projectId, includeHistory);
+      blob = await exportProject(projectId);
     } catch (err) {
       setExportError(t("project_detail.export_failed", { error: err instanceof Error ? err.message : String(err) }));
       return;
     }
-    const slug = project.meta.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = blobUrl;
-    a.download = `${slug}-agent-office.json`;
+    a.download = exportFileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
+    setExported(true);
   };
 
   const importFile = async (file: File) => {
@@ -124,7 +126,7 @@ export function useProjectDetailActions(
 
   return {
     backup: {
-      includeHistory, setIncludeHistory, exportError,
+      exportError, exported, exportFileName,
       importing, importStatus, fileRef, onExport: handleExport, onImportFile: handleImport, onDropFile: importFile,
     },
     danger: { pendingDanger, dangerWorking, dangerConflict, dangerError, setPendingDanger, onConfirm: handleDangerConfirm },

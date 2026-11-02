@@ -10,16 +10,17 @@ import { join } from "node:path";
 import type { DocsIndex } from "@agent-office/domain/types";
 import { parseJson } from "@agent-office/api-contract";
 import { docsIndexSchema } from "../../../lib/disk-schemas";
+import { env } from "../../../lib/env";
 
 // Resolve the repo-root `docs/` dir. `next dev`/`start` run with cwd = apps/web,
 // so we walk up two levels; when cwd is the repo root the first candidate hits.
 // `AGENT_OFFICE_DOCS_DIR` overrides both (needed for a packaged standalone build).
 function resolveDocsDir(): string | null {
   const candidates = [
-    process.env["AGENT_OFFICE_DOCS_DIR"],
+    env.AGENT_OFFICE_DOCS_DIR,
     join(process.cwd(), "docs"),
     join(process.cwd(), "..", "..", "docs"),
-  ].filter(Boolean) as string[];
+  ].filter((c): c is string => !!c);
   for (const c of candidates) {
     try {
       if (existsSync(c) && statSync(c).isDirectory() && existsSync(join(c, "_index.json"))) {

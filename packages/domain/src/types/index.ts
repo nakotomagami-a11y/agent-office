@@ -206,6 +206,10 @@ export interface AgentInstance {
   };
   /** Transient: worktree dir missing on disk, shows a "needs repair" badge. */
   worktreeMissing?: boolean;
+  /** Transient: the label, else a stable pool name unique in the roster (`config/session-names`). */
+  sessionName?: string;
+  /** Transient: what the current conversation is about, from its first prompt (`config/session-names`). */
+  topic?: string;
 }
 
 export type PlanetType = "gas-giant" | "rocky" | "terran" | "ringed-terran" | "toxic" | "ice" | "islands" | "lava" | "ice-moon" | "eclipse" | "black-hole" | "galaxy" | "star" | "asteroid" | "comet";
@@ -307,7 +311,7 @@ export interface AppSettings {
   integrations?: Record<string, boolean>;
 }
 
-/** One agent-body backup snapshot — GET /api/agents/<id>/body/history. */
+/** One agent-body backup snapshot, as listed for pruning. */
 export interface AgentBodyHistoryEntry {
   filename: string;
   ts: number;
@@ -365,8 +369,8 @@ export interface DetectedCommand {
   key: string;
   name: string;
   argv: string[];
-  portMode: "next" | "flutter" | "env" | "device";
-  cwd?: string; // override project root (e.g. nested Flutter app)
+  portMode: "next" | "env";
+  cwd?: string; // override project root (e.g. a workspace package)
 }
 
 export interface ScannedEntry {
@@ -473,8 +477,6 @@ export interface ScheduledJob {
   updatedAt: number;
 }
 
-export type SseEventName = "chunk" | "tool" | "tool-done" | "usage" | "done" | "error" | "attached" | "subagent" | "subagent-update" | "rate-limit" | "permission-request";
-
 /** A tool call parked awaiting the operator's approval. Unanswered ones are
  *  denied by the server after a timeout — the client never has to. */
 export interface SsePermissionRequestEvent {
@@ -509,7 +511,14 @@ export type { CleanupKind } from "../config/cleanup";
 import type { DocCategory } from "../config/doc-categories";
 import type { SkillIconClass } from "../config/skill-icons";
 
-export interface SseErrorEvent { runId: string; code: RunErrorCode; detail?: string; interrupted?: boolean }
+export interface SseErrorEvent {
+  runId: string;
+  code: RunErrorCode;
+  detail?: string;
+  interrupted?: boolean;
+  /** Agent-facing fix for `code` (`RUN_ERROR_REMEDIATION`), set on every error the server emits. */
+  remediation?: string;
+}
 export interface SseRateLimitEvent { runId: string; message: string; resetsAt?: number; severity: "warning" | "limit" }
 export interface SseAttachedEvent {
   runId: string;
@@ -688,13 +697,6 @@ export interface SkillManifest {
   skills: SkillManifestEntry[];
 }
 
-export interface SkillCompatibility {
-  conflicts?: unknown;
-  synergies?: unknown;
-  ab_test_pairs?: unknown;
-  [k: string]: unknown;
-}
-
 export interface SkillCustomization {
   /** Slugs of `##` sections the user has switched off. */
   disabledSections?: string[];
@@ -802,22 +804,25 @@ export interface PageRange {
   projectId?: string;
 }
 
-export interface AnalyticsSummary {
-  totalRuns: number;
-  totalTokens: number;
-  totalCost: number;
-  unknownCostRuns: number;
-  byModel: Array<{ model: string; runs: number; tokens: number; cost: number }>;
-  byAgent: Array<{ agentId: string; agentName: string; runs: number; cost: number }>;
-  dailySpend?: Array<{ day: string; spend: number }>;
+export interface ActivityCounts {
+  runs: number;
+  errors: number;
+  /** Known cost only — `unknown`-basis runs add 0. */
+  cost: number;
 }
 
-export interface SummaryRange {
-  /** Epoch ms, inclusive. 0 = all-time. */
+export interface ProjectActivityRange {
+  projectId: string;
   start: number;
-  /** Epoch ms, exclusive. Number.POSITIVE_INFINITY = all-time. */
-  end: number;
-  projectId?: string;
+  bucketMs: number;
+  count: number;
+}
+
+export interface ProjectActivity {
+  buckets: ActivityCounts[];
+  /** Sum over [start, min(start + bucketMs·count, now)); `previous` is the same elapsed window one span earlier. */
+  totals: ActivityCounts;
+  previous: ActivityCounts;
 }
 
 export interface AccountStats {

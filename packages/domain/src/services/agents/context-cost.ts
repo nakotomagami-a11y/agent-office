@@ -10,36 +10,22 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import type { AgentInstance, ContextCostBreakdown, ContextCostRow, ContextProfile, PersistedRun, Project } from "../../types/index";
+import { join } from "node:path";
+import type { ContextCostBreakdown, ContextCostRow, ContextProfile, PersistedRun, Project } from "../../types/index";
 import { contextCacheRates } from "../providers/prices/rates";
 import { estimateTokens, estimateTokensFromChars } from "../infra/token-estimate";
 import { formatPriorContext, getContextMessages } from "../projects/history";
 import { findInstance } from "../projects/projects";
 import * as db from "../db";
-import { agentMcpServerNames } from "./context-cost-measure";
+import { agentMcpServerNames, discoverContextFiles, discoveryRoots, lineCount, nonNativeKnownTokens, resolveReadonlyCwd, type DiscoveredFile } from "./context-sources";
 import { playwrightAllowed } from "../execution/summon";
 // Re-exported so callers (the API route) only need one import — "Measure
 // exactly" is a distinct file for its own reasons (spawns real processes,
 // async, takes ~10-15s) but is conceptually part of this same feature.
 export { measureAgentContextCost } from "./context-cost-measure";
-import { buildAppendedPrompt, composeAppendedPrompt, readAgent } from "./agents";
-
-/** Instance's own worktree cwd if it has one, else the project root.
- *  Deliberately not `projects.resolveInstanceCwd`, which creates/heals git
- *  worktrees — a side effect that must never fire from a cost calculation. */
-export function resolveReadonlyCwd(project: Project | null, instance: AgentInstance | null): string | undefined {
-  const c = instance?.cwd?.trim();
-  if (c) return c;
-  return project?.meta.cwd?.trim() || undefined;
-}
+import { composeAppendedPrompt, readAgent } from "./agents";
 
 const CONTEXT_WINDOW_TOKENS = 200_000;
-
-function lineCount(text: string): number {
-  return text ? text.split("\n").length : 0;
-}
 
 /** Rough placeholder for Claude Code's own base prompt + built-in tools —
  *  nothing exposes their exact size. Exists so the total doesn't pretend the
@@ -47,43 +33,6 @@ function lineCount(text: string): number {
  *  `buildNativeRows`). CLAUDE.md/AGENTS.md discovery, unlike this, is real
  *  and gets its own row per file (`discoverContextFiles`). */
 const BASE_PROMPT_TOKENS_EST = 9000;
-const MAX_DISCOVERY_DEPTH = 8;
-
-interface DiscoveredFile { path: string; tokens: number; lines: number }
-
-/** Every `CLAUDE.md`/`AGENTS.md` Claude Code would discover walking up from
- *  each root (the instance cwd PLUS every `--add-dir` the agent passes — those
- *  dirs get their own discovery too) to the filesystem root. Deduped by path,
- *  each measured on its own. */
-function discoverContextFiles(roots: Array<string | undefined>): DiscoveredFile[] {
-  const found: DiscoveredFile[] = [];
-  const seen = new Set<string>();
-  for (const root of roots) {
-    let dir = root && existsSync(root) ? root : undefined;
-    for (let i = 0; dir && i < MAX_DISCOVERY_DEPTH; i++) {
-      for (const name of ["CLAUDE.md", "AGENTS.md"]) {
-        const p = join(dir, name);
-        if (seen.has(p) || !existsSync(p)) continue;
-        seen.add(p);
-        try {
-          const body = readFileSync(p, "utf8");
-          found.push({ path: p, tokens: estimateTokens(body), lines: lineCount(body) });
-        } catch {
-          /* unreadable — skip, not fatal to the estimate */
-        }
-      }
-      const parent = dirname(dir);
-      dir = parent === dir ? undefined : parent;
-    }
-  }
-  return found;
-}
-
-/** Discovery roots for an agent+instance: its real cwd plus every `--add-dir`
- *  the agent declares (tildes expanded), matching buildClaudeArgs. */
-function discoveryRoots(cwd: string | undefined, addDirs: string[]): Array<string | undefined> {
-  return [cwd, ...addDirs.map((d) => d.replace(/^~/, homedir()))];
-}
 
 const NESTED_SCAN_MAX_DEPTH = 6;
 const NESTED_SCAN_SKIP_DIRS = new Set([
@@ -197,18 +146,6 @@ function averageTurnsPerSession(runs: PersistedRun[]): number {
 function runsInLastDays(runs: PersistedRun[], days: number): number {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   return runs.filter((r) => r.ts >= cutoff).length;
-}
-
-/** Accurate token count of everything in a run's prompt that is NOT native
- *  overhead: CLAUDE.md/AGENTS.md discovery plus the whole appended prompt.
- *  Used to isolate native overhead by subtraction — both the history-based
- *  estimate and "Measure exactly" reuse this so they can't diverge. Measures
- *  the real composed string (not a sum of per-section estimates, which would
- *  miss headers/wrapper text and overstate native by that much). */
-export function nonNativeKnownTokens(agentId: string, project: Project | null, cwd: string | undefined, addDirs: string[]): number {
-  const appended = buildAppendedPrompt(agentId, project, undefined, false);
-  const discovered = discoverContextFiles(discoveryRoots(cwd, addDirs)).reduce((a, f) => a + f.tokens, 0);
-  return estimateTokens(appended) + discovered;
 }
 
 /** Every appended-prompt section except native overhead, one row each, plus

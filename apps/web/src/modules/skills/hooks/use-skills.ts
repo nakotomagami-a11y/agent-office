@@ -9,10 +9,9 @@ import type {
   RegistrySkill,
   SkillManifest,
   SkillManifestEntry,
-  SkillCompatibility,
 } from "@agent-office/domain/types";
 // Re-exported so skills components can keep importing these from this hook.
-export type { SkillManifest, SkillManifestEntry, SkillCompatibility };
+export type { SkillManifest, SkillManifestEntry };
 
 export function useRegistry(refresh = false) {
   return useQuery({
@@ -134,14 +133,6 @@ export function useSkillManifest() {
   });
 }
 
-export function useSkillCompatibility() {
-  return useQuery({
-    queryKey: queryKeys.skills.compatibility(),
-    queryFn: () => apiFetch<SkillCompatibility>(API_ROUTES.skillsCompatibility),
-    staleTime: 60 * 60_000,
-  });
-}
-
 // ── Generated weapon icons ────────────────────────────────────────────────
 
 import type { IconConfig } from "@agent-office/pixel-icons";
@@ -163,23 +154,6 @@ export function useSkillIcons() {
     queryKey: queryKeys.skills.icons(),
     queryFn: () => apiFetch<SkillIconMap>(API_ROUTES.skillsIcons),
     staleTime: 60 * 60_000,
-  });
-}
-
-export function useRerollSkillIcon() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (key: string) =>
-      apiFetch<{ ok: boolean; key: string; config: IconConfig }>(API_ROUTES.skillsIcons, {
-        method: "POST",
-        body: { key },
-      }),
-    onSuccess: (res) => {
-      qc.setQueryData<SkillIconMap>(queryKeys.skills.icons(), (prev) => ({
-        ...(prev ?? {}),
-        [res.key]: res.config,
-      }));
-    },
   });
 }
 

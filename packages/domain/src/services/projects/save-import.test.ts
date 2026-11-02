@@ -21,7 +21,6 @@ writeFileSync(join(sandbox, ".claude", "agent-office-settings.json"), JSON.strin
 
 const { AGENTS_DIR, AGENT_BACKUPS_DIR, IMPORT_BACKUPS_DIR } = await import("../infra/paths");
 const projects = await import("./projects");
-const db = await import("../db");
 const save = await import("./save");
 
 function bundle(roster: unknown[]) {
@@ -58,22 +57,6 @@ test("import backs up what it replaces, keeps the local roster, strips machine p
   assert.ok(out.snapshot && existsSync(out.snapshot));
   assert.ok(out.snapshot.startsWith(IMPORT_BACKUPS_DIR));
   assert.match(readFileSync(out.snapshot, "utf8"), /imp-dev-local/);
-});
-
-test("history goes only into seats the import added; a local transcript and session are never overwritten", () => {
-  db.saveTranscript("imp-dev", "imp-dev-local", "[\"my chat\"]", null, "my-session");
-  const out = save.importBundle({
-    ...bundle([{ instanceId: "imp-dev-local", agentId: "imp-dev" }, { instanceId: "imp-dev-new", agentId: "imp-dev" }]),
-    history: [
-      { agentId: "imp-dev", instanceId: "imp-dev-local", transcript: "[\"their chat\"]" },
-      { agentId: "imp-dev", instanceId: "imp-dev-new", transcript: "[\"new seat chat\"]" },
-    ],
-  });
-  const local = db.getTranscript("imp-dev", "imp-dev-local")!;
-  assert.equal(local.items, "[\"my chat\"]");
-  assert.equal(local.sessionId, "my-session");
-  assert.equal(db.getTranscript("imp-dev", "imp-dev-new")?.items, "[\"new seat chat\"]");
-  assert.match(readFileSync(out.snapshot!, "utf8"), /my chat/, "the pre-import snapshot carries the history");
 });
 
 test("an empty project memory in the file leaves the local one alone", () => {

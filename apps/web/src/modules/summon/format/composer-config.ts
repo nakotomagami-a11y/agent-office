@@ -1,5 +1,3 @@
-import type { ContextProfile } from "@agent-office/domain/types";
-
 export type SlashCommand = {
   cmd: string;
   descKey: string;
@@ -13,16 +11,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 export function slashEnterRuns(typed: string, cmd: string): boolean {
   return typed === cmd;
 }
-
-/** Rotation order for the context-profile toggle button. */
-export const PROFILE_CYCLE: ContextProfile[] = ["tight", "balanced", "deep"];
-
-/** Approximate token budget shown next to the profile chip. */
-export const PROFILE_TOK: Record<ContextProfile, string> = {
-  tight: "~400 tok",
-  balanced: "~1.5k tok",
-  deep: "~4k tok",
-};
 
 export type Attachment = {
   /** Local id for React keying — not persisted. */

@@ -76,7 +76,6 @@ export const CONTROL_POST_KINDS = [
 export type ControlPostKind = (typeof CONTROL_POST_KINDS)[number];
 
 export const MISSION_POST_KINDS = [...AGENT_POST_KINDS, ...CONTROL_POST_KINDS] as const;
-export type MissionPostKind = (typeof MISSION_POST_KINDS)[number];
 
 export const isAgentPostKind = (v: unknown): v is AgentPostKind =>
   typeof v === "string" && (AGENT_POST_KINDS as readonly string[]).includes(v);

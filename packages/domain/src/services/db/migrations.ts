@@ -500,7 +500,7 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
   // v26 -> v27: the mission seats this device holds (docs/missions.md); the mission is on GitHub.
   // Missions replaced Workflows: its saved-prompt table goes, after a copy of any rows is on disk.
   (db) => {
-    backupSavedPrompts(db);
+    backupTable(db, "saved_prompts");
     db.exec(`
       DROP TABLE IF EXISTS saved_prompts;
       CREATE TABLE IF NOT EXISTS mission_seats (
@@ -572,17 +572,29 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       DELETE FROM ui_settings WHERE key LIKE 'office-%';
     `);
   },
+  // v30 → v31: the legacy tables (superseded in v14 / never written) are backed up and emptied, not
+  // dropped: an older installed build sharing this database still queries them. Drop them later.
+  (db) => {
+    for (const table of LEGACY_TABLES) backupTable(db, table);
+    for (const table of LEGACY_TABLES) {
+      const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+      if (exists) db.exec(`DELETE FROM ${table}`);
+    }
+  },
 ];
 
-/** The rows v27 drops, as JSON in the backups folder; null when there were none. Throws rather than
- *  return when the file cannot be written, so the migration stops before anything is lost. */
-export function backupSavedPrompts(db: Database.Database, dir = BACKUPS_DIR): string | null {
-  const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'saved_prompts'").get();
-  if (!table) return null;
-  const rows = db.prepare("SELECT * FROM saved_prompts").all();
+const LEGACY_TABLES = ["pipeline_steps", "pipelines", "transcripts"] as const; // children first (FK)
+
+/** The rows of a table a migration drops, as JSON in the backups folder; null when there were none.
+ *  Throws rather than return when the file cannot be written, so the migration stops before anything
+ *  is lost. `table` is always one of the migrations' own literals, never input. */
+export function backupTable(db: Database.Database, table: string, dir = BACKUPS_DIR): string | null {
+  const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+  if (!exists) return null;
+  const rows = db.prepare(`SELECT * FROM ${table}`).all();
   if (rows.length === 0) return null;
   mkdirSync(dir, { recursive: true });
-  const file = join(dir, `saved_prompts-${Date.now()}.json`);
+  const file = join(dir, `${table}-${Date.now()}.json`);
   writeFileSync(file, JSON.stringify(rows, null, 2));
   return file;
 }
@@ -691,5 +703,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 28) { MIGRATIONS[27]!(db); v = 28; db.pragma("user_version = 28"); }
     if (v < 29) { MIGRATIONS[28]!(db); v = 29; db.pragma("user_version = 29"); }
     if (v < 30) { MIGRATIONS[29]!(db); v = 30; db.pragma("user_version = 30"); }
+    if (v < 31) { MIGRATIONS[30]!(db); v = 31; db.pragma("user_version = 31"); }
   })();
 }

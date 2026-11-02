@@ -67,6 +67,25 @@ export function getActiveConversation(agentId: string, instanceId: string): Conv
   return row ? toConversation(row) : null;
 }
 
+/** Per roster slot, the first top-level prompt the user wrote in its CURRENT conversation (same tie-break
+ *  as getActiveConversation), so "New thread" starts a fresh topic. Only its head: a topic is one line. */
+export function currentConversationFirstPrompts(slots: ReadonlyArray<{ agentId: string; instanceId: string }>): Map<string, string> {
+  const out = new Map<string, string>();
+  if (slots.length === 0) return out;
+  const stmt = getDb().prepare(
+    `SELECT substr(r.prompt, 1, 2000) AS prompt FROM runs r
+     WHERE r.conversation_id = (
+       SELECT c.id FROM conversations c WHERE c.agent_id = ? AND c.instance_id = ? ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1
+     ) AND r.parent_run_id IS NULL AND r.origin = 'user'
+     ORDER BY r.started_at ASC, r.rowid ASC LIMIT 1`,
+  );
+  for (const slot of slots) {
+    const row = stmt.get(slot.agentId, slot.instanceId) as { prompt: string | null } | undefined;
+    if (row?.prompt) out.set(slot.instanceId, row.prompt);
+  }
+  return out;
+}
+
 export function createConversation(
   agentId: string,
   instanceId: string,
@@ -136,31 +155,6 @@ export function listQueue(conversationId: string): QueuedMessageRow[] {
     .prepare("SELECT id, text, origin, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC")
     .all(conversationId) as RawQueuedRow[];
   return rows.map(toQueued);
-}
-
-export function enqueueMessage(conversationId: string, text: string, attachments: string | null = null, origin: MessageOrigin = "user"): QueuedMessageRow {
-  const db = getDb();
-  const now = Date.now();
-  const id = randomUUID();
-  const row = db.prepare("SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM queued_messages WHERE conversation_id = ?").get(conversationId) as { pos: number };
-  const position = row.pos;
-  db.prepare(
-    "INSERT INTO queued_messages (id, conversation_id, text, origin, attachments, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  ).run(id, conversationId, text, origin, attachments, position, now);
-  return { id, text, origin, attachments, position, createdAt: now };
-}
-
-/** Remove and return the front (lowest position) queued message, atomically. */
-export function dequeueMessage(conversationId: string): QueuedMessageRow | null {
-  const db = getDb();
-  return db.transaction(() => {
-    const raw = db
-      .prepare("SELECT id, text, origin, attachments, position, created_at FROM queued_messages WHERE conversation_id = ? ORDER BY position ASC LIMIT 1")
-      .get(conversationId) as RawQueuedRow | undefined;
-    if (!raw) return null;
-    db.prepare("DELETE FROM queued_messages WHERE id = ?").run(raw.id);
-    return toQueued(raw);
-  })();
 }
 
 export function removeQueuedMessage(conversationId: string, messageId: string): void {

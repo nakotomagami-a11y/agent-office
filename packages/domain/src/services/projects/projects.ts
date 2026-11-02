@@ -2,7 +2,7 @@
 // Per-project metadata in ~/.claude/projects/<id>/project.md (YAML frontmatter + memory body).
 // Rosters of agent instances live in that frontmatter.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, sep } from "node:path";
 import type { AgentInstance, AppSettings, PlanetConfig, PlanetType, Project, ProjectMeta, ProjectMetaPatch, ProjectSummary, ScannedEntry } from "../../types/index";
@@ -11,7 +11,8 @@ import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatterDetailed, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
 import { readSettings, scanProjects, slugify, isFeatureEnabled } from "../settings";
-import { getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
+import { currentConversationFirstPrompts, getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
+import { sessionNames, sessionTopic } from "../../config/session-names";
 import { liveRuns } from "../execution/runs/registry";
 import { isLiveServer } from "../infra/discovery";
 import type { SessionRemovalCode, WorkChoice } from "../../config/sessions";
@@ -385,6 +386,18 @@ function projectFromScan(entry: ScannedEntry): Project {
   if (md?.meta.githubAccountId) meta.githubAccountId = md.meta.githubAccountId;
   if (md?.meta.shelved) meta.shelved = true;
   return { id: entry.id, meta, memory: md?.memory ?? "", rev: md?.rev ?? EMPTY_REV };
+}
+
+/** Every project whose metadata names this Claude (`accountId`) or GitHub (`githubAccountId`) account.
+ *  All of `~/.claude/projects/`, not just the projects root: an excluded project still uses it. */
+export function projectsUsingAccount(field: "accountId" | "githubAccountId", id: string): string[] {
+  let entries: string[];
+  try {
+    entries = readdirSync(PROJECTS_DIR);
+  } catch {
+    return [];
+  }
+  return entries.filter((entry) => readMetadata(entry)?.meta[field] === id);
 }
 
 export function listProjectSummaries(): ProjectSummary[] {
@@ -926,6 +939,26 @@ function isMissionSeat(instance: AgentInstance): boolean {
  * on disk. Used to surface a "needs repair" badge in the UI. Read-only — does
  * not mutate the roster.
  */
+/** The roster as read, plus what is derived, never stored: worktree health, session name and topic. */
+export function annotateRoster(project: Project): AgentInstance[] {
+  let firstPrompts = new Map<string, string>();
+  try {
+    firstPrompts = currentConversationFirstPrompts(project.meta.roster);
+  } catch (err) {
+    log.warn("project.topics_unavailable", { projectId: project.id, error: err instanceof Error ? err.message : String(err) });
+  }
+  const names = sessionNames(project.meta.roster);
+  return project.meta.roster.map((inst) => {
+    const topic = sessionTopic(firstPrompts.get(inst.instanceId));
+    return {
+      ...inst,
+      sessionName: names.get(inst.instanceId),
+      ...(instanceWorktreeMissing(project, inst) ? { worktreeMissing: true } : {}),
+      ...(topic ? { topic } : {}),
+    };
+  });
+}
+
 export function instanceWorktreeMissing(project: Project | null, instance: AgentInstance): boolean {
   if (!project || !hasWorktreeIntent(instance)) return false;
   const projectCwd = project.meta.cwd;

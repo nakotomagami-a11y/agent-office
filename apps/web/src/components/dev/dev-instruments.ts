@@ -6,7 +6,6 @@ import { useThemeStore } from "@/lib/theme-store";
 import { useTabsStore } from "@/lib/tabs-store";
 import { useBranchStore } from "@/lib/branch-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
-import { useCompareStore } from "@/lib/compare-store";
 import { useProcessesStore } from "@/lib/processes-store";
 import { useClaudeLimitsStore } from "@/lib/claude-limits-store";
 import { useDevServerStore } from "@/lib/dev-server-store";
@@ -23,7 +22,6 @@ const STORES: Record<string, Readable> = {
   tabs: useTabsStore,
   branch: useBranchStore,
   activeProject: useActiveProjectStore,
-  compare: useCompareStore,
   processes: useProcessesStore,
   claudeLimits: useClaudeLimitsStore,
   devServer: useDevServerStore,

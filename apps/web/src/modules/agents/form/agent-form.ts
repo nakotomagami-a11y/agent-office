@@ -36,13 +36,6 @@ export const EMPTY_FORM: AgentFormValues = {
   body: "",
 };
 
-/** How many fields differ from the empty defaults — drives the "unsaved" badge. */
-export function countDirty(values: AgentFormValues): number {
-  return (Object.keys(EMPTY_FORM) as (keyof AgentFormValues)[]).filter(
-    (k) => values[k] !== EMPTY_FORM[k],
-  ).length;
-}
-
 export function toCsv(values: string[]): string {
   return values.join(", ");
 }

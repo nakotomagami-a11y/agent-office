@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  statSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -16,6 +15,7 @@ import { writeFileAtomic } from "@agent-office/domain/services/infra/fs-atomic";
 import { log } from "@agent-office/domain/services/infra/log";
 import { hasAgentFrontmatter, splitAgentFile } from "@agent-office/domain/services/agents/frontmatter";
 import { agentInstallRecordSchema, starterManifestSchema, starterSkipStateSchema } from "./disk-schemas";
+import { resolveStarterDataDir } from "./starter-data-dir";
 
 const VERSION_FILE = join(APP_STATE_DIR, "agent-manifest-version");
 const SKIP_FILE = join(APP_STATE_DIR, "agent-manifest-skipped.json");
@@ -50,23 +50,6 @@ function bundleIsOlder(bundle: string, installed: string | null): boolean {
   if (!installed) return false;
   const c = compareBundleVersions(bundle, installed);
   return c !== null && c < 0;
-}
-
-/** Locate the bundled starter-data dir across dev/build/env layouts. */
-export function resolveStarterDataDir(): string | null {
-  const candidates = [
-    process.env["AGENT_OFFICE_STARTER_DATA"],
-    join(process.cwd(), "starter-data"),
-    join(process.cwd(), "apps", "web", "starter-data"),
-  ].filter(Boolean) as string[];
-  for (const c of candidates) {
-    try {
-      if (existsSync(c) && statSync(c).isDirectory()) return c;
-    } catch {
-      /* keep trying */
-    }
-  }
-  return null;
 }
 
 export interface StarterFrontmatter {

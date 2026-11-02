@@ -15,14 +15,7 @@ import { EnvInfoRow, type EnvIcon } from "./env-control";
 
 const LOCK_ICON: EnvIcon = { src: "/icons/lock.png", alt: "" };
 
-/**
- * Per-project Secrets rows in the Environment card — one flat row per
- * attached secret (matching the mock exactly: no chevron, no popover, just a
- * name + status pill), plus a dashed "attach or create" row at the end.
- * Previously this collapsed everything behind a single "N attached" popover
- * trigger, which is where the visual mismatch the user flagged came from —
- * the mock never puts secrets behind a dropdown at all.
- */
+/** Per-project Secrets rows in the Environment card: one flat row per attached secret, then a dashed "attach or create" row. */
 export function ProjectSecretsControl({ projectId }: { projectId: string }) {
   const attachedQ = useProjectSecrets(projectId);
   const allQ = useSecrets();
@@ -42,9 +35,10 @@ export function ProjectSecretsControl({ projectId }: { projectId: string }) {
           icon={LOCK_ICON}
           label="Secret"
           value={s.name}
+          className="group"
           trailing={
-            <div className="flex items-center gap-[8px] shrink-0 group">
-              <SecretBadges secret={s} />
+            <div className="flex items-center gap-[8px] shrink-0">
+              <SecretBadges secret={s} pillClassName="text-[10.5px] font-bold tracking-normal py-[3px]" />
               <button
                 type="button"
                 onClick={() => unlink.mutate(s.id)}
@@ -102,7 +96,7 @@ function AttachSecretRow({
     <DropdownMenu
       align="start"
       ariaLabel="Attach or create a secret"
-      triggerClassName="h-auto w-full rounded-[15px] px-[13px] py-[11px] gap-[10px] bg-transparent border border-dashed border-edge-2 text-txt-3 hover:text-acc hover:border-acc-line transition-colors duration-150"
+      triggerClassName="h-auto w-full rounded-[15px] px-[13px] py-[11px] gap-[10px] bg-transparent border border-dashed border-edge-2 text-txt-3 [transition:border-color_180ms_ease,background-color_180ms_ease,color_180ms_ease,transform_180ms_cubic-bezier(.2,.8,.2,1)] hover:text-acc hover:border-acc-line hover:bg-acc-soft hover:-translate-y-px active:translate-y-0 focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2"
       trigger={
         <span className="flex items-center gap-[8px] w-full">
           <Icon name="plus" size={13} className="shrink-0" />
@@ -110,6 +104,7 @@ function AttachSecretRow({
         </span>
       }
       items={items}
+      variant="popover"
     />
   );
 }

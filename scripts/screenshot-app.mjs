@@ -141,8 +141,6 @@ const PAGES = [
   ["/memory", "memory"],
   ["/skills", "skills"],
   ["/schedules", "schedules"],
-  ["/settings", "settings"],
-  ["/docs", "docs"],
 ];
 for (const [path, file] of PAGES) {
   await goto(path);

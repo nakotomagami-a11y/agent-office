@@ -59,11 +59,6 @@ export type ModelId = keyof typeof MODEL_CATALOG;
 /** Runtime form of the 4 ids, in catalog order. */
 export const MODEL_IDS: readonly ModelId[] = Object.keys(MODEL_CATALOG) as ModelId[];
 
-/** Alias → current full versioned id. */
-export const MODEL_FULL: Record<ModelId, string> = Object.fromEntries(
-  MODEL_IDS.map((id) => [id, MODEL_CATALOG[id].fullId]),
-) as Record<ModelId, string>;
-
 /** A retired full id still valid in old `runs.model` data, but not offered
  *  as an option. Update when a catalog entry's `fullId` moves on. */
 const LEGACY_OPUS_ID = "claude-opus-4-7";

@@ -1,28 +1,19 @@
 /** Every API path, built here and nowhere else: the web UI and out-of-process clients (the Minecraft mod) address the server through these. */
 export const API_ROUTES = {
   health: "/api/health",
-  templates: "/api/templates",
   account: "/api/account",
   clipboardImage: "/api/clipboard-image",
   devSeed: "/api/dev/seed",
   devLoopIds: "/api/dev/loop-ids",
   devPlanetGallery: "/api/dev/planet-gallery",
-  devBackfillPlanets: "/api/dev/backfill-planets",
   power: "/api/power",
-  prompts: "/api/prompts",
   docsContent: "/api/docs/content",
-  docsExport: "/api/docs/export",
   starterAgents: "/api/starter/agents",
   starterAgentDiff: "/api/starter/agent-diff",
 
   agents: "/api/agents",
-  agentsBulk: "/api/agents/bulk",
   agent: (id: string) => `/api/agents/${encodeURIComponent(id)}`,
   agentBody: (id: string) => `/api/agents/${encodeURIComponent(id)}/body`,
-  agentBodyHistory: (id: string) => `/api/agents/${encodeURIComponent(id)}/body/history`,
-  agentBodySnapshot: (id: string, filename: string) =>
-    `/api/agents/${encodeURIComponent(id)}/body/history/${encodeURIComponent(filename)}`,
-  agentPromptPreview: (id: string) => `/api/agents/${encodeURIComponent(id)}/prompt-preview`,
   agentMemory: (id: string) => `/api/agents/${encodeURIComponent(id)}/memory`,
   agentPrompts: (id: string) => `/api/agents/${encodeURIComponent(id)}/prompts`,
   agentUploads: (id: string) => `/api/agents/${encodeURIComponent(id)}/uploads`,
@@ -59,6 +50,7 @@ export const API_ROUTES = {
   projectClearCache: (id: string) => `/api/projects/${encodeURIComponent(id)}/clear-cache`,
   projectFolder: (id: string) => `/api/projects/${encodeURIComponent(id)}/folder`,
   projectSpend: (id: string) => `/api/projects/${encodeURIComponent(id)}/spend`,
+  projectActivity: (id: string) => `/api/projects/${encodeURIComponent(id)}/activity`,
 
   processes: "/api/processes",
   process: (pid: number) => `/api/processes/${pid}`,
@@ -74,28 +66,24 @@ export const API_ROUTES = {
   skillsCreate: "/api/skills/create",
   skillsImport: "/api/skills/import",
   skillsManifest: "/api/skills/manifest",
-  skillsCompatibility: "/api/skills/compatibility",
   skillsIcons: "/api/skills/icons",
   skill: (name: string) => `/api/skills/${encodeURIComponent(name)}`,
   skillCustomization: (name: string) => `/api/skills/${encodeURIComponent(name)}/customization`,
   skillUpdate: (name: string) => `/api/skills/${encodeURIComponent(name)}/update`,
 
   runs: "/api/runs",
-  runsAbortAll: "/api/runs/abort-all",
   run: (id: string) => `/api/runs/${encodeURIComponent(id)}`,
   runStream: (id: string) => `/api/runs/${encodeURIComponent(id)}/stream`,
   runPermission: (id: string) => `/api/runs/${encodeURIComponent(id)}/permission`,
   /** App-wide SSE stream of coarse domain events (see app-events.tsx). */
   events: "/api/events",
   runAbort: (id: string) => `/api/runs/${encodeURIComponent(id)}/abort`,
-  runChildren: (id: string) => `/api/runs/${encodeURIComponent(id)}/children`,
   runTree: (id: string) => `/api/runs/${encodeURIComponent(id)}/tree`,
 
   summon: "/api/summon",
 
   // Server-authoritative chat conversations (see docs/chat-refactor.md).
   conversations: "/api/conversations",
-  conversation: (id: string) => `/api/conversations/${encodeURIComponent(id)}`,
   conversationMessages: (id: string) => `/api/conversations/${encodeURIComponent(id)}/messages`,
   conversationQueueItem: (id: string, messageId: string) =>
     `/api/conversations/${encodeURIComponent(id)}/queue/${encodeURIComponent(messageId)}`,
@@ -112,7 +100,6 @@ export const API_ROUTES = {
   schedules: "/api/schedules",
   schedule: (id: string) => `/api/schedules/${encodeURIComponent(id)}`,
   scheduleRun: (id: string) => `/api/schedules/${encodeURIComponent(id)}/run`,
-  broadcast: "/api/broadcast",
 
   // AI providers (docs/architecture.md, "AI providers"). The gateway is called only by agents.
   providers: "/api/providers",
@@ -179,6 +166,5 @@ export const API_ROUTES = {
     `/api/projects/${encodeURIComponent(projectId)}/reviews/${pr}/link`,
 
   analyticsPerAccount: "/api/analytics/per-account",
-  analyticsSummary: "/api/analytics/summary",
   analyticsPage: "/api/analytics/page",
 } as const;
