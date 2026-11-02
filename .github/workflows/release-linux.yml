@@ -261,6 +261,10 @@ jobs:
           SH
           chmod +x squashfs-root/AppRun
 
+          # --appimage-extract leaves directories at 0700, and appimagetool now refuses an
+          # AppDir other users can't read (the AppImage would fail with "Permission denied").
+          chmod -R u+rwX,go+rX squashfs-root
+
           # 3. Repack under the SAME filename so latest.json's URL still resolves.
           curl -fsSL -o /tmp/appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
