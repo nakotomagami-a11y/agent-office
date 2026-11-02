@@ -4,6 +4,7 @@ import { projects, db as dbService } from "@agent-office/domain/services";
 import { validateBody } from "../../../lib/validation";
 import { projectMetaPatchSchema } from "@agent-office/api-contract";
 import { notFound, tryService, validateIdParam } from "../../../lib/api-helpers";
+import { sessionNames, sessionTopic } from "@agent-office/domain/config/session-names";
 import { toProjectUpdatePatch } from "../../../lib/project-patch";
 
 type Params = { params: Promise<{ id: string }> };
@@ -22,11 +23,15 @@ export async function GET(_request: Request, { params }: Params) {
     runCount = row.count;
     lastRunAt = row.last_run ?? undefined;
   } catch { /* db not ready */ }
-  // Annotate roster with transient worktree health so the UI can flag instances
-  // that need repair. Not persisted — stripped on the next metadata read/write.
+  // Annotate roster with transient worktree health, session name and topic. Not
+  // persisted — stripped on the next metadata read/write.
+  let firstPrompts = new Map<string, string>();
+  try { firstPrompts = dbService.currentConversationFirstPrompts(p.meta.roster); } catch { /* db not ready */ }
+  const names = sessionNames(p.meta.roster);
   const roster = p.meta.roster.map((inst) => {
     const missing = projects.instanceWorktreeMissing(p, inst);
-    return missing ? { ...inst, worktreeMissing: true } : inst;
+    const topic = sessionTopic(firstPrompts.get(inst.instanceId));
+    return { ...inst, sessionName: names.get(inst.instanceId), ...(missing ? { worktreeMissing: true } : {}), ...(topic ? { topic } : {}) };
   });
   return Response.json({ ...p, meta: { ...p.meta, roster }, runCount, lastRunAt });
 }

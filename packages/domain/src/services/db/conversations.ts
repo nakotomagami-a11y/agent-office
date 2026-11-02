@@ -67,6 +67,25 @@ export function getActiveConversation(agentId: string, instanceId: string): Conv
   return row ? toConversation(row) : null;
 }
 
+/** Per roster slot, the first top-level prompt of its CURRENT conversation (same tie-break as
+ *  getActiveConversation), so "New thread" starts a fresh topic. One query for the whole roster. */
+export function currentConversationFirstPrompts(slots: ReadonlyArray<{ agentId: string; instanceId: string }>): Map<string, string> {
+  const out = new Map<string, string>();
+  if (slots.length === 0) return out;
+  const stmt = getDb().prepare(
+    `SELECT r.prompt AS prompt FROM runs r
+     WHERE r.conversation_id = (
+       SELECT c.id FROM conversations c WHERE c.agent_id = ? AND c.instance_id = ? ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1
+     ) AND r.parent_run_id IS NULL
+     ORDER BY r.started_at ASC, r.rowid ASC LIMIT 1`,
+  );
+  for (const slot of slots) {
+    const row = stmt.get(slot.agentId, slot.instanceId) as { prompt: string | null } | undefined;
+    if (row?.prompt) out.set(slot.instanceId, row.prompt);
+  }
+  return out;
+}
+
 export function createConversation(
   agentId: string,
   instanceId: string,

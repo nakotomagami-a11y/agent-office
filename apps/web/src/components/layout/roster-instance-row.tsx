@@ -51,7 +51,7 @@ export function RosterInstanceRow({
 }: RosterInstanceRowProps) {
   const t = useTranslations();
   const inputRef = useRef<HTMLInputElement>(null);
-  const displayLabel = label || t("sidebar.session_default_label", { number: instanceNumber });
+  const displayLabel = label || instance.sessionName || t("sidebar.session_default_label", { number: instanceNumber });
   const isLive = LIVE_STATUSES.includes(status);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export function RosterInstanceRow({
           defaultValue={label ?? ""}
           onKeyDown={handleKeyDown}
           onBlur={() => onRenameCommit(inputRef.current?.value.trim() ?? "")}
-          placeholder={t("sidebar.session_default_label", { number: instanceNumber })}
+          placeholder={instance.sessionName ?? t("sidebar.session_default_label", { number: instanceNumber })}
           aria-label={t("sidebar.rename_instance_aria", { number: instanceNumber })}
           onClick={(e) => e.stopPropagation()}
           className="flex-1 min-w-0 bg-card-2 border border-edge-2 rounded-[6px] px-[6px] py-[2px] text-[11.5px] text-txt outline-none focus:border-acc"
@@ -99,12 +99,13 @@ export function RosterInstanceRow({
           onMouseEnter={trigger.onMouseEnter}
           onMouseLeave={trigger.onMouseLeave}
         >
-          {/* Session name */}
-          <span className={cn(
-            "flex-1 min-w-0 text-[11.5px] overflow-hidden text-ellipsis whitespace-nowrap",
-            isSelected ? "font-semibold text-txt" : "text-txt-2",
-          )}>
-            {displayLabel}
+          <span className="flex-1 min-w-0 flex items-baseline gap-[5px] text-[11.5px] whitespace-nowrap" title={instance.topic ? `${displayLabel} · ${instance.topic}` : undefined}>
+            <span className={cn("shrink-0 max-w-full overflow-hidden text-ellipsis", isSelected ? "font-semibold text-txt" : "text-txt-2")}>
+              {displayLabel}
+            </span>
+            {instance.topic && (
+              <span className="min-w-0 overflow-hidden text-ellipsis text-[10.5px] text-txt-4">· {instance.topic}</span>
+            )}
           </span>
 
           {/* Cost — fixed-width reserve so the LED dot lands in a straight

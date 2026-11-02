@@ -53,7 +53,7 @@ function sessionLabelFor(roster: AgentInstance[], run: PersistedRun, t: (key: st
   const idx = siblings.findIndex((i) => i.instanceId === run.instanceId);
   const inst = idx === -1 ? undefined : siblings[idx];
   if (!inst) return run.instanceId ? `#${run.instanceId.slice(-6)}` : null;
-  return inst.label || t("sidebar.session_default_label", { number: idx + 1 });
+  return inst.label || inst.sessionName || t("sidebar.session_default_label", { number: idx + 1 });
 }
 
 /**
