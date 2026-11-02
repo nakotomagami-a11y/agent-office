@@ -7,7 +7,6 @@ import { useTabsStore } from "@/lib/tabs-store";
 import { useBranchStore } from "@/lib/branch-store";
 import { useActiveProjectStore } from "@/lib/active-project-store";
 import { useProcessesStore } from "@/lib/processes-store";
-import { useClaudeLimitsStore } from "@/lib/claude-limits-store";
 import { useDevServerStore } from "@/lib/dev-server-store";
 
 type Readable = { getState: () => unknown };
@@ -23,7 +22,6 @@ const STORES: Record<string, Readable> = {
   branch: useBranchStore,
   activeProject: useActiveProjectStore,
   processes: useProcessesStore,
-  claudeLimits: useClaudeLimitsStore,
   devServer: useDevServerStore,
 };
 

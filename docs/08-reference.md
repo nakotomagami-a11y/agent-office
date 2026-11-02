@@ -615,7 +615,6 @@ The Next.js server augments its `PATH` with common install locations (`~/.nvm/ve
 | `theme` | `"light"` \| `"dark"` — active color scheme. |
 | `active-project` | Slug of the currently-selected project. |
 | `tabs-state` | JSON blob: `{ tabs: Tab[], activeTabId: string \| null, closedStack: Tab[] }` — open project tabs, active tab, and LRU stack of the 10 most-recently closed tabs (for `Ctrl+Shift+T` restore). Persists Chrome-style tab UX across app restarts. |
-| `claude-limits` | JSON blob for spend-cap configuration. |
 | `performance-mode` | `"full"` \| `"lite"` \| `"off"` — rendering / animation budget. |
 | `performance-auto` | `"true"` \| `"false"` — follow the power source (full on AC, lite on battery). |
 | `agent-office:wizard-draft` | JSON draft of a partly-filled first-run wizard. |
@@ -648,7 +647,6 @@ Client-only state stores (persisted where noted):
 | `run-stream-registry` | in-memory (per run id) | Keeps SSE `EventSource` connections alive across component unmount so runs streaming in a tab you left don't drop tokens. |
 | `theme-store` | server via `ui_settings.theme` | `light` \| `dark` |
 | `performance-store` | server via `ui_settings.performance-mode` | `full` \| `lite` \| `off` |
-| `claude-limits-store` | server via `ui_settings.claude-limits` | Spend-cap config |
 | `dev-server-store` | in-memory | Dev server states per project |
 | `branch-store` | in-memory | Cached git branch per project |
 | `draft-store` | server via `/api/drafts` | Composer drafts (per agent + instance) |

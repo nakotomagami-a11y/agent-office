@@ -4,15 +4,14 @@ import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { ACCENT_BTN } from "@/components/ui/button";
-import { useClaudeLimitsStore, periodEnd } from "@/lib/claude-limits-store";
 import { formatWeekdayTime } from "@/lib/format-date";
 
 /**
  * Schedule-resume control for the error / interrupted card. Expands inline
  * (no popover — so the designed DateTimePicker's own portal doesn't fight an
  * outer popover's outside-click) into two choices: the prominent, recommended
- * "resume when my limit resets" hero button, or a specific time via the app's
- * themed DateTimePicker. Once scheduled it locks to a static confirmation.
+ * "resume when my limit resets" hero button (only when a rate-limit reset
+ * time is known), or a specific time via the app's themed DateTimePicker. Once scheduled it locks to a static confirmation.
  */
 export function ScheduleResumeMenu({
   resetsAtMs,
@@ -26,12 +25,11 @@ export function ScheduleResumeMenu({
   scheduled: boolean;
   onScheduled: () => void;
 }) {
-  const period = useClaudeLimitsStore((s) => s.period);
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
 
-  // Best-known reset time: a live rate-limit reset, else the quota period end.
-  const resetMs = resetsAtMs && resetsAtMs > Date.now() ? resetsAtMs : periodEnd(period);
+  // Only a reset this thread actually saw; a guessed one sent resumes to "next Monday".
+  const resetMs = resetsAtMs && resetsAtMs > Date.now() ? resetsAtMs : null;
 
   const commit = (ms: number) => {
     if (!Number.isFinite(ms) || ms <= Date.now()) return;
@@ -74,21 +72,22 @@ export function ScheduleResumeMenu({
         </button>
       </div>
 
-      {/* Recommended hero option */}
-      <button
-        type="button"
-        onClick={() => commit(resetMs)}
-        className={`w-full flex items-center justify-between gap-[10px] px-[14px] py-[10px] rounded-[9px] text-[13px] font-semibold cursor-pointer ${ACCENT_BTN}`}
-      >
-        <span className="inline-flex items-center gap-[7px]">
-          <Icon name="activity" size={13} /> Resume when my limit resets
-        </span>
-        <span className="font-mono text-[12px] opacity-90">{formatWeekdayTime(resetMs)}</span>
-      </button>
+      {resetMs !== null && (
+        <button
+          type="button"
+          onClick={() => commit(resetMs)}
+          className={`w-full flex items-center justify-between gap-[10px] px-[14px] py-[10px] rounded-[9px] text-[13px] font-semibold cursor-pointer ${ACCENT_BTN}`}
+        >
+          <span className="inline-flex items-center gap-[7px]">
+            <Icon name="activity" size={13} /> Resume when my limit resets
+          </span>
+          <span className="font-mono text-[12px] opacity-90">{formatWeekdayTime(resetMs)}</span>
+        </button>
+      )}
 
       {/* Specific time — designed picker + confirm */}
       <div className="flex items-center gap-[8px]">
-        <span className="text-[12px] text-ao-fg-2 shrink-0">Or pick a time</span>
+        <span className="text-[12px] text-ao-fg-2 shrink-0">{resetMs !== null ? "Or pick a time" : "Pick a time"}</span>
         <div className="flex-1 min-w-0">
           <DateTimePicker value={custom} onChange={setCustom} ariaLabel="Pick a resume time" />
         </div>
