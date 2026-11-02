@@ -68,9 +68,16 @@ export function ProjectWorkingTreeCard({
       </div>
 
       {!loading && !isGit ? (
-        <div className="flex-1 flex flex-col justify-center gap-[4px]">
-          <span className="text-[15px] font-semibold text-txt-3">Not a git repo</span>
-          <span className="font-mono text-[10.5px] text-txt-4">no working tree to track for this project</span>
+        <div className="flex-1 flex flex-col items-center justify-center gap-[10px] text-center">
+          <span aria-hidden className="w-[44px] h-[44px] rounded-[13px] bg-card-2 border border-edge shadow-[var(--inset-hi)] flex items-center justify-center text-acc">
+            <Icon name="branch" size={20} />
+          </span>
+          <div className="flex flex-col gap-[3px]">
+            <span className="text-[14px] font-semibold text-txt">No git history yet</span>
+            <span className="text-[12px] leading-[1.5] text-txt-3 max-w-[270px]">
+              Run <code className="px-[6px] py-[1px] rounded-[6px] bg-card-2 border border-edge font-mono text-[11px] text-txt-2">git init</code> in this project to see every line your agents change.
+            </span>
+          </div>
         </div>
       ) : (
         <div className="flex gap-[6px] -mx-[10px]">
