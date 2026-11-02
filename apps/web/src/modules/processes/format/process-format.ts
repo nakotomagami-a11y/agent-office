@@ -8,12 +8,9 @@ export function fmtMem(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
 }
 
-/** Same value as `fmtMem`, split into number + unit for stat-tile layouts. */
-export function fmtMemParts(mb: number): { value: string; unit: string } {
-  if (mb === 0) return { value: "0", unit: "MB" };
-  return mb >= 1024
-    ? { value: (mb / 1024).toFixed(1), unit: "GB" }
-    : { value: String(mb), unit: "MB" };
+/** `fmtMem`, but "0 MB" rather than "-" for an empty total. */
+export function fmtMemTotal(mb: number): string {
+  return mb === 0 ? "0 MB" : fmtMem(mb);
 }
 
 export function fmtUptime(startedAt: number): string {
@@ -72,33 +69,6 @@ export function detectProto(name: string, cmd: string): string {
     n === "caddy" || n === "nginx"
   ) return "http";
   return "tcp";
-}
-
-/** "http" processes get the accent color, raw tcp gets cyan, an agent-started
- *  background shell (no port at all) gets amber — matches the port-panel
- *  treatment in the server card. */
-export function accentForProto(proto: string): { fg: string; soft: string; pad: string } {
-  if (proto === "http") {
-    return { fg: "var(--acc)", soft: "color-mix(in srgb, var(--acc) 16%, transparent)", pad: "color-mix(in srgb, var(--acc) 7%, transparent)" };
-  }
-  if (proto === "bg") {
-    return { fg: "var(--amber)", soft: "color-mix(in srgb, var(--amber) 16%, transparent)", pad: "color-mix(in srgb, var(--amber) 7%, transparent)" };
-  }
-  return { fg: "var(--cyan)", soft: "color-mix(in srgb, var(--cyan) 14%, transparent)", pad: "color-mix(in srgb, var(--cyan) 6%, transparent)" };
-}
-
-/** SVG path pair (fill area + stroke line) for a 60x20 sparkline from real
- *  samples. A single sample renders as a flat mid-line rather than nothing. */
-export function sparkPath(samples: number[]): { line: string; area: string } {
-  const w = 60, h = 20;
-  const pts = samples.length >= 2 ? samples : [samples[0] ?? 0, samples[0] ?? 0];
-  const min = Math.min(...pts);
-  const max = Math.max(...pts);
-  const span = max - min || 1;
-  const px = (i: number) => (i / (pts.length - 1)) * w;
-  const py = (v: number) => h - ((v - min) / span) * (h - 4) - 2;
-  const line = pts.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
-  return { line, area: `${line} L${w},${h} L0,${h} Z` };
 }
 
 export type ProcessGroup = { id: string; label: string; processes: ProcessInfo[] };
