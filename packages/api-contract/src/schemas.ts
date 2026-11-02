@@ -138,6 +138,14 @@ export const secretCreateSchema = z.object({
   verifyBeforeRun: z.boolean().optional(),
 });
 
+/** POST /api/secrets/test: run a form's test command before it is saved. */
+export const secretDraftTestSchema = z.object({
+  name: ENV_NAME,
+  value: z.string().max(20000).optional(),
+  testCmd: z.string().min(1).max(2000),
+  id: z.string().min(1).optional(),
+});
+
 export const secretPatchSchema = z.object({
   name: ENV_NAME.optional(),
   label: z.string().max(80).optional(),
@@ -189,6 +197,11 @@ export const rosterPatchSchema = z.object({
 /** `?work=` on a session, roster or agent DELETE: what happens to work no other branch holds. Absent = refuse if there is any. */
 export const sessionRemovalQuerySchema = z.object({
   work: z.enum(WORK_CHOICES).optional(),
+});
+
+/** A single session's DELETE also takes `?conversation=delete`: its archived conversation goes too. */
+export const instanceRemovalQuerySchema = sessionRemovalQuerySchema.extend({
+  conversation: z.literal("delete").optional(),
 });
 
 /** The 409 body of a refused session, roster or agent DELETE: the sessions concerned and what each holds. */

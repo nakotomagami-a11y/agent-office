@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { WorkChoice } from "@agent-office/domain/config/sessions";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Icon } from "@/components/ui/icon";
 import { ModalShell } from "@/components/ui/modal-shell";
+import { Tag } from "@/components/ui/tag";
 import { sessionConflictOf, type SessionAtRisk, type SessionConflict } from "@/lib/api/roster";
 import { useRemoveInstance } from "../hooks/use-projects";
 
@@ -75,11 +78,13 @@ export function RemoveSessionModal({
   const [conflict, setConflict] = useState<SessionConflict | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [choice, setChoice] = useState<WorkChoice | undefined>(undefined);
+  const [deleteConversation, setDeleteConversation] = useState(false);
 
   useEffect(() => {
     setConflict(null);
     setError(null);
     setChoice(undefined);
+    setDeleteConversation(false);
   }, [target?.instanceId]);
 
   const remove = (work: WorkChoice | undefined) => {
@@ -87,7 +92,7 @@ export function RemoveSessionModal({
     setChoice(work);
     setError(null);
     removeMut.mutate(
-      { projectId, instanceId: target.instanceId, work },
+      { projectId, instanceId: target.instanceId, work, deleteConversation },
       {
         onSuccess: () => {
           onClose();
@@ -111,7 +116,7 @@ export function RemoveSessionModal({
       onClose={busy ? () => undefined : onClose}
       onEnter={choosing ? undefined : () => remove(choice)}
       title={t("session_removal.title")}
-      size="md"
+      size="sm"
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose} disabled={busy}>
@@ -127,7 +132,7 @@ export function RemoveSessionModal({
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="primary" onClick={() => remove(choice)} disabled={busy}>
+            <Button size="sm" variant="primary" className="shadow-none hover:shadow-none" onClick={() => remove(choice)} disabled={busy}>
               {busy ? "…" : t("session_removal.remove")}
             </Button>
           )}
@@ -135,12 +140,30 @@ export function RemoveSessionModal({
       }
     >
       {target && (
-        <div className="flex flex-col gap-[12px]">
-          <p className="m-0 text-[13px] text-txt-2 leading-[1.55]">
-            {t("session_removal.confirm", { name: target.name, project: projectName })}
-          </p>
-          {conflict && <SessionConflictNotice conflict={conflict} />}
-          {error && <p className="m-0 text-[12.5px] text-red" role="alert">{error}</p>}
+        <div className="flex gap-[14px] items-start">
+          <div className="w-[52px] h-[52px] shrink-0 flex items-center justify-center text-txt-3">
+            <Icon name="users" size={42} className="w-[42px] h-[42px] [flex:0_0_42px]" />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <p className="m-0 text-[13px] text-txt-2 leading-[1.9]">
+              {t.rich(deleteConversation ? "session_removal.confirm_delete_conversation" : "session_removal.confirm", {
+                name: target.name,
+                project: projectName,
+                chip: (chunks) => <Tag variant="name">{chunks}</Tag>,
+                place: (chunks) => <Tag variant="project">{chunks}</Tag>,
+              })}
+            </p>
+            <Checkbox
+              tone="error"
+              checked={deleteConversation}
+              onChange={(e) => setDeleteConversation(e.target.checked)}
+              disabled={busy}
+              className="flex mt-3 gap-[9px]"
+              label={<span className="text-[12.5px] text-txt-2">{t("session_removal.delete_conversation")}</span>}
+            />
+            {conflict && <div className="mt-3"><SessionConflictNotice conflict={conflict} /></div>}
+            {error && <p className="m-0 mt-3 text-[12.5px] text-red" role="alert">{error}</p>}
+          </div>
         </div>
       )}
     </ModalShell>

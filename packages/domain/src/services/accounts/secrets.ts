@@ -16,13 +16,16 @@
  * are "unknown" and never block.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 import type { Secret, SecretWithStatus } from "../../types/index";
 import { getDb } from "../db";
 import { log } from "../infra/log";
 import { decryptSecret, encryptSecret } from "./secret-crypto";
 import { isReservedEnvName } from "../../config/providers";
+
+const execFileAsync = promisify(execFile);
 
 export { isReservedEnvName };
 
@@ -211,20 +214,13 @@ export interface TestResult {
   skipped?: boolean;
 }
 
-/**
- * Run a secret's testCmd with the secret in env (`sh -c`, 20s cap). Exit 0 =
- * valid. Persists last_tested_at + last_test_ok. A secret without a testCmd
- * returns `{ ok: true, skipped: true }` and is left "unknown".
- */
-export function test(id: string): TestResult | null {
-  const secret = get(id);
-  if (!secret) return null;
-  if (!secret.testCmd) return { ok: true, output: "", skipped: true };
+/** `sh -c testCmd` with name=value in env; 20s cap; exit 0 = ok. */
+function runTestCmd(name: string, value: string, testCmd: string): TestResult {
   let ok = false;
   let output = "";
   try {
-    output = execFileSync("sh", ["-c", secret.testCmd], {
-      env: { ...process.env, [secret.name]: secret.value },
+    output = execFileSync("sh", ["-c", testCmd], {
+      env: { ...process.env, [name]: value },
       timeout: 20_000,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -235,10 +231,49 @@ export function test(id: string): TestResult | null {
     output = (e.stdout ?? "") + (e.stderr ?? "") || e.message || "test command failed";
     ok = false;
   }
+  return { ok, output: output.slice(0, 4000) };
+}
+
+/**
+ * Run a secret's testCmd with the secret in env (`sh -c`, 20s cap). Exit 0 =
+ * valid. Persists last_tested_at + last_test_ok. A secret without a testCmd
+ * returns `{ ok: true, skipped: true }` and is left "unknown".
+ */
+export function test(id: string): TestResult | null {
+  const secret = get(id);
+  if (!secret) return null;
+  if (!secret.testCmd) return { ok: true, output: "", skipped: true };
+  const result = runTestCmd(secret.name, secret.value, secret.testCmd);
   getDb()
     .prepare("UPDATE secrets SET last_tested_at = ?, last_test_ok = ? WHERE id = ?")
-    .run(Date.now(), ok ? 1 : 0, id);
-  return { ok, output: output.slice(0, 4000) };
+    .run(Date.now(), result.ok ? 1 : 0, id);
+  return result;
+}
+
+const SHELL_CONTROL_ENV = /^(PATH|HOME|USERPROFILE|ENV|BASH_ENV|LD_PRELOAD|DYLD_.*|NODE_OPTIONS)$/i;
+
+/** A draft test may not set a variable the app owns or one that steers the shell itself. */
+export const isDraftTestNameAllowed = (name: string): boolean => !isReservedEnvName(name) && !SHELL_CONTROL_ENV.test(name);
+
+/** Test an unsaved form: a blank value falls back to the stored one of `id`. Nothing is persisted. */
+export async function testDraft(input: { name: string; value?: string; testCmd: string; id?: string }): Promise<TestResult | null> {
+  const stored = !input.value && input.id ? get(input.id) : null;
+  const value = input.value || stored?.value;
+  if (value === undefined) return null;
+  // The stored-value path hands a saved secret to a caller-chosen command; leave the trace the PATCH+test route leaves.
+  if (stored) log.info("secret.draft_tested", { id: stored.id, name: stored.name, cmdChanged: input.testCmd.trim() !== (stored.testCmd ?? "") });
+  // Async, unlike test(): a form button pressed while iterating on a command must not freeze the server for 20s.
+  try {
+    const { stdout } = await execFileAsync("sh", ["-c", input.testCmd], {
+      env: { ...process.env, [input.name]: value },
+      timeout: 20_000,
+      encoding: "utf8",
+    });
+    return { ok: true, output: stdout.slice(0, 4000) };
+  } catch (err) {
+    const e = err as { stdout?: string; stderr?: string; message?: string };
+    return { ok: false, output: ((e.stdout ?? "") + (e.stderr ?? "") || e.message || "test command failed").slice(0, 4000) };
+  }
 }
 
 /**

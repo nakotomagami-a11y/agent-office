@@ -39,15 +39,15 @@ export function AgentCapModal(props: AgentCapModalProps) {
         title="Roster is full"
         size="sm"
         footer={
-          <Button variant="primary" onClick={props.onDismiss}>
+          <Button variant="primary" className="min-w-[88px] justify-center" onClick={props.onDismiss}>
             OK
           </Button>
         }
       >
         <CapBody
-          iconTint="var(--error)"
+          tintClass="text-status-error"
           heading="10 instances is the hard limit"
-          body="Remove an existing instance from this project's roster before adding another. This ceiling exists to keep the office responsive and to keep run-history queries fast."
+          body="Remove one from the roster before adding another."
         />
       </ModalShell>
     );
@@ -66,27 +66,26 @@ export function AgentCapModal(props: AgentCapModalProps) {
         </>
       }
     >
-      <CapBody
-        iconTint="var(--queued)"
-        heading="You already have several instances of this agent"
-        body="Multiple instances of the same agent share a roster slot but each keeps its own transcript, memory and worktree. You can safely add another — just be aware that broadcasts will fan out to all of them."
-      />
+      <CapBody tintClass="text-status-queued" heading="You already have several instances of this agent" />
     </ModalShell>
   );
 }
 
-function CapBody({ iconTint, heading, body }: { iconTint: string; heading: string; body: string }) {
+function CapBody({ tintClass, heading, body }: { tintClass: string; heading: string; body?: string }) {
   return (
     <div className="flex gap-[14px] items-start">
-      <div
-        className="flex items-center justify-center shrink-0 w-[36px] h-[36px] rounded-[10px] border"
-        style={{ background: `color-mix(in oklab, ${iconTint} 12%, transparent)`, borderColor: `color-mix(in oklab, ${iconTint} 30%, transparent)`, color: iconTint }}
-      >
-        <Icon name="shield" size={18} />
+      <div className={`flex items-center justify-center shrink-0 w-[52px] h-[52px] ${tintClass}`}>
+        <Icon name="shield" size={46} className="w-[46px] h-[46px] [flex:0_0_46px]" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-[13.5px] text-txt mb-[6px]">{heading}</div>
-        <p className="m-0 text-[12.5px] text-txt-2 leading-[1.55]">{body}</p>
+        {body ? (
+          <>
+            <div className="font-semibold text-[13.5px] text-txt mb-[6px]">{heading}</div>
+            <p className="m-0 text-[12.5px] text-txt-2 leading-[1.55]">{body}</p>
+          </>
+        ) : (
+          <div className="font-semibold text-[13.5px] text-txt leading-[1.4] pt-1">{heading}</div>
+        )}
       </div>
     </div>
   );

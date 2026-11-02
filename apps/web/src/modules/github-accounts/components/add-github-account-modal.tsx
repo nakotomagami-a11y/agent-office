@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ModalShell } from "@/components/ui/modal-shell";
-import { Button } from "@/components/ui/button";
+import { Button, ACCENT_BTN_FADED_DISABLED } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/cn";
+import { SignInStep } from "@/modules/accounts/components/sign-in-panel";
 import {
   useGithubAccountStatus,
   useCreateGithubAccount,
@@ -23,7 +25,7 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
   const [step, setStep] = useState<Step>("name");
   const [label, setLabel] = useState("");
   const [created, setCreated] = useState<GithubAccount | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   // Reset every time the modal reopens.
   useEffect(() => {
@@ -31,7 +33,7 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
       setStep("name");
       setLabel("");
       setCreated(null);
-      setCopied(false);
+      setCopied(null);
     }
   }, [open]);
 
@@ -61,12 +63,11 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
   const loginCommand = created ? `GH_CONFIG_DIR=${created.configDir} gh auth login` : "";
   const setupGitCommand = created ? `GH_CONFIG_DIR=${created.configDir} gh auth setup-git` : "";
 
-  const handleCopy = async () => {
-    if (!loginCommand) return;
+  const handleCopy = async (command: string) => {
     try {
-      await navigator.clipboard.writeText(loginCommand);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(command);
+      setCopied(command);
+      setTimeout(() => setCopied((c) => (c === command ? null : c)), 1500);
     } catch {
       // Non-secure contexts / permission-denied — user can still select+copy.
     }
@@ -85,6 +86,26 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
     onClose();
   };
 
+  const cta = cn("min-w-[88px] px-[14px] justify-center gap-[6px] font-semibold text-white shadow-none hover:shadow-none", ACCENT_BTN_FADED_DISABLED);
+  const field = "h-[46px] px-4 text-[15px] font-semibold";
+
+  const commandRow = (command: string) => (
+    <div className="flex items-center gap-[4px] py-[6px] pr-[6px] pl-[14px] rounded-[12px] bg-card-2">
+      <code className="flex-1 min-w-0 font-mono text-[11.5px] text-txt-2 whitespace-nowrap overflow-hidden text-ellipsis" title={command}>
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={() => void handleCopy(command)}
+        title={copied === command ? "Copied" : "Copy"}
+        aria-label={copied === command ? "Copied" : "Copy"}
+        className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-[9px] border-0 bg-transparent text-txt-3 cursor-pointer transition-colors hover:bg-card-3 hover:text-txt"
+      >
+        <Icon name={copied === command ? "check" : "copy"} size={14} className="w-[14px] h-[14px] [flex:0_0_14px]" />
+      </button>
+    </div>
+  );
+
   return (
     <ModalShell
       open={open}
@@ -96,26 +117,33 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
             ? "Log in with gh"
             : "Account ready"
       }
-      size="md"
+      maxWidth={step === "waiting" ? 480 : 420}
       footer={
         <>
-          <Button size="sm" variant="ghost" onClick={onClose}>
+          {step === "waiting" && (
+            <span className="mr-auto flex items-center gap-[8px] text-[12px] text-txt-3">
+              <span className="w-[10px] h-[10px] rounded-full border-2 border-acc border-t-transparent animate-[spin_0.9s_linear_infinite]" />
+              Waiting for gh login…
+            </span>
+          )}
+          <Button variant="ghost" className="min-w-[72px] justify-center" onClick={onClose}>
             Cancel
           </Button>
           {step === "name" && (
             <Button
-              size="sm"
               variant="primary"
+              className={cta}
               onClick={handleCreate}
               disabled={createMut.isPending || !label.trim()}
             >
               {createMut.isPending ? "Creating…" : "Next"}
+              <Icon name="chevron" size={12} className="w-[12px] h-[12px] [flex:0_0_12px]" />
             </Button>
           )}
           {step === "confirm" && (
             <Button
-              size="sm"
               variant="primary"
+              className={cta}
               onClick={handleFinishRename}
               disabled={renameMut.isPending}
             >
@@ -126,64 +154,44 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
       }
     >
       {step === "name" && (
-        <div className="flex flex-col gap-[10px]">
-          <p className="m-0 text-[13px] text-txt-2 leading-[1.55]">
-            Pick a name for this GitHub account. You&apos;ll use it to route a
-            project&apos;s git pushes through the right identity (for example,
-            &ldquo;work&rdquo; or &ldquo;personal&rdquo;).
-          </p>
-          <TextInput
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. work"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void handleCreate();
-              }
-            }}
-          />
-          {createMut.error ? (
-            <div className="text-[12px] text-[var(--error)]">
-              {createMut.error instanceof Error
-                ? createMut.error.message
-                : String(createMut.error)}
-            </div>
-          ) : null}
+        <div className="-mt-1 flex gap-[14px] items-start">
+          <div className="w-[52px] h-[52px] shrink-0 flex items-center justify-center text-acc">
+            <Icon name="identity" size={42} className="w-[42px] h-[42px] [flex:0_0_42px]" />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col gap-[8px]">
+            <TextInput
+              variant="soft"
+              className={field}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Account name"
+              aria-label="Account name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleCreate();
+                }
+              }}
+            />
+            <span className="px-1 text-[11.5px] text-txt-4">
+              e.g. work · used to route a project&apos;s git pushes through this identity
+            </span>
+            {createMut.error ? (
+              <div className="px-1 text-[12px] text-[var(--error)]">
+                {createMut.error instanceof Error
+                  ? createMut.error.message
+                  : String(createMut.error)}
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
 
       {step === "waiting" && created && (
-        <div className="flex flex-col gap-[12px]">
-          <p className="m-0 text-[13px] text-txt-2 leading-[1.55]">
-            Open a terminal and run the command below, then complete the browser
-            login flow. This modal will advance automatically once{" "}
-            <code className="font-mono text-[11.5px] text-txt-2">gh</code> reports
-            an authenticated user for this config dir.
-          </p>
-          <div className="flex items-stretch gap-[6px]">
-            <code className="flex-1 min-w-0 px-[10px] py-[8px] rounded-[8px] border border-line bg-bg-2 font-mono text-[11.5px] text-txt overflow-x-auto whitespace-nowrap">
-              {loginCommand}
-            </code>
-            <Button size="sm" variant="ghost" onClick={handleCopy}>
-              <Icon name={copied ? "check" : "copy"} size={14} />
-              <span className="ml-[6px]">{copied ? "Copied" : "Copy"}</span>
-            </Button>
-          </div>
-          <p className="m-0 text-[12px] text-txt-3 leading-[1.55]">
-            One-time, so git-over-HTTPS pushes use gh&apos;s credential helper for
-            this account, also run:
-          </p>
-          <code className="px-[10px] py-[8px] rounded-[8px] border border-line bg-bg-2 font-mono text-[11.5px] text-txt overflow-x-auto whitespace-nowrap">
-            {setupGitCommand}
-          </code>
-          <div className="flex items-center gap-[8px] text-[12px] text-txt-3">
-            <div className="w-[10px] h-[10px] rounded-full border-2 border-acc border-t-transparent animate-spin" />
-            <span>
-              Waiting for <code className="font-mono text-[11.5px] text-txt-2">gh</code> login…
-            </span>
-          </div>
+        <div className="flex flex-col gap-[18px] -mt-[2px] mb-[2px]">
+          <SignInStep n={1} title="Run in a terminal" gap={8}>{commandRow(loginCommand)}</SignInStep>
+          <SignInStep n={2} title="Once, for git pushes" gap={8}>{commandRow(setupGitCommand)}</SignInStep>
           {statusQ.error ? (
             <div className="text-[12px] text-txt-4">
               {statusQ.error instanceof Error
@@ -195,28 +203,24 @@ export function AddGithubAccountModal({ open, onClose }: AddGithubAccountModalPr
       )}
 
       {step === "confirm" && created && statusQ.data && (
-        <div className="flex flex-col gap-[12px]">
-          <div className="flex items-center gap-[10px]">
-            <Icon name="check" size={16} className="text-status-done" />
-            <span className="text-[13px] text-txt">
-              Login detected — this account is ready.
-            </span>
-          </div>
-          {statusQ.data.username ? (
-            <div className="flex items-center gap-[8px]">
-              <span className="font-mono text-[12px] text-txt-3">@{statusQ.data.username}</span>
+        <div className="-mt-1 flex flex-col gap-[14px]">
+          <div className="flex items-center gap-[12px] px-[14px] py-[12px] rounded-[12px] bg-green-soft">
+            <Icon name="check" size={22} className="w-[22px] h-[22px] [flex:0_0_22px] text-green shrink-0" />
+            <div className="flex-1 min-w-0 flex flex-col gap-[2px]">
+              <span className="text-[13px] font-semibold">Signed in</span>
+              {statusQ.data.username ? (
+                <span className="font-mono text-[11.5px] text-txt-3 truncate">@{statusQ.data.username}</span>
+              ) : null}
             </div>
-          ) : null}
-          <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] text-txt-3 font-mono uppercase tracking-[0.06em]">
-              Label
-            </span>
-            <TextInput
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Rename this account (optional)"
-            />
-          </label>
+          </div>
+          <TextInput
+            variant="soft"
+            className={field}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Account name"
+            aria-label="Account name"
+          />
         </div>
       )}
     </ModalShell>

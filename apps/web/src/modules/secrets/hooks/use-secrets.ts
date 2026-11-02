@@ -76,6 +76,13 @@ export function useTestSecret() {
   });
 }
 
+export function useTestSecretDraft() {
+  return useMutation({
+    mutationFn: (body: { name: string; value?: string; testCmd: string; id?: string }) =>
+      apiFetch<SecretTestResult>(API_ROUTES.secretDraftTest, { method: "POST", body }),
+  });
+}
+
 export function useLinkSecret(projectId: string) {
   const qc = useQueryClient();
   return useMutation({

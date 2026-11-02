@@ -136,6 +136,7 @@ export const API_ROUTES = {
   secrets: "/api/secrets",
   secretById: (id: string) => `/api/secrets/${encodeURIComponent(id)}`,
   secretTest: (id: string) => `/api/secrets/${encodeURIComponent(id)}/test`,
+  secretDraftTest: "/api/secrets/test",
   projectSecrets: (projectId: string) => `/api/projects/${encodeURIComponent(projectId)}/secrets`,
   projectSecretById: (projectId: string, secretId: string) =>
     `/api/projects/${encodeURIComponent(projectId)}/secrets/${encodeURIComponent(secretId)}`,

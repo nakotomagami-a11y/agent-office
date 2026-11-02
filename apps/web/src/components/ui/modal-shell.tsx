@@ -162,15 +162,15 @@ export function ModalShell({
           }}
         >
           {title ? (
-            <div className="border-b border-line flex items-center gap-[10px] px-4 py-3">
+            <div className="flex items-center gap-[10px] px-4 pt-[14px] pb-1">
               <span className="font-bold text-[13px]">{title}</span>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label={closeLabel ?? t("close")}
-                className="ml-auto bg-transparent border-0 w-[26px] h-[26px] rounded-full cursor-pointer text-txt-3"
+                className="ml-auto bg-transparent border-0 w-[26px] h-[26px] flex items-center justify-center rounded-full cursor-pointer text-txt-3 hover:text-txt"
               >
-                <Icon name="x" />
+                <Icon name="x" size={16} />
               </button>
             </div>
           ) : null}
@@ -184,7 +184,7 @@ export function ModalShell({
             {children}
           </div>
           {footer ? (
-            <div className="p-3 border-t border-line flex gap-2 justify-end">
+            <div className="px-4 pt-1 pb-4 flex items-center gap-2 justify-end">
               {footer}
             </div>
           ) : null}

@@ -451,8 +451,10 @@
     "delete_working": "Deleting…"
   },
   "session_removal": {
-    "title": "Remove session",
-    "confirm": "Remove {name} from {project}? Its conversation stays archived so you can still read it. If it has its own worktree, the worktree folder and its branch are deleted; you are asked first if they hold work that is on no other branch. Files git ignores in that folder (.env, local config, node_modules) are not counted as work and are deleted with it.",
+    "title": "Remove from project",
+    "confirm": "Remove <chip>{name}</chip> from <place>{project}</place>? Their conversation stays archived so you can still read it.",
+    "confirm_delete_conversation": "Remove <chip>{name}</chip> from <place>{project}</place>? Their conversation is deleted too. This cannot be undone.",
+    "delete_conversation": "Also delete the conversation",
     "running": "{count, plural, one {This session is} other {# sessions are}} still running. Stop {count, plural, one {it} other {them}} first, then try again.",
     "has_work": "{count, plural, one {This session has} other {# sessions have}} work that is on no other branch:",
     "uncommitted": "{count, plural, one {# uncommitted change} other {# uncommitted changes}}",

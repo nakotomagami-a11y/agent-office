@@ -11,7 +11,7 @@ import { ensureDir, writeFileAtomic } from "../infra/fs-atomic";
 import { parseFrontmatterDetailed, stringifyYaml, type YamlMapping, type YamlValue } from "../infra/yaml";
 import { log } from "../infra/log";
 import { readSettings, scanProjects, slugify, isFeatureEnabled } from "../settings";
-import { currentConversationFirstPrompts, getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
+import { currentConversationFirstPrompts, deleteSlotConversations, getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
 import { sessionNames, sessionTopic } from "../../config/session-names";
 import { liveRuns } from "../execution/runs/registry";
 import { isLiveServer } from "../infra/discovery";
@@ -816,7 +816,7 @@ function removeSessions(reason: string, plan: Removal[], choice?: WorkChoice): v
       writeError ??= err;
       continue;
     }
-    // Transcript rows (runs, messages, tool_calls) are archived, not deleted.
+    // Transcript rows (runs, messages, tool_calls) are archived here; removeInstance deletes them only when asked.
     log.info("project.instances_removed", { projectId, reason, instanceIds: [...ids], choice: choice ?? null });
   }
   if (failed.length > 0) {
@@ -829,13 +829,21 @@ function removeSessions(reason: string, plan: Removal[], choice?: WorkChoice): v
 /**
  * Remove one session. Refuses (SessionRemovalError) while it runs, and while
  * its worktree holds work no other branch has unless `choice` says what to do.
+ * `deleteConversation` also deletes its conversations, once the removal went through.
  */
-export function removeInstance(projectId: string, instanceId: string, choice?: WorkChoice): Project {
+export function removeInstance(projectId: string, instanceId: string, choice?: WorkChoice, deleteConversation = false): Project {
   const p = readProject(projectId);
   if (!p) throw new Error(`project '${projectId}' not found`);
   const instance = p.meta.roster.find((i) => i.instanceId === instanceId);
   if (!instance) throw new Error(`instance '${instanceId}' not found`);
+  // "default" is also the slot of every chat outside a project; deleting it would take those too.
+  if (deleteConversation && instanceId === "default") throw new Error("the default slot's conversations are shared and cannot be deleted with a session");
   removeSessions("removeInstance", planRemovals([{ project: p, instance }], choice), choice);
+  // After the removal: a refused one (running, work at stake) throws above and deletes nothing.
+  if (deleteConversation) {
+    const count = deleteSlotConversations(instance.agentId, instanceId, projectId);
+    log.info("project.conversation_deleted", { projectId, instanceId, count });
+  }
   return readProject(projectId) ?? p;
 }
 

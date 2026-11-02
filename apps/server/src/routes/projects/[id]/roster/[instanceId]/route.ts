@@ -1,8 +1,8 @@
 // GET/PATCH/DELETE /api/projects/<id>/roster/<instanceId> — read, update, or remove one agent
-// instance. DELETE ?work=keep|discard; 409 session_running / session_has_work / worktree_remove_failed.
+// instance. DELETE ?work=keep|discard&conversation=delete; 409 session_running / session_has_work / worktree_remove_failed.
 import { projects, db as dbService } from "@agent-office/domain/services";
 import { validateBody, validateQuery } from "../../../../../lib/validation";
-import { rosterPatchSchema, sessionRemovalQuerySchema } from "@agent-office/api-contract";
+import { instanceRemovalQuerySchema, rosterPatchSchema } from "@agent-office/api-contract";
 import { notFound, tryService, validateIdParam } from "../../../../../lib/api-helpers";
 
 type Params = { params: Promise<{ id: string; instanceId: string }> };
@@ -41,7 +41,7 @@ export async function DELETE(request: Request, { params }: Params) {
   if (idCheck.error) return idCheck.error;
   const instCheck = validateIdParam(instanceId);
   if (instCheck.error) return instCheck.error;
-  const { data, error } = validateQuery(sessionRemovalQuerySchema, new URL(request.url).searchParams);
+  const { data, error } = validateQuery(instanceRemovalQuerySchema, new URL(request.url).searchParams);
   if (error) return error;
-  return tryService(() => projects.removeInstance(idCheck.value, instCheck.value, data.work));
+  return tryService(() => projects.removeInstance(idCheck.value, instCheck.value, data.work, data.conversation === "delete"));
 }

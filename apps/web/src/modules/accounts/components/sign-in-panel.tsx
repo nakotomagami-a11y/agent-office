@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-keys";
-import { Button } from "@/components/ui/button";
+import { Button, ACCENT_BTN_FADED_DISABLED } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/text-input";
+import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/icon";
 import { openExternalUrl } from "@/lib/tauri-window";
 import {
@@ -18,6 +19,8 @@ interface SignInPanelProps {
   accountId: string;
   /** Fired once the CLI writes credentials (phase === "success"). */
   onSuccess: () => void;
+  /** Modals render SignInStatus in their footer instead. */
+  showStatus?: boolean;
 }
 
 /**
@@ -26,7 +29,7 @@ interface SignInPanelProps {
  * success — no terminal required. Rendered inside ModalShell by SignInModal
  * and inline by the add-account flow.
  */
-export function SignInPanel({ accountId, onSuccess }: SignInPanelProps) {
+export function SignInPanel({ accountId, onSuccess, showStatus = true }: SignInPanelProps) {
   const qc = useQueryClient();
   const start = useStartLogin();
   const submit = useSubmitLoginCode();
@@ -81,67 +84,84 @@ export function SignInPanel({ accountId, onSuccess }: SignInPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-[12px]">
-      <p className="m-0 text-[13px] text-txt-2 leading-[1.55]">
-        A Claude sign-in page should have opened in your browser. Approve the
-        login there, then paste the code it gives you below. (If nothing opened,
-        use the button.)
-      </p>
-
-      <div className="flex items-center gap-[8px]">
-        <Button
-          size="sm"
-          variant="ghost"
+    <div className="flex flex-col gap-[18px] -mt-[2px] mb-[2px]">
+      <SignInStep n={1} title="Approve in your browser" action={
+        <button
+          type="button"
           onClick={() => state.url && openExternalUrl(state.url)}
           disabled={!state.url}
+          className="inline-flex items-center gap-[5px] bg-transparent border-0 p-0 text-[12px] font-semibold text-acc cursor-pointer transition-colors hover:text-txt disabled:text-txt-4 disabled:cursor-default"
         >
-          <Icon name="external-link" size={14} />
-          <span className="ml-[6px]">
-            {state.url ? "Open sign-in page" : "Preparing…"}
-          </span>
-        </Button>
-        {!state.url ? (
-          <div className="w-[14px] h-[14px] rounded-full border-2 border-acc border-t-transparent animate-spin" />
-        ) : null}
-      </div>
+          <Icon name="external-link" size={12} className="w-[12px] h-[12px] [flex:0_0_12px]" />
+          {state.url ? "Open again" : "Preparing…"}
+        </button>
+      } />
 
-      <div className="flex items-stretch gap-[6px]">
-        <TextInput
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="Paste authorization code"
-          disabled={!state.url}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSubmitCode();
-            }
-          }}
-        />
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={handleSubmitCode}
-          disabled={!state.url || !code.trim() || submit.isPending}
-        >
-          {submit.isPending ? "Submitting…" : "Submit"}
-        </Button>
-      </div>
+      <SignInStep n={2} title="Paste the code">
+        <div className="relative flex items-center">
+          <TextInput
+            variant="soft"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Paste authorization code"
+            spellCheck={false}
+            disabled={!state.url}
+            className="h-[46px] pl-4 pr-[92px] font-mono text-[12.5px]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSubmitCode();
+              }
+            }}
+          />
+          <Button
+            variant="primary"
+            onClick={handleSubmitCode}
+            disabled={!state.url || !code.trim() || submit.isPending}
+            className={cn("absolute right-[7px] min-w-[76px] px-3 justify-center rounded-[9px] text-[12.5px] font-semibold text-white shadow-none hover:shadow-none hover:translate-y-0", ACCENT_BTN_FADED_DISABLED)}
+          >
+            {submit.isPending ? "Submitting…" : "Submit"}
+          </Button>
+        </div>
+      </SignInStep>
 
       {state.message ? (
         <div className="text-[12px] text-[var(--error)]">{state.message}</div>
       ) : null}
-
-      {state.phase === "error" ? (
-        <div className="text-[12px] text-[var(--error)]">
-          Sign-in failed. Close and try again.
-        </div>
-      ) : (
-        <div className="flex items-center gap-[8px] text-[12px] text-txt-3">
-          <div className="w-[10px] h-[10px] rounded-full border-2 border-acc border-t-transparent animate-spin" />
-          <span>Waiting for sign-in to complete…</span>
-        </div>
-      )}
+      {showStatus && <SignInStatus accountId={accountId} />}
     </div>
+  );
+}
+
+/** One numbered step of a sign-in flow (also used by the GitHub add-account flow). */
+export function SignInStep({ n, title, action, gap = 10, children }: { n: number; title: string; action?: React.ReactNode; gap?: 8 | 10; children?: React.ReactNode }) {
+  return (
+    <div className="flex gap-[12px]">
+      <span className="w-[22px] h-[22px] shrink-0 rounded-full flex items-center justify-center bg-acc-soft text-acc font-mono text-[11px] font-bold">
+        {n}
+      </span>
+      <div className={cn("flex-1 min-w-0 flex flex-col pt-[2px]", gap === 8 ? "gap-[8px]" : "gap-[10px]")}>
+        <div className="flex items-center gap-[8px]">
+          <span className="text-[13px] font-semibold">{title}</span>
+          <span className="flex-1" />
+          {action}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Footer status for a modal hosting SignInPanel: reads the panel's polled login state from the query cache. */
+export function SignInStatus({ accountId }: { accountId: string }) {
+  const { data } = useLoginState(accountId, false);
+  if (data?.phase === "error") {
+    return <span className="mr-auto text-[12px] text-status-error">Sign-in failed. Close and try again.</span>;
+  }
+  return (
+    <span className="mr-auto flex items-center gap-[8px] text-[12px] text-txt-3">
+      <span className="w-[10px] h-[10px] rounded-full border-2 border-acc border-t-transparent animate-[spin_0.9s_linear_infinite]" />
+      Waiting for sign-in…
+    </span>
   );
 }

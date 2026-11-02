@@ -22,6 +22,9 @@ export const ACCENT_BTN =
   "active:translate-y-0 active:brightness-[0.97] " +
   "disabled:bg-none disabled:bg-bg-3 disabled:border-line disabled:text-txt-3 disabled:shadow-none disabled:brightness-100 disabled:translate-y-0 disabled:cursor-not-allowed";
 
+export const ACCENT_BTN_FADED_DISABLED =
+  "disabled:bg-[linear-gradient(120deg,var(--acc-cta),var(--acc-2))] disabled:border-transparent disabled:text-white disabled:opacity-45";
+
 const BASE =
   "h-8 px-3 inline-flex items-center gap-[7px] bg-bg-1 border border-line-2 rounded-md font-[inherit] text-[13px] text-txt cursor-pointer shadow-1 hover:bg-bg-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc";
 
