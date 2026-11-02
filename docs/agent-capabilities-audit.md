@@ -190,6 +190,7 @@ Not in Wave 0 (moved): Flutter crash (S4-8, S7-10) and About You are being remov
 | C31 | The unwired `CLAUDE.md` generator (`project-map-file.ts`) is deleted | — | — |
 | S1-15 | One `resolveStarterDataDir`; one account-usage check, CRLF-safe, used by both account kinds | `accounts.remove-dir.test.ts` | Pin a Claude account in a CRLF `project.md`, try to remove the account: refused |
 | CRLF | Docs and pasted skills parse frontmatter with the shared CRLF-safe splitter | `docs.test.ts` | Save a doc with CRLF endings: it stays listed |
+| S4-18 | The `/search` page and `modules/search` are removed (no entry point since #30), with the `RunRow` they alone used; `messages_fts` stays for the `deep` profile | — | Open `/search`: the 404 page |
 
 ## Overlap with PR #212 (AI providers mission)
 

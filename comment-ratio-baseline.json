@@ -2204,11 +2204,6 @@
     "code": 23,
     "comment": 0
   },
-  "apps/web/src/modules/runs/components/run-row.tsx": {
-    "ratio": 0,
-    "code": 56,
-    "comment": 0
-  },
   "apps/web/src/modules/runs/components/status-badge.tsx": {
     "ratio": 0.1731,
     "code": 52,

@@ -134,7 +134,7 @@ repositories, pinned by commit as git dependencies in `apps/web/package.json`:
 
 Inside `apps/web/src`:
 
-- `app/(app)/` - pages (root `/` redirects to the active project): analytics, projects, agents, runs, memory, skills, docs, settings
+- `app/(app)/` - pages (root `/` redirects to the active project): analytics, projects, agents, schedules, memory, skills, docs, settings
 - `app/api/[...path]/` - mounts `@agent-office/server`; the endpoints themselves live in `apps/server/src/routes/`
 - `components/layout/` - window chrome, titlebar, sidebar, project switcher, mobile nav
 - `components/ui/` - design-system atoms (Icon, StatusDot, Button, Modal, Tabs, ...)
