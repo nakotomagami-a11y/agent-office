@@ -96,8 +96,9 @@ export function DevServerButton({ projectId, menu = false, hero = false }: { pro
           if (alreadyTracked) continue;
           const matched =
             commands.find((cmd) => {
-              const scriptName = cmd.argv[cmd.argv.length - 1] ?? "";
-              return proc.cmd.includes(scriptName) || proc.cmd.includes(cmd.key);
+              // Whole words: a running `pnpm run dev:win` must not match the bare `dev` row.
+              const words = proc.cmd.split(/\s+/);
+              return words.includes(cmd.argv[cmd.argv.length - 1] ?? "") || words.includes(cmd.key);
             }) ?? commands[0]!;
           if (matched && store.getRunState(projectId, matched.key).phase === "idle") {
             store.setRunState(projectId, matched.key, {
