@@ -88,7 +88,7 @@ export function PrimaryAction({ ready, busy, waiting, className, children, ...re
   );
 }
 
-/** Tauri's shell plugin opens target=_blank http(s)/mailto links itself, before React's onClick runs; a handler here doubled them. */
+/** No onClick: Tauri's shell plugin already opens target=_blank links, so a handler opens them twice. */
 export function ExternalLink({ href, className, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
   return <a href={href} target="_blank" rel="noreferrer" {...rest} className={cn(FOCUS_RING, "rounded-[4px]", className)} />;
 }

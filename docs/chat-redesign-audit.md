@@ -92,7 +92,7 @@ Exceptions, each needs a yes/no:
 | B4 | The "YOU 14:02" time never renders: `fmtClockTime` expects `y_<ms>` ids nothing produces | `format/message-format.ts:11-20`, `chat-thread.tsx:400` | S |
 | B5 | Sub-agent cards vanish once a turn finishes (history skips the spawn; child runs aren't attached to the turn) | `conversation-to-thread.ts:30` | M |
 | B6 | Sub-agent `startTs` resets to replay time on reconnect, so durations are wrong | `format/parse-sse-event.ts:161,171` | S |
-| B7 | Chat links probably do nothing in the desktop app (needs a live check) | `.ao-prose a` + `target=_blank`; `lib/tauri-window.ts:76` | S |
+| B7 | Chat links opened twice in the desktop app (resolved, see item 8) | `markdown-view.tsx`, `mission-fields.tsx` | S |
 | B8 | Enter in the slash menu sends the raw `/c` text; only Tab picks | `hooks/use-composer-keyboard.ts:36-39,83` | S |
 | B9 | Inspector header chips wrap and overlap at 1500 px (effort, playwright, QA loop wrap to 2–3 lines; name cut to "Sessi…") | `office/components/agent-details/index.tsx:345,370-452` | fixed by the header redesign |
 | B10 | Mission panel questions show literal `**` (raw text in a `whitespace-pre-wrap` `<p>`) | `missions/components/mission-panel-controls.tsx:75` | S |
@@ -273,7 +273,7 @@ records which round found each finding, plus its cost, duration and verdict.
 | B4 | YOU time shows on every turn, live and reloaded | `conversation-to-thread.test.ts` | Reload a chat: each YOU header shows HH:MM |
 | B5 | Sub-agent cards stay after the turn ends and after the 48 h tool-call prune; cancelled/timeout keep their status | `conversations.test.ts`, `conversation-to-thread.test.ts` | Spawn a sub-agent, let the turn end, reload: card with name, prompt, duration, status |
 | B6 | Sub-agent durations and finished state survive a reconnect | `parse-sse-event.test.ts` | Reload mid-sub-agent and after: real duration, not "since reload" |
-| B7 | Links open in the system browser in the desktop app, once | `markdown-view.test.tsx` | Desktop app: click a link in agent text, the browser opens |
+| B7 | Links open in the system browser in the desktop app, once | — | Desktop app: click a link in agent text, exactly one browser tab opens |
 | B11, B12 | Four-backtick fences render as one code block; markdown inside inline code stays literal | `markdown-view.test.tsx` | A mission post with a code block inside an `ao-post` fence renders as one block |
 | — | Markdown: blockquotes, `#`–`######` headings, nested lists, task lists, strikethrough, `---`, GFM tables; bare URLs autolink | `markdown-view.test.tsx` | Ask an agent to reply with each element |
 | — | Link safety: only absolute `http(s)`/`mailto` links; relative, `//host`, `/\host`, `/api/...`, `javascript:`, `data:` render as text; raw HTML never renders. Links are gated at render by `urlTransform: safeLinkHref` | `markdown-view.test.tsx` | — |

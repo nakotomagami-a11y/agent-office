@@ -24,7 +24,7 @@ function langOf(node: unknown): string {
   return first.replace(/^language-/, "");
 }
 
-// Tauri's shell plugin opens target=_blank http(s)/mailto links itself, before React's onClick runs; a handler here doubled them.
+// No onClick: Tauri's shell plugin already opens target=_blank links, so a handler opens them twice.
 function ExternalAnchor({ href, children }: { href: string; children: ReactNode }) {
   return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
 }
