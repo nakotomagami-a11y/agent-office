@@ -221,7 +221,7 @@ const BUILD_SCRIPT_PRIORITY = ["build", "build:prod", "build:production", "build
 
 /** The argv to build a project: a `.ao.json` `buildCommand` override, else the
  *  best-matching package.json `build*` script run through `pm`. Null if none. */
-export function detectBuildCommand(cwd: string, pm: string): string[] | null {
+export function detectBuildCommand(cwd: string, pm: string, platform: NodeJS.Platform = process.platform): string[] | null {
   const aoPath = join(cwd, ".ao.json");
   if (existsSync(aoPath)) {
     try {
@@ -237,7 +237,7 @@ export function detectBuildCommand(cwd: string, pm: string): string[] | null {
       for (const key of BUILD_SCRIPT_PRIORITY) {
         if (scripts[key]) return [pm, "run", key];
       }
-      const fallback = Object.keys(scripts).find((k) => /^build/.test(k));
+      const fallback = Object.keys(scripts).find((k) => /^build/.test(k) && scriptRunsOn(k, platform));
       if (fallback) return [pm, "run", fallback];
     } catch { /* ignore */ }
   }
@@ -261,14 +261,6 @@ export function resolvePackageDirs(cwd: string): string[] {
     .filter((dir) => existsSync(join(dir, "package.json")) && confinedTo(cwd, dir));
 }
 
-/**
- * PATH bootstrap prepended to any `bash -lc` that runs a package manager. A
- * GUI-launched desktop app inherits a minimal PATH without nvm/pnpm/bun, so
- * `npm/pnpm/bun` wouldn't resolve. Mirrors the setup the dev-server launcher
- * uses (see dev route `spawnInTerminal`). Ends with "; " so it composes.
- */
-// Module-level set prevents two concurrent requests from picking the same port in
-// the window between the "port is free" check and the process actually binding it.
 const DEV_SCRIPT_RE = /^(dev|start|serve|preview|watch|develop)([:.-].+)?$/;
 const SKIP_SCRIPT_RE = /build|test|lint|type|check|emit|prepare|postinstall|prebuild/;
 
@@ -279,19 +271,19 @@ const SCRIPT_OS: Record<string, NodeJS.Platform> = {
   linux: "linux",
 };
 
-/** A script named for an OS (`dev:mac`) runs only there: other OSes' variants are left out of the list. */
-export function scriptRunsOn(key: string, platform: NodeJS.Platform): boolean {
+/** A script named for an OS (`dev:mac`) runs only there: other OSes' variants are left out of the lists. */
+function scriptRunsOn(key: string, platform: NodeJS.Platform): boolean {
   const oses = key.split(/[:.-]/).flatMap((part) => SCRIPT_OS[part.toLowerCase()] ?? []);
   return oses.length === 0 || oses.includes(platform);
 }
 
-const OS_LABEL: Partial<Record<NodeJS.Platform, string>> = { darwin: "macOS", win32: "Windows", linux: "Linux" };
+const OS_LABEL: Record<string, string> = { darwin: "macOS", win32: "Windows", linux: "Linux" };
 
 function scriptToName(key: string): string {
   // `start:win` → "Start (Windows)": only this OS's variants are listed, but `dev:win` and `start:win` both are.
   const parts = key.split(/[:.-]/);
   const os = parts.map((part) => SCRIPT_OS[part.toLowerCase()]).find(Boolean);
-  if (os) return `${scriptToName(parts.filter((part) => !SCRIPT_OS[part.toLowerCase()]).join(":") || "dev")} (${OS_LABEL[os] ?? os})`;
+  if (os) return `${scriptToName(parts.filter((part) => part && !SCRIPT_OS[part.toLowerCase()]).join(":"))} (${OS_LABEL[os]})`;
   if (key === "dev") return "Dev";
   if (key === "start") return "Start";
   if (key === "serve") return "Serve";

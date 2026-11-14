@@ -49,12 +49,19 @@ test("a script named for an OS is listed only on that OS", () => {
   try {
     writeFileSync(join(root, "package.json"), JSON.stringify({ scripts: {
       dev: "x", "dev:mac": "x", "dev:win": "x", "dev:linux": "x", "start:windows": "x", "start:macos": "x", preview: "x",
+      // Whole segments only: "winter" is no OS; an arch suffix doesn't hide the OS word.
+      "start:winter": "x", "dev:darwin-arm64": "x",
+      "build:mac": "x", "build:win": "x",
     } }));
+    mkdirSync(join(root, "frontend"));
+    writeFileSync(join(root, "frontend", "package.json"), JSON.stringify({ scripts: { "dev:mac": "x", "dev:linux": "x" } }));
     const keys = (platform: NodeJS.Platform) => detectDevCommands(root, platform).map((c) => c.key).sort();
-    assert.deepStrictEqual(keys("win32"), ["dev", "dev:win", "preview", "start:windows"]);
-    assert.deepStrictEqual(keys("darwin"), ["dev", "dev:mac", "preview", "start:macos"]);
-    assert.deepStrictEqual(keys("linux"), ["dev", "dev:linux", "preview"]);
-    assert.deepStrictEqual(detectDevCommands(root, "win32").map((c) => c.name).sort(), ["Dev", "Dev (Windows)", "Preview", "Start (Windows)"]);
+    assert.deepStrictEqual(keys("win32"), ["dev", "dev:win", "preview", "start:windows", "start:winter"]);
+    assert.deepStrictEqual(keys("darwin"), ["dev", "dev:darwin-arm64", "dev:mac", "frontend-dev:mac", "preview", "start:macos", "start:winter"]);
+    assert.deepStrictEqual(keys("linux"), ["dev", "dev:linux", "frontend-dev:linux", "preview", "start:winter"]);
+    assert.deepStrictEqual(detectDevCommands(root, "win32").map((c) => c.name).sort(), ["Dev", "Dev (Windows)", "Preview", "Start (Windows)", "Winter"]);
+    assert.deepStrictEqual(detectBuildCommand(root, "pnpm", "win32"), ["pnpm", "run", "build:win"]);
+    assert.deepStrictEqual(detectBuildCommand(root, "pnpm", "darwin"), ["pnpm", "run", "build:mac"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
