@@ -22,10 +22,8 @@ function TypingDots() {
   );
 }
 
-/** "Thinking" label with a light sweeping across the text — the reference
- *  design's `aoShimmer` gradient-text treatment, distinct from the plain
- *  gray labels used for the brief "Connecting…"/"Sending…" states. Shown
- *  while the agent has no visible output yet (tool calls only). */
+/** The reference design's `aoShimmer` gradient-text treatment for a live label,
+ *  distinct from the plain gray "Connecting…"/"Sending…" labels. */
 function ShimmerLabel({ children }: { children: string }) {
   return (
     <span
@@ -51,15 +49,6 @@ function ShimmerLabel({ children }: { children: string }) {
 export function LiveStatus({ phase, hint, waitingLabel }: { phase: ChatPhase; hint?: string; waitingLabel?: string }) {
   if (phase === "idle" || phase === "done" || phase === "aborted") return null;
 
-  if (waitingLabel && (phase === "working" || phase === "streaming")) {
-    return (
-      <span className="flex items-center gap-[8px]" role="status" aria-live="polite">
-        <TypingDots />
-        <ShimmerLabel>{waitingLabel}</ShimmerLabel>
-      </span>
-    );
-  }
-
   if (phase === "error") {
     return (
       <span className="text-[12.5px] text-[var(--error)]" role="status" aria-live="polite">
@@ -77,11 +66,12 @@ export function LiveStatus({ phase, hint, waitingLabel }: { phase: ChatPhase; hi
     );
   }
 
-  if (phase === "working") {
+  const shimmer = waitingLabel ?? (phase === "working" ? "Thinking" : undefined);
+  if (shimmer) {
     return (
       <span className="flex items-center gap-[8px]" role="status" aria-live="polite">
         <TypingDots />
-        <ShimmerLabel>Thinking</ShimmerLabel>
+        <ShimmerLabel>{shimmer}</ShimmerLabel>
       </span>
     );
   }

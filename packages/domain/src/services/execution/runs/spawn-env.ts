@@ -56,8 +56,8 @@ export function resolveSpawnEnv(
   const env: NodeJS.ProcessEnv = { ...process.env, PATH: buildAugmentedPath() };
   // An inherited ANTHROPIC_BASE_URL once sent a subscription run's OAuth token to that URL.
   scrubBackendEnv(env);
-  // `claude -p` kills background agents 10 min after the reply ("I'll report back" never did); 0 = wait, up to MAX_WALL_CLOCK_MS.
-  env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS ||= "0";
+  // `claude -p` kills background agents/shells 10 min after the reply; not 0, which holds a run for a dev server's life.
+  env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS ||= String(60 * 60_000);
   if (resolvedId && resolvedId !== DEFAULT_ACCOUNT_ID) {
     const account = accounts.get(resolvedId);
     if (account) {

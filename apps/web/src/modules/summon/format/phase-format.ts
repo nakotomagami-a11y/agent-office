@@ -44,9 +44,11 @@ export function phaseHint(
   return undefined;
 }
 
-export const isSubAgentLive = (s: SubAgentStatus): boolean => s === "queued" || s === "running" || s === "cancelling";
+export function isSubAgentLive(s: SubAgentStatus): boolean {
+  return s === "queued" || s === "running" || s === "cancelling";
+}
 
-/** Sub-agents still working in the live run, the agent's own or backgrounded ones it is waiting on. */
-export function countRunningAgents(thread: ThreadItem[]): number {
+/** Sub-agents still working in the live run, foreground or background. */
+export function countLiveSubAgents(thread: ThreadItem[]): number {
   return thread.filter((it) => it.kind === "agent-subagent" && isSubAgentLive(it.status)).length;
 }

@@ -86,9 +86,12 @@ test("a GH_TOKEN the project links as a secret wins over the pinned account", ()
   });
 });
 
-function withEnv<T>(vars: Record<string, string>, fn: () => T): T {
+function withEnv<T>(vars: Record<string, string | undefined>, fn: () => T): T {
   const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
-  Object.assign(process.env, vars);
+  for (const [k, v] of Object.entries(vars)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
   try {
     return fn();
   } finally {
@@ -138,20 +141,9 @@ test("reserved secrets are flagged for the Secrets UI", () => {
   assert.equal(listed.find((s) => s.name === "OPENAI_API_KEY")?.reserved, false);
 });
 
-test("a run waits for its background agents instead of killing them after 10 minutes; a user value wins", () => {
-  const p = project("bg-wait");
-  const opts = { projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0];
-  const saved = process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS;
-  delete process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS;
-  try {
-    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "0");
-  } finally {
-    if (saved !== undefined) process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS = saved;
-  }
-  withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "" }, () => {
-    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "0");
-  });
-  withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "3600000" }, () => {
-    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "3600000");
-  });
+test("background agents get an hour after the reply, not the CLI's 10 minutes; a user value wins", () => {
+  const opts = { projectId: project("bg-wait").id } as Parameters<typeof resolveSpawnEnv>[0];
+  const ceiling = (value: string | undefined) =>
+    withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: value }, () => resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS);
+  assert.deepStrictEqual([ceiling(undefined), ceiling(""), ceiling("120000")], ["3600000", "3600000", "120000"]);
 });

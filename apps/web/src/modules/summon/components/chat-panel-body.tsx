@@ -10,7 +10,7 @@ import { ChatThread } from "./chat-thread";
 import { Composer } from "./composer";
 import { ChatBanners } from "./chat-banners";
 import { BackgroundTaskIndicator } from "./background-task-indicator";
-import { countRunningAgents, phaseHint } from "../format/phase-format";
+import { countLiveSubAgents, phaseHint } from "../format/phase-format";
 import { repairWorktree } from "@/lib/api/roster";
 import type { LiveStats } from "../format/derive-live-stats";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
@@ -118,7 +118,7 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
         onSkipFailedTurn={props.onSkip}
         phase={props.phase}
         phaseHint={phaseHint(props.phase, props.stream.usage)}
-        waitingAgents={countRunningAgents(props.stream.thread)}
+        waitingAgents={countLiveSubAgents(props.stream.thread)}
         phaseStats={props.liveStats}
         queuedMessages={props.queuedMessages}
         onCancelQueuedMessage={props.onCancelQueuedMessage}
