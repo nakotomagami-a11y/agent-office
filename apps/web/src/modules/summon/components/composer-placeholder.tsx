@@ -16,8 +16,9 @@ const HOLD_PER_CHAR_MS = 30;
 /**
  * Rotating placeholder for the composer: each hint rises in letter by letter, holds, then
  * lifts out the same way. A textarea's own `placeholder` cannot style single letters, so this
- * sits on top of the empty textarea. It stays mounted while the user types (`hidden`) so the
- * rotation carries on after a send instead of restarting at the first hint.
+ * sits on top of the empty textarea. It stays mounted while the user types (`hidden`, rotation
+ * paused) so a send resumes at the next hint instead of the first. Reduced motion shows one
+ * static hint: text that keeps changing on its own is what those users opted out of.
  */
 export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.ReactElement {
   const t = useTranslations("composer.placeholder_hints");
@@ -28,6 +29,7 @@ export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.Reac
   const chars = Array.from(t(HINT_KEYS[idx]!, { mac: String(mac) }));
 
   useEffect(() => {
+    if (hidden || prefersReducedMotion()) return;
     const ms = leaving
       ? OUT_MS + chars.length * OUT_STAGGER_MS
       : IN_MS + chars.length * (IN_STAGGER_MS + HOLD_PER_CHAR_MS) + HOLD_MS;
@@ -36,7 +38,14 @@ export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.Reac
       setLeaving(!leaving);
     }, ms);
     return () => clearTimeout(timer);
-  }, [leaving, chars.length]);
+  }, [leaving, chars.length, hidden]);
+
+  // Hidden mid-exit: move on now, so the reveal types in a fresh hint instead of flashing the old one.
+  useEffect(() => {
+    if (!hidden || !leaving) return;
+    setIdx((i) => (i + 1) % HINT_KEYS.length);
+    setLeaving(false);
+  }, [hidden, leaving]);
 
   return (
     <div
@@ -57,4 +66,9 @@ export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.Reac
       ))}
     </div>
   );
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+    || document.documentElement.hasAttribute("data-reduce-motion");
 }

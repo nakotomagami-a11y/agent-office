@@ -138,7 +138,7 @@ export function Composer(props: ComposerProps) {
         <ComposerInputShell dragOver={att.dragOver} attachments={att.attachments} onRemoveAttachment={att.removeAttachment}>
           <div className="relative">
             <ComposerPlaceholder hidden={value !== ""} />
-            <span id={hintId} className="sr-only">{t("composer.placeholder_hints.slash")}</span>
+            <span id={hintId} hidden>{t("composer.placeholder_hints.slash")}</span>
             <textarea
               ref={textRef}
               value={value}
