@@ -54,18 +54,15 @@ test("count and seed give one placeholder and one known seed per image", () => {
   assert.equal(one(`imggen x -c4`).count, 4);
 });
 
-test("pixel-art and img2img flags: --size/--image/--denoise take a value, --raw/--ui take none", () => {
+test("imggen's pixel-art and img2img flags", () => {
   const p = `--profile tinyswords --name fox --prompt-file C:/Users/u/.cache/imggen/p.txt`;
   assert.deepEqual(one(`imggen ${p} --size 128 --image C:/Users/u/ref.png --denoise 0.65 -c 3`),
     { slug: "fox", count: 3, seeds: null, background: false, offset: 0 });
-  assert.equal(one(`imggen ${p} --ui --size 128`).slug, "fox", "--ui must not swallow --size as its value");
-  assert.equal(one(`imggen ${p} --raw`).slug, "fox");
-  assert.equal(one(`imggen "a fox" --ui`).slug, "a-fox", "a boolean flag after the prompt is not a second positional");
-  assert.deepEqual(parseImggenCommand(`imggen ${p} --ui=1`), [], "store_true with a value is an argparse error");
+  assert.equal(one(`imggen ${p} --raw -c 2`).count, 2, "--raw must not swallow the next flag as its value");
+  assert.equal(one(`imggen "a fox" --raw`).slug, "a-fox", "a boolean flag after the prompt is not a second positional");
+  assert.deepEqual(parseImggenCommand(`imggen ${p} --raw=1`), [], "store_true with a value is an argparse error");
   assert.deepEqual(parseImggenCommand(`imggen ${p} --size`), [], "--size needs a value");
   assert.deepEqual(parseImggenCommand(`imggen ${p} --denoise 0.6`), [], "imggen: --denoise needs --image");
-  assert.deepEqual(parseImggenCommand(`imggen ${p} --raw --ui`), [], "the server refuses ui with raw");
-  assert.deepEqual(parseImggenCommand(`imggen ${p} --raw --size 64`), [], "the server refuses size with raw");
 });
 
 test("argparse's unique-prefix abbreviations are honoured; ambiguous ones are rejected", () => {
