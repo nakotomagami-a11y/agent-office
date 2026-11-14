@@ -4,7 +4,6 @@ import { useId, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type Keybo
 import { useFormatter, useTranslations } from "next-intl";
 import { MAX_USD } from "@agent-office/domain/config/missions";
 import { cn } from "@/lib/cn";
-import { openExternalUrl } from "@/lib/tauri-window";
 import { parseUsd, usdOk } from "../format/money";
 import type { Tone } from "../format/seat-status";
 
@@ -89,12 +88,9 @@ export function PrimaryAction({ ready, busy, waiting, className, children, ...re
   );
 }
 
-/** `target="_blank"` does nothing in the desktop (Tauri) webview; this opens the system browser there. */
+/** Tauri's shell plugin opens target=_blank http(s)/mailto links itself, before React's onClick runs; a handler here doubled them. */
 export function ExternalLink({ href, className, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" {...rest} className={cn(FOCUS_RING, "rounded-[4px]", className)}
-      onClick={(e) => { e.preventDefault(); void openExternalUrl(href); }} />
-  );
+  return <a href={href} target="_blank" rel="noreferrer" {...rest} className={cn(FOCUS_RING, "rounded-[4px]", className)} />;
 }
 
 /** Arrow keys move the choice in a radiogroup or tablist; buttons carry `data-value`. */

@@ -144,6 +144,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
+        // Its injected script opens target=_blank http(s)/mailto links in the system browser; the web UI relies on that.
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
             #[cfg(desktop)]
