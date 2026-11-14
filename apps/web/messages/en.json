@@ -673,7 +673,14 @@
     "open_chat": "Open chat"
   },
   "composer": {
-    "input_placeholder": "Type a message — / for commands",
+    "placeholder_hints": {
+      "help": "How can I help you today?",
+      "slash": "Type / for commands and saved prompts",
+      "attach": "Drop or paste a file to attach it",
+      "newline": "Shift+Enter starts a new line",
+      "missions": "{mac, select, true {⌘P} other {Ctrl+P}} opens Missions",
+      "clear": "/clear starts a new thread"
+    },
     "input_aria": "Message",
     "remove_chip_aria": "Remove {name}",
     "command_clear_desc": "Start a new thread",

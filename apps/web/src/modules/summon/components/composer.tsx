@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { useAgentPrompts } from "../hooks/use-agent-prompts";
@@ -18,6 +18,7 @@ import { ComposerSlashMenu } from "./composer-slash-menu";
 import { ComposerPromptsMenu } from "./composer-prompts-menu";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
 import { ComposerToolbar } from "./composer-toolbar";
+import { ComposerPlaceholder } from "./composer-placeholder";
 
 export type ComposerProps = {
   disabled?: boolean;
@@ -41,6 +42,7 @@ export function Composer(props: ComposerProps) {
   const [value, setValue] = useState("");
   const [missionsOpen, setMissionsOpen] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const hintId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: savedPrompts = [] } = useAgentPrompts(props.agentId);
@@ -134,17 +136,21 @@ export function Composer(props: ComposerProps) {
       <ComposerShell att={att}>
         <ComposerMenuLayer menus={menus} onInsertSlash={insertSlash} onSelectPrompt={selectPrompt} />
         <ComposerInputShell dragOver={att.dragOver} attachments={att.attachments} onRemoveAttachment={att.removeAttachment}>
-          <textarea
-            ref={textRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKey}
-            onPaste={att.onPaste}
-            placeholder={t("composer.input_placeholder")}
-            aria-label={t("composer.input_aria")}
-            rows={1}
-            className="border-none bg-transparent resize-none text-txt w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[520px] overflow-y-auto placeholder:text-txt-4"
-          />
+          <div className="relative">
+            <ComposerPlaceholder hidden={value !== ""} />
+            <span id={hintId} className="sr-only">{t("composer.placeholder_hints.slash")}</span>
+            <textarea
+              ref={textRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={onKey}
+              onPaste={att.onPaste}
+              aria-label={t("composer.input_aria")}
+              aria-describedby={hintId}
+              rows={1}
+              className="border-none bg-transparent resize-none text-txt w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[520px] overflow-y-auto"
+            />
+          </div>
           <ComposerToolbar
             cwdChip={props.cwdChip}
             modelChip={props.modelChip}
