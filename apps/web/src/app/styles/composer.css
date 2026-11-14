@@ -7,3 +7,26 @@
   background: color-mix(in srgb, var(--bg-1) 85%, transparent);
   border-radius: 14px; font-size: 13px; z-index: 10;
 }
+
+/* Rotating placeholder: inline-block so each letter can move; `both` keeps the hidden
+   pre-delay state, and when perf modes strip animations the base style is simply visible. */
+.composer-hint-in,
+.composer-hint-out { display: inline-block; }
+.composer-hint-in { animation: composerHintIn 420ms cubic-bezier(.2, .8, .2, 1) both; }
+.composer-hint-out { animation: composerHintOut 240ms cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes composerHintIn {
+  from { opacity: 0; transform: translateY(.45em); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes composerHintOut {
+  from { opacity: 1; transform: none; filter: none; }
+  to { opacity: 0; transform: translateY(-.45em); filter: blur(4px); }
+}
+
+/* The global reduced-motion rule shortens durations but keeps the per-letter delays,
+   which would still type the hint out; drop the animation so it is a plain swap. */
+@media (prefers-reduced-motion: reduce) {
+  .composer-hint-in, .composer-hint-out { animation: none; }
+}
+[data-reduce-motion] .composer-hint-in,
+[data-reduce-motion] .composer-hint-out { animation: none; }
