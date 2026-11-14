@@ -5,10 +5,9 @@ import dev.agentoffice.mc.core.Ids;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import net.neoforged.fml.loading.FMLPaths;
 
 /**
- * Everything the mod keeps on disk, in one list. The client config (agentoffice-client.toml) is named by NeoForge.
+ * Everything the mod keeps on disk, in one list. The client config is the loader's (ClientSetup).
  */
 public final class ModPaths {
     /** The world's agents (AgentRecords): {@code <world>/data/agentoffice_agents.dat}, saved with the world. */
@@ -37,6 +36,6 @@ public final class ModPaths {
     }
 
     private static Path config(String name) {
-        return FMLPaths.CONFIGDIR.get().resolve(Ids.MOD_ID + "-" + name);
+        return Platform.configDir().resolve(Ids.MOD_ID + "-" + name);
     }
 }

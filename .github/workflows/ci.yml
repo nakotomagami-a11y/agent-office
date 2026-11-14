@@ -94,12 +94,17 @@ jobs:
       # version, so they are cached on that alone (setup-java's gradle cache key changes with any build edit).
       - name: NeoForge version
         id: neo
-        run: echo "version=$(grep '^neo_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(grep '^neo_version=' versions/1.21.1-neoforge/gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         with:
           path: ~/.gradle/caches/neoformruntime/assets
           key: minecraft-assets-${{ steps.neo.outputs.version }}
 
+      # Stonecutter: the sources are committed with the NeoForge node live (gradlew "Reset active project").
+      - name: Sources are NeoForge-live
+        run: grep -qx 'stonecutter active "1.21.1-neoforge"' stonecutter.gradle.kts
+
+      # Both jars (Stonecutter): NeoForge 1.21.1 with its tests, Fabric 1.20.1 (Java 17, fetched by the toolchain resolver).
       - name: Test and build
         run: ./gradlew build --no-daemon
 

@@ -35,6 +35,7 @@ public class FlatButton extends Button {
         return this;
     }
 
+    //? if neoforge {
     @Override
     public int getFGColor() {
         if (!active) return super.getFGColor();
@@ -44,15 +45,26 @@ public class FlatButton extends Button {
             default -> super.getFGColor();
         };
     }
+    //?}
 
     @Override
     public void renderString(GuiGraphics g, Font font, int color) {
+        //? if fabric {
+        /*// Fabric has no getFGColor (a NeoForge hook): the kind's colour, at the alpha vanilla gave.
+        if (active && (kind == Kind.PRIMARY || kind == Kind.DANGER)) color = color & 0xFF000000 | (kind == Kind.PRIMARY ? PRIMARY_TEXT : DANGER_TEXT);
+        *///?}
         if (!alignLeft) {
             super.renderString(g, font, color);
             return;
         }
         int minX = getX() + 6;
-        renderScrollingString(g, font, getMessage(), minX + font.width(getMessage()) / 2, minX, getY(), getRight() - 2, getBottom(), color);
+        //? if >=1.21 {
+        renderScrollingString(g, font, getMessage(), minX + font.width(getMessage()) / 2, minX, getY(), getX() + width - 2, getY() + height, color);
+        //?} else {
+        /*// 1.20.1's renderScrollingString centres text that fits: left-aligned, it is drawn here, scrolled only when it overflows.
+        if (font.width(getMessage()) <= getX() + width - 2 - minX) g.drawString(font, getMessage(), minX, getY() + (height - 8) / 2, color);
+        else renderScrollingString(g, font, getMessage(), minX, getY(), getX() + width - 2, getY() + height, color);
+        *///?}
     }
 
     @Override

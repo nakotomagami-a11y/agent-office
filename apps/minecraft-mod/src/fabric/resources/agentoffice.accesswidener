@@ -1,0 +1,3 @@
+accessWidener v2 named
+# ChatScreen resizes its composer every layout (1.21: setRectangle).
+accessible field net/minecraft/client/gui/components/AbstractWidget height I

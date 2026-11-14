@@ -45,7 +45,7 @@ final class AddAgentScreen extends TabletScreen {
         // The same box across rebuilds: typing rebuilds the list, and must keep focus and cursor.
         if (filter == null) {
             filter = new EditBox(font, x1 - 150, top + 8, 150, 14, Component.literal("Filter"));
-            filter.setHint(Component.literal("Filter agents…").withColor(Theme.TXT_4));
+            filter.setHint(Component.literal("Filter agents…").withStyle(c -> c.withColor(Theme.TXT_4)));
             filter.setResponder(s -> {
                 scroll = 0;
                 rebuildWidgets();

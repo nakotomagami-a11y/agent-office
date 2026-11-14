@@ -71,14 +71,20 @@ public final class AgentRecords extends SavedData {
         }
     }
 
+    //? if >=1.21 {
     private static final SavedData.Factory<AgentRecords> FACTORY = new SavedData.Factory<>(AgentRecords::new, AgentRecords::load);
+    //?}
 
     private final Map<String, Record> byKey = new LinkedHashMap<>();
     /** XP of agents dismissed (record removed), by record key: placed again, an agent keeps its level. */
     private final Map<String, Integer> retiredXp = new LinkedHashMap<>();
 
     public static AgentRecords get(MinecraftServer server) {
+        //? if >=1.21 {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, ModPaths.AGENTS_DATA);
+        //?} else {
+        /*return server.overworld().getDataStorage().computeIfAbsent(AgentRecords::load, AgentRecords::new, ModPaths.AGENTS_DATA);
+        *///?}
     }
 
     /** One body per agent per project per player: every seat of "developer" in a project shares it. */
@@ -123,17 +129,17 @@ public final class AgentRecords extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag/*? if >=1.21 {*/, HolderLookup.Provider registries/*?}*/) {
         ListTag list = new ListTag();
         for (Record r : byKey.values()) {
             CompoundTag t = new CompoundTag();
             t.putUUID("Owner", r.owner);
             t.put("Seat", seatTag(r.seat));
             if (r.entity != null) t.putUUID("Entity", r.entity);
-            t.put("Items", ContainerHelper.saveAllItems(new CompoundTag(), r.items, registries));
+            t.put("Items", ContainerHelper.saveAllItems(new CompoundTag(), r.items/*? if >=1.21 {*/, registries/*?}*/));
             CompoundTag curios = new CompoundTag();
             r.curios.forEach((id, stacks) -> {
-                CompoundTag c = ContainerHelper.saveAllItems(new CompoundTag(), stacks, registries);
+                CompoundTag c = ContainerHelper.saveAllItems(new CompoundTag(), stacks/*? if >=1.21 {*/, registries/*?}*/);
                 c.putInt("Size", stacks.size());
                 curios.put(id, c);
             });
@@ -151,7 +157,7 @@ public final class AgentRecords extends SavedData {
         return tag;
     }
 
-    static AgentRecords load(CompoundTag tag, HolderLookup.Provider registries) {
+    static AgentRecords load(CompoundTag tag/*? if >=1.21 {*/, HolderLookup.Provider registries/*?}*/) {
         AgentRecords out = new AgentRecords();
         for (Tag el : tag.getList("Agents", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) el;
@@ -159,12 +165,12 @@ public final class AgentRecords extends SavedData {
             if (seat == null || !t.hasUUID("Owner")) continue;
             Record r = new Record(t.getUUID("Owner"), seat);
             if (t.hasUUID("Entity")) r.entity = t.getUUID("Entity");
-            ContainerHelper.loadAllItems(t.getCompound("Items"), r.items, registries);
+            ContainerHelper.loadAllItems(t.getCompound("Items"), r.items/*? if >=1.21 {*/, registries/*?}*/);
             CompoundTag curios = t.getCompound("Curios");
             for (String id : curios.getAllKeys()) {
                 CompoundTag c = curios.getCompound(id);
                 NonNullList<ItemStack> stacks = NonNullList.withSize(Mth.clamp(c.getInt("Size"), 0, CuriosCompat.MAX_PER_TYPE), ItemStack.EMPTY);
-                ContainerHelper.loadAllItems(c, stacks, registries);
+                ContainerHelper.loadAllItems(c, stacks/*? if >=1.21 {*/, registries/*?}*/);
                 r.curios.put(id, stacks);
             }
             r.xp = Math.max(0, t.getInt("Xp"));

@@ -17,6 +17,7 @@ import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
+//? if >=1.21
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
@@ -79,8 +80,12 @@ final class AgentSkins {
             return new Skin(ResourceLocation.fromNamespaceAndPath(AgentOfficeMod.MOD_ID, "textures/entity/agent/" + cast + ".png"),
                     AgentLooks.slim(cast));
         }
-        PlayerSkin d = DefaultPlayerSkin.get(UUID.nameUUIDFromBytes(agentId.getBytes(StandardCharsets.UTF_8)));
+        UUID id = UUID.nameUUIDFromBytes(agentId.getBytes(StandardCharsets.UTF_8));
+        //? if >=1.21 {
+        PlayerSkin d = DefaultPlayerSkin.get(id);
         return new Skin(d.texture(), d.model() == PlayerSkin.Model.SLIM);
+        //?} else
+        //return new Skin(DefaultPlayerSkin.getDefaultSkin(id), DefaultPlayerSkin.getSkinModelName(id).equals("slim"));
     }
 
     private static Skin custom(String agentId) {

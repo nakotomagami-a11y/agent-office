@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'idea'
-    id 'net.neoforged.moddev' version '2.0.148'
+    id 'net.neoforged.moddev'
 }
 
 version = mod_version
@@ -12,6 +12,9 @@ base {
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// Loader-specific code: the entry points, the Platform this loader provides, Curios and Jade. Shared code is in src/main.
+sourceSets.main.java.srcDir rootProject.file('src/neoforge/java')
 
 // In-world tests (GameTests): part of the mod in dev runs, never in the jar. `gradlew runGameTestServer` runs them.
 sourceSets {
@@ -43,7 +46,8 @@ neoForge {
         client {
             client()
             // Skip the menus once the dev world exists (create it once from the title screen).
-            if (file("run/saves/${dev_world}").exists() && !project.hasProperty('aoOpen')) {
+            gameDirectory = rootProject.file('run')
+            if (rootProject.file("run/saves/${dev_world}").exists() && !project.hasProperty('aoOpen')) {
                 programArguments.addAll '--quickPlaySingleplayer', dev_world
             }
             systemProperty 'agentoffice.dev.world', dev_world
@@ -53,7 +57,7 @@ neoForge {
             //   -PaoScroll=N  wheel notches up before the screenshot; -PaoScrollDown=M then M back down
             //   -PaoPress=Label  press the first button with that label before the shot (read-only client: nothing changes)
             //   -PaoShotAfter=N  ticks before the screenshot (the press comes 40 earlier): slow loads, e.g. a PR through gh
-            //   -PaoServer=localhost  join a server (runServer) instead of the dev world; a second player at once:
+            //   -PaoServer=localhost  join a server (:1.21.1-neoforge:runServer) instead of the dev world; a second player at once:
             //       -PaoUser=Dev2 -PaoGameDir=run-client2
             //   -PaoWorking=true  every agent works; -PaoLectern=dx,dz  a bound lectern there
             //   -PaoCommands="time set 9500;summon zombie ~8 ~ ~"  after the action; -PaoWatch=true  log agents every 2 s
@@ -62,18 +66,18 @@ neoForge {
                 if (value != null) systemProperty "agentoffice.dev.${name}", value.toString()
             }
             if (project.hasProperty('aoUser')) programArguments.addAll '--username', project.findProperty('aoUser').toString()
-            if (project.hasProperty('aoGameDir')) gameDirectory = file(project.findProperty('aoGameDir'))
+            if (project.hasProperty('aoGameDir')) gameDirectory = rootProject.file(project.findProperty('aoGameDir'))
         }
         // A dedicated server in run-server/ (accept the EULA in run-server/eula.txt once).
         server {
             server()
-            gameDirectory = file('run-server')
+            gameDirectory = rootProject.file('run-server')
             programArgument '--nogui'
         }
         // Runs every GameTest in src/gametest, then exits: non-zero if one failed.
         gameTestServer {
             type = "gameTestServer"
-            gameDirectory = file('run-gametest')
+            gameDirectory = rootProject.file('run-gametest')
             systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
         }
     }
@@ -113,7 +117,9 @@ dependencies {
 tasks.named('test', Test).configure {
     useJUnitPlatform()
     // The game-loaded runner starts tests elsewhere; ArchitectureTest reads this module's sources.
-    systemProperty 'agentoffice.moduleDir', projectDir.absolutePath
+    systemProperty 'agentoffice.moduleDir', rootProject.projectDir.absolutePath
+    // ArchitectureTest also scans the shared sources as 1.20.1 sees them.
+    dependsOn ':1.20.1-fabric:stonecutterGenerate'
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -125,7 +131,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     ]
     inputs.properties replaceProperties
     expand replaceProperties
-    from "src/main/templates"
+    from rootProject.file("src/neoforge/templates")
     into "build/generated/sources/modMetadata"
 }
 sourceSets.main.resources.srcDir generateModMetadata
@@ -133,7 +139,7 @@ neoForge.ideSyncTask generateModMetadata
 
 // Every GameTest run starts from a fresh world, as in CI.
 tasks.matching { it.name == 'runGameTestServer' }.configureEach {
-    doFirst { delete file('run-gametest/world') }
+    doFirst { delete rootProject.file('run-gametest/world') }
 }
 
 tasks.withType(JavaCompile).configureEach {

@@ -212,7 +212,8 @@ calls into `core/`.
 
 ## mod.common-no-client
 **Outside `client/`, the mod never names a client class: `dev.agentoffice.mc.client`,
-`net.minecraft.client`, `com.mojang.blaze3d`.**
+`net.minecraft.client`, `com.mojang.blaze3d`, and the loaders' client APIs (`net.neoforged.neoforge.client`,
+`net.fabricmc.fabric.api.client`, `ClientModInitializer`).**
 
 The root package and `core/` load on a dedicated server, which has no client classes: one
 reference there crashes the server. The root reaches the client only through hooks the client
@@ -273,7 +274,8 @@ state is its `core/ChatSession`, which is unit-tested.
 ---
 
 ## mod.ai-no-net
-**The mod's `ai/` (where an agent goes, whom it fights) never names payloads, menus or client code.**
+**The mod's `ai/` (where an agent goes, whom it fights) never names payloads, menus, client code or a loader's
+networking API.**
 
 Behaviour decides from what the world knows. What the owner's client reports (is its agent working, at which
 lectern) reaches it through `AgentEntity`, so a new behaviour never needs the network to be understood or tested.

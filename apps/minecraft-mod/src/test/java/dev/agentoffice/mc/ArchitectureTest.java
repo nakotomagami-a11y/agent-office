@@ -25,17 +25,29 @@ class ArchitectureTest {
     /** The mod's own folder: tests run with the game loaded, from wherever its runner starts them. */
     private static final Path MODULE = Path.of(System.getProperty("agentoffice.moduleDir", "."));
     private static final Path SRC = MODULE.resolve(Path.of("src", "main", "java", "dev", "agentoffice", "mc"));
+    /**
+     * The shared sources, each loader's own (same packages), and the shared sources as 1.20.1 sees them (Stonecutter's
+     * copy, with the 1.20.1 branches live; the test task generates it): every rule holds in all of them.
+     */
+    private static final List<Path> ROOTS = List.of(SRC,
+            MODULE.resolve(Path.of("src", "neoforge", "java", "dev", "agentoffice", "mc")),
+            MODULE.resolve(Path.of("src", "fabric", "java", "dev", "agentoffice", "mc")),
+            MODULE.resolve(Path.of("versions", "1.20.1-fabric", "build", "generated", "stonecutter", "main", "java", "dev", "agentoffice", "mc")));
 
     /** {@code code}: no comments, string literals emptied; {@code withStrings}: no comments, strings kept. */
     private record Source(String pkg, Path file, String code, String withStrings) {}
 
     private static List<Source> sources() throws IOException {
         List<Source> out = new ArrayList<>();
-        try (Stream<Path> files = Files.walk(SRC)) {
-            for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
-                String raw = Files.readString(f);
-                String pkg = SRC.relativize(f.getParent()).toString().replace('\\', '/');
-                out.add(new Source(pkg, f, scan(raw, false), scan(raw, true)));
+        for (Path root : ROOTS) {
+            // Every root, the generated one too: a scan that silently found nothing would pass.
+            assertTrue(Files.isDirectory(root), root + " is missing (the 1.20.1 copy: gradlew :1.20.1-fabric:stonecutterGenerate)");
+            try (Stream<Path> files = Files.walk(root)) {
+                for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                    String raw = Files.readString(f);
+                    String pkg = root.relativize(f.getParent()).toString().replace('\\', '/');
+                    out.add(new Source(pkg, f, scan(raw, false), scan(raw, true)));
+                }
             }
         }
         assertTrue(out.size() > 50, "found the mod's sources under " + SRC.toAbsolutePath());
@@ -95,7 +107,7 @@ class ArchitectureTest {
         }
         // A name written out in full needs no import.
         bad.addAll(violations(sources(), core,
-                Pattern.compile("net\\.minecraft\\.|net\\.neoforged\\.|com\\.mojang\\.|dev\\.agentoffice\\.mc\\.(?!core\\b)\\w")));
+                Pattern.compile("net\\.minecraft\\.|net\\.neoforged\\.|net\\.fabricmc\\.|com\\.mojang\\.|dev\\.agentoffice\\.mc\\.(?!core\\b)\\w")));
         assertEquals(List.of(), bad, "mod.core-pure");
     }
 
@@ -103,7 +115,8 @@ class ArchitectureTest {
     void commonCodeNeverReachesTheClient() throws IOException {
         // mod.common-no-client: a dedicated server never loads client classes.
         assertEquals(List.of(), violations(sources(), s -> !s.pkg().equals("client") && !s.pkg().startsWith("client/"),
-                Pattern.compile("dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client|com\\.mojang\\.blaze3d")),
+                Pattern.compile("dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client|com\\.mojang\\.blaze3d"
+                        + "|net\\.neoforged\\.neoforge\\.client|net\\.fabricmc\\.fabric\\.api\\.client|net\\.fabricmc\\.api\\.ClientModInitializer")),
                 "mod.common-no-client");
     }
 
@@ -119,8 +132,26 @@ class ArchitectureTest {
         // mod.ai-no-net: ai/ decides what an agent does from what the world knows; reports arrive through AgentEntity.
         assertEquals(List.of(), violations(sources(), s -> s.pkg().equals("ai") || s.pkg().startsWith("ai/"),
                 Pattern.compile("\\b(?:AgentNet|AgentPayloads|AgentMenu|PacketDistributor|CustomPacketPayload)\\b|connection\\.send"
-                        + "|net\\.neoforged\\.neoforge\\.network|dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client")),
+                        + "|net\\.neoforged\\.neoforge\\.network|net\\.fabricmc\\.fabric\\.api\\.networking|dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client")),
                 "mod.ai-no-net");
+    }
+
+    @Test
+    void stonecutterReplacementsStayReversible() throws IOException {
+        // stonecutter.gradle.kts rewrites these into 1.20.1's spelling and back: written by hand in src/main or src/test,
+        // the way back would turn them into 1.21 code. Split here so this file never holds them whole.
+        List<String> theirs = List.of("new Resource" + "Location(", "compat.Resource" + "Locations", "ByteBufCodecs." + "BLOCK_POS",
+                "dev.agentoffice.mc." + "compat.");
+        List<String> bad = new ArrayList<>();
+        for (Path dir : List.of(MODULE.resolve(Path.of("src", "main")), MODULE.resolve(Path.of("src", "test")))) {
+            try (Stream<Path> files = Files.walk(dir)) {
+                for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                    String text = Files.readString(f);
+                    for (String s : theirs) if (text.contains(s)) bad.add(f + ": " + s);
+                }
+            }
+        }
+        assertEquals(List.of(), bad, "write the 1.21 form; Stonecutter makes the 1.20.1 one");
     }
 
     @Test
@@ -146,10 +177,13 @@ class ArchitectureTest {
     /** Starting work off the render thread, or handing a screen the threads to start it on. */
     private static final Pattern SCREEN_THREADS = Pattern.compile("Executors\\.|new Thread\\b|Thread\\.(?:sleep|ofVirtual|ofPlatform|startVirtualThread)"
             + "|CompletableFuture|ForkJoinPool|parallelStream|new Timer\\b|\\.submit\\(|\\.execute\\(|AgentOffice\\.(?:IO|SEATS)\\b");
-    /** A static field that isn't final, or a final one made with {@code new} or an array literal (contents can change). */
+    /**
+     * A static field that isn't final, or a final one made with {@code new} or an array literal (contents can change).
+     * An id is the exception: 1.20.1 makes them with a constructor, and they are immutable all the same.
+     */
     private static final Pattern SCREEN_STATICS = Pattern.compile(
             "(?<!\\bfinal\\s{1,4})\\bstatic\\s+(?!final\\b)(?!class\\b|abstract\\b|record\\b|interface\\b|enum\\b|void\\b|<)[\\w.<>,? \\[\\]]+\\s+\\w+\\s*[=;]"
-                    + "|\\b(?:static\\s+final|final\\s+static)\\s+[\\w.<>,? \\[\\]]+\\s+\\w+\\s*=\\s*(?:[^;]*\\bnew\\b|\\{)");
+                    + "|\\b(?:static\\s+final|final\\s+static)\\s+[\\w.<>,? \\[\\]]+\\s+\\w+\\s*=(?!\\s*new\\s+ResourceLocation\\()\\s*(?:[^;]*\\bnew\\b|\\{)");
 
     @Test
     void theScreenRuleSeesEveryWayToBreakIt() {
@@ -160,7 +194,9 @@ class ArchitectureTest {
         }
         for (String code : List.of("static final int ROW = 26;", "final static int ROW = 26;", "private static String cut(Font f, String t) {",
                 "private static final class Tab extends Button {", "static final ResourceLocation TAB = ResourceLocation.withDefaultNamespace(\"x\");",
-                "public static <T> void call(Call<T> c) {")) {
+                "public static <T> void call(Call<T> c) {",
+                // 1.20.1's spelling of an id, split as stonecutterReplacementsStayReversible asks.
+                "static final ResourceLocation TAB = new Resource" + "Location(\"x\");")) {
             assertFalse(SCREEN_STATICS.matcher(code).find(), code);
         }
         for (String code : List.of("pool.submit(r)", "Thread.ofVirtual().start(r)", "list.parallelStream()", "gather(c, b, AgentOffice.IO)", "new Timer()")) {
@@ -225,16 +261,18 @@ class ArchitectureTest {
 
     @Test
     void everyDevFlagReachesTheGame() throws IOException {
-        // build.gradle passes -PaoName through as agentoffice.dev.name: a flag DevHooks reads must be on its list.
+        // Each loader's build passes -PaoName through as agentoffice.dev.name: a flag DevHooks reads must be on its list.
         Set<String> read = new HashSet<>();
         Matcher r = Pattern.compile("\"agentoffice\\.dev\\.(\\w+)\"").matcher(Files.readString(SRC.resolve(Path.of("client", "DevHooks.java"))));
         while (r.find()) read.add(r.group(1));
         read.remove("world"); // set from gradle.properties' dev_world, not a flag
-        Matcher list = Pattern.compile("\\[('[^\\]]+)\\]\\.each \\{ name ->").matcher(Files.readString(MODULE.resolve("build.gradle")));
-        assertTrue(list.find(), "build.gradle's dev flag list");
-        Set<String> passed = new HashSet<>();
-        for (String q : list.group(1).split(",")) passed.add(q.trim().replace("'", ""));
-        assertEquals(read, passed);
+        for (String build : List.of("build.neoforge.gradle", "build.fabric.gradle")) {
+            Matcher list = Pattern.compile("\\[('[^\\]]+)\\]\\.each \\{ name ->").matcher(Files.readString(MODULE.resolve(build)));
+            assertTrue(list.find(), build + "'s dev flag list");
+            Set<String> passed = new HashSet<>();
+            for (String q : list.group(1).split(",")) passed.add(q.trim().replace("'", ""));
+            assertEquals(read, passed, build);
+        }
     }
 
     @Test

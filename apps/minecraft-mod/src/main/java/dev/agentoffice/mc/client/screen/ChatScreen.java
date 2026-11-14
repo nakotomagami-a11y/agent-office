@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client.screen;
 import dev.agentoffice.mc.client.service.AgentOffice;
 import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.service.ClipboardImages;
+import dev.agentoffice.mc.client.ui.Sprites;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.FlatCycle;
 import dev.agentoffice.mc.client.ui.ImageScreen;
@@ -183,7 +184,14 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         shownLines = composerLines();
         int composerH = 11 + 9 * shownLines;
         int cy = bottom - composerH;
+        //? if >=1.21 {
         input.setRectangle(composerW, composerH, x0, cy);
+        //?} else {
+        /*input.setX(x0);
+        input.setY(cy);
+        input.setWidth(composerW);
+        input.height = composerH; // public through src/fabric's access widener
+        *///?}
         addRenderableWidget(input);
         int by = bottom - 20;
         addRenderableWidget(new FlatButton(x1 - sendW, by, sendW, 20, sendLabel, FlatButton.Kind.PRIMARY, b -> send()))
@@ -244,7 +252,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             List<FormattedCharSequence> detail = font.split(Component.literal(ToolInput.detail(p.input())), wx1 - wx0 - 12);
             List<FormattedCharSequence> lines = new ArrayList<>(detail.subList(0, Math.min(PERMISSION_LINES, detail.size())));
             lines.add(Component.literal(detail.size() > PERMISSION_LINES ? "… hover for the full input" : "hover for the full input")
-                    .withColor(Theme.TXT_4).getVisualOrderText());
+                    .withStyle(c -> c.withColor(Theme.TXT_4)).getVisualOrderText());
             int h = 22 + lines.size() * 10 + 4;
             if (h > room) break;
             room -= h;
@@ -261,7 +269,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             if (full.size() > TOOLTIP_LINES) {
                 int rest = full.size() - TOOLTIP_LINES;
                 full = new ArrayList<>(full.subList(0, TOOLTIP_LINES));
-                full.add(Component.literal("… " + rest + " more lines").withColor(Theme.TXT_4).getVisualOrderText());
+                full.add(Component.literal("… " + rest + " more lines").withStyle(c -> c.withColor(Theme.TXT_4)).getVisualOrderText());
             }
             cards.add(0, new PermissionCard(p, lines, full, above, h));
             boolean waiting = session.answering(p.id());
@@ -274,6 +282,9 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         view.setBounds(wx0, areaTop + 5, wx1 - wx0, Math.max(0, above - (areaTop + 5)));
 
         session.start();
+        // 1.20.1's Screen has no setInitialFocus hook.
+        //? if <1.21
+        //setInitialFocus();
     }
 
     @Override
@@ -282,6 +293,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
     }
 
     /** Every rebuild (a status change, the composer growing) gives the composer its focus back. */
+    //? if >=1.21
     @Override
     protected void setInitialFocus() {
         if (input != null) setInitialFocus(input);
@@ -398,7 +410,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         // container title. The project is the selected tab. Short of room, the status goes first, then
         // the session, then the name is cut.
         Api.Conversation conversation = session.conversation();
-        g.blitSprite(Theme.dot(conversation == null ? null : conversation.status()), left, top + 7, 6, 6);
+        Sprites.blit(g, Theme.dot(conversation == null ? null : conversation.status()), left, top + 7, 6, 6);
         int tx = left + 10;
         int end = headerRight - 8;
         int ty = top + 6;

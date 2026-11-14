@@ -5,6 +5,7 @@ import dev.agentoffice.mc.client.service.AgentStatus;
 import dev.agentoffice.mc.client.service.Bodies;
 import dev.agentoffice.mc.client.service.SeatAdder;
 import dev.agentoffice.mc.client.service.WorkspaceStore;
+import dev.agentoffice.mc.client.ui.Sprites;
 import dev.agentoffice.mc.client.ui.FlatButton;
 import dev.agentoffice.mc.client.ui.TabletScreen;
 import dev.agentoffice.mc.client.ui.Text;
@@ -154,21 +155,24 @@ public abstract class WorkspaceScreen extends TabletScreen {
         int listBottom = bottom - 26 - (noteLines.isEmpty() ? 0 : noteLines.size() * 10 + 4);
         // Inside the roster's well (1-px bevel), which ends 6 short of the chat column.
         roster = new Roster(sw - 8, listBottom - top - 2, top + 1);
-        roster.setX(frameLeft + 1);
+        roster./*? if >=1.21 {*/setX/*?} else {*//*setLeftPos*//*?}*/(frameLeft + 1);
         Map<String, Api.Slot> bodies = new HashMap<>();
         for (Entry e : entries(current)) {
-            switch (e) {
-                case Group g -> roster.add(new GroupRow(current + "/" + g.agentId(), g));
-                case Session s -> {
-                    Api.Slot body = bodies.computeIfAbsent(s.slot().agentId(), k -> Bodies.seatOf(minecraft, s.slot()));
-                    SessionRow row = new SessionRow(s.slot(), body != null && body.instanceId().equals(s.slot().instanceId()));
-                    roster.add(row);
-                    if (active != null && active.instanceId().equals(s.slot().instanceId())) {
-                        roster.shown = row;
-                        roster.setSelected(row);
-                    }
+            // instanceof, not a pattern switch: the Fabric 1.20.1 build compiles for Java 17 (SealedBranchesTest stands in).
+            if (e instanceof Group g) {
+                roster.add(new GroupRow(current + "/" + g.agentId(), g));
+            } else if (e instanceof Session s) {
+                Api.Slot body = bodies.computeIfAbsent(s.slot().agentId(), k -> Bodies.seatOf(minecraft, s.slot()));
+                SessionRow row = new SessionRow(s.slot(), body != null && body.instanceId().equals(s.slot().instanceId()));
+                roster.add(row);
+                if (active != null && active.instanceId().equals(s.slot().instanceId())) {
+                    roster.shown = row;
+                    roster.setSelected(row);
                 }
-                case Add a -> roster.add(new AddRow(current, a.agentId()));
+            } else if (e instanceof Add a) {
+                roster.add(new AddRow(current, a.agentId()));
+            } else {
+                throw new IllegalStateException("unhandled roster entry " + e.getClass());
             }
         }
         rosterProject = current;
@@ -290,7 +294,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
     /** The roster's well; the screen's own content draws the rest. */
     @Override
     protected void renderWells(GuiGraphics g) {
-        if (sidebarWidth() > 0 && roster != null) well(g, frameLeft, top, sidebarWidth() - 6, roster.getBottom() + 1 - top);
+        if (sidebarWidth() > 0 && roster != null) well(g, frameLeft, top, sidebarWidth() - 6, roster.bottom() + 1 - top);
     }
 
     @Override
@@ -330,9 +334,9 @@ public abstract class WorkspaceScreen extends TabletScreen {
             int x = getX();
             int y = getY();
             RenderSystem.enableBlend();
-            g.blitSprite(sprite, 28, 32, 0, 0, x, y, 4, 32);
-            for (int cx = x + 4; cx < x + width - 4; cx += 20) g.blitSprite(sprite, 28, 32, 4, 0, cx, y, Math.min(20, x + width - 4 - cx), 32);
-            g.blitSprite(sprite, 28, 32, 24, 0, x + width - 4, y, 4, 32);
+            Sprites.blit(g, sprite, 28, 32, 0, 0, x, y, 4, 32);
+            for (int cx = x + 4; cx < x + width - 4; cx += 20) Sprites.blit(g, sprite, 28, 32, 4, 0, cx, y, Math.min(20, x + width - 4 - cx), 32);
+            Sprites.blit(g, sprite, 28, 32, 24, 0, x + width - 4, y, 4, 32);
             RenderSystem.disableBlend();
             Font font = Minecraft.getInstance().font;
             String label = Text.cut(font, getMessage().getString(), width - 12);
@@ -350,7 +354,18 @@ public abstract class WorkspaceScreen extends TabletScreen {
         private Row shown;
 
         Roster(int w, int h, int y) {
+            //? if >=1.21 {
             super(Minecraft.getInstance(), w, h, y, ROW);
+            //?} else {
+            /*super(Minecraft.getInstance(), w, h, y, y + h, ROW);
+            // The well behind it is the background (1.21: the two overrides below).
+            setRenderBackground(false);
+            setRenderTopAndBottom(false);
+            *///?}
+        }
+
+        int bottom() {
+            return /*? if >=1.21 {*/getBottom()/*?} else {*//*y1*//*?}*/;
         }
 
         /** The selection box marks the open session only; a click that opens nothing must not move it. */
@@ -370,15 +385,17 @@ public abstract class WorkspaceScreen extends TabletScreen {
 
         @Override
         protected int getScrollbarPosition() {
-            return getRight() - 6;
+            return /*? if >=1.21 {*/getRight()/*?} else {*//*x1*//*?}*/ - 6;
         }
 
+        //? if >=1.21 {
         /** The well behind it is the background; no menu list texture or separators. */
         @Override
         protected void renderListBackground(GuiGraphics g) {}
 
         @Override
         protected void renderListSeparators(GuiGraphics g) {}
+        //?}
     }
 
     private abstract static class Row extends ObjectSelectionList.Entry<Row> {
@@ -442,7 +459,7 @@ public abstract class WorkspaceScreen extends TabletScreen {
         @Override
         public void render(GuiGraphics g, int index, int top, int left, int width, int height, int mouseX, int mouseY,
                            boolean hovering, float partialTick) {
-            g.blitSprite(Theme.dot(AgentStatus.of(slot)), left + 8, top + (height - 6) / 2, 6, 6);
+            Sprites.blit(g, Theme.dot(AgentStatus.of(slot)), left + 8, top + (height - 6) / 2, 6, 6);
             int y = top + (height - 8) / 2;
             int end = left + width - 2;
             if (hasBody) {

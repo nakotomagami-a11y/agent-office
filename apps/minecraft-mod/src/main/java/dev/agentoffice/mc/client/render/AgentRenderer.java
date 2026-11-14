@@ -97,16 +97,16 @@ public final class AgentRenderer extends EntityRenderer<AgentEntity> {
 
         /** Its owner sees its level and how it is doing after its name; everyone else, the name alone. */
         @Override
-        protected void renderNameTag(AgentEntity body, Component name, PoseStack pose, MultiBufferSource buffers, int light, float partialTick) {
+        protected void renderNameTag(AgentEntity body, Component name, PoseStack pose, MultiBufferSource buffers, int light/*? if >=1.21 {*/, float partialTick/*?}*/) {
             Api.Slot seat = Bodies.seatOf(body);
             AgentState state = seat == null ? null : AgentStatus.of(seat);
             if (seat == null) {
-                super.renderNameTag(body, name, pose, buffers, light, partialTick);
+                super.renderNameTag(body, name, pose, buffers, light/*? if >=1.21 {*/, partialTick/*?}*/);
                 return;
             }
             Integer xp = Bodies.xpOf(body);
             Component plate = xp == null ? name : name.copy().append(Component.literal("  Lv " + Levels.levelOf(xp)).withStyle(ChatFormatting.GRAY));
-            super.renderNameTag(body, state == null ? plate : plate.copy().append("  ").append(stateText(state)), pose, buffers, light, partialTick);
+            super.renderNameTag(body, state == null ? plate : plate.copy().append("  ").append(stateText(state)), pose, buffers, light/*? if >=1.21 {*/, partialTick/*?}*/);
         }
     }
 
@@ -133,8 +133,8 @@ public final class AgentRenderer extends EntityRenderer<AgentEntity> {
                 public void render(PoseStack pose, MultiBufferSource buffers, int light, AgentEntity body,
                                    float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
                     if (body.isInvisible()) return;
-                    renderColoredCutoutModel(getParentModel(), PLAINS, pose, buffers, light, body, -1);
-                    renderColoredCutoutModel(getParentModel(), NITWIT, pose, buffers, light, body, -1);
+                    renderColoredCutoutModel(getParentModel(), PLAINS, pose, buffers, light, body, /*? if >=1.21 {*/-1/*?} else {*//*1f, 1f, 1f*//*?}*/);
+                    renderColoredCutoutModel(getParentModel(), NITWIT, pose, buffers, light, body, /*? if >=1.21 {*/-1/*?} else {*//*1f, 1f, 1f*//*?}*/);
                 }
             });
         }

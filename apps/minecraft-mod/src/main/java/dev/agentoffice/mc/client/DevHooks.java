@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client;
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentOfficeMod;
 import dev.agentoffice.mc.AgentPayloads;
+import dev.agentoffice.mc.Platform;
 import dev.agentoffice.mc.client.screen.ChatScreen;
 import dev.agentoffice.mc.client.screen.OfficeScreen;
 import dev.agentoffice.mc.client.screen.ReviewScreen;
@@ -28,29 +29,29 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
-import net.neoforged.fml.loading.FMLEnvironment;
 
 /**
  * Dev client only (inert in production): lets a script drive the mod, screenshot and quit, so it
  * can be checked without clicking through it.
  *
- *   gradlew runClient -PaoOpen=office -PaoQuit=true                  (the tablet's home screen)
- *   gradlew runClient -PaoOpen=chat:projectId:instanceId:agentId
- *   gradlew runClient -PaoOpen=place:projectId:instanceId:agentId   (flat dev world, body ahead)
- *   gradlew runClient -PaoOpen=dress:projectId:instanceId:agentId   (body ahead, in armor with a sword and shield)
- *   gradlew runClient -PaoOpen=inventory:projectId:instanceId:agentId (dressed, then sneak-used: its inventory)
- *   gradlew runServer, then runClient -PaoServer=localhost -PaoOpen=dress:p:i:a   (multiplayer: the owner)
- *   gradlew runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2 -PaoOpen=observe|trespass:p:i:a
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=office -PaoQuit=true                  (the tablet's home screen)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=chat:projectId:instanceId:agentId
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=place:projectId:instanceId:agentId   (flat dev world, body ahead)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=dress:projectId:instanceId:agentId   (body ahead, in armor with a sword and shield)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=inventory:projectId:instanceId:agentId (dressed, then sneak-used: its inventory)
+ *   gradlew :1.21.1-neoforge:runServer, then :1.21.1-neoforge:runClient -PaoServer=localhost -PaoOpen=dress:p:i:a   (multiplayer: the owner)
+ *   gradlew :1.21.1-neoforge:runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2 -PaoOpen=observe|trespass:p:i:a
  *       (a second player: look at the nearest agent; or, as a modified client would, sneak-use it and Dismiss its seat)
- *   gradlew runClient -PaoOpen=world                                 (just load it: bodies come back?)
- *   gradlew runClient -PaoOpen=interact                              (load it and right-click ahead)
- *   gradlew runClient -PaoOpen=hold                                  (load it with an Agent Tablet in hand)
- *   gradlew runClient -PaoOpen=tablet                                (load it, then use the tablet)
- *   gradlew runClient -PaoOpen=egg                                   (use an Agent Spawn Egg on the ground ahead)
- *   gradlew runClient -PaoOpen=shell                                 (egg, then right-click the shell: setup screen)
- *   gradlew runClient -PaoOpen=lectern                               (a Review Lectern ahead, used: its project picker)
- *   gradlew runClient -PaoOpen=lecternview                           (a Review Lectern ahead, just looked at)
- *   gradlew runClient -PaoOpen=review:projectId                      (a review queue; review:* = All projects)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=world                                 (just load it: bodies come back?)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=interact                              (load it and right-click ahead)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=hold                                  (load it with an Agent Tablet in hand)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=tablet                                (load it, then use the tablet)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=egg                                   (use an Agent Spawn Egg on the ground ahead)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=shell                                 (egg, then right-click the shell: setup screen)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=lectern                               (a Review Lectern ahead, used: its project picker)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=lecternview                           (a Review Lectern ahead, just looked at)
+ *   gradlew :1.21.1-neoforge:runClient -PaoOpen=review:projectId                      (a review queue; review:* = All projects)
+ *   Fabric 1.20.1: the same flags on :1.20.1-fabric:runClient (its own run-fabric/ folder)
  */
 public final class DevHooks {
     private static final String OPEN = System.getProperty("agentoffice.dev.open", "");
@@ -89,11 +90,11 @@ public final class DevHooks {
 
     /** A scripted check is running: its client is read-only (see AgentOfficeClient#readOnly). */
     public static boolean active() {
-        return !FMLEnvironment.production && !OPEN.isEmpty();
+        return Platform.devRun() && !OPEN.isEmpty();
     }
 
     public static boolean working() {
-        return !FMLEnvironment.production && WORKING;
+        return Platform.devRun() && WORKING;
     }
 
     /** After the scripted action: the lectern, then the commands; and the watch log while it waits for the shot. */
@@ -134,7 +135,7 @@ public final class DevHooks {
     }
 
     static void tick(Minecraft mc) {
-        if (FMLEnvironment.production || OPEN.isEmpty()) return;
+        if (!Platform.devRun() || OPEN.isEmpty()) return;
         if (!started && mc.screen instanceof TitleScreen) {
             started = true;
             start(mc);
@@ -164,8 +165,8 @@ public final class DevHooks {
                 mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(32)).stream()
                         .min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(mc.player))).ifPresent(b -> mc.getConnection().send(
                                 net.minecraft.network.protocol.game.ServerboundInteractPacket.createInteractionPacket(b, true, net.minecraft.world.InteractionHand.MAIN_HAND)));
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.agentoffice.mc.AgentPayloads.Dismiss(slot(OPEN)));
-                KeyMapping.click(mc.options.keyUse.getKey()); // the honest client's own refusal, on screen
+                ClientPlatform.sendToServer(new AgentPayloads.Dismiss(slot(OPEN)));
+                KeyMapping.click(useKey(mc)); // the honest client's own refusal, on screen
                 ticksSinceAction = 0;
             }
             if (dress && inWorldTicks == 60) {
@@ -174,7 +175,7 @@ public final class DevHooks {
                 else mc.options.keyShift.setDown(true); // sneak-use: the inventory
             } else if (OPEN.startsWith("inventory:") && inWorldTicks == 70) {
                 // The click is handled next tick, before the player's input (and so the sneak) is read again.
-                KeyMapping.click(mc.options.keyUse.getKey());
+                KeyMapping.click(useKey(mc));
                 mc.options.keyShift.setDown(false);
                 ticksSinceAction = 0;
             }
@@ -187,7 +188,7 @@ public final class DevHooks {
                             .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(b.position(), mc.player.position())));
                 }
                 if (OPEN.startsWith("place:") || dress) Bodies.place(mc, slot(OPEN));
-                if (OPEN.equals("interact")) KeyMapping.click(mc.options.keyUse.getKey());
+                if (OPEN.equals("interact")) KeyMapping.click(useKey(mc));
                 if (tablet) give(mc, new ItemStack(AgentOfficeMod.TABLET.get()));
                 if (egg) give(mc, new ItemStack(AgentOfficeMod.AGENT_EGG.get()));
                 if (lectern) {
@@ -199,22 +200,22 @@ public final class DevHooks {
                 if (!OPEN.equals("tablet") && !egg && !lectern && !dress) ticksSinceAction = 0;
             } else if (lectern && inWorldTicks == 60) {
                 mc.player.setXRot(55); // down at the lectern right ahead
-                if (OPEN.equals("lectern")) KeyMapping.click(mc.options.keyUse.getKey());
+                if (OPEN.equals("lectern")) KeyMapping.click(useKey(mc));
                 ticksSinceAction = 0;
             } else if (OPEN.equals("tablet") && inWorldTicks == 60) {
                 mc.player.setXRot(-90); // straight up, at nothing: use the item itself, not an agent body
-                KeyMapping.click(mc.options.keyUse.getKey());
+                KeyMapping.click(useKey(mc));
                 ticksSinceAction = 0;
             } else if (egg && inWorldTicks == 60) {
                 // Away from any agent body nearby: the use must hit the ground, not open someone's chat.
                 mc.level.getEntitiesOfClass(AgentEntity.class, mc.player.getBoundingBox().inflate(16)).stream().findFirst()
                         .ifPresent(b -> mc.player.setYRot(AgentEntity.yawTowards(b.position(), mc.player.position())));
                 mc.player.setXRot(35); // at the ground a few blocks ahead
-                KeyMapping.click(mc.options.keyUse.getKey());
+                KeyMapping.click(useKey(mc));
                 if (OPEN.equals("egg")) ticksSinceAction = 0;
             } else if (OPEN.equals("shell") && inWorldTicks == 80) {
                 mc.player.setXRot(15); // at the shell that just appeared there
-                KeyMapping.click(mc.options.keyUse.getKey());
+                KeyMapping.click(useKey(mc));
                 ticksSinceAction = 0;
             }
             return;
@@ -225,13 +226,18 @@ public final class DevHooks {
                     .findFirst().ifPresent(c -> ((net.minecraft.client.gui.components.Button) c).onPress());
         }
         if (ticksSinceAction >= 0 && ticksSinceAction == SHOT_AFTER_TICKS - 20 && SCROLL != 0 && mc.screen != null) {
-            mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, 0, SCROLL);
-            if (SCROLL_DOWN != 0) mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, 0, -SCROLL_DOWN);
+            mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, /*? if >=1.21 {*/0, /*?}*/SCROLL);
+            if (SCROLL_DOWN != 0) mc.screen.mouseScrolled(mc.screen.width / 2.0, mc.screen.height / 2.0, /*? if >=1.21 {*/0, /*?}*/-SCROLL_DOWN);
         }
         if (ticksSinceAction >= 0 && mc.player != null) afterAction(mc);
         if (ticksSinceAction < 0 || ++ticksSinceAction != SHOT_AFTER_TICKS) return;
         Screenshot.grab(mc.gameDirectory, mc.getMainRenderTarget(), msg -> System.out.println("[agentoffice-dev] " + msg.getString()));
         if (QUIT) mc.stop();
+    }
+
+    /** The use key's binding (1.20.1's KeyMapping has no getter: Fabric's). */
+    private static com.mojang.blaze3d.platform.InputConstants.Key useKey(Minecraft mc) {
+        return /*? if >=1.21 {*/mc.options.keyUse.getKey()/*?} else {*//*net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mc.options.keyUse)*//*?}*/;
     }
 
     private static void start(Minecraft mc) {
@@ -258,8 +264,13 @@ public final class DevHooks {
                     });
             ticksSinceAction = 0;
         } else if (!SERVER.isEmpty()) {
+            //? if >=1.21 {
             net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.screen, mc, net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(SERVER),
                     new net.minecraft.client.multiplayer.ServerData("dev", SERVER, net.minecraft.client.multiplayer.ServerData.Type.OTHER), false, null);
+            //?} else {
+            /*net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.screen, mc, net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(SERVER),
+                    new net.minecraft.client.multiplayer.ServerData("dev", SERVER, false), false);
+            *///?}
         } else if (WORLD.isEmpty()) {
             // gradlew runClient sets it from gradle.properties' dev_world; "" would name the saves folder itself.
             System.out.println("[agentoffice-dev] agentoffice.dev.world is not set: start the check with gradlew runClient");
@@ -267,10 +278,13 @@ public final class DevHooks {
         } else if (mc.getLevelSource().levelExists(WORLD)) {
             // onFail runs when the player backs out of a recover/backup prompt: it must leave that screen.
             Screen back = mc.screen;
+            //? if >=1.21 {
             mc.createWorldOpenFlows().openWorld(WORLD, () -> {
                 System.out.println("[agentoffice-dev] could not open " + WORLD);
                 mc.setScreen(back);
             });
+            //?} else
+            //mc.createWorldOpenFlows().loadLevel(back, WORLD);
         } else {
             GameRules rules = new GameRules();
             rules.getRule(GameRules.RULE_DAYLIGHT).set(false, null);
@@ -280,8 +294,8 @@ public final class DevHooks {
                     WORLD,
                     new LevelSettings(WORLD, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, rules, WorldDataConfiguration.DEFAULT),
                     new WorldOptions(0L, false, false),
-                    reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
-                    mc.screen);
+                    reg -> reg.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions()
+                    /*? if >=1.21 {*/, mc.screen/*?}*/);
         }
     }
 
@@ -324,7 +338,10 @@ public final class DevHooks {
             player.serverLevel().getEntitiesOfClass(AgentEntity.class, player.getBoundingBox().inflate(16)).stream()
                     .filter(a -> a.seat() != null).findFirst().ifPresent(a -> {
                         ItemStack sword = new ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD);
+                        //? if >=1.21 {
                         sword.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                        //?} else
+                        //sword.enchant(net.minecraft.world.item.enchantment.Enchantments.SHARPNESS, 1);
                         a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, sword);
                         a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(net.minecraft.world.item.Items.SHIELD));
                         a.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.IRON_HELMET));

@@ -1,14 +1,9 @@
 package dev.agentoffice.mc;
 
 import dev.agentoffice.mc.AgentPayloads.Place;
-import dev.agentoffice.mc.AgentPayloads.Retarget;
-import dev.agentoffice.mc.AgentPayloads.Dismiss;
 import dev.agentoffice.mc.AgentPayloads.AssignShell;
-import dev.agentoffice.mc.AgentPayloads.RemoveShell;
-import dev.agentoffice.mc.AgentPayloads.Migrate;
 import dev.agentoffice.mc.AgentPayloads.Work;
 import dev.agentoffice.mc.AgentPayloads.Stats;
-import dev.agentoffice.mc.AgentPayloads.Status;
 import dev.agentoffice.mc.AgentPayloads.Body;
 import dev.agentoffice.mc.AgentPayloads.Placed;
 import dev.agentoffice.mc.core.Api;
@@ -23,12 +18,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.level.BlockEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /**
  * What the tablet asks of the world (place, switch seat, dismiss, set up or remove a shell, report work),
@@ -49,30 +38,14 @@ public final class AgentNet {
 
     private AgentNet() {}
 
-    static void register(RegisterPayloadHandlersEvent event) {
-        // Bumping the version refuses every login between mismatched jars (NeoForge disconnects: incompatible network
-        // version), even on an optional channel. Add payloads freely; bump only for a codec change.
-        PayloadRegistrar r = event.registrar("1").optional();
-        r.playToServer(Migrate.TYPE, Migrate.CODEC, (m, ctx) -> { });
-        r.playToServer(Place.TYPE, Place.CODEC, (m, ctx) -> place((ServerPlayer) ctx.player(), m));
-        r.playToServer(Retarget.TYPE, Retarget.CODEC, (m, ctx) -> retarget((ServerPlayer) ctx.player(), m.seat()));
-        r.playToServer(Dismiss.TYPE, Dismiss.CODEC, (m, ctx) -> dismiss((ServerPlayer) ctx.player(), m.seat()));
-        r.playToServer(AssignShell.TYPE, AssignShell.CODEC, (m, ctx) -> assignShell((ServerPlayer) ctx.player(), m));
-        r.playToServer(RemoveShell.TYPE, RemoveShell.CODEC, (m, ctx) -> removeShell((ServerPlayer) ctx.player(), m.shell()));
-        r.playToServer(Status.TYPE, Status.CODEC, (m, ctx) -> status((ServerPlayer) ctx.player(), m.bodies()));
-        r.playToClient(Placed.TYPE, Placed.CODEC, (m, ctx) -> onPlaced.accept(m.bodies()));
-        r.playToClient(Stats.TYPE, Stats.CODEC, (m, ctx) -> onStats.accept(m));
-    }
-
     /** Its owner, if online with a client that knows Stats, learns {@code agent}'s XP. */
     static void sendStats(AgentEntity agent, int xp) {
         ServerPlayer owner = agent.owner().map(agent.getServer().getPlayerList()::getPlayer).orElse(null);
-        if (owner != null && owner.connection.hasChannel(Stats.TYPE)) PacketDistributor.sendToPlayer(owner, new Stats(agent.getUUID(), xp));
+        if (owner != null) Platform.send(owner, new Stats(agent.getUUID(), xp));
     }
 
     public static void sendPlaced(ServerPlayer player) {
-        if (player == null || !player.connection.hasChannel(Placed.TYPE)) return;
-        PacketDistributor.sendToPlayer(player, new Placed(AgentRecords.get(player.server).bodiesOf(player.getUUID())));
+        if (player != null) Platform.send(player, new Placed(AgentRecords.get(player.server).bodiesOf(player.getUUID())));
     }
 
     private static final Map<UUID, Integer> lastAction = new HashMap<>();
@@ -109,16 +82,14 @@ public final class AgentNet {
 
     /** As if the player put something at {@code pos}: land-claim mods refuse it where the player may not build. */
     static boolean mayBuild(ServerPlayer player, BlockPos pos) {
-        ServerLevel level = player.serverLevel();
-        return !NeoForge.EVENT_BUS.post(new BlockEvent.EntityPlaceEvent(BlockSnapshot.create(level.dimension(), level, pos),
-                level.getBlockState(pos.below()), player)).isCanceled();
+        return Platform.mayBuild(player, pos);
     }
 
     private static boolean full(AgentRecords records, ServerPlayer player, Api.Slot seat) {
         return records.find(player.getUUID(), seat) == null && records.countOf(player.getUUID()) >= AgentPayloads.MAX_AGENTS;
     }
 
-    private static void place(ServerPlayer player, Place m) {
+    static void place(ServerPlayer player, Place m) {
         if (!ready(player) || !canStand(player, m.x(), m.y(), m.z(), m.yaw())) return;
         AgentRecords records = AgentRecords.get(player.server);
         if (full(records, player, m.seat())) return;
@@ -133,7 +104,7 @@ public final class AgentNet {
         sendPlaced(player);
     }
 
-    private static void retarget(ServerPlayer player, Api.Slot seat) {
+    static void retarget(ServerPlayer player, Api.Slot seat) {
         if (!ready(player)) return;
         AgentRecords.Record r = AgentRecords.get(player.server).find(player.getUUID(), seat);
         if (r == null) return;
@@ -143,7 +114,7 @@ public final class AgentNet {
         sendPlaced(player);
     }
 
-    private static void dismiss(ServerPlayer player, Api.Slot seat) {
+    static void dismiss(ServerPlayer player, Api.Slot seat) {
         if (!ready(player)) return;
         AgentRecords records = AgentRecords.get(player.server);
         AgentRecords.Record r = records.find(player.getUUID(), seat);
@@ -158,7 +129,7 @@ public final class AgentNet {
         return e instanceof AgentEntity shell && shell.seat() == null && shell.isOwnedBy(player) && player.distanceToSqr(shell) <= REACH * REACH;
     }
 
-    private static void assignShell(ServerPlayer player, AssignShell m) {
+    static void assignShell(ServerPlayer player, AssignShell m) {
         if (!ready(player)) return;
         Entity shell = player.serverLevel().getEntity(m.shell());
         AgentRecords records = AgentRecords.get(player.server);
@@ -172,7 +143,7 @@ public final class AgentNet {
     }
 
     /** Every few seconds, on its own clock (not the click cooldown): which of the player's agents work, and where. */
-    private static void status(ServerPlayer player, List<Work> bodies) {
+    static void status(ServerPlayer player, List<Work> bodies) {
         int now = player.server.getTickCount();
         Integer last = lastStatus.put(player.getUUID(), now);
         if (last != null && now - last < Tuning.STATUS_MIN_TICKS && now >= last) return;
@@ -188,7 +159,7 @@ public final class AgentNet {
         }
     }
 
-    private static void removeShell(ServerPlayer player, UUID id) {
+    static void removeShell(ServerPlayer player, UUID id) {
         if (!ready(player)) return;
         Entity shell = player.serverLevel().getEntity(id);
         if (nearOwnShell(player, shell)) shell.discard();
