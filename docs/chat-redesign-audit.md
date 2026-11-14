@@ -60,9 +60,9 @@ These are the findings that contradict the design's handoff notes or change the 
 7. **The mission phase stepper has no data.** "Scan → Design → Gate → Build → QA → Done" appears
    nowhere in code; it is the coordinator's prose. `docs/missions.md:268` lists a different sequence.
    Building it is a protocol change.
-8. **Chat links are probably dead in the desktop app.** Links get `target=_blank`; `lib/tauri-window.ts:76`
-   says `window.open()` is a no-op under Tauri, and `mission-fields.tsx:74` works around the same thing.
-   Needs a live check. One click handler calling `openExternalUrl` fixes it either way.
+8. **Chat links in the desktop app (resolved).** The shell plugin's injected `document.body` click listener opens
+   every `target=_blank` http(s)/mailto/tel link in the system browser, before React's `onClick` runs. Adding an
+   `openExternalUrl` click handler to such an anchor opens the link twice (measured in the real app, 2026-11-09).
 9. **Markdown is hand-rolled and partial.** Missing: blockquotes (literal `>`), task lists, `#`/`####`
    headings, nested lists, strikethrough, `---`, `![img](url)`. The app already ships
    `react-markdown` + `remark-gfm` (`apps/web/package.json:39-40`, used by `docs/docs-render.tsx`), and
@@ -92,7 +92,7 @@ Exceptions, each needs a yes/no:
 | B4 | The "YOU 14:02" time never renders: `fmtClockTime` expects `y_<ms>` ids nothing produces | `format/message-format.ts:11-20`, `chat-thread.tsx:400` | S |
 | B5 | Sub-agent cards vanish once a turn finishes (history skips the spawn; child runs aren't attached to the turn) | `conversation-to-thread.ts:30` | M |
 | B6 | Sub-agent `startTs` resets to replay time on reconnect, so durations are wrong | `format/parse-sse-event.ts:161,171` | S |
-| B7 | Chat links probably do nothing in the desktop app (needs a live check) | `.ao-prose a` + `target=_blank`; `lib/tauri-window.ts:76` | S |
+| B7 | Chat links opened twice in the desktop app (resolved, see item 8) | `markdown-view.tsx`, `mission-fields.tsx` | S |
 | B8 | Enter in the slash menu sends the raw `/c` text; only Tab picks | `hooks/use-composer-keyboard.ts:36-39,83` | S |
 | B9 | Inspector header chips wrap and overlap at 1500 px (effort, playwright, QA loop wrap to 2–3 lines; name cut to "Sessi…") | `office/components/agent-details/index.tsx:345,370-452` | fixed by the header redesign |
 | B10 | Mission panel questions show literal `**` (raw text in a `whitespace-pre-wrap` `<p>`) | `missions/components/mission-panel-controls.tsx:75` | S |
@@ -273,10 +273,10 @@ records which round found each finding, plus its cost, duration and verdict.
 | B4 | YOU time shows on every turn, live and reloaded | `conversation-to-thread.test.ts` | Reload a chat: each YOU header shows HH:MM |
 | B5 | Sub-agent cards stay after the turn ends and after the 48 h tool-call prune; cancelled/timeout keep their status | `conversations.test.ts`, `conversation-to-thread.test.ts` | Spawn a sub-agent, let the turn end, reload: card with name, prompt, duration, status |
 | B6 | Sub-agent durations and finished state survive a reconnect | `parse-sse-event.test.ts` | Reload mid-sub-agent and after: real duration, not "since reload" |
-| B7 | Links open in the system browser in the desktop app | `markdown-view.test.tsx` | Desktop app: click a link in agent text, the browser opens |
+| B7 | Links open in the system browser in the desktop app, once | — | Desktop app: click a link in agent text, exactly one browser tab opens |
 | B11, B12 | Four-backtick fences render as one code block; markdown inside inline code stays literal | `markdown-view.test.tsx` | A mission post with a code block inside an `ao-post` fence renders as one block |
 | — | Markdown: blockquotes, `#`–`######` headings, nested lists, task lists, strikethrough, `---`, GFM tables; bare URLs autolink | `markdown-view.test.tsx` | Ask an agent to reply with each element |
-| — | Link safety: only absolute `http(s)`/`mailto` links; relative, `//host`, `/\host`, `/api/...`, `javascript:`, `data:` render as text; raw HTML never renders. `openExternalUrl` itself refuses anything else | `markdown-view.test.tsx` | — |
+| — | Link safety: only absolute `http(s)`/`mailto` links; relative, `//host`, `/\host`, `/api/...`, `javascript:`, `data:` render as text; raw HTML never renders. Links are gated at render by `urlTransform: safeLinkHref` | `markdown-view.test.tsx` | — |
 | B14 | Jump pill honours reduced-motion / perf-off; composer border turns dashed accent while dragging a file | — | Drag a file over the composer: dashed purple border |
 | — | Streaming stays smooth on long replies: only the last markdown block re-parses per frame (~1–2 ms at any length, was ~125 ms at 20 KB); reopening a chat reuses parsed messages | `markdown-view.test.tsx` | Ask for a 20 KB+ answer with code blocks: no stutter while it streams; close and reopen the chat: opens instantly the second time |
 

@@ -3,7 +3,6 @@
 import { memo, type ReactElement, type ReactNode } from "react";
 import renderMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { openExternalUrl } from "@/lib/tauri-window";
 import { safeLinkHref } from "@/lib/markdown";
 import { CodeBlock } from "./code-block";
 
@@ -25,13 +24,9 @@ function langOf(node: unknown): string {
   return first.replace(/^language-/, "");
 }
 
-// `target=_blank` is a no-op in the desktop webview, so every link goes through the system opener.
+// No onClick: Tauri's shell plugin already opens target=_blank links, so a handler opens them twice.
 function ExternalAnchor({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void openExternalUrl(href); }}>
-      {children}
-    </a>
-  );
+  return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
 }
 
 const defaultRenderCode: RenderCode = (lang, body) => (

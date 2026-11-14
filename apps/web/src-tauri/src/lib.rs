@@ -144,6 +144,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
+        // Its injected click listener opens target=_blank links in the system browser; the web UI has no fallback.
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
             #[cfg(desktop)]
