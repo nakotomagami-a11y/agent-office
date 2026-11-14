@@ -27,3 +27,7 @@ logs
 
 # ModDevGradle
 run-data
+
+# Fabric 1.20.1 dev runs (build.fabric.gradle)
+run-fabric
+run-fabric-server

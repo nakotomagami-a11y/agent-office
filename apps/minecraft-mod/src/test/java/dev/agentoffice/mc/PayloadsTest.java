@@ -70,12 +70,12 @@ class PayloadsTest {
 
     /**
      * The bytes themselves: a codec change (a field added, reordered or resized) fails here. Changing one needs the
-     * channel version bumped (AgentNet), which refuses every login between mismatched jars; then update these.
+     * channel version bumped (src/neoforge AgentOfficeMod.registerPayloads, src/fabric Platform.VERSION), which refuses every login between mismatched jars; then update these.
      */
     @Test
     void theWireFormatOnlyChangesWithTheChannelVersion() {
         UUID id = new UUID(0x0123456789abcdefL, 0x0fedcba987654321L);
-        String bump = "a codec changed: bump the channel version in AgentNet.register, then update this";
+        String bump = "a codec changed: bump the channel version in AgentOfficeMod.registerPayloads and Fabric's Platform.VERSION, then update this";
         assertEquals("0c6167656e742d6f6666696365010c4167656e74204f666669636509646576656c6f7065720c646576656c6f7065722d6131010852657669657765723ff8000000000000c04e000000000000402880000000000042b40000", hex(AgentPayloads.Place.CODEC, new AgentPayloads.Place(SEAT, 1.5, -60, 12.25, 90f)), bump);
         assertEquals("010123456789abcdef0fedcba9876543210101000000ffffff904009446576656c6f706572", hex(AgentPayloads.Status.CODEC, new AgentPayloads.Status(List.of(
                 new AgentPayloads.Work(id, true, Optional.of(new BlockPos(3, 64, -7)), "Developer")))), bump);

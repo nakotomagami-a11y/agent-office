@@ -15,7 +15,8 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * What goes over the wire between the tablet and the world, and the limits every decode enforces (a modified client
  * can send anything). Handlers are {@link AgentNet}'s. Rule: add payloads freely; never change a codec without bumping
- * AgentNet's channel version, which refuses every login between mismatched jars.
+ * the channel version (NeoForge: AgentOfficeMod.registerPayloads; Fabric: Platform.VERSION), which refuses every login
+ * between mismatched jars.
  */
 public final class AgentPayloads {
     /** Per player, so a modified client can't fill a world with agents. */
@@ -140,8 +141,8 @@ public final class AgentPayloads {
     }
 
     public record Placed(List<Body> bodies) implements CustomPacketPayload {
-        static final Type<Placed> TYPE = typeOf("placed");
-        static final StreamCodec<ByteBuf, Placed> CODEC = Body.CODEC.apply(ByteBufCodecs.list(MAX_AGENTS)).map(Placed::new, Placed::bodies);
+        public static final Type<Placed> TYPE = typeOf("placed");
+        public static final StreamCodec<ByteBuf, Placed> CODEC = Body.CODEC.apply(ByteBufCodecs.list(MAX_AGENTS)).map(Placed::new, Placed::bodies);
 
         @Override
         public Type<Placed> type() {
@@ -154,8 +155,8 @@ public final class AgentPayloads {
      * another entity data field would break older clients, and other players have no need of it.
      */
     public record Stats(UUID entity, int xp) implements CustomPacketPayload {
-        static final Type<Stats> TYPE = typeOf("stats");
-        static final StreamCodec<ByteBuf, Stats> CODEC = StreamCodec.composite(
+        public static final Type<Stats> TYPE = typeOf("stats");
+        public static final StreamCodec<ByteBuf, Stats> CODEC = StreamCodec.composite(
                 UUIDUtil.STREAM_CODEC, Stats::entity, ByteBufCodecs.VAR_INT, Stats::xp, Stats::new);
 
         @Override

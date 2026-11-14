@@ -9,7 +9,7 @@ import java.util.function.IntFunction;
 import java.util.function.ObjIntConsumer;
 import java.util.function.Predicate;
 import net.minecraft.core.NonNullList;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -17,6 +17,8 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+//? if fabric
+//import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -68,7 +70,7 @@ public final class AgentMenu extends AbstractContainerMenu {
 
                 @Override
                 public boolean mayPlace(ItemStack stack) {
-                    return stack.canEquip(eq, wearer);
+                    return /*? if neoforge {*/stack.canEquip(eq, wearer)/*?} else {*//*Mob.getEquipmentSlotForItem(stack) == eq*//*?}*/;
                 }
 
                 @Override
@@ -140,7 +142,7 @@ public final class AgentMenu extends AbstractContainerMenu {
             EquipmentSlot eq = AgentEntity.equipmentAt(i);
             if (eq != null) agent.setItemSlot(eq, stack);
             else r.items.set(i, stack);
-        }, () -> { }, p -> agent.isAlive() && agent.record() == r && agent.isOwnedBy(p) && p.canInteractWithEntity(agent, 4.0));
+        }, () -> { }, p -> agent.isAlive() && agent.record() == r && agent.isOwnedBy(p) && /*? if >=1.21 {*/p.canInteractWithEntity(agent, 4.0)/*?} else {*//*p.distanceToSqr(agent) <= 8 * 8*//*?}*/);
 
         List<NonNullList<ItemStack>> lists = new ArrayList<>();
         List<Integer> offsets = new ArrayList<>();
@@ -153,7 +155,7 @@ public final class AgentMenu extends AbstractContainerMenu {
         Container curiosItems = new View(lists.size(), i -> lists.get(i).get(offsets.get(i)),
                 (stack, i) -> lists.get(i).set(offsets.get(i), stack), agent::curiosChanged, items::stillValid);
 
-        player.openMenu(new SimpleMenuProvider((id, inv, p) -> new AgentMenu(id, inv, agent, items, curiosItems, shape), agent.getDisplayName()),
+        Platform.openMenu(player, new SimpleMenuProvider((id, inv, p) -> new AgentMenu(id, inv, agent, items, curiosItems, shape), agent.getDisplayName()),
                 buf -> {
                     buf.writeVarInt(agent.getId());
                     CuriosCompat.Slots.LIST.encode(buf, shape);
@@ -161,7 +163,7 @@ public final class AgentMenu extends AbstractContainerMenu {
     }
 
     /** Client: the server opened it. */
-    public static AgentMenu fromNetwork(int id, Inventory inv, RegistryFriendlyByteBuf buf) {
+    public static AgentMenu fromNetwork(int id, Inventory inv, FriendlyByteBuf buf) {
         int entityId = buf.readVarInt();
         List<CuriosCompat.Slots> shape = CuriosCompat.bounded(CuriosCompat.Slots.LIST.decode(buf));
         AgentEntity agent = inv.player.level().getEntity(entityId) instanceof AgentEntity a ? a : null;

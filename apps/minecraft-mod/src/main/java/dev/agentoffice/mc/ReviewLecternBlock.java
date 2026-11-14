@@ -1,5 +1,6 @@
 package dev.agentoffice.mc;
 
+//? if >=1.21
 import com.mojang.serialization.MapCodec;
 import java.util.function.BiConsumer;
 import net.minecraft.core.BlockPos;
@@ -24,6 +25,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * (vanilla sends a sneaking use with anything in either hand to the item instead).
  */
 public final class ReviewLecternBlock extends HorizontalDirectionalBlock {
+    //? if >=1.21
     public static final MapCodec<ReviewLecternBlock> CODEC = simpleCodec(ReviewLecternBlock::new);
 
     /** Set by the client setup (position, sneaking); the block class must not reference client classes itself. */
@@ -34,10 +36,12 @@ public final class ReviewLecternBlock extends HorizontalDirectionalBlock {
         registerDefaultState(stateDefinition.any().setValue(FACING, net.minecraft.core.Direction.NORTH));
     }
 
+    //? if >=1.21 {
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return CODEC;
     }
+    //?}
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -50,7 +54,7 @@ public final class ReviewLecternBlock extends HorizontalDirectionalBlock {
     }
 
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(FACING)) {
             case NORTH -> LecternBlock.SHAPE_NORTH;
             case SOUTH -> LecternBlock.SHAPE_SOUTH;
@@ -61,28 +65,31 @@ public final class ReviewLecternBlock extends HorizontalDirectionalBlock {
     }
 
     @Override
-    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return LecternBlock.SHAPE_COLLISION;
     }
 
     @Override
-    protected VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
+    public VoxelShape getOcclusionShape(BlockState state, BlockGetter level, BlockPos pos) {
         return LecternBlock.SHAPE_COMMON;
     }
 
     @Override
-    protected boolean useShapeForLightOcclusion(BlockState state) {
+    public boolean useShapeForLightOcclusion(BlockState state) {
         return true;
     }
 
     /** As the vanilla lectern: mobs don't plan paths through it. */
     @Override
-    protected boolean isPathfindable(BlockState state, net.minecraft.world.level.pathfinder.PathComputationType type) {
+    public boolean isPathfindable(BlockState state, /*? if <1.21 {*//*BlockGetter level, BlockPos pos, *//*?}*/net.minecraft.world.level.pathfinder.PathComputationType type) {
         return false;
     }
 
     @Override
+    //? if >=1.21 {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    //?} else
+    //public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) openOnClient.accept(pos, player.isShiftKeyDown());
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

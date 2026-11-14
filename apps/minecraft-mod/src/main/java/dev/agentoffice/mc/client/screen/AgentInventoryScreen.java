@@ -2,6 +2,7 @@ package dev.agentoffice.mc.client.screen;
 
 import dev.agentoffice.mc.AgentMenu;
 import dev.agentoffice.mc.client.service.Bodies;
+import dev.agentoffice.mc.client.ui.Sprites;
 import dev.agentoffice.mc.client.ui.Theme;
 import dev.agentoffice.mc.client.ui.VanillaGui;
 import dev.agentoffice.mc.core.Levels;
@@ -82,7 +83,7 @@ public final class AgentInventoryScreen extends AbstractContainerScreen<AgentMen
         g.blit(CHEST, x, y + PLAYER_PART_Y, 0, 126, imageWidth, 96);
         // Its hotbar's first slot is what it holds, like the player's selected slot.
         Slot hand = menu.getSlot(AgentMenu.HOTBAR);
-        g.blitSprite(HAND, x + hand.x - 4, y + hand.y - 4, 24, 23);
+        Sprites.blit(g, HAND, x + hand.x - 4, y + hand.y - 4, 24, 23);
 
         int ex = x + imageWidth + GAP;
         VanillaGui.panel(g, ex, y, ex + EQUIPMENT_WIDTH, y + EQUIPMENT_HEIGHT);
@@ -96,7 +97,10 @@ public final class AgentInventoryScreen extends AbstractContainerScreen<AgentMen
             boolean visible = menu.agent.isCustomNameVisible();
             menu.agent.setCustomName(null);
             menu.agent.setCustomNameVisible(false);
+            //? if >=1.21 {
             InventoryScreen.renderEntityInInventoryFollowsMouse(g, px, y + 8, px + 49, y + 78, 30, 0.0625f, mouseX, mouseY, menu.agent);
+            //?} else
+            //InventoryScreen.renderEntityInInventoryFollowsMouse(g, px + 24, y + 75, 30, px + 24 - mouseX, y + 25 - mouseY, menu.agent);
             menu.agent.setCustomName(name);
             menu.agent.setCustomNameVisible(visible);
         }

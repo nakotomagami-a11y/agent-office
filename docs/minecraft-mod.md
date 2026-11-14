@@ -1,7 +1,7 @@
 # Minecraft mod
 
-`apps/minecraft-mod`: Agent Office inside Minecraft. NeoForge 1.21.1, Java 21, Gradle (not part of the pnpm
-workspace). It is a second client of the same API as the web UI. Code structure and rules:
+`apps/minecraft-mod`: Agent Office inside Minecraft. Two jars from one source tree (Stonecutter): NeoForge 1.21.1
+(Java 21) and Fabric 1.20.1 (Java 17, e.g. the Homestead pack). Gradle, not part of the pnpm workspace. It is a second client of the same API as the web UI. Code structure and rules:
 `minecraft-mod-architecture.md`. PR review: `minecraft-review-lectern.md`. The tablet's look: `minecraft-tablet-design.md`.
 
 ## How it reaches Agent Office
@@ -85,20 +85,24 @@ items and no Review Lectern.
 
 ```bash
 cd apps/minecraft-mod
-./gradlew build                 # compile + tests (the game is loaded for them)
-./gradlew runGameTestServer     # in-world tests (src/gametest), also in CI
-./gradlew runClient             # dev client: NeoForge + this mod, its own run/ folder
-./gradlew runServer             # dedicated server in run-server/
+./gradlew build                 # both jars + tests (NeoForge's: the game is loaded for them)
+./gradlew runGameTestServer     # in-world tests (src/gametest, NeoForge), also in CI
+./gradlew :1.21.1-neoforge:runClient   # dev client: NeoForge + this mod, its own run/ folder
+./gradlew :1.21.1-neoforge:runServer   # dedicated server in run-server/
+./gradlew :1.20.1-fabric:runClient     # Fabric 1.20.1 dev client, in run-fabric/
 ```
 
-- `runClient` opens the dev world (`dev_world` in `gradle.properties`) once it exists; create it once from the title
+- Jars: `versions/1.21.1-neoforge/build/libs/agentoffice-<v>.jar`, `versions/1.20.1-fabric/build/libs/agentoffice-<v>+1.20.1-fabric.jar`.
+- Gradle itself needs Java 21 (Stonecutter); the Fabric build fetches its Java 17 toolchain.
+
+- `runClient` (either node; run it qualified, or Gradle runs both) opens the dev world (`dev_world` in `gradle.properties`) once it exists; create it once from the title
   screen.
 - **Scripted checks**: `-PaoOpen=…` and friends drive the client and take a screenshot; `-PaoQuit=true` quits after
-  it (`build.gradle` lists the flags, `DevHooks` every form). They are read-only: the client refuses every call that
+  it (`build.neoforge.gradle` and `build.fabric.gradle` list the flags, `DevHooks` every form). They are read-only: the client refuses every call that
   would change Agent Office.
 - **Multiplayer check**: in `run-server/` accept `eula.txt`, set `online-mode=false` in `server.properties` (the dev
-  users are offline accounts) and op them. Then `runServer`, the owner with `runClient -PaoServer=localhost`, and a
-  second player with `runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2`.
+  users are offline accounts) and op them. Then `:1.21.1-neoforge:runServer`, the owner with `:1.21.1-neoforge:runClient -PaoServer=localhost`, and a
+  second player with `:1.21.1-neoforge:runClient -PaoServer=localhost -PaoUser=Dev2 -PaoGameDir=run-client2`.
 - Before a release, drop the jar into a real modpack (CurseForge) and play a little.
 
 ## Credits

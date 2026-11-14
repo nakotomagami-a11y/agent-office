@@ -30,6 +30,31 @@ in `docs/conventions.md`.
 | `mod.screen-no-io` | screens start no threads/executors and hold no mutable statics |
 | `mod.ai-no-net` | `ai` never names payloads, menus or client code |
 
+## Two builds, one source
+
+Stonecutter builds the same `src/main` twice: `1.21.1-neoforge` (the version checked in, live in the sources) and
+`1.20.1-fabric`. Each node's build script is `build.<loader>.gradle`, its versions in `versions/<node>/gradle.properties`.
+
+| Where | What |
+|---|---|
+| `src/main` | shared code; where 1.20.1's API differs, `//? if >=1.21 {` … `//?} else {` keeps both (the other commented out) |
+| `src/neoforge/java`, `src/fabric/java` | one class per loader under the same name: `AgentOfficeMod` (registries, events, payloads), `Platform` and `client/ClientPlatform` (what shared code asks of the loader), `client/ClientSetup`, the Curios/Jade classes (NeoForge; Fabric has stubs) |
+| `src/fabric/java/.../compat` | 1.21's `StreamCodec`/`ByteBufCodecs`/`CustomPacketPayload` for 1.20.1: `stonecutter.gradle.kts` swaps the imports, so the payloads are one source and the same bytes |
+| `src/fabric/resources` | `fabric.mod.json`, mixins (projectile impacts and totems: NeoForge events Fabric lacks), the access widener, data in 1.20.1's folder names |
+
+Rules for shared code: Java 17 (no pattern `switch`), no block comments inside a `//?` region, and a 1.20.1 id is
+written as the 1.21 factory (`ResourceLocation.withDefaultNamespace`/`fromNamespaceAndPath`): Stonecutter rewrites it.
+To work on the Fabric side in an IDE, switch the active version (`gradlew "Set active project to 1.20.1-fabric"`), and
+run `gradlew "Reset active project"` before committing. The Fabric build has no tests of its own (`src/test` loads NeoForge's game); it is
+checked by compiling and by a run (`:1.20.1-fabric:runClient`).
+
+Fabric differences: no land-claim check beyond vanilla's (NeoForge asks claim mods through `EntityPlaceEvent`), so on a
+multiplayer server with a claims mod (Homestead has Open Parties and Claims) a player can place agents inside someone
+else's claim; no Curios or Jade; the channel version is part of each channel id (`Platform.channel`: `agentoffice:place/1`),
+bumped with NeoForge's; config in `config/agentoffice-client.properties`. Smaller ones: kill XP is counted after the
+mob's drops (Fabric's AFTER_DEATH), so a mob's dropped gear no longer adds to it; a player's TNT still knocks an agent
+back (no damage: 1.20.1 has no `ignoreExplosion(Explosion)`).
+
 ## One place for each value
 
 | What | Home | Pinned by |
@@ -40,11 +65,11 @@ in `docs/conventions.md`.
 | Values copied from the server/web: model, effort and permission lists, 50 MB upload cap, gh timeout, attachments intro, agent-name variants | `core/ServerMirror` | contract test reads each source |
 | JSON field names the mod reads | the parsing in `core/` | `apps/server/src/minecraft-mod-fixtures.test.ts` keeps the real routes' answers in `src/test/resources/.../fixtures`; `FixturesTest` reads every field from them |
 | Mod id, logger, daemon threads | `core/Ids` | — |
-| Files and dirs: lecterns JSON, skins dir, temp paste file, home, SavedData name | `ModPaths` (root package: it needs `FMLPaths`) | — |
+| Files and dirs: lecterns JSON, skins dir, temp paste file, home, SavedData name | `ModPaths` (root package: the config dir is the loader's `Platform`) | — |
 | Timing: status report every 5 s, server floor 1 s, "working" holds 30 s, 1 work XP per 5 min | `Tuning` | — |
 | Level curve | `core/Levels` | `LevelsTest` |
 | Tablet colours, vanilla container greys, panel and slot drawing | `client/ui/Theme` (+ `Theme.Vanilla`), `client/ui/VanillaGui` | — |
-| Dev flags | `build.gradle` passes every `-PaoName` through as `agentoffice.dev.name`; `DevHooks` owns the defaults | `ArchitectureTest.everyDevFlagReachesTheGame` |
+| Dev flags | `build.neoforge.gradle` and `build.fabric.gradle` pass every `-PaoName` through as `agentoffice.dev.name`; `DevHooks` owns the defaults | `ArchitectureTest.everyDevFlagReachesTheGame` |
 | Payload records, codecs, limits | `AgentPayloads` (handlers: `AgentNet`) | `PayloadsTest` |
 
 Single-use constants stay next to the one place that uses them, sizes and row heights included.

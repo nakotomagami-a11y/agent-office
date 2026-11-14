@@ -1,0 +1,75 @@
+plugins {
+    id 'fabric-loom'
+}
+
+version = "${mod_version}+${minecraft_version}-fabric"
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+// Minecraft 1.20.1 runs on Java 17 (CurseForge's runtime for it).
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// Loader-specific code: the entry points and the Platform this loader provides. Shared code is in src/main.
+sourceSets.main.java.srcDir rootProject.file('src/fabric/java')
+sourceSets.main.resources.srcDir rootProject.file('src/fabric/resources')
+
+repositories {
+    maven { url = "https://maven.parchmentmc.org" }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.layered {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${parchment_minecraft_version}:${parchment_mappings_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+loom {
+    accessWidenerPath = rootProject.file('src/fabric/resources/agentoffice.accesswidener')
+    runs {
+        // Its own run dirs: a 1.20.1 world can't be opened by the NeoForge 1.21.1 dev client, nor the reverse.
+        client {
+            runDir = '../../run-fabric'
+            if (rootProject.file("run-fabric/saves/${dev_world}").exists() && !project.hasProperty('aoOpen')) {
+                programArgs '--quickPlaySingleplayer', dev_world
+            }
+            property 'agentoffice.dev.world', dev_world
+            // The same scripted checks as build.neoforge.gradle (DevHooks lists every form).
+            ['open', 'quit', 'scroll', 'scrollDown', 'press', 'shotAfter', 'server', 'working', 'lectern', 'commands', 'watch'].each { name ->
+                def value = project.findProperty('ao' + name.capitalize())
+                if (value != null) property "agentoffice.dev.${name}", value.toString()
+            }
+            if (project.hasProperty('aoUser')) programArgs '--username', project.findProperty('aoUser').toString()
+            if (project.hasProperty('aoGameDir')) runDir = rootProject.file(project.findProperty('aoGameDir')).absolutePath
+        }
+        server {
+            runDir = '../../run-fabric-server'
+        }
+    }
+}
+
+// src/test needs the game NeoForge loads; the shared logic it covers is tested on the NeoForge build.
+tasks.named('compileTestJava') { enabled = false }
+tasks.named('test') { enabled = false }
+
+processResources {
+    def props = [mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: version,
+                 mod_authors: mod_authors, mod_description: mod_description, minecraft_version: minecraft_version,
+                 fabric_loader_version: fabric_loader_version, fabric_api_version: fabric_api_version]
+    inputs.properties props
+    filesMatching('fabric.mod.json') { expand props }
+    // src/main's data is in 1.21's folder names; src/fabric/resources has the same files under 1.20.1's.
+    exclude 'data/*/recipe/**', 'data/*/loot_table/**', 'data/*/tags/block/**', 'data/*/tags/entity_type/**'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    options.compilerArgs += ['-Xmaxerrs', '1000']
+}

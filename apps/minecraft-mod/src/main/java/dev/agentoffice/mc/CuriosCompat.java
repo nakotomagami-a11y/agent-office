@@ -9,14 +9,13 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
 
 /**
  * The optional Curios integration, safe to call without Curios installed: Curios types live only in
  * {@link CuriosBridge}, which is never loaded unless {@link #LOADED}.
  */
 public final class CuriosCompat {
-    public static final boolean LOADED = ModList.get().isLoaded("curios");
+    public static final boolean LOADED = Platform.isLoaded("curios");
 
     /** One kind of Curios slot ("ring") and how many of it the player has. */
     public record Slots(String id, int count) {

@@ -3,6 +3,7 @@ package dev.agentoffice.mc.client.service;
 import dev.agentoffice.mc.AgentEntity;
 import dev.agentoffice.mc.AgentNet;
 import dev.agentoffice.mc.AgentPayloads;
+import dev.agentoffice.mc.client.ClientPlatform;
 import dev.agentoffice.mc.Tuning;
 import dev.agentoffice.mc.core.AgentState;
 import dev.agentoffice.mc.core.Api;
@@ -15,7 +16,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -24,7 +24,6 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * The player's agent bodies as this client sees them. The bodies are entities the world owns
@@ -50,8 +49,7 @@ public final class Bodies {
 
     /** The world runs Agent Office too (always in singleplayer); without it there are no bodies. */
     static boolean available(Minecraft mc) {
-        ClientPacketListener conn = mc.getConnection();
-        return conn != null && conn.hasChannel(AgentPayloads.Place.TYPE);
+        return ClientPlatform.serverHasMod(mc);
     }
 
     public static void onPlaced(List<AgentPayloads.Body> bodies) {
@@ -132,19 +130,19 @@ public final class Bodies {
             // From the body's yaw, not the look vector: looking straight down has no horizontal part.
             at = mc.player.position().add(Vec3.directionFromRotation(0, mc.player.getYRot()).scale(3));
         }
-        PacketDistributor.sendToServer(new AgentPayloads.Place(seat, at.x, at.y, at.z, AgentEntity.yawTowards(at, mc.player.position())));
+        ClientPlatform.sendToServer(new AgentPayloads.Place(seat, at.x, at.y, at.z, AgentEntity.yawTowards(at, mc.player.position())));
     }
 
     /** The agent's body in this world talks to {@code slot} from now on (its nameplate and status follow). */
     public static void switchSeat(Minecraft mc, Api.Slot slot) {
         Api.Slot seat = available(mc) ? wire(mc, slot) : null;
-        if (seat != null) PacketDistributor.sendToServer(new AgentPayloads.Retarget(seat));
+        if (seat != null) ClientPlatform.sendToServer(new AgentPayloads.Retarget(seat));
     }
 
     /** Its body goes and what it held comes back to the player; the agent and its chat stay in Agent Office. */
     public static void dismiss(Minecraft mc, Api.Slot slot) {
         Api.Slot seat = available(mc) ? wire(mc, slot) : null;
-        if (seat != null) PacketDistributor.sendToServer(new AgentPayloads.Dismiss(seat));
+        if (seat != null) ClientPlatform.sendToServer(new AgentPayloads.Dismiss(seat));
     }
 
     /** {@code slot} is gone from Agent Office: its agent's body goes too, unless it talks to another seat. */
@@ -154,14 +152,14 @@ public final class Bodies {
     }
 
     public static void removeShell(Minecraft mc, UUID shell) {
-        if (available(mc)) PacketDistributor.sendToServer(new AgentPayloads.RemoveShell(shell));
+        if (available(mc)) ClientPlatform.sendToServer(new AgentPayloads.RemoveShell(shell));
     }
 
     /** Set up: the shell becomes the body of {@code slot}'s agent where it stands. False if the shell is gone. */
     public static boolean assignShell(Minecraft mc, UUID shell, Api.Slot slot) {
         Api.Slot seat = mc.level == null || !available(mc) || find(mc, shell) == null ? null : wire(mc, slot);
         if (seat == null) return false;
-        PacketDistributor.sendToServer(new AgentPayloads.AssignShell(shell, seat));
+        ClientPlatform.sendToServer(new AgentPayloads.AssignShell(shell, seat));
         return true;
     }
 
@@ -206,7 +204,7 @@ public final class Bodies {
         });
         if (work.isEmpty()) return;
         reportedAt = ticks;
-        PacketDistributor.sendToServer(new AgentPayloads.Status(work));
+        ClientPlatform.sendToServer(new AgentPayloads.Status(work));
     }
 
     /** Its desk: the nearest lectern showing its project (or all projects), else the nearest bound one at all. */

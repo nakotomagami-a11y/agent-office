@@ -1,6 +1,7 @@
 package dev.agentoffice.mc.client.ui;
 
 import com.mojang.blaze3d.platform.Window;
+import dev.agentoffice.mc.client.ClientPlatform;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -11,8 +12,6 @@ import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.common.NeoForge;
 
 /**
  * A screen shown on the Agent Tablet, drawn like any other in-game window: the world dimmed (not
@@ -108,8 +107,10 @@ public abstract class TabletScreen extends Screen {
     }
 
     /** As a container screen: the world dimmed behind vanilla's window panel; then the content's well(s). */
+    //? if >=1.21
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        //? if >=1.21 {
         if (minecraft.level == null) {
             renderPanorama(g, partialTick);
             renderBlurredBackground(partialTick);
@@ -117,10 +118,31 @@ public abstract class TabletScreen extends Screen {
         } else {
             renderTransparentBackground(g);
         }
+        //?} else
+        //super.renderBackground(g);
         panel(g, panelLeft, panelTop, panelRight - panelLeft, bottom + BEZEL - panelTop);
         renderWells(g);
-        NeoForge.EVENT_BUS.post(new ScreenEvent.BackgroundRendered(this, g));
+        ClientPlatform.backgroundRendered(this, g);
     }
+
+    //? if <1.21 {
+    /*// 1.20.1's Screen draws no background itself and scrolls on one axis: these give every tablet screen 1.21's
+    // shape, so the screens override renderBackground and mouseScrolled as they do there.
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        renderBackground(g, mouseX, mouseY, partialTick);
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return mouseScrolled(mouseX, mouseY, 0, delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
+    }
+    *///?}
 
     /** One well holding the whole content; screens with their own layout draw theirs. */
     protected void renderWells(GuiGraphics g) {

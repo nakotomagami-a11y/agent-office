@@ -20,7 +20,15 @@ import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?} else {
+/*import net.minecraft.SharedConstants;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.item.BowlFoodItem;
+import net.minecraft.world.item.Items;
+*///?}
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -136,6 +144,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         return level.addFreshEntity(body) ? body : null;
     }
 
+    //? if >=1.21 {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
@@ -143,6 +152,21 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         builder.define(OWNER, Optional.empty());
         builder.define(CURIOS, new CompoundTag());
     }
+    //?} else {
+    /*@Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(AGENT, "");
+        entityData.define(OWNER, Optional.empty());
+        entityData.define(CURIOS, new CompoundTag());
+    }
+
+    // A player's eye height, so worn armor and held items sit where they do on a player (1.21: the type's builder).
+    @Override
+    protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
+        return 1.62f;
+    }
+    *///?}
 
     @Override
     protected void registerGoals() {
@@ -232,13 +256,23 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     private boolean eat() {
         for (int i = 0; i < AgentRecords.SIZE; i++) {
             ItemStack stack = record.items.get(i);
+            //? if >=1.21 {
             FoodProperties food = stack.get(DataComponents.FOOD);
             if (food == null || food.nutrition() <= 0 || !food.effects().isEmpty() || stack.has(DataComponents.SUSPICIOUS_STEW_EFFECTS)) continue;
             ItemStack left = food.usingConvertsTo().map(ItemStack::copy).orElseGet(stack::getCraftingRemainingItem);
+            int nutrition = food.nutrition();
+            //?} else {
+            /*FoodProperties food = stack.getItem().getFoodProperties();
+            if (food == null || food.getNutrition() <= 0 || !food.getEffects().isEmpty() || stack.is(Items.SUSPICIOUS_STEW)) continue;
+            // 1.20.1 has no "converts to": a stew leaves its bowl, a honey bottle its bottle (its crafting remainder).
+            ItemStack left = stack.getItem() instanceof BowlFoodItem ? new ItemStack(Items.BOWL)
+                    : stack.getItem().hasCraftingRemainingItem() ? new ItemStack(stack.getItem().getCraftingRemainingItem()) : ItemStack.EMPTY;
+            int nutrition = food.getNutrition();
+            *///?}
             if (left.is(stack.getItem())) continue; // a meal that gives itself back would heal forever
             stack.shrink(1);
             if (!left.isEmpty()) keep(i, left);
-            record.fed = food.nutrition();
+            record.fed = nutrition;
             playSound(SoundEvents.GENERIC_EAT, 0.5f, 1f);
             return true;
         }
@@ -258,7 +292,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
             ItemStack s = record.items.get(i);
             if (s.isEmpty()) {
                 if (free < 0) free = i;
-            } else if (ItemStack.isSameItemSameComponents(s, left) && s.getCount() + left.getCount() <= s.getMaxStackSize()) {
+            } else if (ItemStack./*? if >=1.21 {*/isSameItemSameComponents/*?} else {*//*isSameItemSameTags*//*?}*/(s, left) && s.getCount() + left.getCount() <= s.getMaxStackSize()) {
                 s.grow(left.getCount());
                 return;
             }
@@ -298,10 +332,12 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         return !(mobFall || Combat.hostile(source.getEntity()));
     }
 
+    //? if >=1.21 {
     @Override
     public boolean ignoreExplosion(Explosion explosion) {
         return !Combat.hostile(explosion.getIndirectSourceEntity());
     }
+    //?}
 
     @Override
     public void performRangedAttack(LivingEntity target, float power) {
@@ -352,7 +388,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
 
     /** Every player near it sees the name: a label is the owner's text, so no formatting or control codes. */
     private static Component plate(String name) {
-        return Component.literal(StringUtil.filterText(name)).withStyle(ChatFormatting.WHITE);
+        return Component.literal(/*? if >=1.21 {*/StringUtil/*?} else {*//*SharedConstants*//*?}*/.filterText(name)).withStyle(ChatFormatting.WHITE);
     }
 
     /** Client: what each Curios slot shows. */
@@ -369,7 +405,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
             for (String id : all.getAllKeys()) {
                 CompoundTag t = all.getCompound(id);
                 var stacks = NonNullList.withSize(Mth.clamp(t.getInt("Size"), 0, 64), ItemStack.EMPTY);
-                ContainerHelper.loadAllItems(t, stacks, registryAccess());
+                ContainerHelper.loadAllItems(t, stacks/*? if >=1.21 {*/, registryAccess()/*?}*/);
                 shown.put(id, new ArrayList<>(stacks));
             }
             curiosShown = shown;
@@ -468,7 +504,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
         if (record == null) return;
         CompoundTag all = new CompoundTag();
         record.curios.forEach((id, stacks) -> {
-            CompoundTag t = ContainerHelper.saveAllItems(new CompoundTag(), stacks, registryAccess());
+            CompoundTag t = ContainerHelper.saveAllItems(new CompoundTag(), stacks/*? if >=1.21 {*/, registryAccess()/*?}*/);
             t.putInt("Size", stacks.size());
             all.put(id, t);
         });
@@ -521,7 +557,7 @@ public final class AgentEntity extends PathfinderMob implements RangedAttackMob 
     public void onInsideBubbleColumn(boolean downwards) {}
 
     @Override
-    public boolean canBeLeashed() {
+    public boolean canBeLeashed(/*? if <1.21 {*//*Player player*//*?}*/) {
         return false;
     }
 

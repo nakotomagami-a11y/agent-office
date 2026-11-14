@@ -1,5 +1,14 @@
 package dev.agentoffice.mc;
 
+import dev.agentoffice.mc.AgentPayloads.AssignShell;
+import dev.agentoffice.mc.AgentPayloads.Dismiss;
+import dev.agentoffice.mc.AgentPayloads.Migrate;
+import dev.agentoffice.mc.AgentPayloads.Place;
+import dev.agentoffice.mc.AgentPayloads.Placed;
+import dev.agentoffice.mc.AgentPayloads.RemoveShell;
+import dev.agentoffice.mc.AgentPayloads.Retarget;
+import dev.agentoffice.mc.AgentPayloads.Stats;
+import dev.agentoffice.mc.AgentPayloads.Status;
 import dev.agentoffice.mc.ai.Combat;
 import dev.agentoffice.mc.core.Ids;
 import net.minecraft.core.registries.Registries;
@@ -14,12 +23,18 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.phys.EntityHitResult;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingUseTotemEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -27,6 +42,8 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /**
  * Both sides: the items, the lectern and the agent entity are registered wherever the world runs (singleplayer
@@ -63,7 +80,7 @@ public final class AgentOfficeMod {
         ENTITIES.register(modBus);
         MENUS.register(modBus);
         modBus.addListener(AgentOfficeMod::addToCreativeTab);
-        modBus.addListener(AgentNet::register);
+        modBus.addListener(AgentOfficeMod::registerPayloads);
         modBus.addListener((EntityAttributeCreationEvent e) -> e.put(AGENT.get(), AgentEntity.attributes().build()));
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer p) AgentNet.sendPlaced(p);
@@ -86,7 +103,32 @@ public final class AgentOfficeMod {
                 e.setCancellationResult(InteractionResult.FAIL);
             }
         });
-        Combat.register(NeoForge.EVENT_BUS);
+        NeoForge.EVENT_BUS.addListener((ProjectileImpactEvent e) -> {
+            if (e.getRayTraceResult() instanceof EntityHitResult hit && Combat.blocksImpact(e.getProjectile(), hit.getEntity())) e.setCanceled(true);
+        });
+        NeoForge.EVENT_BUS.addListener((LivingIncomingDamageEvent e) -> {
+            if (Combat.blocksDamage(e.getSource(), e.getEntity())) e.setCanceled(true);
+        });
+        // Last, so a mod that cancels the death (a revive) has had its say.
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, (LivingDeathEvent e) -> Combat.died(e.getSource(), e.getEntity()));
+        NeoForge.EVENT_BUS.addListener((LivingUseTotemEvent e) -> {
+            if (e.getEntity() instanceof AgentEntity) e.setCanceled(true);
+        });
+    }
+
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        // Bumping the version refuses every login between mismatched jars (NeoForge disconnects: incompatible network
+        // version), even on an optional channel. Add payloads freely; bump only for a codec change.
+        PayloadRegistrar r = event.registrar("1").optional();
+        r.playToServer(Migrate.TYPE, Migrate.CODEC, (m, ctx) -> { });
+        r.playToServer(Place.TYPE, Place.CODEC, (m, ctx) -> AgentNet.place((ServerPlayer) ctx.player(), m));
+        r.playToServer(Retarget.TYPE, Retarget.CODEC, (m, ctx) -> AgentNet.retarget((ServerPlayer) ctx.player(), m.seat()));
+        r.playToServer(Dismiss.TYPE, Dismiss.CODEC, (m, ctx) -> AgentNet.dismiss((ServerPlayer) ctx.player(), m.seat()));
+        r.playToServer(AssignShell.TYPE, AssignShell.CODEC, (m, ctx) -> AgentNet.assignShell((ServerPlayer) ctx.player(), m));
+        r.playToServer(RemoveShell.TYPE, RemoveShell.CODEC, (m, ctx) -> AgentNet.removeShell((ServerPlayer) ctx.player(), m.shell()));
+        r.playToServer(Status.TYPE, Status.CODEC, (m, ctx) -> AgentNet.status((ServerPlayer) ctx.player(), m.bodies()));
+        r.playToClient(Placed.TYPE, Placed.CODEC, (m, ctx) -> AgentNet.onPlaced.accept(m.bodies()));
+        r.playToClient(Stats.TYPE, Stats.CODEC, (m, ctx) -> AgentNet.onStats.accept(m));
     }
 
     private static void addToCreativeTab(BuildCreativeModeTabContentsEvent event) {

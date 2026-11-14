@@ -177,8 +177,8 @@ public final class TranscriptView {
             int thumbH = Math.max(Math.min(32, h), Math.min(h - 8, h * h / total));
             int thumbY = y + (int) ((long) (h - thumbH) * (maxScroll - scrollFromBottom) / maxScroll);
             RenderSystem.enableBlend();
-            g.blitSprite(SCROLLER_BACKGROUND, trackX, y, SCROLLBAR, h);
-            g.blitSprite(SCROLLER, trackX, thumbY, SCROLLBAR, thumbH);
+            Sprites.blit(g, SCROLLER_BACKGROUND, trackX, y, SCROLLBAR, h);
+            Sprites.blit(g, SCROLLER, trackX, thumbY, SCROLLBAR, thumbH);
             RenderSystem.disableBlend();
         }
     }
@@ -242,36 +242,40 @@ public final class TranscriptView {
         boolean labeled = item instanceof Transcript.AgentText && !(prev instanceof Transcript.AgentText) && !isTools(prev);
         Laid laid = cache.get(item);
         if (laid != null && laid.width == width && laid.wide == wide && laid.labeled == labeled) return laid.parts;
-        List<Part> parts = switch (item) {
-            case Transcript.You you -> youParts(you, width);
-            case Transcript.AgentText text -> agentParts(text, labeled, width);
-            case Transcript.Tool tool -> List.of(new ToolPart(tool));
-            case Transcript.Done done -> List.of(new DividerPart(doneText(done), done.exitCode() == 0 ? Theme.TXT_4 : Theme.RED));
-            // The player pressed Stop: a pause, not a failure (as the web shows it).
-            case Transcript.Failure f when RunErrors.STOPPED.equals(f.code()) -> List.of(new DividerPart("stopped", Theme.TXT_4));
-            case Transcript.Failure f -> List.of(card(Theme.withAlpha(Theme.RED, 0x1A), Theme.RED, width, inner -> {
-                List<Part> p = new ArrayList<>();
-                p.add(lines(Component.literal("Error · " + RunErrors.title(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
-                if (f.detail() != null) p.add(lines(Component.literal(f.detail()).withColor(Theme.TXT_2), inner, 0));
-                return p;
-            }));
-            case Transcript.Note n -> List.of(lines(Component.literal(n.text())
-                    .withStyle(s -> s.withColor(n.warning() ? Theme.AMBER : Theme.TXT_3).withItalic(true)), width, 0));
-            case Transcript.SubAgent sub -> List.of(card(Theme.SHADE, sub.running() ? Theme.OK : Theme.TXT_4, width, inner -> {
-                List<Part> p = new ArrayList<>();
-                p.add(lines(Component.literal("↳ " + sub.name()).withStyle(s -> s.withColor(Theme.TXT).withBold(true))
-                        .append(Component.literal("  " + sub.status()).withStyle(s -> s.withColor(Theme.TXT_3).withBold(false))), inner, 0));
-                String detail = sub.currentTool() != null ? "using " + sub.currentTool() : sub.lastLine();
-                if (detail != null) p.add(lines(Component.literal(detail).withColor(Theme.TXT_4), inner, 0));
-                return p;
-            }));
-            case Transcript.RateLimit rl -> List.of(card(Theme.withAlpha(Theme.AMBER, 0x1A), rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
-                    lines(Component.literal(rl.limit() ? "Rate limit reached" : "Rate limit warning")
-                            .withStyle(s -> s.withColor(rl.limit() ? Theme.RED : Theme.AMBER).withBold(true)), inner, 0),
-                    lines(Component.literal(rl.message()).withColor(Theme.TXT_2), inner, 0))));
-        };
+        List<Part> parts = itemParts(item, labeled, width);
         cache.put(item, new Laid(labeled, width, wide, parts));
         return parts;
+    }
+
+    /** instanceof, not a pattern switch: the Fabric 1.20.1 build compiles for Java 17 (SealedBranchesTest stands in). */
+    private List<Part> itemParts(Transcript.Item item, boolean labeled, int width) {
+        if (item instanceof Transcript.You you) return youParts(you, width);
+        if (item instanceof Transcript.AgentText text) return agentParts(text, labeled, width);
+        if (item instanceof Transcript.Tool tool) return List.of(new ToolPart(tool));
+        if (item instanceof Transcript.Done done) return List.of(new DividerPart(doneText(done), done.exitCode() == 0 ? Theme.TXT_4 : Theme.RED));
+        // The player pressed Stop: a pause, not a failure (as the web shows it).
+        if (item instanceof Transcript.Failure f && RunErrors.STOPPED.equals(f.code())) return List.of(new DividerPart("stopped", Theme.TXT_4));
+        if (item instanceof Transcript.Failure f) return List.of(card(Theme.withAlpha(Theme.RED, 0x1A), Theme.RED, width, inner -> {
+            List<Part> p = new ArrayList<>();
+            p.add(lines(Component.literal("Error · " + RunErrors.title(f.code())).withStyle(s -> s.withColor(Theme.RED).withBold(true)), inner, 0));
+            if (f.detail() != null) p.add(lines(Component.literal(f.detail()).withStyle(c -> c.withColor(Theme.TXT_2)), inner, 0));
+            return p;
+        }));
+        if (item instanceof Transcript.Note n) return List.of(lines(Component.literal(n.text())
+                .withStyle(s -> s.withColor(n.warning() ? Theme.AMBER : Theme.TXT_3).withItalic(true)), width, 0));
+        if (item instanceof Transcript.SubAgent sub) return List.of(card(Theme.SHADE, sub.running() ? Theme.OK : Theme.TXT_4, width, inner -> {
+            List<Part> p = new ArrayList<>();
+            p.add(lines(Component.literal("↳ " + sub.name()).withStyle(s -> s.withColor(Theme.TXT).withBold(true))
+                    .append(Component.literal("  " + sub.status()).withStyle(s -> s.withColor(Theme.TXT_3).withBold(false))), inner, 0));
+            String detail = sub.currentTool() != null ? "using " + sub.currentTool() : sub.lastLine();
+            if (detail != null) p.add(lines(Component.literal(detail).withStyle(c -> c.withColor(Theme.TXT_4)), inner, 0));
+            return p;
+        }));
+        if (item instanceof Transcript.RateLimit rl) return List.of(card(Theme.withAlpha(Theme.AMBER, 0x1A), rl.limit() ? Theme.RED : Theme.AMBER, width, inner -> List.of(
+                lines(Component.literal(rl.limit() ? "Rate limit reached" : "Rate limit warning")
+                        .withStyle(s -> s.withColor(rl.limit() ? Theme.RED : Theme.AMBER).withBold(true)), inner, 0),
+                lines(Component.literal(rl.message()).withStyle(c -> c.withColor(Theme.TXT_2)), inner, 0))));
+        throw new IllegalStateException("unhandled transcript item " + item.getClass());
     }
 
     private List<Part> youParts(Transcript.You you, int width) {
@@ -281,7 +285,7 @@ public final class TranscriptView {
             p.add(lines(Component.literal(you.system() ? "System" : "You")
                     .withStyle(s -> s.withColor(you.system() ? Theme.AMBER : Theme.ACCENT_SOFT).withBold(true)), inner, 0));
             for (String para : Transcript.stripAttachmentFooter(you.text()).split("\n", -1)) {
-                p.add(lines(Component.literal(para).withColor(Theme.TXT), inner, 0));
+                p.add(lines(Component.literal(para).withStyle(c -> c.withColor(Theme.TXT)), inner, 0));
             }
             return p;
         }));
@@ -298,20 +302,23 @@ public final class TranscriptView {
                 out.add(new Spacer(blocks.get(i) instanceof Markdown.Heading ? HEADING_GAP
                         : blocks.get(i - 1) instanceof Markdown.Heading ? AFTER_HEADING_GAP : PARAGRAPH_GAP));
             }
-            switch (blocks.get(i)) {
-                case Markdown.Heading hd -> {
-                    out.add(lines(inline(hd.text(), Theme.TXT).withStyle(s -> s.withBold(true)), width, 0));
+            Markdown.Block block = blocks.get(i);
+            if (block instanceof Markdown.Heading hd) {
+                out.add(lines(inline(hd.text(), Theme.TXT).withStyle(s -> s.withBold(true)), width, 0));
+            } else if (block instanceof Markdown.Paragraph p) {
+                out.add(lines(inline(p.text(), Theme.TXT_2), width, 0));
+            } else if (block instanceof Markdown.ListBlock list) {
+                for (int n = 0; n < list.items().size(); n++) {
+                    Markdown.ListItem li = list.items().get(n);
+                    if (n > 0) out.add(new Spacer(LIST_ITEM_GAP));
+                    out.add(new ListItemPart(li.marker(), li.depth() * 12, inline(li.text(), Theme.TXT_2), width));
                 }
-                case Markdown.Paragraph p -> out.add(lines(inline(p.text(), Theme.TXT_2), width, 0));
-                case Markdown.ListBlock list -> {
-                    for (int n = 0; n < list.items().size(); n++) {
-                        Markdown.ListItem li = list.items().get(n);
-                        if (n > 0) out.add(new Spacer(LIST_ITEM_GAP));
-                        out.add(new ListItemPart(li.marker(), li.depth() * 12, inline(li.text(), Theme.TXT_2), width));
-                    }
-                }
-                case Markdown.Code code -> out.add(new CodePart(code, wide));
-                case Markdown.Table table -> out.add(new TablePart(table, wide));
+            } else if (block instanceof Markdown.Code code) {
+                out.add(new CodePart(code, wide));
+            } else if (block instanceof Markdown.Table table) {
+                out.add(new TablePart(table, wide));
+            } else {
+                throw new IllegalStateException("unhandled markdown block " + block.getClass());
             }
         }
         if (text.streaming()) out.add(new CursorPart());
@@ -666,7 +673,7 @@ public final class TranscriptView {
         @Override
         public void render(GuiGraphics g, int x, int y, int w, int mouseX, int mouseY) {
             g.fill(x, y, x + w, y + 14, Theme.SHADE);
-            g.blitSprite(Theme.dot(tool.running() ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
+            Sprites.blit(g, Theme.dot(tool.running() ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
             String name = tool.name() == null ? "tool" : tool.name();
             int nameW = font.width(Component.literal(name).withStyle(s -> s.withBold(true)));
             g.drawString(font, Component.literal(name).withStyle(s -> s.withBold(true)), x + 15, y + 3, Theme.TXT, false);
@@ -707,7 +714,7 @@ public final class TranscriptView {
             boolean running = chain.tools().stream().anyMatch(Transcript.Tool::running);
             boolean open = openChains.contains(chain.key());
             boolean hover = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + 14;
-            g.blitSprite(Theme.dot(running ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
+            Sprites.blit(g, Theme.dot(running ? Protocol.Conversation.RUNNING : null), x + 5, y + 4, 6, 6);
             String label = chain.tools().size() + " TOOL CALLS  " + (open ? "▾" : "▸");
             g.drawString(font, label, x + 15, y + 3, hover ? Theme.TXT : Theme.TXT_3, false);
         }
