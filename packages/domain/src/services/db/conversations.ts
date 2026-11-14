@@ -8,6 +8,7 @@ import { getDb } from "./connection";
 import { emitAppEvent } from "../infra/events";
 import { asOrigin, deleteRunsWhere, rowToRun, type RunRow } from "./runs";
 import type { MessageOrigin, PersistedRun, SubAgentStatus, SubRun } from "../../types/index";
+import { HANDOFF_PROMPT_HEAD } from "../../config/handoff";
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
 
@@ -314,6 +315,69 @@ export function hasRunningTurn(conversationId: string, exceptRunId?: string): bo
   return !!getDb()
     .prepare("SELECT 1 FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL AND status = 'running' AND id != ? LIMIT 1")
     .get(conversationId, exceptRunId ?? "");
+}
+
+/** The slot's latest conversations, in a row, that a handoff started and the user never wrote in:
+ *  how deep the current automatic takeover chain is. Derived, so a user message resets it. */
+export function autoHandoffChainLength(agentId: string, instanceId: string, limit: number): number {
+  const db = getDb();
+  const convs = db
+    .prepare("SELECT id FROM conversations WHERE agent_id = ? AND instance_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
+    .all(agentId, instanceId, limit) as Array<{ id: string }>;
+  const first = db.prepare(
+    "SELECT prompt, origin FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC, rowid ASC LIMIT 1",
+  );
+  const userTurn = db.prepare("SELECT 1 FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL AND origin = 'user' LIMIT 1");
+  let depth = 0;
+  for (const { id } of convs) {
+    const head = first.get(id) as { prompt: string; origin: string } | undefined;
+    if (!head || head.origin !== "system" || !head.prompt.startsWith(HANDOFF_PROMPT_HEAD) || userTurn.get(id)) break;
+    depth += 1;
+  }
+  return depth;
+}
+
+/** The conversations of the handoff chain that `convId` ends, newest first: it, then each predecessor
+ *  while the later one was started by a handoff. The last one is where the user made the request. */
+export function handoffChain(agentId: string, instanceId: string, convId: string, limit = 20): string[] {
+  const db = getDb();
+  const older = db
+    .prepare(
+      `SELECT c.id FROM conversations c, conversations me
+       WHERE me.id = ? AND c.agent_id = ? AND c.instance_id = ?
+         AND (c.created_at < me.created_at OR (c.created_at = me.created_at AND c.rowid <= me.rowid))
+       ORDER BY c.created_at DESC, c.rowid DESC LIMIT ?`,
+    )
+    .all(convId, agentId, instanceId, limit) as Array<{ id: string }>;
+  const first = db.prepare(
+    "SELECT prompt FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC, rowid ASC LIMIT 1",
+  );
+  const chain: string[] = [];
+  for (const { id } of older) {
+    chain.push(id);
+    const head = first.get(id) as { prompt: string } | undefined;
+    if (!head?.prompt.startsWith(HANDOFF_PROMPT_HEAD)) break;
+  }
+  return chain;
+}
+
+/** Top-level turns of `conversationIds`, newest first. */
+export function chainTurns(conversationIds: readonly string[], limit: number): Array<{ prompt: string; origin: MessageOrigin; conversationId: string }> {
+  if (conversationIds.length === 0) return [];
+  const rows = getDb()
+    .prepare(
+      `SELECT prompt, origin, conversation_id FROM runs WHERE conversation_id IN (${conversationIds.map(() => "?").join(",")})
+         AND parent_run_id IS NULL ORDER BY started_at DESC, rowid DESC LIMIT ?`,
+    )
+    .all(...conversationIds, limit) as Array<{ prompt: string; origin: string; conversation_id: string }>;
+  return rows.map((r) => ({ prompt: r.prompt, origin: asOrigin(r.origin), conversationId: r.conversation_id }));
+}
+
+export function firstConversationTurn(conversationId: string): PersistedRun | null {
+  const row = getDb()
+    .prepare("SELECT * FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL ORDER BY started_at ASC, rowid ASC LIMIT 1")
+    .get(conversationId) as RunRow | undefined;
+  return row ? rowToRun(row) : null;
 }
 
 /** The most recent top-level turn of a conversation (used to derive the prompt

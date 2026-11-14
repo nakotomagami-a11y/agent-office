@@ -19,6 +19,8 @@ function refusalDetail(code: string, action: string): string {
       return "The next round could not start yet and will be retried. Nothing was lost.";
     case "dispatch_failed":
       return "The next round could not be started. The work so far is intact.";
+    case "chat_replaced":
+      return "The chat this loop belongs to was replaced by a new thread, so the loop stopped.";
     default:
       return "This loop could not be advanced.";
   }

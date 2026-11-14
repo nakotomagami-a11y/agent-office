@@ -12,6 +12,7 @@ import {
   useResumeConversation,
   useSkipConversation,
   useNewConversationThread,
+  useHandOffConversation,
   useRemoveQueuedMessage,
   useClearConversationQueue,
 } from "./use-conversation";
@@ -74,6 +75,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
   const resumeMut = useResumeConversation();
   const skipMut = useSkipConversation();
   const newThreadMut = useNewConversationThread();
+  const handOffMut = useHandOffConversation();
   const removeQueuedMut = useRemoveQueuedMessage();
   const clearQueueMut = useClearConversationQueue();
   const abort = useAbortRun();
@@ -238,6 +240,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
 
   const onCommand = (cmd: string) => {
     if (cmd === "/clear") void onNewThread();
+    if (cmd === "/handoff" && view) handOffMut.mutate(view.id, { onError: (err) => toast(handoffErrorText(err)) });
   };
 
   const onNewThread = async () => {
@@ -324,6 +327,18 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
     resumeResetsAtMs: lastRateLimitResetsAt ? lastRateLimitResetsAt * 1000 : null,
     canScheduleResume: lastRateLimitResetsAt != null,
   };
+}
+
+const HANDOFF_ERRORS: Record<string, string> = {
+  turn_running: "Wait for the current turn to finish, or stop it, before handing off.",
+  nothing_to_hand_off: "Nothing to hand off yet: this thread has no turns.",
+  not_current: "This thread was already replaced. Reopen the chat to see the current one.",
+  loop_running: "A review loop is driving this chat. Stop it before handing off.",
+};
+
+function handoffErrorText(err: unknown): string {
+  const code = err instanceof Error ? err.message : "";
+  return HANDOFF_ERRORS[code] ?? "Could not hand off to a fresh session.";
 }
 
 /** Fires `onNewThread()` whenever the parent-shell `newThreadSignal` changes. */

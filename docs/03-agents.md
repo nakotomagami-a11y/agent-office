@@ -95,12 +95,13 @@ When you summon an agent, Agent Office builds an appended prompt passed to Claud
 1. **Skills** — bodies of all installed skills in the agent's `skills` list, concatenated in order.
 2. **Identity** — contents of `~/.claude/agents/<id>.identity.md`, if present. Foundational, ships-with-the-agent knowledge (distinct from memory, which accumulates locally) — sits right after skills, before any memory tier.
 3. **Response style** — built-in writing rules for a reader with ADHD (`packages/domain/src/config/response-style.ts`): lead with the next action, numbered steps, no filler. Every agent, every turn. Say "stop adhd mode" or "normal mode" to drop it for the rest of a conversation.
-4. **Global memory** — contents of `~/.claude/agents/_global.memory.md` — applies to every agent.
-5. **Active project** — active project name, working directory, and description.
-6. **Project environment** — non-secret manifest of which Claude account, GitHub identity, and named secrets (never values) are available in this run's environment, so the agent knows rather than guesses. Only present when a project is active and has at least one of these configured.
-7. **Project memory** — the memory body from `~/.claude/projects/<id>/project.md`.
-8. **Per-agent memory** — contents of `~/.claude/agents/<id>.memory.md`.
-9. **History note** — SQLite DB path and a `sqlite3` command so the agent can query its own past runs. Omitted when `permission-mode` is `plan`, or when the conversation already has messages (a resumed thread doesn't need the pointer repeated).
+4. **Session handoff** — built-in (`packages/domain/src/config/handoff.ts`): an agent that cannot finish in its session writes its notes and ends its reply with `<!-- agent-office:handoff -->`, instead of asking you to start a new session. See [Interface → Session handoff](#/interface).
+5. **Global memory** — contents of `~/.claude/agents/_global.memory.md` — applies to every agent.
+6. **Active project** — active project name, working directory, and description.
+7. **Project environment** — non-secret manifest of which Claude account, GitHub identity, and named secrets (never values) are available in this run's environment, so the agent knows rather than guesses. Only present when a project is active and has at least one of these configured.
+8. **Project memory** — the memory body from `~/.claude/projects/<id>/project.md`.
+9. **Per-agent memory** — contents of `~/.claude/agents/<id>.memory.md`.
+10. **History note** — SQLite DB path and a `sqlite3` command so the agent can query its own past runs. Omitted when `permission-mode` is `plan`, or when the conversation already has messages (a resumed thread doesn't need the pointer repeated).
 
 > [!TIP]
 > The `.md` body (after the closing `---`) is the `--system-prompt`. The items above are injected as an *appended* prompt, not a replacement.

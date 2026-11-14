@@ -24,6 +24,7 @@ import {
 // file's header comment. Re-exported here so existing `conversation.` callers
 // keep working unchanged.
 import type { ContextProfile, ConversationView, MessageOrigin } from "../../types/index";
+import { manualHandoffBlocker, moveToFreshConversation, takeoverPrompt, wantsAutoHandoff, type HandoffBlocker } from "./handoff";
 export type { ConversationView } from "../../types/index";
 
 export interface StartRunInput {
@@ -222,7 +223,7 @@ export function sendMessageToConversation(
   maxBudgetUsd?: number,
 ): Promise<ConversationView> {
   const message = { id: cryptoRandomId(), text, origin };
-  return apply(convId, { type: "send", message }, runner, { contextProfile, maxBudgetUsd });
+  return apply(currentConversationId(convId), { type: "send", message }, runner, { contextProfile, maxBudgetUsd });
 }
 
 /**
@@ -240,6 +241,8 @@ export async function startIfIdle(
   await reconcileIfStale(convId, runner);
   const conv = db.getConversation(convId);
   if (!conv) return { code: "conversation_not_found" };
+  // A replaced conversation's session is spent or abandoned, and its thread is out of sight.
+  if (currentConversationId(convId) !== convId) return { code: "conversation_superseded" };
   const before = buildState(conv);
   if (before.status !== "idle" || before.queue.length > 0) return { code: "already_running" };
   const { state: next, effects } = reduce(before, { type: "send", message: { id: cryptoRandomId(), text, origin: "system" } });
@@ -280,8 +283,45 @@ export async function onRunFinished(
   const run = db.getRun(runId);
   const convId = run?.conversationId;
   if (!convId) return;
-  if (!db.getConversation(convId)) return;
+  const conv = db.getConversation(convId);
+  if (!conv) return;
+  if (ok && run && wantsAutoHandoff(conv, run)) {
+    await handOver(conv, sessionId, runner, "system");
+    return;
+  }
   await apply(convId, { type: "runFinished", runId, ok, sessionId }, runner);
+}
+
+/** A send to a conversation that New thread or a handoff replaced lands in the slot's current
+ *  one: a client still holding the old id would otherwise resume a session nobody sees. */
+function currentConversationId(convId: string): string {
+  const conv = db.getConversation(convId);
+  if (!conv) return convId;
+  return db.getActiveConversation(conv.agentId, conv.instanceId)?.id ?? convId;
+}
+
+/** Leave `conv` idle and continue in a fresh conversation (new session) for the same slot,
+ *  started by a takeover prompt quoting its last reply. Pending messages move along with it.
+ *  `origin` is `user` for /handoff, which (like Resume) the user asked for, and ends an automatic chain. */
+async function handOver(
+  conv: db.ConversationRow,
+  sessionId: string | null,
+  runner: ConversationRunner,
+  origin: MessageOrigin,
+): Promise<ConversationView> {
+  const prompt = takeoverPrompt(conv);
+  const fresh = moveToFreshConversation(conv, sessionId);
+  return sendMessageToConversation(fresh.id, prompt, runner, undefined, origin);
+}
+
+/** "Continue in a fresh session": the user's way to hand off when the agent did not, or a turn
+ *  failed because the session itself is spent. */
+export async function handOff(convId: string, runner: ConversationRunner): Promise<ConversationView | { code: HandoffBlocker }> {
+  await reconcileIfStale(convId, runner);
+  const conv = db.getConversation(convId);
+  if (!conv) throw new Error(`conversation not found: ${convId}`);
+  const blocker = manualHandoffBlocker(conv);
+  return blocker ? { code: blocker } : handOver(conv, null, runner, "user");
 }
 
 /** Mirror `apply()`'s `startRun` effect for a run started outside the `send`
@@ -317,26 +357,39 @@ export async function adoptScheduledRun(
   return true;
 }
 
+/** Retry / Resume / Skip on a replaced conversation would start its out-of-sight session;
+ *  the current conversation's view is returned instead, unchanged. */
+function onCurrent(convId: string, act: () => Promise<ConversationView>): Promise<ConversationView> {
+  const current = currentConversationId(convId);
+  return current === convId ? act() : Promise.resolve(view(current));
+}
+
 export function retry(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "retry" }, runner);
+  return onCurrent(convId, () => apply(convId, { type: "retry" }, runner));
 }
 
 export function resume(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "resume" }, runner);
+  return onCurrent(convId, () => apply(convId, { type: "resume" }, runner));
 }
 
 export function skip(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "skip" }, runner);
+  return onCurrent(convId, () => apply(convId, { type: "skip" }, runner));
 }
 
+/** A handoff moves queued messages with their ids, so a cancel sent to the old id finds its
+ *  message wherever it is now. */
 export function removeQueued(convId: string, messageId: string): ConversationView {
-  db.removeQueuedMessage(convId, messageId);
-  return view(convId);
+  const current = currentConversationId(convId);
+  const owner = db.listQueue(convId).some((m) => m.id === messageId) ? convId : current;
+  db.removeQueuedMessage(owner, messageId);
+  return view(current);
 }
 
+/** Only ever this conversation's own queue. On a replaced id the current view comes back, so a stale
+ *  client sees the queue a handoff moved there, still pending, instead of a silent "cleared". */
 export function clearQueue(convId: string): ConversationView {
   db.clearQueue(convId);
-  return view(convId);
+  return view(currentConversationId(convId));
 }
 
 /** Start a fresh conversation ("New thread") for the slot; abandons the old

@@ -18,6 +18,8 @@ export const FILE_EDIT_TOOLS = ["Edit", "MultiEdit", "Write", "NotebookEdit"] as
 
 export const QA_LOOP_REVIEWER = "qa-code-review";
 
+export const QA_GOAL_FILES_HEADING = "\n\nFiles that turn edited:\n";
+
 /** Ceilings for a toggle-started loop. Small on purpose: three review rounds
  *  that still disagree is a decision for the user, not a fourth round. */
 export const QA_LOOP_CONFIG = {

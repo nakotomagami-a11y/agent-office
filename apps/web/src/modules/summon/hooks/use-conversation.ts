@@ -50,13 +50,17 @@ export function useEnsureConversation() {
   });
 }
 
-/** Shared invalidation for every conversation-id-scoped mutation below —
- *  refresh both the by-id and by-slot caches for this conversation. */
-function useConversationInvalidate() {
+/** Shared cache update for every conversation-id-scoped mutation below. The by-slot cache
+ *  takes the view only when it is the shown conversation, or when the mutation `replaces` it
+ *  (New thread, handoff); a late response about a replaced one refetches instead of switching back. */
+function useConversationInvalidate(opts: { replaces?: boolean } = {}) {
   const qc = useQueryClient();
   return (view: ConversationView) => {
     qc.setQueryData(queryKeys.conversations.detail(view.id), view);
-    qc.setQueryData(queryKeys.conversations.bySlot(view.agentId, view.instanceId), view);
+    const slotKey = queryKeys.conversations.bySlot(view.agentId, view.instanceId);
+    const shown = qc.getQueryData<ConversationView | null>(slotKey);
+    if (opts.replaces || !shown || shown.id === view.id) qc.setQueryData(slotKey, view);
+    else void qc.invalidateQueries({ queryKey: slotKey });
   };
 }
 
@@ -97,9 +101,17 @@ export function useSkipConversation() {
 }
 
 export function useNewConversationThread() {
-  const setView = useConversationInvalidate();
+  const setView = useConversationInvalidate({ replaces: true });
   return useMutation({
     mutationFn: (conversationId: string) => apiFetch<ConversationView>(API_ROUTES.conversationNew(conversationId), { method: "POST" }),
+    onSuccess: setView,
+  });
+}
+
+export function useHandOffConversation() {
+  const setView = useConversationInvalidate({ replaces: true });
+  return useMutation({
+    mutationFn: (conversationId: string) => apiFetch<ConversationView>(API_ROUTES.conversationHandoff(conversationId), { method: "POST" }),
     onSuccess: setView,
   });
 }

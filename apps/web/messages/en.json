@@ -677,6 +677,8 @@
     "input_aria": "Message",
     "remove_chip_aria": "Remove {name}",
     "command_clear_desc": "Start a new thread",
+    "command_handoff_desc": "Continue this task in a fresh session",
+    "handoff_not_started": "Asked for a fresh session, but none started. Type /handoff to continue there.",
     "attach_title": "Attach file",
     "uploading_label": "uploading…",
     "upload_failed_title": "Upload failed: {error}",

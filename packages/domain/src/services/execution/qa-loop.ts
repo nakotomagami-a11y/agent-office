@@ -6,10 +6,12 @@ import { getDb } from "../db/connection";
 import * as agents from "../agents/agents";
 import * as projects from "../projects/projects";
 import { log } from "../infra/log";
-import { FILE_EDIT_TOOLS, QA_LOOP_CONFIG, QA_LOOP_REVIEWER } from "../../config/loop";
+import { FILE_EDIT_TOOLS, QA_GOAL_FILES_HEADING, QA_LOOP_CONFIG, QA_LOOP_REVIEWER } from "../../config/loop";
 import { startLoop, type LoopRunner } from "./loop-runner";
 import { oneLine } from "./loop-prompts";
 import { RESUME_PROMPT } from "./conversation-machine";
+import { chainRequest, isTakeoverPrompt } from "./handoff";
+import { endsWithHandoff } from "../../config/handoff";
 
 /** Goal text is repeated in every round's prompt; a pasted log must not be. */
 const MAX_GOAL = 2000;
@@ -46,13 +48,15 @@ function reviewerProblem(): string | null {
   return null;
 }
 
-/** "Resume" sends a canned prompt as `user`: the goal is the real request before it. */
-function goalOf(prompt: string, conversationId: string): string {
-  if (prompt !== RESUME_PROMPT) return prompt;
-  const asked = db.listConversationTurns(conversationId)
-    .filter((t) => t.origin === "user" && t.prompt !== RESUME_PROMPT)
+const carriesNoRequest = (prompt: string) => prompt.startsWith(RESUME_PROMPT) || isTakeoverPrompt(prompt);
+
+/** "Resume" and "/handoff" send canned prompts as `user`: the goal is the real request before them. */
+function goalOf(run: { prompt: string; conversationId: string; agentId: string; instanceId: string }): string {
+  if (!carriesNoRequest(run.prompt)) return run.prompt;
+  const asked = db.listConversationTurns(run.conversationId)
+    .filter((t) => t.origin === "user" && !carriesNoRequest(t.prompt))
     .at(-1);
-  return asked?.prompt ?? prompt;
+  return asked?.prompt ?? chainRequest(run.agentId, run.instanceId, run.conversationId) ?? run.prompt;
 }
 
 export async function maybeStartQaLoop(
@@ -65,11 +69,20 @@ export async function maybeStartQaLoop(
   const run = db.getRun(runId);
   if (!run?.conversationId || !run.projectId || !run.instanceId) return null;
   // Not `user`: a loop's fix round or a shell wake — would chain loops with nobody present.
-  if (run.origin !== "user") return null;
-  // Runs after the conversation's own listener (services/index.ts import order),
+  if (run.origin !== "user") {
+    if (isTakeoverPrompt(run.prompt)) log.info("qa_loop.not_started", { runId, reason: "handed_off" });
+    return null;
+  }
+  if (endsWithHandoff(run.output)) {
+    log.info("qa_loop.not_started", { runId, reason: "handed_off" });
+    return null;
+  }
+  const { conversationId, instanceId } = run;
+  // Runs after the conversation's own listener (installRunListeners order),
   // which has already started any queued message: the work is not finished yet.
   const conv = db.getConversation(run.conversationId);
   if (conv?.status !== "idle" || db.listQueue(run.conversationId).length > 0) return null;
+  if (db.getActiveConversation(run.agentId, run.instanceId)?.id !== conv.id) return null;
   // One loop at a time per chat: a second would review the first one's fixes mid-flight.
   if (db.listLoopsForConversation(run.conversationId).some((l) => !l.state.binding)) return null;
   const files = changedFiles(runId);
@@ -91,7 +104,7 @@ export async function maybeStartQaLoop(
       projectId: run.projectId,
       conversationId: run.conversationId,
       cwd: run.cwd ?? null,
-      goal: `${goalOf(run.prompt, run.conversationId).slice(0, MAX_GOAL)}\n\nFiles that turn edited:\n${listed}`,
+      goal: `${goalOf({ ...run, conversationId, instanceId }).slice(0, MAX_GOAL)}${QA_GOAL_FILES_HEADING}${listed}`,
       config: { ...QA_LOOP_CONFIG },
       startAt: "reviewing",
     },

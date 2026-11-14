@@ -6,6 +6,7 @@ export type SlashCommand = {
 /** Slash commands accepted by the composer. Order = display order in the menu. */
 export const SLASH_COMMANDS: SlashCommand[] = [
   { cmd: "/clear", descKey: "composer.command_clear_desc" },
+  { cmd: "/handoff", descKey: "composer.command_handoff_desc" },
 ];
 
 export function slashEnterRuns(typed: string, cmd: string): boolean {

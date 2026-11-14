@@ -40,10 +40,18 @@ function budgetLeft(cfg: LoopConfig, spentUsd: number): number | undefined {
   return cfg.budgetUsd === undefined ? undefined : Math.max(0.01, cfg.budgetUsd - spentUsd);
 }
 
+/** New thread replaced the chat the loop belongs to: the user moved on, nothing crashed. */
+function endForReplacedChat(loopId: string, state: LoopState, now: number): AdvanceResult {
+  log.info("loop.chat_replaced", { loopId, round: state.round });
+  db.updateLoopState(loopId, { ...state, phase: "escalated", binding: "user_stopped" }, null, now);
+  emitAppEvent("loops:changed");
+  return { ok: false, code: "chat_replaced" };
+}
+
 /** A refusal returned as success is a button that silently does nothing. */
 export type AdvanceResult =
   | { ok: true }
-  | { ok: false; code: "loop_not_found" | "action_not_accepted" | "write_conflict" | "dispatch_failed" | "dispatch_retrying" };
+  | { ok: false; code: "loop_not_found" | "action_not_accepted" | "write_conflict" | "dispatch_failed" | "dispatch_retrying" | "chat_replaced" };
 
 export interface StartLoopInput {
   agentId: string;
@@ -177,6 +185,7 @@ export async function advanceLoop(
       if (claimedRunId) db.updateLoopState(loopId, loop.state, claimedRunId, now);
       return { ok: false, code: "dispatch_retrying" };
     }
+    if (code === "conversation_superseded") return endForReplacedChat(loopId, state, now);
     // The claim is taken; returning here strands the loop with no verdict.
     log.error("loop.dispatch_failed", { loopId, code, round: state.round, message: String(e) });
     db.updateLoopState(loopId, { ...state, phase: "escalated", binding: "dispatch_failed" }, null, now);

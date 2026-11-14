@@ -151,10 +151,35 @@ On Wayland, `POST /api/clipboard-image` reads the clipboard PNG via `wl-paste` a
 Start typing `/` in the composer to open a scoped command menu:
 
 - `/clear` — start a new thread
+- `/handoff` — continue the task in a fresh session (see below)
 - `/branch` — fork the current thread
 - `/memory` — edit this agent's memory
 - `/prompt` — view the composed system prompt
 - `/history` — show recent runs
+
+### Session handoff
+
+When an agent runs out of room in its session, it does not ask you to pass its notes on. It ends its
+reply with a hidden handoff marker, and Agent Office opens a new thread for the same seat and starts a
+fresh session of the agent. The takeover prompt quotes your latest request (or the goal of the review
+loop that last worked on it) and the old session's last reply. When an automated turn such as a mission
+digest came after your request, no request is quoted. Messages you queued move to the new thread, and a pending scheduled resume of the old session is
+cancelled.
+
+- It chains at most 3 times in a row on its own. After that the chat stops and waits for you; any message
+  you send, `/handoff` included, resets the count.
+- A message you queued runs after the first takeover, not behind another one: it may be "stop".
+- No takeover while a review loop drives the chat: the loop is tied to the old thread.
+- When an agent asked for a fresh session but none started, its reply says so: type `/handoff`.
+- `/handoff` does the same by hand: use it when an agent stopped without the marker, or a turn failed
+  because the session itself is spent. It refuses, with a reason, while a turn runs, before the first
+  turn, and while a review loop drives the chat.
+- The instruction to hand off is only in turns that belong to a chat and no review loop drives:
+  loop reviews, and scheduled jobs or `/api/summon` runs with no chat, have no thread to continue in.
+- The QA loop does not review automatic takeovers, nor a reply that asks for another session: nobody
+  watched those turns, and the agent said the work is unfinished. Your own turns are reviewed as usual,
+  `/handoff` included (against the request the takeover quoted; with none, against the takeover prompt),
+  and any message you send in the new thread.
 
 ### Missions
 

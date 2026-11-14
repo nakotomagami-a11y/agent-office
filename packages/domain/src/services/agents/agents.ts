@@ -20,6 +20,7 @@ import { isYamlMapping, type YamlValue } from "../infra/yaml";
 import { hasAgentFrontmatter, mergeFrontmatter, opensFrontmatter, parseAgentFrontmatter, splitAgentFile } from "./frontmatter";
 import { buildSkillsBundle } from "../skills/skills";
 import { RESPONSE_STYLE } from "../../config/response-style";
+import { HANDOFF_INSTRUCTIONS } from "../../config/handoff";
 import { unknownTools, retiredToolHints } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
@@ -367,13 +368,13 @@ export function buildProjectEnvironmentBlock(project: Project): string | null {
  * The structured, itemized description of everything agent-office appends to
  * the agent's system prompt — the SINGLE source of truth for the composition.
  * The real spawn joins `segment.text`; the Context & Cost tab measures the same
- * segments (see context-cost.ts). Composition order: skills → identity → response-style → global
+ * segments (see context-cost.ts). Composition order: skills → identity → response-style → handoff → global
  * → project → project-env → project-memory → per-agent → history-note.
  */
 export function composeAppendedPrompt(
   agentName: string,
   project: Project | null,
-  opts?: { instanceId?: string; hasMessages?: boolean },
+  opts?: { instanceId?: string; hasMessages?: boolean; handoff?: boolean },
 ): PromptSegment[] {
   const agent = readAgent(agentName);
   const resolvedInstance =
@@ -442,6 +443,14 @@ export function composeAppendedPrompt(
     key: "response-style", name: "Response style",
     text: "## Response style (how to write every reply to the user)\n\n" + RESPONSE_STYLE, body: RESPONSE_STYLE,
     sub: `built in · ${lineCount(RESPONSE_STYLE)} lines`,
+    locked: true, phase: "always",
+  });
+
+  // Only a chat turn has a conversation to continue in; elsewhere the marker would do nothing.
+  if (opts?.handoff !== false) segments.push({
+    key: "handoff", name: "Session handoff",
+    text: "## Handing off to a fresh session\n\n" + HANDOFF_INSTRUCTIONS, body: HANDOFF_INSTRUCTIONS,
+    sub: `built in · ${lineCount(HANDOFF_INSTRUCTIONS)} lines`,
     locked: true, phase: "always",
   });
 
@@ -532,8 +541,8 @@ export function composeAppendedPrompt(
 
 /** The composed system prompt as one string — exactly what a real spawn sends.
  *  A thin join over `composeAppendedPrompt`, which is the source of truth. */
-export function buildAppendedPrompt(agentName: string, project: Project | null, instanceId?: string, hasMessages?: boolean): string {
-  return composeAppendedPrompt(agentName, project, { instanceId, hasMessages })
+export function buildAppendedPrompt(agentName: string, project: Project | null, instanceId?: string, hasMessages?: boolean, handoff?: boolean): string {
+  return composeAppendedPrompt(agentName, project, { instanceId, hasMessages, handoff })
     .map((s) => s.text)
     .join("\n\n");
 }

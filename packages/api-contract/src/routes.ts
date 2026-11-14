@@ -96,6 +96,7 @@ export const API_ROUTES = {
   conversationRetry: (id: string) => `/api/conversations/${encodeURIComponent(id)}/retry`,
   conversationSkip: (id: string) => `/api/conversations/${encodeURIComponent(id)}/skip`,
   conversationNew: (id: string) => `/api/conversations/${encodeURIComponent(id)}/new`,
+  conversationHandoff: (id: string) => `/api/conversations/${encodeURIComponent(id)}/handoff`,
 
   schedules: "/api/schedules",
   schedule: (id: string) => `/api/schedules/${encodeURIComponent(id)}`,

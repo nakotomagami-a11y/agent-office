@@ -181,6 +181,20 @@ test("a spawn failure TERMINATES the loop instead of stranding it", async () => 
   assert.notEqual(loop.state.binding, undefined, "a loop with no active run and no binding is unrecoverable");
 });
 
+test("a round refused because New thread replaced the chat ends the loop as stopped, not as a crash", async () => {
+  let n = 0;
+  const first = `superseded-${Date.now()}-run-1`;
+  const { runner } = makeRunner({
+    startRun: async () => {
+      if (++n > 1) throw Object.assign(new Error("replaced"), { code: "conversation_superseded" });
+      return first;
+    },
+  });
+  const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);
+  await onLoopRunFinished(first, true, runner, 1);
+  assert.equal(db.getLoop(id)!.state.binding, "user_stopped");
+});
+
 test("a reaped run is reconciled rather than left reporting running", async () => {
   const { runner, rid } = makeRunner();
   const id = await startLoop({ agentId: "dev", reviewerAgentId: "qa", goal: "g", config: cfg }, runner, 0);

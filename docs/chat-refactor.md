@@ -119,6 +119,29 @@ Conversation status: `idle → running → (idle | needs_attention)`.
   SAME `(agentId, instanceId)` slot with a null session; the old conversation and its
   queue are abandoned (explicit user action). No queued prompt crosses a session.
 
+- **Handoff** (`POST /conversations/:id/handoff`, or automatic; `execution/handoff.ts`):
+  like New thread, but the old queue moves to the new conversation in one transaction, and
+  a takeover prompt quoting the user's latest request and the last reply starts its first
+  turn (`system` origin when automatic, `user` for `/handoff`, like Resume). Automatic when
+  a successful turn's output ends with `HANDOFF_MARKER` (`config/handoff.ts`), checked in
+  `onRunFinished` *before* the queue would advance in the spent session. Refused for a
+  conversation a live loop drives, one that is no longer the slot's active conversation,
+  past `MAX_AUTO_HANDOFFS` consecutive takeovers with no user turn
+  (`autoHandoffChainLength`, derived from runs), and after one takeover when a user
+  message is queued.
+- **A replaced conversation** (New thread or handoff) is any that is not the slot's
+  newest. A send to it lands in the current one; Retry / Resume / Skip return the
+  current one's view and start nothing; `startIfIdle` refuses it
+  (`conversation_superseded`, which ends a loop as `user_stopped`); and the QA loop
+  never starts on it: its session is out of sight. Nor on a reply ending with the
+  marker or a `system` takeover (logged `qa_loop.not_started`, reason `handed_off`);
+  a `user` takeover (`/handoff`) is reviewed with the chain's request as its goal, or
+  the takeover text when there is none. A takeover prompt quotes the newest turn in
+  the chain that carries a request (`chainRequest`): the user's message, or a loop
+  round's goal; never an older request under another automated turn.
+  Remove on a replaced id follows the message id; Clear only clears that conversation's
+  own queue and returns the current view.
+
 **Scope / isolation.** A queue belongs to one conversation, which belongs to one
 `(agentId, instanceId)` slot. Developer *Session 1* and *Session 2* are different
 instanceIds → different conversations → fully isolated queues; neither can see or
@@ -189,6 +212,7 @@ POST   /api/conversations/:id/resume                -> continue session (needs_a
 POST   /api/conversations/:id/retry                 -> re-run failed turn
 POST   /api/conversations/:id/skip                  -> discard failed turn, advance
 POST   /api/conversations/:id/new                   -> new thread (new session)
+POST   /api/conversations/:id/handoff               -> new thread started by a takeover prompt
 POST   /api/runs/:id/abort                          -> (unchanged) stop active run
 GET    /api/runs/:id/stream                         -> (unchanged) live SSE
 ```

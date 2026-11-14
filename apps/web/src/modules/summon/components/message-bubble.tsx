@@ -15,6 +15,7 @@ import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ThreadItem } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
 import { MarkdownView, type RenderCode } from "@/components/ui/markdown-view";
+import { endsWithHandoff, stripHandoffMarker } from "@agent-office/domain/config/handoff";
 import { splitMarkdownBlocks, trimPartialFence } from "@/lib/markdown";
 import {
   fmtDuration,
@@ -84,11 +85,19 @@ function CodeBlock({ lang, body, streaming }: { lang: string; body: string; stre
   );
 }
 
+/** A successful handoff moves the chat to a new thread within a moment, so this stays in view
+ *  only when none started (the chain limit, or a loop driving the chat). */
+function HandoffNote() {
+  const t = useTranslations("composer");
+  return <p className="mt-[6px] text-[12px] text-ao-fg-3">{t("handoff_not_started")}</p>;
+}
+
 // ── Prose block ───────────────────────────────────────────────────────────────
 const renderChatCode: RenderCode = (lang, body) => <CodeBlock lang={lang} body={body} />;
 const renderStreamingCode: RenderCode = (lang, body) => <CodeBlock lang={lang} body={body} streaming />;
 
-export function ChatProse({ text, streaming }: { text: string; streaming?: boolean }) {
+export function ChatProse({ text: raw, streaming }: { text: string; streaming?: boolean }) {
+  const text = stripHandoffMarker(raw);
   if (!streaming) {
     return <div className="ao-prose"><MarkdownView text={text} renderCode={renderChatCode} /></div>;
   }
@@ -517,10 +526,11 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
             )}
             <ChatProse text={item.text} streaming={item.streaming} />
             <ImageStrip urls={agentImgs} agentProse />
+            {!item.streaming && endsWithHandoff(item.text) ? <HandoffNote /> : null}
             {showClarify ? (
               <ClarifyInput agentId={agent.id} projectId={projectId} onReply={onReply} />
             ) : !item.streaming ? (
-              <MsgActions text={item.text} />
+              <MsgActions text={stripHandoffMarker(item.text)} />
             ) : null}
           </div>
         </div>

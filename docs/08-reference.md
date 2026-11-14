@@ -167,6 +167,7 @@ Server-authoritative chat threads, one per (agent, instance) slot — see `docs/
 | `POST` | `/api/conversations` | Get or create the slot's current conversation `{ agentId, instanceId?, projectId? }` |
 | `POST` | `/api/conversations/:id/messages` | Send a message `{ text }`: starts a turn when idle, queues it otherwise |
 | `POST` | `/api/conversations/:id/new` | New thread for the same slot, with a fresh session; the old one is kept |
+| `POST` | `/api/conversations/:id/handoff` | Continue in a new thread whose fresh session is started by a takeover prompt quoting the last reply; the queue moves along. 409 `turn_running` / `nothing_to_hand_off` / `not_current` / `loop_running` |
 | `POST` | `/api/conversations/:id/resume` | `needs_attention`: continue the session as a new turn |
 | `POST` | `/api/conversations/:id/retry` | `needs_attention`: re-run the prompt that failed |
 | `POST` | `/api/conversations/:id/skip` | `needs_attention`: drop the failed turn and move to the next queued message |

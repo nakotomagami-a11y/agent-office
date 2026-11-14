@@ -200,6 +200,73 @@ test("after Resume, the goal is the user's last real request, not the canned res
   assert.match(db.getLoop(id!)!.goal, /^build the settings page/);
 });
 
+async function handoffChainOf(turns: Array<{ id: string; prompt: string; origin: "user" | "system"; file?: string; output?: string; newConv?: boolean }>, at: number) {
+  let conv = db.startNewConversation("developer", "dev-on", "proj").id;
+  turns.forEach((t, i) => {
+    if (t.newConv && i > 0) conv = db.startNewConversation("developer", "dev-on", "proj").id;
+    db.insertRun({
+      id: t.id, agentId: "developer", agentName: "Developer", instanceId: "dev-on", projectId: "proj", origin: t.origin,
+      status: "done", prompt: t.prompt, model: "m", effort: "e", startedAt: at + i, conversationId: conv, cwd: join(projectsRoot, "proj"),
+    });
+    if (t.output) db.updateRun(t.id, { status: "done", output: t.output, tokensIn: 0, tokensOut: 0, costUsd: 0, durMs: 1, endedAt: at + i });
+    if (t.file) db.insertToolCall(t.id, "Edit", { file_path: t.file }, at + i);
+  });
+  return conv;
+}
+
+test("no loop on a reply that asks for another session, even in the current chat", async () => {
+  const { HANDOFF_MARKER } = await import("../../config/handoff");
+  await handoffChainOf([{ id: "ask-user", prompt: "build the search page", origin: "user", file: "search.ts", output: `half\n${HANDOFF_MARKER}` }], 6000);
+  assert.equal(await maybeStartQaLoop("ask-user", true, runner, 60), null);
+});
+
+test("no loop on a turn whose chat was replaced, marker or not", async () => {
+  await handoffChainOf([{ id: "gone-user", prompt: "build the help page", origin: "user", file: "help.ts" }], 6100);
+  db.startNewConversation("developer", "dev-on", "proj");
+  assert.equal(await maybeStartQaLoop("gone-user", true, runner, 61), null);
+});
+
+test("a /handoff after review rounds is reviewed against the loop's request, not the takeover text", async () => {
+  const { HANDOFF_PROMPT_HEAD } = await import("../../config/handoff");
+  const { QA_GOAL_FILES_HEADING } = await import("../../config/loop");
+  const goal = `build the outbox${QA_GOAL_FILES_HEADING}- outbox.ts`;
+  const conv = await handoffChainOf([
+    { id: "fix-user", prompt: "build the outbox", origin: "user", file: "outbox.ts" },
+    { id: "fix-round", prompt: `Round 2. Fix EXACTLY these findings against the goal:\n${goal}\n- x`, origin: "system", file: "outbox.ts" },
+  ], 6200);
+  db.getDb().prepare(
+    `INSERT INTO loops (id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round,
+       spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at)
+     VALUES ('fix-loop', ?, 'developer', 'dev-on', 'proj', 'qa-code-review', NULL, ?, 'done', 2, 0, 0, 'converged', '{}', '[]', '[]', NULL, 6203, 6203)`,
+  ).run(conv, goal);
+  await handoffChainOf([{ id: "fix-takeover", prompt: `${HANDOFF_PROMPT_HEAD} x`, origin: "user", file: "outbox2.ts" }], 6300);
+  const loopGoal = db.getLoop((await maybeStartQaLoop("fix-takeover", true, runner, 63))!)!.goal;
+  assert.match(loopGoal, /^build the outbox\n\nFiles that turn edited:\n- outbox2\.ts/);
+});
+
+test("a /handoff turn is reviewed against the chain's latest user request, not the takeover text", async () => {
+  const { HANDOFF_PROMPT_HEAD } = await import("../../config/handoff");
+  await handoffChainOf([
+    { id: "man-user", prompt: "build the inbox", origin: "user", file: "inbox.ts" },
+    { id: "man-takeover", prompt: `${HANDOFF_PROMPT_HEAD} x`, origin: "user", file: "thread.ts", newConv: true },
+  ], 7000);
+  const goal = db.getLoop((await maybeStartQaLoop("man-takeover", true, runner, 70))!)!.goal;
+  assert.match(goal, /^build the inbox/);
+  assert.match(goal, /thread\.ts/);
+});
+
+test("a message the user types in a handed-off thread is reviewed as itself", async () => {
+  const { HANDOFF_PROMPT_HEAD } = await import("../../config/handoff");
+  await handoffChainOf([
+    { id: "typed-user", prompt: "build the cart", origin: "user", file: "cart.ts" },
+    { id: "typed-takeover", prompt: `${HANDOFF_PROMPT_HEAD} x`, origin: "system", file: "cart2.ts", newConv: true },
+    { id: "typed-next", prompt: "also add coupons", origin: "user", file: "coupons.ts" },
+  ], 8000);
+  const goal = db.getLoop((await maybeStartQaLoop("typed-next", true, runner, 80))!)!.goal;
+  assert.match(goal, /^also add coupons/);
+  assert.ok(goal.includes("coupons.ts") && !goal.includes("cart2.ts"));
+});
+
 test("the pill ranks a STOPPED or failed loop like a finished one, not above it", async () => {
   db.getDb().prepare(`UPDATE loops SET phase='done', binding='converged', created_at=0`).run();
   const conv = () => db.startNewConversation("developer", "dev-on", "proj").id;

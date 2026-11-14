@@ -46,6 +46,11 @@ function buildPriorContext(req: SummonRequest): { priorContext?: string; hasMess
   return { hasMessages: true, priorContext: history.formatPriorContext(msgs, profile) };
 }
 
+/** Only a chat turn has a thread to continue in, and not while a loop drives it (execution/handoff.ts). */
+function canHandOff(conversationId: string | undefined): boolean {
+  return !!conversationId && !db.listLoopsForConversation(conversationId).some((l) => !l.state.binding);
+}
+
 /** A mission seat's turn may spend at most what is left of its cap on this device: spend is only
  *  counted when a run ends, so without this one turn could run past the cap with no limit. */
 export function withSeatBudget(req: SummonRequest, instanceId: string | undefined): SummonRequest | SummonError {
@@ -79,7 +84,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
   if ("error" in cwdResolution) return { error: cwdResolution.error };
 
   const { priorContext, hasMessages } = buildPriorContext(req);
-  const appendedSystemPrompt = agents.buildAppendedPrompt(req.agentId, project, req.instanceId, hasMessages);
+  const appendedSystemPrompt = agents.buildAppendedPrompt(req.agentId, project, req.instanceId, hasMessages, canHandOff(req.conversationId));
 
   const budgeted = withSeatBudget(req, instance?.instanceId);
   if ("status" in budgeted) return { error: budgeted };
