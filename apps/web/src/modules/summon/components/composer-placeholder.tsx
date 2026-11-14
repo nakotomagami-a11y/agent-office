@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useMissionShortcut } from "@/modules/missions/hooks/use-mission-shortcut";
 
-const HINT_KEYS = ["help", "slash", "attach", "newline", "missions", "clear"] as const;
+const HINT_KEYS = ["slash", "attach", "newline", "missions", "clear"] as const;
 
 const IN_STAGGER_MS = 18;
 const OUT_STAGGER_MS = 8;
@@ -14,13 +14,12 @@ const HOLD_MS = 2400;
 const HOLD_PER_CHAR_MS = 30;
 
 /**
- * Rotating placeholder for the composer: each hint rises in letter by letter, holds, then
- * lifts out the same way. A textarea's own `placeholder` cannot style single letters, so this
- * sits on top of the empty textarea. It stays mounted while the user types (`hidden`, rotation
+ * A textarea's own `placeholder` cannot style single letters, so this sits on top of the empty
+ * textarea (offsets and type mirror the textarea's in composer.tsx). It stays mounted while the user types (`hidden`, rotation
  * paused) so a send resumes at the next hint instead of the first. Reduced motion shows one
  * static hint: text that keeps changing on its own is what those users opted out of.
  */
-export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.ReactElement {
+export const ComposerPlaceholder = memo(function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.ReactElement {
   const t = useTranslations("composer.placeholder_hints");
   const { mac } = useMissionShortcut();
   const [idx, setIdx] = useState(0);
@@ -66,7 +65,7 @@ export function ComposerPlaceholder({ hidden }: { hidden: boolean }): React.Reac
       ))}
     </div>
   );
-}
+});
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true

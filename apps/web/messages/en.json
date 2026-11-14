@@ -674,7 +674,6 @@
   },
   "composer": {
     "placeholder_hints": {
-      "help": "How can I help you today?",
       "slash": "Type / for commands and saved prompts",
       "attach": "Drop or paste a file to attach it",
       "newline": "Shift+Enter starts a new line",
