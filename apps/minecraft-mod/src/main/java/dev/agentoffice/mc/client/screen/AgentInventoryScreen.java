@@ -59,6 +59,9 @@ public final class AgentInventoryScreen extends AbstractContainerScreen<AgentMen
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // 1.20.1's container screens leave dimming the world to each screen.
+        //? if <1.21
+        //renderBackground(g);
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
     }

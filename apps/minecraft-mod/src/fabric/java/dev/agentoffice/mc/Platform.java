@@ -36,7 +36,7 @@ public final class Platform {
         return FabricLoader.getInstance().getConfigDir();
     }
 
-    /** A dev run (gradlew runClient), where DevHooks may act. */
+    /** A dev run (gradlew :1.20.1-fabric:runClient), where DevHooks may act. */
     public static boolean devRun() {
         return FabricLoader.getInstance().isDevelopmentEnvironment();
     }
@@ -101,7 +101,8 @@ public final class Platform {
 
     /**
      * True the first time it is asked for {@code dead}'s kill XP (a revived mob dies again; it pays once). A scoreboard
-     * tag: Fabric has no per-entity mod data in 1.20.1; /tag can see it, and an entity with 1024 tags pays nothing.
+     * tag, not Fabric's data attachments (experimental in Fabric API 0.92): /tag can see it, and an entity with 1024
+     * tags pays nothing.
      */
     public static boolean firstPayout(LivingEntity dead, String key) {
         return dead.addTag(key);

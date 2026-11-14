@@ -2,7 +2,10 @@
 
 Decisions and the options still open. Numbers are from the Modrinth API, 2026-10-10.
 
-## Platform: NeoForge 1.21.1, Java 21
+## Platform: NeoForge 1.21.1, Java 21 (and Fabric 1.20.1, Java 17)
+
+A second jar for Fabric 1.20.1 (the Homestead pack) comes from the same source with Stonecutter:
+`minecraft-mod-architecture.md`, "Two builds, one source". NeoForge 1.21.1 stays the main target.
 
 The criterion was the biggest selection of mods and modpacks a player could use with ours. The mod started on
 Forge 1.20.1 and moved while it was small.

@@ -84,7 +84,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # 21 runs Gradle; 17 is the Fabric 1.20.1 toolchain (else the resolver downloads it every run).
+          java-version: |
+            17
+            21
           cache: gradle
 
       # The wrapper jar is committed: make sure it is Gradle's before running it.

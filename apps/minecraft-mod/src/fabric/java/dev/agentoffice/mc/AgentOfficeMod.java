@@ -120,7 +120,10 @@ public final class AgentOfficeMod implements ModInitializer {
             }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> AgentNet.loggedOut(handler.player));
-        ServerLifecycleEvents.SERVER_STOPPED.register(server -> AgentNet.serverStopped());
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            AgentNet.serverStopped();
+            LISTENING.clear();
+        });
         // Its owner coming into range (or logging in near it) learns its level.
         EntityTrackingEvents.START_TRACKING.register((entity, player) -> {
             if (entity instanceof AgentEntity agent && agent.isOwnedBy(player)) agent.sendStats();
@@ -145,7 +148,10 @@ public final class AgentOfficeMod implements ModInitializer {
         Platform.codec(type, codec);
         ServerPlayNetworking.registerGlobalReceiver(Platform.channel(type), (server, player, listener, buf, sender) -> {
             T payload = codec.decode(buf);
-            server.execute(() -> handler.accept(listener.player, payload));
+            // As vanilla's packets: nothing for a player who left in the meantime (AgentNet.loggedOut already ran).
+            server.execute(() -> {
+                if (listener.isAcceptingMessages()) handler.accept(listener.player, payload);
+            });
         });
     }
 }

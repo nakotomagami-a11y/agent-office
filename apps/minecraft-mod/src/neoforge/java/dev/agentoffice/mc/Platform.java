@@ -30,7 +30,7 @@ public final class Platform {
         return FMLPaths.CONFIGDIR.get();
     }
 
-    /** A dev run (gradlew runClient), where DevHooks may act. */
+    /** A dev run (gradlew :1.21.1-neoforge:runClient), where DevHooks may act. */
     public static boolean devRun() {
         return !FMLEnvironment.production;
     }

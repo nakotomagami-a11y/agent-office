@@ -40,7 +40,8 @@ class ArchitectureTest {
     private static List<Source> sources() throws IOException {
         List<Source> out = new ArrayList<>();
         for (Path root : ROOTS) {
-            if (!Files.isDirectory(root)) continue;
+            // Every root, the generated one too: a scan that silently found nothing would pass.
+            assertTrue(Files.isDirectory(root), root + " is missing (the 1.20.1 copy: gradlew :1.20.1-fabric:stonecutterGenerate)");
             try (Stream<Path> files = Files.walk(root)) {
                 for (Path f : files.filter(p -> p.toString().endsWith(".java")).toList()) {
                     String raw = Files.readString(f);
@@ -131,7 +132,7 @@ class ArchitectureTest {
         // mod.ai-no-net: ai/ decides what an agent does from what the world knows; reports arrive through AgentEntity.
         assertEquals(List.of(), violations(sources(), s -> s.pkg().equals("ai") || s.pkg().startsWith("ai/"),
                 Pattern.compile("\\b(?:AgentNet|AgentPayloads|AgentMenu|PacketDistributor|CustomPacketPayload)\\b|connection\\.send"
-                        + "|net\\.neoforged\\.neoforge\\.network|dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client")),
+                        + "|net\\.neoforged\\.neoforge\\.network|net\\.fabricmc\\.fabric\\.api\\.networking|dev\\.agentoffice\\.mc\\.client|net\\.minecraft\\.client")),
                 "mod.ai-no-net");
     }
 
@@ -193,7 +194,9 @@ class ArchitectureTest {
         }
         for (String code : List.of("static final int ROW = 26;", "final static int ROW = 26;", "private static String cut(Font f, String t) {",
                 "private static final class Tab extends Button {", "static final ResourceLocation TAB = ResourceLocation.withDefaultNamespace(\"x\");",
-                "public static <T> void call(Call<T> c) {")) {
+                "public static <T> void call(Call<T> c) {",
+                // 1.20.1's spelling of an id, split as stonecutterReplacementsStayReversible asks.
+                "static final ResourceLocation TAB = new Resource" + "Location(\"x\");")) {
             assertFalse(SCREEN_STATICS.matcher(code).find(), code);
         }
         for (String code : List.of("pool.submit(r)", "Thread.ofVirtual().start(r)", "list.parallelStream()", "gather(c, b, AgentOffice.IO)", "new Timer()")) {

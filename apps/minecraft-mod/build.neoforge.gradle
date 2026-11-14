@@ -57,7 +57,7 @@ neoForge {
             //   -PaoScroll=N  wheel notches up before the screenshot; -PaoScrollDown=M then M back down
             //   -PaoPress=Label  press the first button with that label before the shot (read-only client: nothing changes)
             //   -PaoShotAfter=N  ticks before the screenshot (the press comes 40 earlier): slow loads, e.g. a PR through gh
-            //   -PaoServer=localhost  join a server (runServer) instead of the dev world; a second player at once:
+            //   -PaoServer=localhost  join a server (:1.21.1-neoforge:runServer) instead of the dev world; a second player at once:
             //       -PaoUser=Dev2 -PaoGameDir=run-client2
             //   -PaoWorking=true  every agent works; -PaoLectern=dx,dz  a bound lectern there
             //   -PaoCommands="time set 9500;summon zombie ~8 ~ ~"  after the action; -PaoWatch=true  log agents every 2 s
