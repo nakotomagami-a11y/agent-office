@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/ui/icon";
 import { useAgentPrompts } from "../hooks/use-agent-prompts";
@@ -42,7 +42,6 @@ export function Composer(props: ComposerProps) {
   const [value, setValue] = useState("");
   const [missionsOpen, setMissionsOpen] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
-  const hintId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: savedPrompts = [] } = useAgentPrompts(props.agentId);
@@ -138,7 +137,6 @@ export function Composer(props: ComposerProps) {
         <ComposerInputShell dragOver={att.dragOver} attachments={att.attachments} onRemoveAttachment={att.removeAttachment}>
           <div className="relative">
             <ComposerPlaceholder hidden={value !== ""} />
-            <span id={hintId} hidden>{t("composer.placeholder_hints.slash")}</span>
             <textarea
               ref={textRef}
               value={value}
@@ -146,9 +144,9 @@ export function Composer(props: ComposerProps) {
               onKeyDown={onKey}
               onPaste={att.onPaste}
               aria-label={t("composer.input_aria")}
-              aria-describedby={hintId}
+              placeholder={t("composer.placeholder_hints.slash")}
               rows={1}
-              className="border-none bg-transparent resize-none text-txt w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[520px] overflow-y-auto"
+              className="border-none bg-transparent resize-none text-txt placeholder:text-transparent w-full px-[14px] pt-[12px] pb-[6px] font-[inherit] text-[14px] leading-[1.55] outline-none min-h-[48px] max-h-[520px] overflow-y-auto"
             />
           </div>
           <ComposerToolbar

@@ -1,4 +1,4 @@
-/* Composer drag-and-drop. */
+/* Composer: drag-and-drop overlay, rotating placeholder. */
 
 /* ─── Drag-and-drop (color-mix background) ─── */
 .drag-overlay {
@@ -15,12 +15,12 @@
 .composer-hint-in { animation: composerHintIn 420ms cubic-bezier(.2, .8, .2, 1) both; }
 .composer-hint-out { animation: composerHintOut 240ms cubic-bezier(.4, 0, 1, 1) both; }
 @keyframes composerHintIn {
-  from { opacity: 0; transform: translateY(.45em); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
+  from { opacity: 0; transform: translateY(.45em); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes composerHintOut {
-  from { opacity: 1; transform: none; filter: none; }
-  to { opacity: 0; transform: translateY(-.45em); filter: blur(4px); }
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-.45em); }
 }
 
 /* The global reduced-motion rule shortens durations but keeps the per-letter delays,
