@@ -44,6 +44,22 @@ test("workspace subfolder commands get slash-free keys and labels", () => {
   }
 });
 
+test("a script named for an OS is listed only on that OS", () => {
+  const root = mkdtempSync(join(tmpdir(), "ao-runtime-"));
+  try {
+    writeFileSync(join(root, "package.json"), JSON.stringify({ scripts: {
+      dev: "x", "dev:mac": "x", "dev:win": "x", "dev:linux": "x", "start:windows": "x", "start:macos": "x", preview: "x",
+    } }));
+    const keys = (platform: NodeJS.Platform) => detectDevCommands(root, platform).map((c) => c.key).sort();
+    assert.deepStrictEqual(keys("win32"), ["dev", "dev:win", "preview", "start:windows"]);
+    assert.deepStrictEqual(keys("darwin"), ["dev", "dev:mac", "preview", "start:macos"]);
+    assert.deepStrictEqual(keys("linux"), ["dev", "dev:linux", "preview"]);
+    assert.deepStrictEqual(detectDevCommands(root, "win32").map((c) => c.name).sort(), ["Dev", "Dev (Windows)", "Preview", "Start (Windows)"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 const identityRepo = (files: Record<string, string>): string => {
   const root = mkdtempSync(join(tmpdir(), "ao-identity-"));
   for (const [name, body] of Object.entries(files)) writeFileSync(join(root, name), body);

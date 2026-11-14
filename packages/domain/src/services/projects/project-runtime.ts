@@ -272,7 +272,26 @@ export function resolvePackageDirs(cwd: string): string[] {
 const DEV_SCRIPT_RE = /^(dev|start|serve|preview|watch|develop)([:.-].+)?$/;
 const SKIP_SCRIPT_RE = /build|test|lint|type|check|emit|prepare|postinstall|prebuild/;
 
+/** OS words a script name may carry (`dev:mac`, `start:win`), and the platform each means. */
+const SCRIPT_OS: Record<string, NodeJS.Platform> = {
+  mac: "darwin", macos: "darwin", osx: "darwin", darwin: "darwin",
+  win: "win32", windows: "win32", win32: "win32",
+  linux: "linux",
+};
+
+/** A script named for an OS (`dev:mac`) runs only there: other OSes' variants are left out of the list. */
+export function scriptRunsOn(key: string, platform: NodeJS.Platform): boolean {
+  const oses = key.split(/[:.-]/).flatMap((part) => SCRIPT_OS[part.toLowerCase()] ?? []);
+  return oses.length === 0 || oses.includes(platform);
+}
+
+const OS_LABEL: Partial<Record<NodeJS.Platform, string>> = { darwin: "macOS", win32: "Windows", linux: "Linux" };
+
 function scriptToName(key: string): string {
+  // `start:win` → "Start (Windows)": only this OS's variants are listed, but `dev:win` and `start:win` both are.
+  const parts = key.split(/[:.-]/);
+  const os = parts.map((part) => SCRIPT_OS[part.toLowerCase()]).find(Boolean);
+  if (os) return `${scriptToName(parts.filter((part) => !SCRIPT_OS[part.toLowerCase()]).join(":") || "dev")} (${OS_LABEL[os] ?? os})`;
   if (key === "dev") return "Dev";
   if (key === "start") return "Start";
   if (key === "serve") return "Serve";
@@ -286,7 +305,7 @@ function scriptToName(key: string): string {
 // instead of re-detecting from `dir`'s own lockfile — a real workspace member
 // (declared via pnpm-workspace.yaml / package.json `workspaces`) shares its root's
 // package manager and typically has no lockfile of its own.
-function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix: string; pmOverride?: string }): DetectedCommand[] {
+function collectPkgCommands(dir: string, platform: NodeJS.Platform, opts?: { keyPrefix: string; namePrefix: string; pmOverride?: string }): DetectedCommand[] {
   const pkgPath = join(dir, "package.json");
   if (!existsSync(pkgPath)) return [];
   const out: DetectedCommand[] = [];
@@ -307,6 +326,7 @@ function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix:
     for (const key of keys) {
       if (!DEV_SCRIPT_RE.test(key)) continue;
       if (SKIP_SCRIPT_RE.test(key)) continue;
+      if (!scriptRunsOn(key, platform)) continue;
       const isThisNext = isNextJs && (key === "dev" || key === "start");
       out.push({
         key: opts ? `${opts.keyPrefix}-${key}` : key,
@@ -321,8 +341,8 @@ function collectPkgCommands(dir: string, opts?: { keyPrefix: string; namePrefix:
 }
 
 /** Detect runnable dev commands for a project: a `.ao.json` `devCommands` override,
- *  else package.json dev scripts (root + bootstrapped subfolders, each with its own cwd). */
-export function detectDevCommands(cwd: string): DetectedCommand[] {
+ *  else package.json dev scripts (root + bootstrapped subfolders, each with its own cwd) for this OS. */
+export function detectDevCommands(cwd: string, platform: NodeJS.Platform = process.platform): DetectedCommand[] {
   const aoPath = join(cwd, ".ao.json");
   if (existsSync(aoPath)) {
     try {
@@ -350,7 +370,7 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
   // pnpm/npm/yarn/bun monorepos) every package the workspace config declares,
   // so nested layouts like `apps/web` + `apps/desktop` aren't invisible just
   // because they don't match the bootstrapper's flat `frontend/`/`backend/`.
-  commands.push(...collectPkgCommands(cwd));
+  commands.push(...collectPkgCommands(cwd, platform));
   const rootPm = detectPackageManager(cwd);
   const workspaceDirs = new Set(resolveWorkspacePackageDirs(cwd));
   const subDirs = new Set<string>([...SUBFOLDERS.map((sub) => join(cwd, sub)).filter((dir) => confinedTo(cwd, dir)), ...workspaceDirs]);
@@ -358,7 +378,7 @@ export function detectDevCommands(cwd: string): DetectedCommand[] {
     if (subDir === cwd || !existsSync(join(subDir, "package.json"))) continue;
     const rel = basename(subDir);
     const label = rel.charAt(0).toUpperCase() + rel.slice(1);
-    commands.push(...collectPkgCommands(subDir, {
+    commands.push(...collectPkgCommands(subDir, platform, {
       keyPrefix: relative(cwd, subDir).replace(/[\\/]/g, "-"),
       namePrefix: label,
       ...(workspaceDirs.has(subDir) ? { pmOverride: rootPm } : {}),
