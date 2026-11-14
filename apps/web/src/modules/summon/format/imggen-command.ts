@@ -29,9 +29,11 @@ interface Token {
   startsQuoted: boolean;
 }
 
-const LONG_FLAGS = ["--prompt-file", "--negative", "--name", "--width", "--height", "--steps", "--cfg", "--sampler", "--scheduler", "--seed", "--count", "--profile", "--profiles", "--help"];
+const LONG_FLAGS = ["--prompt-file", "--negative", "--name", "--width", "--height", "--steps", "--cfg", "--sampler", "--scheduler", "--seed", "--count", "--profile", "--profiles", "--raw", "--size", "--image", "--denoise", "--help"];
 const SHORT_FLAGS: Record<string, string> = { "-W": "--width", "-H": "--height", "-c": "--count", "-p": "--profile", "-h": "--help" };
 const NO_RUN_FLAGS = new Set(["--help", "--profiles"]);
+/** argparse store_true: takes no value. */
+const BOOL_FLAGS = new Set(["--raw"]);
 const CONTROL = new Set([";", "&&", "||", "|", "&"]);
 const PREFIXES = new Set(["nohup", "time", "exec", "env"]);
 const MAX_ARG_CHARS = 16_000;
@@ -164,11 +166,18 @@ function parseArgs(args: Token[], background: boolean): ImggenJob | null {
     }
     const { flag, inline } = splitFlag(tok.text);
     if (flag === null || NO_RUN_FLAGS.has(flag)) return null;
+    if (BOOL_FLAGS.has(flag)) {
+      if (inline !== undefined) return null;
+      values.set(flag, tok);
+      continue;
+    }
     const value = inline !== undefined ? { ...tok, text: inline } : args[++i];
     if (!value) return null;
     values.set(flag, value);
   }
   if (positional.length > 1 || (positional.length === 1) === values.has("--prompt-file")) return null;
+  // imggen's own ap.error.
+  if (values.has("--denoise") && !values.has("--image")) return null;
 
   // A prompt from a file or stdin (`-`) is only known at run time.
   const prompt = positional[0]?.text === "-" ? undefined : positional[0];
