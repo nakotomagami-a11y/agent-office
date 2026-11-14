@@ -703,6 +703,7 @@
     "jump_to_latest_aria": "Scroll to the most recent message",
     "scroll_to_bottom": "Scroll to bottom",
     "stop_run": "Stop",
+    "waiting_agents": "Waiting for {count, plural, one {# agent} other {# agents}}",
     "agent_office": "Agent Office"
   },
   "processes_modal": {

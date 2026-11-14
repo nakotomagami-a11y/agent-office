@@ -48,8 +48,17 @@ function ShimmerLabel({ children }: { children: string }) {
  * Stop button that sit alongside it are `chat-thread.tsx`'s job (they need
  * the live turn's timing data, which this component doesn't have).
  */
-export function LiveStatus({ phase, hint }: { phase: ChatPhase; hint?: string }) {
+export function LiveStatus({ phase, hint, waitingLabel }: { phase: ChatPhase; hint?: string; waitingLabel?: string }) {
   if (phase === "idle" || phase === "done" || phase === "aborted") return null;
+
+  if (waitingLabel && (phase === "working" || phase === "streaming")) {
+    return (
+      <span className="flex items-center gap-[8px]" role="status" aria-live="polite">
+        <TypingDots />
+        <ShimmerLabel>{waitingLabel}</ShimmerLabel>
+      </span>
+    );
+  }
 
   if (phase === "error") {
     return (

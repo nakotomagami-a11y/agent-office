@@ -8,6 +8,7 @@ import { unitForAgent } from "@/components/ui/unit-sprite-registry";
 import { useOfficeAgents } from "@/modules/office/hooks/use-office-agents";
 import { StatusBadge } from "@/modules/runs/components/status-badge";
 import { useExpandedState } from "./expanded-state";
+import { isSubAgentLive } from "../format/phase-format";
 import type { ThreadItem } from "@agent-office/domain/types";
 
 type SubAgentItem = Extract<ThreadItem, { kind: "agent-subagent" }>;
@@ -30,7 +31,7 @@ export function SubAgentCard({ item }: { item: SubAgentItem }) {
     ? `${elapsed}s`
     : item.durationMs !== undefined ? `${(item.durationMs / 1000).toFixed(1)}s` : undefined;
 
-  const isRunning = item.status === "running" || item.status === "queued" || item.status === "cancelling";
+  const isRunning = isSubAgentLive(item.status);
   const liveHint = isRunning ? (item.currentTool ? `using ${item.currentTool}` : item.lastOutputLine ?? null) : null;
   const totalTok = item.tokensIn !== undefined || item.tokensOut !== undefined
     ? (item.tokensIn ?? 0) + (item.tokensOut ?? 0)

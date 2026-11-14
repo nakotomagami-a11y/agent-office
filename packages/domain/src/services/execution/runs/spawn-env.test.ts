@@ -137,3 +137,21 @@ test("reserved secrets are flagged for the Secrets UI", () => {
   assert.equal(listed.find((s) => s.name === "ANTHROPIC_BASE_URL")?.reserved, true);
   assert.equal(listed.find((s) => s.name === "OPENAI_API_KEY")?.reserved, false);
 });
+
+test("a run waits for its background agents instead of killing them after 10 minutes; a user value wins", () => {
+  const p = project("bg-wait");
+  const opts = { projectId: p.id } as Parameters<typeof resolveSpawnEnv>[0];
+  const saved = process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS;
+  delete process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS;
+  try {
+    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "0");
+  } finally {
+    if (saved !== undefined) process.env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS = saved;
+  }
+  withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "" }, () => {
+    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "0");
+  });
+  withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "3600000" }, () => {
+    assert.equal(resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS, "3600000");
+  });
+});
