@@ -80,7 +80,7 @@ export type ChatThreadProps = {
   onSkipFailedTurn?: () => void;
   phase: ChatPhase;
   phaseHint?: string;
-  /** Sub-agents still live in the live run; the live row names them. */
+  /** Sub-agents still live in the live run; the live row counts them. */
   waitingAgents?: number;
   phaseStats?: LiveStats;
   /** Messages queued while agent is running - rendered as pending bubbles at the bottom. */

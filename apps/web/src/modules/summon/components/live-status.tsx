@@ -66,7 +66,7 @@ export function LiveStatus({ phase, hint, waitingLabel }: { phase: ChatPhase; hi
     );
   }
 
-  const shimmer = waitingLabel ?? (phase === "working" ? "Thinking" : undefined);
+  const shimmer = waitingLabel || (phase === "working" ? "Thinking" : undefined);
   if (shimmer) {
     return (
       <span className="flex items-center gap-[8px]" role="status" aria-live="polite">
