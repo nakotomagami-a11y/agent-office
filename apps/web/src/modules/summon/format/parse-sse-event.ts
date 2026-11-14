@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { applyToolDoneEvent, applyToolEvent, newId } from "./tool-item";
+import { isSubAgentLive } from "./phase-format";
 import { assertNever } from "@/lib/assert-never";
 import { RUN_ERROR_CODES } from "@agent-office/domain/config/run-errors";
 import type { RunStreamEvent } from "@agent-office/domain/types";
@@ -173,7 +174,7 @@ export function applySseEvent(
         if (it.kind !== "agent-subagent" || it.subRunId !== data.subRunId) return it;
         const now = Date.now();
         const durationMs =
-          data.status !== "running" && data.status !== "queued" && data.status !== "cancelling"
+          !isSubAgentLive(data.status)
             ? data.durationMs ?? now - it.startTs
             : it.durationMs;
         return {
@@ -200,7 +201,7 @@ export function applySseEvent(
       const { data } = event;
       const now = Date.now();
       const finalized = prev.thread.map((it) =>
-        it.kind === "agent-subagent" && (it.status === "running" || it.status === "queued" || it.status === "cancelling")
+        it.kind === "agent-subagent" && isSubAgentLive(it.status)
           ? { ...it, status: "done" as SubAgentStatus, durationMs: now - it.startTs }
           : it,
       );
@@ -235,7 +236,7 @@ export function applySseEvent(
       const { data } = event;
       const now = Date.now();
       const finalized = prev.thread.map((it) =>
-        it.kind === "agent-subagent" && (it.status === "running" || it.status === "queued" || it.status === "cancelling")
+        it.kind === "agent-subagent" && isSubAgentLive(it.status)
           ? { ...it, status: "error" as SubAgentStatus, durationMs: now - it.startTs }
           : it,
       );

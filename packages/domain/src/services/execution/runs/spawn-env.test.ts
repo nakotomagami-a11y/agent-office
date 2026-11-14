@@ -86,9 +86,12 @@ test("a GH_TOKEN the project links as a secret wins over the pinned account", ()
   });
 });
 
-function withEnv<T>(vars: Record<string, string>, fn: () => T): T {
+function withEnv<T>(vars: Record<string, string | undefined>, fn: () => T): T {
   const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
-  Object.assign(process.env, vars);
+  for (const [k, v] of Object.entries(vars)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
   try {
     return fn();
   } finally {
@@ -136,4 +139,11 @@ test("reserved secrets are flagged for the Secrets UI", () => {
   const listed = secrets.list();
   assert.equal(listed.find((s) => s.name === "ANTHROPIC_BASE_URL")?.reserved, true);
   assert.equal(listed.find((s) => s.name === "OPENAI_API_KEY")?.reserved, false);
+});
+
+test("background agents get an hour after the reply, not the CLI's 10 minutes; a user value wins", () => {
+  const opts = { projectId: project("bg-wait").id } as Parameters<typeof resolveSpawnEnv>[0];
+  const ceiling = (value: string | undefined) =>
+    withEnv({ CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: value }, () => resolveSpawnEnv(opts, SUB).env.CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS);
+  assert.deepStrictEqual([ceiling(undefined), ceiling(""), ceiling("120000")], ["3600000", "3600000", "120000"]);
 });

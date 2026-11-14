@@ -80,6 +80,8 @@ export type ChatThreadProps = {
   onSkipFailedTurn?: () => void;
   phase: ChatPhase;
   phaseHint?: string;
+  /** Sub-agents still live in the live run; the live row counts them. */
+  waitingAgents?: number;
   phaseStats?: LiveStats;
   /** Messages queued while agent is running - rendered as pending bubbles at the bottom. */
   queuedMessages?: Array<{ id: string; text: string; origin?: MessageOrigin }>;
@@ -153,7 +155,7 @@ function TurnLedger({ turn }: { turn: Turn }) {
   );
 }
 
-export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, currentFailureItemId, onRetryFailedTurn, onResumeFailedTurn, onSkipFailedTurn, phase, phaseHint, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
+export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, currentFailureItemId, onRetryFailedTurn, onResumeFailedTurn, onSkipFailedTurn, phase, phaseHint, waitingAgents, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
   // server restarts on any server-side edit and the panel replays the active
@@ -513,7 +515,7 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                 <TurnRail n={null} />
                 <div className="min-w-0 flex-1 pt-[2px] flex flex-col gap-[11px]">
                   <div className="flex items-center gap-[10px]">
-                    <LiveStatus phase={phase} hint={phaseHint} />
+                    <LiveStatus phase={phase} hint={phaseHint} waitingLabel={waitingAgents ? t("waiting_agents", { count: waitingAgents }) : undefined} />
                     {phaseStats && (
                       <span className="font-[var(--font-mono)] text-[11.5px] text-[var(--txt-4)] whitespace-nowrap shrink-0">
                         {fmtElapsedColon(phaseStats.elapsedSec)}

@@ -1,5 +1,6 @@
 // Pure presentation helpers for the chat phase indicator.
 
+import type { SubAgentStatus, ThreadItem } from "@agent-office/domain/types";
 import type { ChatPhase } from "../components/live-status";
 
 export function fmtElapsed(sec: number): string {
@@ -41,4 +42,13 @@ export function phaseHint(
     return `${(usage.tokensIn + usage.tokensOut).toLocaleString()} tok · $${usage.cost.toFixed(3)}`;
   }
   return undefined;
+}
+
+export function isSubAgentLive(s: SubAgentStatus): boolean {
+  return s === "queued" || s === "running" || s === "cancelling";
+}
+
+/** Sub-agents still working in the live run, foreground or background. */
+export function countLiveSubAgents(thread: ThreadItem[]): number {
+  return thread.filter((it) => it.kind === "agent-subagent" && isSubAgentLive(it.status)).length;
 }
