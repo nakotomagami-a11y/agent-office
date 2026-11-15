@@ -29,7 +29,7 @@ test("offline first start: no catalog means unknown, and the Context & Cost brea
 });
 
 test("the billing model: Anthropic's versioned id, or the openai/local tier mapping (fable runs as opus)", () => {
-  assert.equal(upstreamModelId("subscription", "sonnet"), "claude-sonnet-4-6");
+  assert.equal(upstreamModelId("subscription", "sonnet"), "claude-sonnet-5-5");
   assert.equal(upstreamModelId("anthropic_api", "claude-opus-4-7"), "claude-opus-4-7");
   store.saveProviderConfig("openai", { apiKey: "sk-proj-rates-test-0000000000", models: { haiku: "gpt-5-mini", opus: "gpt-5" } });
   assert.equal(upstreamModelId("openai", "claude-fable-5"), "gpt-5");
@@ -41,7 +41,7 @@ test("the billing model: Anthropic's versioned id, or the openai/local tier mapp
 test("priced: cache rates per token from the catalog; openai's missing cache write is plain input", () => {
   writeFileSync(PRICE_CATALOG_FILE, JSON.stringify({
     source: "litellm", fetchedAt: Date.now(), entries: {
-      "claude-sonnet-4-6": { provider: "anthropic", inputPerMTok: 3, outputPerMTok: 15, cacheReadPerMTok: 0.3, cacheWritePerMTok: 3.75 },
+      "claude-sonnet-5-5": { provider: "anthropic", inputPerMTok: 3, outputPerMTok: 15, cacheReadPerMTok: 0.3, cacheWritePerMTok: 3.75 },
       "gpt-5": { provider: "openai", inputPerMTok: 1.25, outputPerMTok: 10, cacheReadPerMTok: 0.125 },
     },
   }));

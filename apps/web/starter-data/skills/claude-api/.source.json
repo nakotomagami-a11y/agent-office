@@ -1,0 +1,7 @@
+{
+  "source": "anthropics/skills",
+  "ref": "main",
+  "path": "skills/claude-api",
+  "sha": "fe7e28a55c713933ff98e017112e53c61d8f5537",
+  "installedAt": "2026-11-15T22:10:35.000Z"
+}

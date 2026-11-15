@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { MODEL_CATALOG, MODEL_IDS, type ModelId } from "@agent-office/domain/config/models";
-import { usesGateway } from "@agent-office/domain/config/providers";
+import { mapsModelTiers } from "@agent-office/domain/config/providers";
 import { formatPerMTok, inputPriceOf } from "../format/provider-format";
 import { useActiveProvider, useModelPrices } from "./use-providers";
 
@@ -19,8 +19,8 @@ export interface ModelChoice {
 }
 
 /**
- * The model cards the agent editor offers, for the provider agents run on. Under a gateway
- * provider an agent's `haiku|sonnet|opus` is a tier that the provider's map turns into a real
+ * The model cards the agent editor offers, for the provider agents run on. On openai/local
+ * an agent's `haiku|sonnet|opus` is a tier that the provider's map turns into a real
  * model, so those are shown with that model, and Fable (a Claude-only test variant) is hidden.
  * Prices come from the fetched catalog; a model it doesn't list shows a dash, not a guess.
  */
@@ -28,17 +28,17 @@ export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
   const t = useTranslations("providers");
   const { id: providerId, view, capabilities } = useActiveProvider();
   const prices = useModelPrices().data?.entries;
-  const gateway = usesGateway(providerId);
+  const mapsTiers = mapsModelTiers(providerId);
   const mapped = view?.config.models;
 
   const models = useMemo(() => {
-    const ids = gateway ? MODEL_IDS.filter((id) => id !== "fable") : MODEL_IDS;
+    const ids = mapsTiers ? MODEL_IDS.filter((id) => id !== "fable") : MODEL_IDS;
     return ids.map((id) => {
       const info = MODEL_CATALOG[id];
-      const full = gateway ? (mapped?.[id as "haiku" | "sonnet" | "opus"] ?? "—") : info.fullId;
+      const full = mapsTiers ? (mapped?.[id as "haiku" | "sonnet" | "opus"] ?? "—") : info.fullId;
       return {
         id,
-        name: gateway ? t(`tier_${id}`) : id,
+        name: mapsTiers ? t(`tier_${id}`) : id,
         full,
         badge: info.tier,
         icon: info.icon,
@@ -46,7 +46,7 @@ export function useModelChoices(): { models: ModelChoice[]; effort: boolean } {
         desc: info.description,
       };
     });
-  }, [gateway, mapped, prices, t]);
+  }, [mapsTiers, mapped, prices, t]);
 
   return { models, effort: capabilities.effort };
 }

@@ -66,7 +66,7 @@ export function asPanel(v: unknown): PanelSeat[] {
   return seats;
 }
 
-function asStringList(v: unknown): string[] {
+export function asStringList(v: unknown): string[] {
   if (Array.isArray(v)) {
     return v.map((x) => String(x).trim()).filter(Boolean);
   }

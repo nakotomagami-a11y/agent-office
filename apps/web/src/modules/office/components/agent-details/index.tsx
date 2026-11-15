@@ -21,8 +21,9 @@ import { useProject, useAddInstance, useUpdateInstance } from "@/modules/project
 import { RemoveSessionModal, type RemoveSessionTarget } from "@/modules/projects/components/remove-session-modal";
 import { useAgent, useAgentBody, useWriteAgent } from "@/modules/agents/hooks/use-agents";
 import { fromApi } from "@/modules/agents/form/agent-form";
-import { MODEL_OPTS, EFFORT_OPTS } from "@agent-office/domain/config/agent-opts";
-import { MODEL_TIERS, usesGateway } from "@agent-office/domain/config/providers";
+import { EFFORT_OPTS } from "@agent-office/domain/config/agent-opts";
+import { MODEL_TIERS, mapsModelTiers, type ModelTier } from "@agent-office/domain/config/providers";
+import { MODEL_CATALOG, MODEL_IDS, resolveModel, tierOf, type ModelId } from "@agent-office/domain/config/models";
 import { useActiveProvider } from "@/modules/providers/hooks/use-providers";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast-store";
@@ -60,10 +61,11 @@ function runtimeItemLabel(value: string, selected: boolean) {
 
 export function AgentDetailsModal() {
   const t = useTranslations("agent_details");
-  // Under a gateway provider an agent's model is one of three tiers the provider maps to a real model.
+  // On openai/local an agent's model is one of three tiers the provider maps to a real model; on
+  // subscription/anthropic_api the CLI resolves the alias itself, to the catalog's latest version.
   const { id: providerId, view: providerView, capabilities } = useActiveProvider();
-  const gateway = usesGateway(providerId);
-  const modelOptions: readonly string[] = gateway ? MODEL_TIERS : MODEL_OPTS;
+  const mapsTiers = mapsModelTiers(providerId);
+  const modelOptions: readonly ModelId[] = mapsTiers ? MODEL_TIERS : MODEL_IDS;
   const selectedId = useOfficeStore((s) => s.selectedId);
   const selectedInstanceId = useOfficeStore((s) => s.selectedInstanceId);
   const inspectorOpen = useOfficeStore((s) => s.inspectorOpen);
@@ -480,12 +482,17 @@ export function AgentDetailsModal() {
                         <Icon name="chevron-down" size={11} className="shrink-0 text-ao-fg-3" />
                       </span>
                     }
-                    items={modelOptions.map((m) => ({
-                      key: m,
-                      label: runtimeItemLabel(gateway && providerView?.config.models?.[m as "haiku"] ? `${m} → ${providerView.config.models[m as "haiku"]}` : m, (agent.defaultModel ?? "") === m),
-                      selected: (agent.defaultModel ?? "") === m,
-                      onSelect: () => void applyRuntime({ model: m }),
-                    }))}
+                    items={modelOptions.map((m) => {
+                      const target = mapsTiers ? providerView?.config.models?.[m as ModelTier] : MODEL_CATALOG[m].fullId;
+                      const current = agent.defaultModel;
+                      const selected = mapsTiers ? tierOf(current) === m : resolveModel(current)?.id === m;
+                      return {
+                        key: m,
+                        label: runtimeItemLabel(target ? `${m} → ${target}` : m, selected),
+                        selected,
+                        onSelect: () => void applyRuntime({ model: m }),
+                      };
+                    })}
                   />
                   {capabilities.effort ? (
                   <DropdownMenu

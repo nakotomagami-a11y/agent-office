@@ -9,7 +9,7 @@ export interface ModelInfo {
   /** The versioned model id this alias currently resolves to. */
   fullId: string;
   label: string;
-  /** Sub-line for a bare alias with no known version, e.g. "claude-sonnet-4". */
+  /** Sub-line for a bare alias with no known version, e.g. "claude-sonnet-5". */
   genericSub: string;
   tier: "fast" | "smart" | "deep" | "test";
   /** CSS custom-property token for the tier badge/glow. */
@@ -28,29 +28,29 @@ export interface ModelInfo {
 // `MODEL_IDS` below derive from it. One place the 4 names are spelled out.
 export const MODEL_CATALOG = {
   haiku: {
-    fullId: "claude-haiku-4-5", label: "Haiku", genericSub: "claude-haiku-4",
+    fullId: "claude-haiku-5-5", label: "Haiku", genericSub: "claude-haiku-5",
     tier: "fast", tierColorVar: "var(--green)", swatchColor: "var(--working)",
     gradient: "linear-gradient(90deg, #80e1c5, #2e8f73)", fillClass: "an-fill-haiku",
-    icon: "/icons/model-haiku.png", description: "Light tasks, snappy. Good for orchestration.",
+    icon: "/icons/model-haiku.png", description: "Fast and cheap. Quick, narrow tasks with checkable output.",
   },
   sonnet: {
-    fullId: "claude-sonnet-4-6", label: "Sonnet", genericSub: "claude-sonnet-4",
+    fullId: "claude-sonnet-5-5", label: "Sonnet", genericSub: "claude-sonnet-5",
     tier: "smart", tierColorVar: "var(--acc)", swatchColor: "#c792ea",
     gradient: "linear-gradient(90deg, #b6b3ff, #7a76e0)", fillClass: "an-fill-sonnet",
-    icon: "/icons/model-sonnet.png", description: "Balanced — the default for most agents.",
+    icon: "/icons/model-sonnet.png", description: "Well-scoped tasks with a clear brief. Above high effort it costs about as much as Opus.",
   },
   opus: {
-    fullId: "claude-opus-4-8", label: "Opus", genericSub: "claude-opus-4",
+    fullId: "claude-opus-5-5", label: "Opus", genericSub: "claude-opus-5",
     tier: "deep", tierColorVar: "var(--amber)", swatchColor: "#ffcb6b",
     gradient: "linear-gradient(90deg, #ffd591, #f0a548)", fillClass: "an-fill-opus",
-    icon: "/icons/model-opus.png", description: "Hardest reasoning. Slow. Use sparingly.",
+    icon: "/icons/model-opus.png", description: "The everyday model for real work: coding, review, analysis.",
   },
   fable: {
-    fullId: "claude-fable-5", label: "Fable", genericSub: "claude-fable-5",
+    fullId: "claude-fable-5-2", label: "Fable", genericSub: "claude-fable-5",
     tier: "test", tierColorVar: "var(--cyan)", swatchColor: "#c792ea",
     gradient: "linear-gradient(90deg, color-mix(in oklab, var(--ao-accent) 80%, white), var(--ao-accent))",
     fillClass: "an-fill-fable",
-    icon: "/icons/model-fable.png", description: "Fable-5 — A/B test variant. Compare against Opus/Sonnet on the same task.",
+    icon: "/icons/model-fable.png", description: "Frontier model for the most demanding, long-running work. Agents never dispatch it on their own.",
   },
 } satisfies Record<string, ModelInfo>;
 
@@ -59,24 +59,12 @@ export type ModelId = keyof typeof MODEL_CATALOG;
 /** Runtime form of the 4 ids, in catalog order. */
 export const MODEL_IDS: readonly ModelId[] = Object.keys(MODEL_CATALOG) as ModelId[];
 
-/** A retired full id still valid in old `runs.model` data, but not offered
- *  as an option. Update when a catalog entry's `fullId` moves on. */
-const LEGACY_OPUS_ID = "claude-opus-4-7";
-
-/** Every string `--model` / `runs.model` may legitimately be. Explicit list
- *  (not derived) because its order drives a dropdown's item order. */
-export const MODEL_OPTS = [
-  "haiku", "sonnet", "opus", "fable",
-  MODEL_CATALOG.opus.fullId, LEGACY_OPUS_ID,
-  MODEL_CATALOG.sonnet.fullId, MODEL_CATALOG.haiku.fullId, MODEL_CATALOG.fable.fullId,
-] as const;
-
 /** A lookup result: `ModelInfo` plus the id it was found under — attached at
  *  read time, not stored, so the catalog never restates its own key. */
 export type ModelMatch = ModelInfo & { id: ModelId };
 
 /** Exact bare alias only ("haiku"/"sonnet"/"opus"/"fable") — a caller with a
- *  precise version string (e.g. "claude-opus-4-8") should keep that
+ *  precise version string (e.g. "claude-opus-5-5") should keep that
  *  precision rather than collapse to the catalog's generic display. */
 export function resolveModelAlias(raw: string | undefined | null): ModelMatch | null {
   if (!raw) return null;

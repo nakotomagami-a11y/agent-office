@@ -85,8 +85,8 @@ Every agent has a **memory tab**. Open the agent → *Memory* → type. That tex
 | **Project** | A directory + metadata that the app treats as one workspace. |
 | **Run** | One back-and-forth exchange between you and an agent. Streamed live, saved forever. |
 | **Skill** | A reusable behavior contract listed in an agent's frontmatter. Same skill → same rules. |
-| **Model** | The underlying Claude model. Aliases: `haiku` (fast), `sonnet` (default), `opus` (senior), `fable` (max quality, you dispatch it manually). |
-| **Effort** | How much thinking budget the model gets: `low`, `medium`, `high`, `xhigh`, `max`. |
+| **Model** | The underlying Claude model. Aliases: `haiku` (fast), `sonnet` (well-scoped work), `opus` (real work), `fable` (frontier, you dispatch it manually). |
+| **Effort** | How much the model thinks, calls tools and checks its own work: `low`, `medium`, `high`, `xhigh`, `max`. Thinking is always on; effort sets its depth. |
 | **Room** | An agent's department — Boardroom, Engineering, QA, etc. Drives the agent gallery's filter chips, and `Council` gets its own roster section above "All agents". |
 | **Roster** | The list of agent instances attached to a project. |
 | **Worktree** | A separate on-disk copy of the project directory that one instance uses so agents don't step on each other. |

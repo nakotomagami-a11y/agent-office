@@ -281,3 +281,49 @@ Behaviour decides from what the world knows. What the owner's client reports (is
 lectern) reaches it through `AgentEntity`, so a new behaviour never needs the network to be understood or tested.
 
 > **enforced by** `ArchitectureTest.behaviourKnowsNothingOfTheNetwork`
+
+---
+
+## prompt.skills-ship
+**Every skill a shipped agent declares in `skills:` ships in `apps/web/starter-data/skills/`.**
+
+A declared skill that isn't on disk loads nothing, and the agent runs as if the line weren't there. The
+2026-10 capabilities audit found 99 of 100 declared skills missing (C38), and the bodies kept describing
+skills no agent ever received.
+
+*Fix:* ship the skill, or delete the name. If its one-line description carried real guidance, keep that as
+a plain sentence in the body.
+
+> **enforced by** `services/agents/starter-data-prompts.test.ts`
+
+---
+
+## prompt.alias-models
+**A shipped agent's `default-model` is an alias (`haiku`, `sonnet`, `opus`, `fable`) and its
+`default-effort` is one of `EFFORT_OPTS`. `MODEL_CATALOG` is never older than the bundled `claude-api`
+skill's model table.**
+
+The CLI resolves an alias to the newest version; a pinned id silently falls behind. The catalog only drives
+labels and cost estimates, so when it lags, the UI tells the user they run a model they don't. The bundled
+`claude-api` skill is vendored from `anthropics/skills` and the app detects its updates, so its model table
+is the floor.
+
+*Fix:* use the alias. When the floor check fails, bump `fullId` in `config/models.ts`.
+
+> **enforced by** `services/agents/starter-data-prompts.test.ts`
+
+---
+
+## prompt.no-dated-cues
+**Shipped agent prompts carry no text written for older models: thinking cues ("think hard", "step by step"),
+re-verification rituals ("double-check", "verify twice"), maximal-thoroughness orders, one-question-at-a-time
+interviews, mandatory end-of-run handoffs, or placeholder paths (`/path/to/`).**
+
+Current models think by effort, check their own work, and follow instructions to the letter, so these lines
+now cost time and tokens or backfire (sources in docs/prompt-hygiene.md). A quoted mention, such as
+agent-architect's list of what not to write, is not a use.
+
+*Fix:* delete the cue. For a real need, say the goal and its reason: "run a real check that exercises the
+change before reporting done", "ask the open decisions in one round", "keep NEXT_SESSION.md current as you go".
+
+> **enforced by** `services/agents/starter-data-prompts.test.ts`
