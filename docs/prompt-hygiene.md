@@ -41,7 +41,7 @@ The house preferences below are the user's decisions. Don't report them as drift
 
 - **Effort stays `high` by default.** Most work here is heavy-logic software. Anthropic's general advice is to
   start at `medium` on Opus 5.5; the founder chose `high`.
-- **QA runs on Opus**, at `high`, so reviews hunt real bugs and design flaws, not just style.
+- **Reviews run on Opus**, at `high` (`qa-code-review`, `security-engineer`), so they hunt real bugs and design flaws, not just style.
 - **QA runs before a PR**, or when the user asks, not on every diff. The agent checks its own work first.
 - **Long sessions are protected**: agents keep `NEXT_SESSION.md` current after each milestone, so a run cut
   off by a rate limit, crash or compaction loses nothing.
@@ -79,7 +79,7 @@ response style, the prompt assembly and 30 days of runs.
 | Found | Changed |
 |---|---|
 | `developer` had to send every diff to a QA subagent; 21 agents declared `sp-verification-before-completion` | QA runs before a PR or on request; one "run a real check" line for agents that change code |
-| `qa-code-review`, `qa-pen-testing`, `security-posture` ran on Sonnet at `xhigh` (about Opus cost) | Opus at `high`; `qa-code-review` now traces callers and edge cases, not just the diff |
+| `qa-code-review`, `qa-pen-testing`, `security-posture` ran on Sonnet at `xhigh` (about Opus cost) | Opus at `high`; `qa-code-review` now traces callers and edge cases, not just the diff. The two security agents later merged into `security-engineer` (review, or fix with a regression test), and `qa-visual` into `web-qa` |
 | Six agents interviewed one question per turn (`alz-grill-me`); `agent-architect` looped draft → approval | One round of open decisions with recommended answers; "grill me" runs full rounds; architect shows the finished file and writes it on approval |
 | Mandatory `NEXT_SESSION.md` as the last action of every run, small or not | Updated after each milestone on long work (survives an interrupted run); skipped for questions and small edits |
 | Dev servers: the same `nohup` recipe repeated three times per agent | Said once: servers start detached with `nohup`; Bash `run_in_background` only for finite work, because `claude -p` waits on it for up to an hour (#244) |

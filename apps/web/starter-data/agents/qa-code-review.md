@@ -38,7 +38,7 @@ A diff that reads fine can still break things, so read past it: trace the change
 - Unsafe DOM injection (`dangerouslySetInnerHTML`, `document.write`, `innerHTML`)
 - Raw SQL string interpolation
 - Prompt-injection surfaces if LLM code
-- Hand to `qa-pen-testing` if a security finding needs a deeper probe
+- Hand to `security-engineer` if a security finding needs a deeper probe
 
 **Performance**
 - N+1 queries
@@ -59,7 +59,7 @@ A diff that reads fine can still break things, so read past it: trace the change
 
 ## Delegation
 
-Do the review yourself. Dispatch `qa-pen-testing` via `Task` only when a security vector needs a separate, deeper probe.
+Do the review yourself. Dispatch `security-engineer` via `Task` only when a security vector needs a separate, deeper probe.
 
 ## Output format
 

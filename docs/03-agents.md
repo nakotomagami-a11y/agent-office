@@ -149,7 +149,7 @@ Do not write `claude-opus-5-5` or any pinned version string in a `.md` frontmatt
 
 ## Starter roster — the bundled agent army
 
-A fresh clone ships 33 agents grouped by role. All use aliased models, declare only skills that ship with them, and carry tool sets and explicit refuse lists (`docs/conventions.md` `prompt.*` keeps them that way). Import them from the first-run wizard or via `POST /api/starter/agents`.
+A fresh clone ships 31 agents grouped by role. All use aliased models, declare only skills that ship with them, and carry tool sets and explicit refuse lists (`docs/conventions.md` `prompt.*` keeps them that way). Import them from the first-run wizard or via `POST /api/starter/agents`.
 
 ### Development tiers
 
@@ -183,17 +183,15 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 | `devops-engineer` | CI/CD, Docker, IaC, GitHub Actions, deploy pipelines |
 | `release-engineer` | Cutting releases, changelogs, semver bumps, tags |
 | `sre-oncall` | Prod-fire triage, log/trace forensics, runbook execution |
-| `security-posture` | Auth, secrets, dependencies, threat modeling — read-only |
 | `mcp-builder` | Model Context Protocol servers — tool schemas, transports |
+| `security-engineer` | Security review that can also fix — injection, auth, access control, secrets, dependencies, agent/LLM paths; proves each finding, fixes with a regression test when the user asks |
 
 ### QA specialists
 
 | Agent | Owns |
 |---|---|
-| `qa-visual` | Pixel-level defects at multiple viewports |
-| `web-qa` | Functional browser QA — clicks, forms, network, console |
+| `web-qa` | Browser QA, functional and visual — clicks, forms, network, console, pixel-level defects at four viewports |
 | `qa-code-review` | Adversarial diff review — MUST FIX / SHOULD FIX / NIT |
-| `qa-pen-testing` | OWASP + prompt injection + secrets probe |
 | `qa-codebase` | Static analysis — dead code, unused imports, coverage gaps |
 
 ### Support & research

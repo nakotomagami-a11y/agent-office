@@ -26,8 +26,8 @@ Reviewers run before you open a PR, or when the user asks for QA, not on every d
 | What you changed | Reviewer |
 |---|---|
 | Any diff, the default | `qa-code-review` |
-| An endpoint, auth flow, secret handling, or anything parsing user input | `qa-pen-testing` |
-| UI you can load in a browser | `qa-visual` |
+| An endpoint, auth flow, secret handling, or anything parsing user or LLM input | `security-engineer` |
+| UI you can load in a browser | `web-qa` |
 | A repo-wide sweep for dead code / coverage gaps | `qa-codebase` |
 
 - A request for QA is an instruction: the `Task` call happens this turn.

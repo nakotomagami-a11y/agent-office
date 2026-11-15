@@ -76,7 +76,7 @@ const TOOL_SUGGESTIONS = [
   { id: "Task",      desc: "Spawn agents" },
 ];
 
-const CLASS_OPTIONS = ["Council", "Boardroom", "Engineering", "QA", "Design", "Strategy", "Product", "Other"];
+const CLASS_OPTIONS = ["Council", "Boardroom", "Engineering", "QA", "Security", "Design", "Strategy", "Product", "Other"];
 
 const PM_ICONS: Record<(typeof PERMISSION_MODE_OPTS)[number], IconName> = {
   default: "help-circle",

@@ -13,7 +13,8 @@ class AgentLooksTest {
         assertEquals("kit", AgentLooks.castFor("developer"));
         assertEquals("kit", AgentLooks.castFor("developer-lite"));
         assertEquals("rowan", AgentLooks.castFor("qa-code-review"));
-        assertEquals("tove", AgentLooks.castFor("qa-visual"), "the narrower prefix wins over qa-");
+        assertEquals("tove", AgentLooks.castFor("web-qa"));
+        assertEquals("rowan", AgentLooks.castFor("security-engineer"));
         assertEquals("tove", AgentLooks.castFor("tech-writer"));
         assertEquals("wren", AgentLooks.castFor("frontend-craftsman"));
         assertEquals("marlow", AgentLooks.castFor("cs-cto"));
