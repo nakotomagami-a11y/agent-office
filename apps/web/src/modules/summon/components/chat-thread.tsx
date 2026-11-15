@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { SystemNotice } from "./system-notice";
+import { QueuedMessages } from "./queued-messages";
 import type { MessageOrigin } from "@agent-office/domain/types";
 import { ChatProse, ExpandedStateContext, ImageStrip, MessageBubble, ToolGroupRow } from "./message-bubble";
 import { ShownImagesContext } from "./inline-image";
@@ -550,40 +550,12 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
             )}
           </div>
           {queuedMessages && queuedMessages.length > 0 ? (
-            <div className="px-2 mt-1 flex flex-col gap-3">
-              {queuedMessages.map((q, i) => (
-                q.origin === "system" ? (
-                  // Agent Office's own queued message; once it runs it becomes a turn with the Agent Office rail.
-                  <SystemNotice
-                    key={q.id + "qm_" + i}
-                    text={q.text}
-                    pending
-                    positionLabel={queuedMessages.length > 1 ? `${i + 1}/${queuedMessages.length}` : undefined}
-                    onDismiss={() => onCancelQueuedMessage?.(q.id)}
-                  />
-                ) : (
-                <div key={q.id + "qm_"+i} className="flex flex-row-reverse ml-auto w-fit max-w-[80%] gap-[12px] relative opacity-[0.55]">
-                  <UserAvatar size={60} className="shrink-0" />
-                  <div className="flex flex-col items-end gap-[6px]">
-                    <div className="bg-ao-bg-3 border border-dashed border-ao-line-1 rounded-[14px_14px_4px_14px] px-4 py-3 text-[14px] leading-[1.55] text-ao-fg-0">
-                      {stripAttachmentFooter(q.text)}
-                      <ImageStrip urls={extractImages(q.text)} />
-                    </div>
-                    <div className="flex items-center gap-[6px]">
-                      <span className="font-mono text-[10px] tracking-[0.06em] uppercase text-ao-fg-3 bg-ao-bg-3 border border-ao-line-1 rounded-full px-[7px] py-[1px]">
-                        queued{queuedMessages.length > 1 ? ` ${i + 1}/${queuedMessages.length}` : ""}
-                      </span>
-                      <button
-                        type="button"
-                        className="w-4 h-4 rounded-full bg-transparent border border-ao-line-1 text-ao-fg-3 text-[12px] leading-none cursor-pointer flex items-center justify-center p-0 hover:bg-ao-bg-3 hover:text-ao-fg-1"
-                        onClick={() => onCancelQueuedMessage?.(q.id)}
-                        aria-label="Cancel queued message"
-                      >×</button>
-                    </div>
-                  </div>
-                </div>
-                )
-              ))}
+            <div className="px-2 flex gap-[14px]">
+              <TurnRail n={null} />
+              <div className="min-w-0 flex-1">
+                <QueuedMessages items={queuedMessages} onCancel={onCancelQueuedMessage} />
+              </div>
+              <div className="w-[84px] shrink-0" aria-hidden />
             </div>
           ) : null}
           {/* Sentinel for the stick-to-bottom scroll anchor. Lives at the
