@@ -1,205 +1,205 @@
 {
-  "version": "2026-11-01-1",
-  "generated": "2026-11-01",
+  "version": "2026-11-16-2",
+  "generated": "2026-11-16",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
     {
       "file": "agent-architect.md",
       "name": "agent-architect",
-      "description": "Designs Agent Office agent definitions from scratch — runs a structured interview, challenges bad requests, presents a full draft for approval, and writes the file only after explicit sign-off.",
-      "hash": "8f38cfaf8ceb9568"
+      "description": "Designs Agent Office agent definitions — settles scope in one round of questions, challenges bad requests, then writes the finished agent file once the user approves it.",
+      "hash": "935bdb0a178b996f"
     },
     {
       "file": "assistant.md",
       "name": "assistant",
       "description": "General-purpose Claude with full tool access — the escape hatch when no specialist fits. Use as a Claude Desktop replacement for exploratory chat, ad-hoc scripting, writing, quick lookups.",
-      "hash": "349178172a95a571"
+      "hash": "b403e66c10232e65"
     },
     {
       "file": "cs-boardroom.md",
       "name": "cs-boardroom",
-      "description": "Convenes the business council — CEO, CFO, CPO, CMO, COO — for cross-functional strategic decisions, and returns ONE advisory memo. Runs brief → isolated takes → critic → synthesis, then STOPS for the founder to decide. Use for decisions spanning multiple executive domains (pricing + fundraising + product, hiring wave + runway + roadmap). Single-domain questions go to that advisor directly.",
-      "hash": "0235785d1ade2c50"
+      "description": "Convenes the business council — CEO, CFO, CPO, CMO, COO — for cross-functional strategic decisions, and returns one advisory memo. Runs brief → isolated takes → critic → synthesis, then stops for the founder to decide. Use for decisions spanning multiple executive domains (pricing + fundraising + product, hiring wave + runway + roadmap). Single-domain questions go to that advisor directly.",
+      "hash": "88dc3043ecb055d9"
     },
     {
       "file": "cs-ceo.md",
       "name": "cs-ceo",
-      "description": "CEO advisor — strategic leadership, vision, board management, fundraising, culture. Ruthless, evidence-first, blunt. Roasts poor ideas, refuses to hedge, always thinks or researches before answering. Use for strategic decisions, board prep, fundraising decisions, capital allocation, killing projects, culture problems.",
-      "hash": "4ee43644ca58466b"
+      "description": "CEO advisor — strategic leadership, vision, board management, fundraising, culture. Ruthless, evidence-first, blunt. Roasts poor ideas, refuses to hedge, researches before answering. Use for strategic decisions, board prep, fundraising decisions, capital allocation, killing projects, culture problems.",
+      "hash": "2c49ed06ece0b242"
     },
     {
       "file": "cs-cfo.md",
       "name": "cs-cfo",
       "description": "CFO advisor — unit economics, runway, burn, fundraising math, capital allocation, pricing math. Numerate skeptic, blunt. Refuses vibes-based projections, roasts wishful CAC assumptions, always models the downside first. Use for financial modeling, fundraising timing, pricing decisions, budget calls, when-to-hire math.",
-      "hash": "e2656b5e819d8d3c"
+      "hash": "55d1abe292ce1955"
     },
     {
       "file": "cs-cmo.md",
       "name": "cs-cmo",
       "description": "CMO advisor — positioning, ICP, message-house, channel mix, category creation, brand voice, launch strategy. Ruthless, evidence-first, blunt. Roasts feature-list positioning, refuses to bless a channel plan that doesn't match ICP, always asks 'what does the customer say they hired us for.' Use for positioning calls, launch decisions, channel allocation, category framing, and calling out CAC/LTV that doesn't survive first contact.",
-      "hash": "cf1ae45a47ba005c"
+      "hash": "dc0c17f7c731e95f"
     },
     {
       "file": "cs-coo.md",
       "name": "cs-coo",
       "description": "COO advisor — execution, ops, hiring cadence, weekly rituals, process design, cross-team accountability. Ruthless, evidence-first, blunt. Roasts vague OKRs, refuses to bless a 'process' that has no owner or metric, always asks 'who checks this and when'. Use for org design, ritual design (all-hands, weekly reviews, quarterly planning), hiring plans, and turning strategy into weekly execution.",
-      "hash": "f142ce6e51006c03"
+      "hash": "31ee0254808f824d"
     },
     {
       "file": "cs-cpo.md",
       "name": "cs-cpo",
       "description": "CPO advisor — product vision, PMF diagnosis, roadmap prioritization, feature-kill decisions, portfolio strategy. Ruthless, evidence-first, blunt. Roasts feature factories, refuses to bless roadmaps that don't ladder to an outcome, always asks 'what job is this feature getting hired for.' Use for roadmap calls, feature-cut decisions, PMF diagnosis, portfolio pruning.",
-      "hash": "be26d389381ddf1d"
+      "hash": "0998cb162ff101e4"
     },
     {
       "file": "cs-cto.md",
       "name": "cs-cto",
-      "description": "CTO advisor — architecture decisions, tech debt strategy, engineering scaling, build vs buy, DORA metrics, incident response leadership. Ruthless, evidence-first, blunt. Roasts overengineering, refuses vibes-based architecture, always thinks or researches before answering. Use for architecture calls, stack choices, hiring engineers, tech-debt sprints, rewrite decisions.",
-      "hash": "de149b8af2e1d41f"
+      "description": "CTO advisor — architecture decisions, tech debt strategy, engineering scaling, build vs buy, DORA metrics, incident response leadership. Ruthless, evidence-first, blunt. Roasts overengineering, refuses vibes-based architecture, researches before answering. Use for architecture calls, stack choices, hiring engineers, tech-debt sprints, rewrite decisions.",
+      "hash": "e21491bafe13d1b7"
     },
     {
       "file": "data-analyst.md",
       "name": "data-analyst",
       "description": "SQL-native analyst for Agent Office and any local SQLite/Postgres data. Runs queries against `~/.claude/agent-office/db.sqlite`, project databases, and log files. Answers questions like 'how much did I spend on Opus this week', 'which agent instance is bloated with runs', 'which projects are actually active', 'what tool calls are dominating my cost'. Returns numbers with the query, so the founder can audit and re-run. Never modifies data — read-only by design.",
-      "hash": "bdeb9f765988a115"
+      "hash": "c7d7e8bffd2058fd"
     },
     {
       "file": "designer.md",
       "name": "designer",
-      "description": "Concept-first designer — before code, works from a brief. Runs Julian Oczkowski's design pipeline (grill → brief → IA → tokens → tasks → frontend → review). Use for 'design a new page/feature from vague idea' where you need actual design thinking before implementation. Distinct from frontend-craftsman which builds/polishes existing components. A/B counterpart to the impeccable-loaded frontend-craftsman.",
-      "hash": "0d53ebf1b83ee231"
+      "description": "Concept-first designer — before code, works from a brief. Produces a DESIGN.md (tone, tokens, IA), the implementation, and screenshots checked against the brief. Use for 'design a new page/feature from vague idea' where you need actual design thinking before implementation. Distinct from frontend-craftsman which builds/polishes existing components. A/B counterpart to frontend-craftsman.",
+      "hash": "f0834c4c2114a6f8"
     },
     {
       "file": "developer-fable.md",
       "name": "developer-fable",
-      "description": "Developer variant running on the Fable-5 model — for A/B testing model quality on real feature work against the Opus developer + Sonnet developer-lite. Same discipline (reads before writing, follows conventions, no unrequested abstractions, no autocommit) — different model. Use when you want to compare Fable's output on the same task another dev tier just handled.",
-      "hash": "ec18768852036061"
+      "description": "Developer variant running on the Fable model — for A/B testing model quality on real feature work against the Opus developer + Sonnet developer-lite. Same discipline (reads before writing, follows conventions, no unrequested abstractions, no autocommit) — different model. Use when you want to compare Fable's output on the same task another dev tier just handled.",
+      "hash": "a15a6228032c252a"
     },
     {
       "file": "developer-lite.md",
       "name": "developer-lite",
-      "description": "Cheaper Sonnet developer for mechanical work — dead-code sweeps, dependency bumps, mechanical refactors, small bugfixes, boilerplate. Reads before writing. No architectural decisions, no new features from scratch. Use when the task is clearly-scoped and the pattern is already established in the codebase.",
-      "hash": "33e641fc2314a194"
+      "description": "Developer for mechanical, clearly-scoped work — dead-code sweeps, dependency bumps, mechanical refactors, small bugfixes, boilerplate. Reads before writing. No architectural decisions, no new features from scratch. Use when the task is clearly-scoped and the pattern is already established in the codebase.",
+      "hash": "7fa2e1269783cb1d"
     },
     {
       "file": "developer.md",
       "name": "developer",
       "description": "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors.",
-      "hash": "fca1ed9eae369a61"
+      "hash": "c71bcd5876d9b681"
     },
     {
       "file": "devops-engineer.md",
       "name": "devops-engineer",
       "description": "Owns CI/CD, Docker, IaC, deploy pipelines, GitHub Actions, Vercel/Fly/Railway config. Reads existing pipeline before adding to it. Never runs `deploy` in production without explicit confirmation. Use for adding a workflow, debugging a broken build, containerizing an app, provisioning a preview environment, or auditing a deployment for cost/perf.",
-      "hash": "552ea2d687d01e5e"
+      "hash": "02c00a9f6c8bad7c"
     },
     {
       "file": "explore.md",
       "name": "explore",
       "description": "Research agent — reads codebases, traces unfamiliar code paths, searches documentation, and synthesizes findings into a clear briefing. Use when you need to understand something before deciding or building.",
-      "hash": "7ca6fb2cb6af1399"
+      "hash": "f72772754cf32022"
     },
     {
       "file": "frontend-craftsman.md",
       "name": "frontend-craftsman",
       "description": "Builds polished, production-quality UI — components, animations, keyboard behavior, empty/loading/error states. Reads the design system first, follows existing patterns, never ships broken keyboard nav.",
-      "hash": "81534ad94c2e72b4"
+      "hash": "c8bb7cab7b2294c6"
     },
     {
       "file": "level-designer.md",
       "name": "level-designer",
       "description": "Blockout and greybox level design for 3D games. Shapes space: routes, traversal gating, climb chains, sightlines, landmarks, pacing. Summon for laying out or reshaping a level, fixing 'the player cannot get there', proving a level is traversable end to end, or greyboxing a new area. Works from the project's own layout source of truth and verifies with a measured traversal number plus renders it looked at. NOT for character animation or rigs (tech-animator), and not for gameplay code.",
-      "hash": "6e847e7290d8c0e2"
+      "hash": "4cbe270cf3e62477"
     },
     {
       "file": "mcp-builder.md",
       "name": "mcp-builder",
       "description": "Builds and tests Model Context Protocol servers — the tool-integration layer between Claude and external services. Node/TypeScript (MCP SDK) or Python (FastMCP). Handles server scaffolding, tool schema design, stdio vs Streamable HTTP transport, error handling, and validation with Zod / Pydantic. Use for exposing an internal API as an MCP tool set, wrapping a CLI as a tool server, or debugging a broken MCP handshake.",
-      "hash": "75827cd5bb5cd34a"
+      "hash": "555e0072046f3819"
     },
     {
       "file": "orchestrator.md",
       "name": "orchestrator",
       "description": "Lead orchestrator that breaks down complex tasks, delegates to specialist agents using the Task tool, and synthesises their outputs into a final result. Use this when a task spans multiple domains or would benefit from parallel specialist work.",
-      "hash": "f6c9910cd8d489d1"
+      "hash": "f05c63785acd0b72"
     },
     {
       "file": "planner.md",
       "name": "planner",
-      "description": "Plan-only agent — reads the codebase, produces a numbered implementation plan, hands off to a builder tier. Never writes production code. Use to split the Opus cost: plan with `planner` (opus), then implement with `developer-lite` (sonnet). Also use when the ask is 'is this feasible' or 'what's the minimum change' — a plan is the deliverable.",
-      "hash": "77ecd4efd28efb3f"
+      "description": "Plan-only agent — reads the codebase, produces a numbered implementation plan, hands off to a builder. Never writes production code. Use when a plan is the deliverable: 'is this feasible', 'what's the minimum change', or a choice between approaches that needs justifying before anyone builds.",
+      "hash": "b621fd61c864bec2"
     },
     {
       "file": "product-manager.md",
       "name": "product-manager",
       "description": "Tactical product manager — turns vague ideas into scoped PRDs, breaks epics into vertical-slice stories with acceptance criteria, prioritizes backlogs, writes intake/discovery docs. Use for feature intake, PRD drafting, story decomposition, prioritization frameworks (RICE / ICE), and pre-implementation grill sessions. Distinct from cs-cpo (strategy) — this agent operates at the ticket / epic level, not portfolio strategy.",
-      "hash": "fc5855995aa41931"
+      "hash": "b7f40a54abcbc5b8"
     },
     {
       "file": "qa-code-review.md",
       "name": "qa-code-review",
-      "description": "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Delegates to marketplace `adversarial-reviewer` / `named-persona-adversarial-review` / `silent-failure-hunter` when useful. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review.",
-      "hash": "393b585fcffda3ac"
+      "description": "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Hunts real bugs and design flaws, not just style. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review.",
+      "hash": "524ad57ffbcd7ae0"
     },
     {
       "file": "qa-codebase.md",
       "name": "qa-codebase",
       "description": "Static codebase QA — finds dead code, unused imports, missing test coverage, inconsistent error handling, and stale TODOs. Read-only, returns a structured report.",
-      "hash": "e5ab9a5ff527b2f9"
+      "hash": "aec8e405bfb5be81"
     },
     {
       "file": "qa-pen-testing.md",
       "name": "qa-pen-testing",
-      "description": "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Delegates deeper analysis to marketplace `security-review` / `ai-security` / `security-bounty-hunter` agents when useful. Use before shipping user-facing endpoints, after adding auth flows, when handling sensitive data. Returns a severity-ranked finding list.",
-      "hash": "67cbda0f74ccf1cf"
+      "description": "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Use before opening a PR that touches user-facing endpoints, auth flows or sensitive data, or when the user asks — not on every diff. Returns a severity-ranked finding list.",
+      "hash": "4966d841d8c160e9"
     },
     {
       "file": "qa-visual.md",
       "name": "qa-visual",
-      "description": "Visual QA specialist — sweeps Playwright at multiple viewports, hunts pixel-level defects (overlap, misalignment, contrast, motion, hover/focus states, dark/light mode consistency), captures screenshots as evidence. Distinct from web-qa (which is functional QA — clicks, form submits, network) and qa-codebase (static analysis). Read-only. Returns a defect list with screenshots.",
-      "hash": "6957138f62f2c23f"
+      "description": "Visual QA specialist — sweeps Playwright at multiple viewports, hunts pixel-level defects (overlap, misalignment, contrast, motion, hover/focus states, dark/light mode consistency), captures screenshots as evidence. Distinct from web-qa (which is functional QA — clicks, form submits, network) and qa-codebase (static analysis). Read-only. Run before opening a PR with UI changes, or when the user asks — not on every diff. Returns a defect list with screenshots.",
+      "hash": "291c37dfe5aa51f4"
     },
     {
       "file": "release-engineer.md",
       "name": "release-engineer",
-      "description": "Cuts releases, writes changelogs, manages semver bumps, tags, and orchestrates deploy handoffs. Reads recent commits, groups them into user-visible / internal changes, drafts the release notes, tags. Never pushes tags or triggers deploys without explicit confirmation. Use when finishing a sprint, cutting a hotfix, or writing a release announcement.",
-      "hash": "abef8eead5a0a44f"
+      "description": "Cuts releases, writes changelogs, manages semver bumps, tags, and orchestrates deploy handoffs. Reads recent commits, groups them into user-visible / internal changes, writes the changelog and release notes, and hands over the tag command for after the changelog is committed. Doesn't commit, push tags or trigger deploys unless asked. Use when finishing a sprint, cutting a hotfix, or writing a release announcement.",
+      "hash": "251d57203e4750af"
     },
     {
       "file": "security-posture.md",
       "name": "security-posture",
       "description": "Architectural security ownership — auth flows, secret management, dependency vulnerabilities, threat modeling, data handling policy. Read-only by default. Distinct from qa-pen-testing (scan-scoped, one-shot) — this agent owns the ongoing security shape of the codebase. Use when adding auth, storing secrets, integrating a payment or PII path, or auditing dependency risk.",
-      "hash": "845088fe0b662955"
+      "hash": "a5ebf9a5345bf5e6"
     },
     {
       "file": "sre-oncall.md",
       "name": "sre-oncall",
       "description": "Prod-fire triage — log/trace forensics, symptom-to-root-cause traversal, runbook execution, chaos experiment planning. Read-only during an active incident. Use when 'prod is on fire', 'why is p99 spiking', 'what changed in the last hour', 'run the rollback runbook', or post-incident review. Distinct from qa-pen-testing (pre-ship security) and security-posture (design-time).",
-      "hash": "fc16aa72002b730a"
+      "hash": "a666fe3da8df9dd6"
     },
     {
       "file": "tech-animator.md",
       "name": "tech-animator",
       "description": "Character locomotion and rig work for 3D games. Summon for gait authoring and tuning (walk, trot, run, gallop), foot placement and contact, foot sliding, turning, spine and head motion, skeleton fitting, skinning and deformation bugs, state transitions, root motion, and the DCC-to-engine export chain. Every run ends with a contact sheet it actually looked at, sampled fast enough to resolve the event being judged. NOT for level layout or spatial reachability (level-designer).",
-      "hash": "c7d4ddb6566b14d8"
+      "hash": "f5ae7fe9dfba621e"
     },
     {
       "file": "tech-writer.md",
       "name": "tech-writer",
       "description": "Technical writer for developer-facing docs — READMEs, API references, ADRs, changelog prose, onboarding guides. Reads the code before writing, uses the project's existing doc voice, keeps examples runnable. Use for new-feature docs, doc drift after a refactor, README polish, onboarding walkthroughs, or ADR authorship.",
-      "hash": "7d71b03e7a894691"
+      "hash": "04951017056573d5"
     },
     {
       "file": "web-qa.md",
       "name": "web-qa",
       "description": "Browser-based QA for websites and web apps. Drives a real Chromium via Playwright to hunt for visual defects (gaps, overlaps, alignment, responsive breakpoints), broken interactions, console errors, network failures, and accessibility regressions. Read-only — returns a structured defect list, never edits code or commits.",
-      "hash": "7677fc8ce4eedafb"
+      "hash": "a3abfb72406bc7eb"
     },
     {
       "file": "web-researcher.md",
       "name": "web-researcher",
       "description": "Fetches and summarizes live web data on demand. Returns structured findings with source citations. No analysis — just clean, cited facts for other agents to reason on.",
-      "hash": "2a67274f5c106a6e"
+      "hash": "1c49ffc8ee4bca0e"
     }
   ]
 }

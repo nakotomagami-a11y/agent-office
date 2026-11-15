@@ -51,15 +51,17 @@ agent worse without it, on any machine, it's identity.
 
 ## How the runtime uses these
 
-`buildAppendedPrompt` in `packages/domain/src/services/agents.ts` composes
+`composeAppendedPrompt` in `packages/domain/src/services/agents/agents.ts` composes
 the per-summon system prompt in this order:
 
 1. **Skills** — from frontmatter `skills:` list.
 2. **Identity** — `<agent-id>.identity.md` content, if present.
-3. **Global memory** — `~/.claude/agents/_global.memory.md`.
-4. **Project memory** — per-project memory file.
-5. **Per-agent memory** — `<agent-id>.memory.md`.
-6. **Conversation history note** — SQLite pointer to prior runs.
+3. **Response style** — built in (`config/response-style.ts`).
+4. **Global memory** — `~/.claude/agents/_global.memory.md`.
+5. **Project info, map and environment** — derived live from the project.
+6. **Project memory** — per-project memory file.
+7. **Per-agent memory** — `<agent-id>.memory.md`.
+8. **Conversation history note** — SQLite pointer to prior runs.
 
 Identity sits above all three memory layers because it is static and
 authored, not accumulated.

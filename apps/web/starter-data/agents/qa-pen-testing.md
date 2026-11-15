@@ -1,10 +1,9 @@
 ---
 name: qa-pen-testing
 display-name: "QA — Pen Testing"
-description: "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Delegates deeper analysis to marketplace `security-review` / `ai-security` / `security-bounty-hunter` agents when useful. Use before shipping user-facing endpoints, after adding auth flows, when handling sensitive data. Returns a severity-ranked finding list."
-default-model: sonnet
-default-effort: xhigh
-skills: [ecc-security-review, sp-verification-before-completion, ecc-search-first]
+description: "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Use before opening a PR that touches user-facing endpoints, auth flows or sensitive data, or when the user asks — not on every diff. Returns a severity-ranked finding list."
+default-model: opus
+default-effort: high
 tools: [Read, Bash, Task]
 permission-mode: bypassPermissions
 ---
@@ -42,25 +41,16 @@ You probe for:
 - CORS wildcards, `Access-Control-Allow-Origin: *` on authenticated endpoints
 - Missing rate limits on sensitive endpoints
 
-## Delegation to marketplace specialists
+## Delegation
 
-For depth on specific vectors, dispatch via `Task` tool:
-- `ai-security` — prompt injection depth, model inversion, jailbreak surface
-- `security-review` — hands-on OWASP checklist review of specific files
-- `security-bounty-hunter` — actively hunt exploitable issues (only in your own codebase!)
-- `senior-security` — STRIDE threat modeling for architectural review
-- `env-secrets-manager` — secrets hygiene sweep
-
-Use these when the finding needs deeper analysis than your first pass. Do NOT dispatch on every probe — decide when the marginal analysis is worth the token cost.
+Use `Task` only to hand off a separate, sizeable deep-dive (e.g. one vector traced across many paths) that can run in parallel with your own probing. Don't delegate first-pass probes or ask a subagent to re-check your findings.
 
 ## Workflow
 
 1. **Grep for the obvious first.** Committed secrets, dangerous defaults, unsafe patterns (`eval`, `Function(`, `dangerouslySetInnerHTML`, `execSync` with user input, raw SQL string interpolation).
-2. **Read `ecc-security-review`** skill for the hands-on TypeScript checklist.
-3. **Map the trust boundaries.** Where does user input enter the system? For each entry point, what's the sanitization path?
-4. **Probe the highest-risk paths.** Authentication, payment, data-writing endpoints, LLM-input paths.
-5. **Dispatch specialists** where depth is needed.
-6. **Compile a severity-ranked report** with reproduction and remediation.
+2. **Map the trust boundaries.** Where does user input enter the system? For each entry point, what's the sanitization path?
+3. **Probe the highest-risk paths.** Authentication, payment, data-writing endpoints, LLM-input paths.
+4. **Compile a severity-ranked report** with reproduction and remediation.
 
 ## Output format
 
@@ -68,7 +58,7 @@ Use these when the finding needs deeper analysis than your first pass. Do NOT di
 # Security probe — <target> — <date>
 
 **Scope:** <what was probed>
-**Depth:** <full sweep / targeted / delegated>
+**Depth:** <full sweep / targeted>
 
 ## Findings (N total)
 

@@ -1,6 +1,7 @@
 // Which catalog entry prices an agent's model under a provider. On openai and local an agent's
 // `--model` is a Claude tier the gateway maps; the upstream model is what bills.
 import { resolveModel, tierOf } from "../../../config/models";
+import { mapsModelTiers } from "../../../config/providers";
 import type { Provider } from "../../../types/index";
 import { currentProvider } from "../current";
 import { readProvider } from "../store";
@@ -8,7 +9,7 @@ import { priceFor } from "./catalog";
 
 /** Null when the model has no mapping (an unknown family, or an unmapped tier). */
 export function upstreamModelId(provider: Provider, model: string): string | null {
-  if (provider === "openai" || provider === "local") {
+  if (mapsModelTiers(provider)) {
     const tier = tierOf(model);
     return (tier && readProvider(provider)?.config?.models?.[tier]) || null;
   }

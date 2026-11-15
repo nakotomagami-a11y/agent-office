@@ -50,7 +50,7 @@ unit: blue/warrior
 | `name` | string | filename | Display name shown in the UI |
 | `description` | string | `""` | Short description shown on agent cards |
 | `default-model` | alias | app default | One of: haiku · sonnet · opus · fable. Aliases resolve to the newest published version — see Model policy below. |
-| `default-effort` | string | `medium` | Thinking budget: low · medium · high · xhigh · max |
+| `default-effort` | string | `medium` | How much the model thinks and checks its work: low · medium · high · xhigh · max |
 | `skills` | list | `[]` | Installed skills to prepend to every summon |
 | `tools` | list | `[]` | Tools the agent may use (`--allowedTools`) |
 | `permission-mode` | string | unset | One of the six below (`manual` = alias for `default`). Unset = the CLI's own default |
@@ -131,14 +131,16 @@ Every `default-model` field uses one of four aliases. Aliases resolve to the new
 
 | Alias | Resolves to | Typical use |
 |---|---|---|
-| `haiku` | `claude-haiku-4-5` (or newer) | Fast fetches, short summaries, formatting. Not used for development. |
-| `sonnet` | `claude-sonnet-4-6` (or newer) | Mechanical dev work, QA, single-file bugfixes, most specialist agents |
-| `opus` | `claude-opus-4-8` (or newer) | Feature work, strategic advisors, long-context reasoning |
-| `fable` | `claude-fable-5` (or newer) | Maximum-quality autonomous work — human dispatch only (see below) |
+| `haiku` | `claude-haiku-5-5` (or newer) | Fast fetches, short summaries, formatting. Not used for development. |
+| `sonnet` | `claude-sonnet-5-5` (or newer) | Mechanical dev work, single-file bugfixes, well-scoped specialists. Above `high` effort it costs about as much as Opus. |
+| `opus` | `claude-opus-5-5` (or newer) | Feature work, code review and security QA, strategic advisors, long-context reasoning |
+| `fable` | `claude-fable-5-2` (or newer) | Frontier model for the most demanding long-running work — human dispatch only (see below) |
+
+The labels come from `MODEL_CATALOG` in `packages/domain/src/config/models.ts`; a test fails when it falls behind the bundled `claude-api` skill's model table (`prompt.alias-models` in `docs/conventions.md`).
 
 ### Never pin a version
 
-Do not write `claude-opus-4-7` or any pinned version string in a `.md` frontmatter. Pinned agents silently fall behind aliased peers when Anthropic releases a new version. The agent-architect refuses new designs that pin.
+Do not write `claude-opus-5-5` or any pinned version string in a `.md` frontmatter. Pinned agents silently fall behind aliased peers when Anthropic releases a new version. The agent-architect refuses new designs that pin.
 
 ### Fable is user-only
 
@@ -147,7 +149,7 @@ Do not write `claude-opus-4-7` or any pinned version string in a `.md` frontmatt
 
 ## Starter roster — the bundled agent army
 
-A fresh clone ships 33 agents grouped by role. All use aliased models. All ship with matching skills, tool sets, and explicit refuse lists. Import them from the first-run wizard or via `POST /api/starter/agents`.
+A fresh clone ships 33 agents grouped by role. All use aliased models, declare only skills that ship with them, and carry tool sets and explicit refuse lists (`docs/conventions.md` `prompt.*` keeps them that way). Import them from the first-run wizard or via `POST /api/starter/agents`.
 
 ### Development tiers
 
@@ -158,7 +160,7 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 | `developer-lite` | sonnet | Dead-code sweeps, dep bumps, single-file bugfixes, boilerplate follow-ups |
 | `developer` | opus | Feature work, non-trivial bugfixes, multi-file refactors, judgment calls |
 | `developer-fable` | fable | User-dispatch only — long autonomous project work at max quality |
-| `planner` | opus | Plan-only — hands off to a builder tier. Splits opus reasoning cost from sonnet execution. |
+| `planner` | opus | Plan-only — when the plan is the deliverable: feasibility, minimum change, or a choice that needs justifying. |
 
 ### Executive advisors (Boardroom room)
 
@@ -177,7 +179,7 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 | Agent | Owns |
 |---|---|
 | `frontend-craftsman` | Production UI polish — a11y, motion, states, keyboard |
-| `designer` | Concept-first pipeline (grill → brief → IA → tokens → tasks) |
+| `designer` | Concept first: a DESIGN.md (tone, tokens, IA), then the implementation |
 | `devops-engineer` | CI/CD, Docker, IaC, GitHub Actions, deploy pipelines |
 | `release-engineer` | Cutting releases, changelogs, semver bumps, tags |
 | `sre-oncall` | Prod-fire triage, log/trace forensics, runbook execution |
@@ -199,7 +201,7 @@ Four tiers from mechanical to maximum. Choose by task scope; each tier refuses w
 | Agent | Owns |
 |---|---|
 | `orchestrator` | Breaks down complex tasks, dispatches specialists, synthesises |
-| `agent-architect` | Designs new agent `.md` files — grills before drafting |
+| `agent-architect` | Designs new agent `.md` files — settles scope in one round of questions, then writes the file |
 | `product-manager` | PRDs, story decomposition, RICE/ICE prioritization |
 | `tech-writer` | READMEs, ADRs, API references, changelog prose |
 | `data-analyst` | SQL over SQLite/Postgres — read-only, shows the query |
