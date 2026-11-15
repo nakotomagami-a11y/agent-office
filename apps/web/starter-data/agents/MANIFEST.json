@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-16-2",
+  "version": "2026-11-16-4",
   "generated": "2026-11-16",
   "note": "Regenerate on any starter agent change. Version bump triggers the migration modal in-app.",
   "agents": [
@@ -85,7 +85,7 @@
       "file": "developer.md",
       "name": "developer",
       "description": "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors.",
-      "hash": "c71bcd5876d9b681"
+      "hash": "156d6ab58daa2057"
     },
     {
       "file": "devops-engineer.md",
@@ -121,7 +121,7 @@
       "file": "orchestrator.md",
       "name": "orchestrator",
       "description": "Lead orchestrator that breaks down complex tasks, delegates to specialist agents using the Task tool, and synthesises their outputs into a final result. Use this when a task spans multiple domains or would benefit from parallel specialist work.",
-      "hash": "f05c63785acd0b72"
+      "hash": "a0266e40ce95355a"
     },
     {
       "file": "planner.md",
@@ -139,7 +139,7 @@
       "file": "qa-code-review.md",
       "name": "qa-code-review",
       "description": "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Hunts real bugs and design flaws, not just style. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review.",
-      "hash": "524ad57ffbcd7ae0"
+      "hash": "c3d2da3b8f9ca4ef"
     },
     {
       "file": "qa-codebase.md",
@@ -148,34 +148,22 @@
       "hash": "aec8e405bfb5be81"
     },
     {
-      "file": "qa-pen-testing.md",
-      "name": "qa-pen-testing",
-      "description": "Security-focused QA — probes for OWASP Top 10, prompt injection, secrets in code, XSS, SQL injection, IDOR, unsafe deserialization, dangerous defaults. Read-only. Use before opening a PR that touches user-facing endpoints, auth flows or sensitive data, or when the user asks — not on every diff. Returns a severity-ranked finding list.",
-      "hash": "4966d841d8c160e9"
-    },
-    {
-      "file": "qa-visual.md",
-      "name": "qa-visual",
-      "description": "Visual QA specialist — sweeps Playwright at multiple viewports, hunts pixel-level defects (overlap, misalignment, contrast, motion, hover/focus states, dark/light mode consistency), captures screenshots as evidence. Distinct from web-qa (which is functional QA — clicks, form submits, network) and qa-codebase (static analysis). Read-only. Run before opening a PR with UI changes, or when the user asks — not on every diff. Returns a defect list with screenshots.",
-      "hash": "291c37dfe5aa51f4"
-    },
-    {
       "file": "release-engineer.md",
       "name": "release-engineer",
       "description": "Cuts releases, writes changelogs, manages semver bumps, tags, and orchestrates deploy handoffs. Reads recent commits, groups them into user-visible / internal changes, writes the changelog and release notes, and hands over the tag command for after the changelog is committed. Doesn't commit, push tags or trigger deploys unless asked. Use when finishing a sprint, cutting a hotfix, or writing a release announcement.",
       "hash": "251d57203e4750af"
     },
     {
-      "file": "security-posture.md",
-      "name": "security-posture",
-      "description": "Architectural security ownership — auth flows, secret management, dependency vulnerabilities, threat modeling, data handling policy. Read-only by default. Distinct from qa-pen-testing (scan-scoped, one-shot) — this agent owns the ongoing security shape of the codebase. Use when adding auth, storing secrets, integrating a payment or PII path, or auditing dependency risk.",
-      "hash": "a5ebf9a5345bf5e6"
+      "file": "security-engineer.md",
+      "name": "security-engineer",
+      "description": "Security reviewer that can also fix. Hunts security flaws in what's in scope — a diff, a feature or the whole system: injection (SQL, command, prompt), auth and sessions, access control, secrets, unsafe deserialization, dependencies, headers/CSP/CORS, data handling, agent and LLM tool paths. Proves findings with a reproduction that stays outside the repo, and, when the user asks it to fix, patches them with a regression test. Picky by design: reports everything with severity and confidence. Run before a PR that touches endpoints, auth, secrets, user or LLM input, or sensitive data, or when the user asks.",
+      "hash": "7ae1da15e0a27efe"
     },
     {
       "file": "sre-oncall.md",
       "name": "sre-oncall",
-      "description": "Prod-fire triage — log/trace forensics, symptom-to-root-cause traversal, runbook execution, chaos experiment planning. Read-only during an active incident. Use when 'prod is on fire', 'why is p99 spiking', 'what changed in the last hour', 'run the rollback runbook', or post-incident review. Distinct from qa-pen-testing (pre-ship security) and security-posture (design-time).",
-      "hash": "a666fe3da8df9dd6"
+      "description": "Prod-fire triage — log/trace forensics, symptom-to-root-cause traversal, runbook execution, chaos experiment planning. Read-only during an active incident. Use when 'prod is on fire', 'why is p99 spiking', 'what changed in the last hour', 'run the rollback runbook', or post-incident review. Distinct from security-engineer (pre-ship security review and fixes).",
+      "hash": "5b736244ae6ff85c"
     },
     {
       "file": "tech-animator.md",
@@ -192,8 +180,8 @@
     {
       "file": "web-qa.md",
       "name": "web-qa",
-      "description": "Browser-based QA for websites and web apps. Drives a real Chromium via Playwright to hunt for visual defects (gaps, overlaps, alignment, responsive breakpoints), broken interactions, console errors, network failures, and accessibility regressions. Read-only — returns a structured defect list, never edits code or commits.",
-      "hash": "a3abfb72406bc7eb"
+      "description": "Browser QA for websites and web apps: drives a real Chromium via Playwright and hunts functional bugs (broken interactions, forms, console errors, network failures) and visual defects (overlap, clipping, misalignment, contrast, hover/focus states, dark/light parity, layout shift) at four viewports, with measured evidence and screenshots. Read-only. Run before opening a PR with UI changes, or when the user asks.",
+      "hash": "93ee292c7681984f"
     },
     {
       "file": "web-researcher.md",

@@ -22,7 +22,7 @@ public final class AgentLooks {
         // Kit, builder & tester
         for (String p : new String[] {"developer", "devops", "mcp-builder", "release-engineer", "claude-api"}) CAST.put(p, "kit");
         // Tove, archivist & QA
-        for (String p : new String[] {"qa-visual", "web-qa", "webapp-testing", "tech-writer"}) CAST.put(p, "tove");
+        for (String p : new String[] {"web-qa", "webapp-testing", "tech-writer"}) CAST.put(p, "tove");
         // Rowan, refactorer & reviewer
         for (String p : new String[] {"qa-", "security", "sre"}) CAST.put(p, "rowan");
         // Wren, interface designer
@@ -30,7 +30,7 @@ public final class AgentLooks {
         // Marlow, foreman & architect
         for (String p : new String[] {"orchestrator", "planner", "agent-architect", "product-manager", "cs-"}) CAST.put(p, "marlow");
         // Juniper, researcher
-        for (String p : new String[] {"explore", "web-researcher", "data-analyst", "user-analyst"}) CAST.put(p, "juniper");
+        for (String p : new String[] {"explore", "web-researcher", "data-analyst"}) CAST.put(p, "juniper");
     }
 
     private AgentLooks() {}

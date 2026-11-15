@@ -21,8 +21,8 @@ roster:
     instance: developer-3f9a
     label: main
     unit: blue/warrior
-  - agent: qa-visual
-    instance: qa-visual-b2c1
+  - agent: web-qa
+    instance: web-qa-b2c1
 ---
 
 # Project memory
