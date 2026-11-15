@@ -7,8 +7,7 @@ export const isProvider = (v: unknown): v is Provider =>
 
 export const usesGateway = (p: Provider): boolean => p !== "subscription";
 
-/** The providers whose models the CLI does not know: an agent's haiku|sonnet|opus is a tier the gateway maps to
- *  the provider's own model. On subscription and anthropic_api the CLI resolves the alias itself. */
+/** The CLI doesn't know these providers' models, so the gateway maps haiku|sonnet|opus to them. */
 export const mapsModelTiers = (p: Provider): p is "openai" | "local" => p === "openai" || p === "local";
 
 export const PROVIDER_STATUS_REASONS = [
