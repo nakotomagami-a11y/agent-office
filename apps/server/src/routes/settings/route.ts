@@ -34,6 +34,8 @@ export async function PUT(request: Request) {
   const raw: unknown = await request.json();
   const { data, error } = validateBody(settingsPatchSchema, raw);
   if (error) return error;
+  const problem = settings.projectsRootProblem(data.projectsRoot);
+  if (problem) return Response.json({ error: problem }, { status: 400 });
   const required = providerRequired();
   if (required) return required;
   const next = settings.withProjectsConfig(settings.readSettings(), data);

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/fetch";
+import { retryUnlessRefused } from "../format/root-error";
 import { queryKeys } from "@/lib/api/query-keys";
 import { API_ROUTES } from "@agent-office/api-contract";
 import type { AppSettings, ScannedEntry } from "@agent-office/domain/types";
@@ -22,6 +23,7 @@ export function useScanProjects(root: string, excluded: string[]) {
     queryKey: queryKeys.settings.scan(root, excluded),
     queryFn: () => apiFetch<ScannedEntry[]>(`${API_ROUTES.settingsScan}?${params.toString()}`),
     enabled: root.length > 0,
+    retry: retryUnlessRefused,
   });
 }
 

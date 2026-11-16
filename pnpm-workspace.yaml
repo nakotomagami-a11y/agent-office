@@ -8,3 +8,7 @@ allowBuilds:
   esbuild: false
   sharp: true
   unrs-resolver: true
+# The JS API must match the tauri crate (apps/web/src-tauri/Cargo.toml) by minor version; plugins would
+# otherwise pull a newer copy beside it.
+overrides:
+  "@tauri-apps/api": "~2.11.0"

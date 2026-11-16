@@ -21,6 +21,7 @@ import { AgentsStep } from "./first-run-wizard-steps/agents-step";
 import { ProjectStep } from "./first-run-wizard-steps/project-step";
 import { IntegrationsStep } from "./first-run-wizard-steps/integrations-step";
 import { INTEGRATIONS } from "@agent-office/domain/config/integrations";
+import { retryUnlessRefused, rootErrorCode } from "@/modules/settings/format/root-error";
 
 const DEFAULT_EXCLUDED = [
   "node_modules",
@@ -183,7 +184,10 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
     queryKey: ["wizard-scan", root, excluded.join(",")],
     queryFn: () => apiFetch<ScannedEntry[]>(`${API_ROUTES.settingsScan}?${scanParams}`),
     enabled: (step === "root" || step === "project") && root.length > 0,
+    retry: retryUnlessRefused,
   });
+  // Next waits for the scan: an unfinished one would let a refused root through to Finish.
+  const rootBlocked = scanQ.isFetching || rootErrorCode(scanQ.error) !== null;
   const candidates = scanQ.data ?? [];
   const projectCandidates = useMemo(() => (scanQ.data ?? []).filter((c) => !c.excluded), [scanQ.data]);
 
@@ -238,8 +242,14 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
     },
     onError: (err) => {
       const missingProvider = err instanceof Error && err.message === "provider_required";
+      const rootError = rootErrorCode(err);
       if (missingProvider) setStep("provider");
-      setError(missingProvider ? t("first_run.error_provider_required") : err instanceof Error ? err.message : String(err));
+      else if (rootError) setStep("root");
+      setError(
+        missingProvider ? t("first_run.error_provider_required")
+        : rootError ? t(`settings.root_errors.${rootError}`)
+        : err instanceof Error ? err.message : String(err),
+      );
       setBusy(false);
     },
   });
@@ -443,6 +453,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
               placeholder={HOME_FALLBACK}
               candidates={candidates}
               loading={scanQ.isLoading}
+              error={rootErrorCode(scanQ.error)}
             />
           ) : null}
 
@@ -522,7 +533,7 @@ export function FirstRunWizard({ allowSkip, onDone }: { allowSkip?: boolean; onD
             <Button
               variant="primary"
               onClick={goNext}
-              disabled={busy || setup.busy || (step === "provider" && !setup.choice)}
+              disabled={busy || setup.busy || (step === "provider" && !setup.choice) || (step === "root" && rootBlocked)}
               className="h-auto gap-[8px] rounded-xl px-[18px] py-[9px] text-[12.5px]"
             >
               {t("common.next")}

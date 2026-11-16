@@ -7,6 +7,8 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { PlanetCanvas } from "@/components/ui/planet-canvas";
 import { useScanProjects, useSettings, useWriteSettings } from "../hooks/use-settings";
+import { rootErrorCode } from "../format/root-error";
+import { BrowseFolderButton } from "@/components/ui/browse-folder-button";
 import { PerformanceTab } from "./tabs/performance-tab";
 import { CleanupPanel } from "./tabs/cleanup-panel";
 import { BundledAgentsTab } from "./tabs/bundled-agents-tab";
@@ -102,6 +104,9 @@ function ProjectsPane() {
   // Delete there once removed a same-named folder under the old root.
   const rootUnsaved = !!settingsQ.data && root.trim() !== settingsQ.data.projectsRoot;
   const scanned = scanQ.data ?? [];
+  // A refused save only counts while the field still holds the root it sent; otherwise Save would stay disabled.
+  const saveError = writeMut.variables?.projectsRoot === root.trim() ? rootErrorCode(writeMut.error) : null;
+  const rootError = rootErrorCode(scanQ.error) ?? saveError;
   const activeEntries = scanned.filter((e) => !projectById.get(e.id)?.shelved);
   const shelvedEntries = scanned.filter((e) => projectById.get(e.id)?.shelved);
   const visibleList = view === "active" ? activeEntries : shelvedEntries;
@@ -153,18 +158,20 @@ function ProjectsPane() {
                 className="flex-1 min-w-0 border-none bg-transparent outline-none text-txt font-[var(--font-mono)] text-[12.5px] placeholder:text-txt-4"
               />
             </div>
+            <BrowseFolderButton value={root} onPick={setRoot} />
             {savedAt ? (
               <span className="text-[11px] text-status-done whitespace-nowrap">{t("common.saved")}</span>
             ) : null}
             <button
               type="button"
               onClick={onSave}
-              disabled={writeMut.isPending || !root.trim()}
+              disabled={writeMut.isPending || scanQ.isFetching || !root.trim() || rootError !== null}
               className="px-[16px] py-[11px] rounded-[14px] border border-edge-2 bg-card-2 text-txt-2 text-[12.5px] font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 hover:text-txt hover:border-txt-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {writeMut.isPending ? t("common.saving") : t("common.save")}
             </button>
           </div>
+          {rootError ? <div className="-mt-[6px] text-[11.5px] text-status-error">{t(`settings.root_errors.${rootError}`)}</div> : null}
           <div>
             <div className="flex items-center gap-[8px] mb-[9px]">
               <span className="text-[10px] font-bold tracking-[0.07em] uppercase text-txt-4 whitespace-nowrap">
@@ -240,7 +247,7 @@ function ProjectsPane() {
         {rootUnsaved && scanned.length > 0 ? (
           <div className="px-[20px] py-[10px] border-b border-edge text-[11.5px] text-txt-3">{t("settings.unsaved_root_hint")}</div>
         ) : null}
-        {scanQ.isLoading ? null : scanned.length === 0 ? (
+        {scanQ.isLoading || rootError ? null : scanned.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-[10px] py-[38px] text-center">
             <span className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-card-2 border border-edge text-txt-4">
               <Icon name="folder" size={18} />

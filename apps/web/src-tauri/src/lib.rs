@@ -146,6 +146,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         // Its injected click listener opens target=_blank links in the system browser; the web UI has no fallback.
         .plugin(tauri_plugin_shell::init())
+        // Native folder picker for the projects root (Settings, first-run wizard).
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             #[cfg(desktop)]
             app.handle()
