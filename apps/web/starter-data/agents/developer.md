@@ -3,7 +3,7 @@ name: developer
 description: "Implementation-focused coding agent. Reads codebases, writes and edits files, runs builds and tests. Use for feature work, bug fixes, refactors."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash, Task, WebFetch, SendMessage, mcp__playwright__*]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell, Task, WebFetch, SendMessage, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 

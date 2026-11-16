@@ -3,7 +3,7 @@ name: assistant
 description: General-purpose Claude with full tool access — the escape hatch when no specialist fits. Use as a Claude Desktop replacement for exploratory chat, ad-hoc scripting, writing, quick lookups.
 default-model: sonnet
 default-effort: high
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 ---
 

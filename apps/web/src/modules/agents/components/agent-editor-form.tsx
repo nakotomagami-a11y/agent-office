@@ -28,6 +28,7 @@ import { CodeEditor } from "@/components/ui/code-editor";
 import { DocsRender } from "@/modules/docs/docs-render";
 import { EFFORT_OPTS, PERMISSION_MODE_OPTS } from "@agent-office/domain/config/agent-opts";
 import { MODEL_CATALOG } from "@agent-office/domain/config/models";
+import { withPairedTools, type KnownTool } from "@agent-office/domain/config/tools";
 import { useModelChoices } from "@/modules/providers/hooks/use-model-choices";
 import { PriceSourceLine } from "@/modules/providers/components/price-source";
 import {
@@ -64,16 +65,18 @@ import { cn } from "@/lib/cn";
  * painted pixel-weapon icons (see `weapon-icon.tsx`) for equipped skills.
  */
 
-const TOOL_SUGGESTIONS = [
-  { id: "Read",      desc: "Read files" },
-  { id: "Write",     desc: "Write files" },
-  { id: "Edit",      desc: "Edit files" },
-  { id: "Bash",      desc: "Run shell" },
-  { id: "Grep",      desc: "Search code" },
-  { id: "Glob",      desc: "Find files" },
-  { id: "WebFetch",  desc: "Fetch URLs" },
-  { id: "TodoWrite", desc: "Task list" },
-  { id: "Task",      desc: "Spawn agents" },
+const TOOL_SUGGESTIONS: { id: KnownTool; desc: string }[] = [
+  { id: "Read",       desc: "Read files" },
+  { id: "Write",      desc: "Write files" },
+  { id: "Edit",       desc: "Edit files" },
+  { id: "Bash",       desc: "Run shell" },
+  { id: "PowerShell", desc: "Run shell (Windows)" },
+  { id: "Grep",       desc: "Search code" },
+  { id: "Glob",       desc: "Find files" },
+  { id: "WebFetch",   desc: "Fetch URLs" },
+  { id: "WebSearch",  desc: "Search the web" },
+  { id: "Task",       desc: "Spawn agents" },
+  { id: "ToolSearch", desc: "Load deferred tools" },
 ];
 
 const CLASS_OPTIONS = ["Council", "Boardroom", "Engineering", "QA", "Security", "Design", "Strategy", "Product", "Other"];
@@ -391,6 +394,11 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
   const skillChips = parseCsv(values.skills);
   const toolChips = parseCsv(values.tools);
   const toolPool = [...TOOL_SUGGESTIONS, ...toolChips.filter((c) => !TOOL_SUGGESTIONS.some((s) => s.id === c)).map((id) => ({ id, desc: "" }))];
+  // Turning a tool off takes what it brought with it, or the two shells could never be turned off.
+  const toggledTools = (id: string) => withPairedTools(toolChips.includes(id)
+    ? toolChips.filter((c) => !withPairedTools([id]).includes(c))
+    : [...toolChips, id]);
+  const lockedTools = toolChips.filter((c) => toggledTools(c).includes(c));
   const dirtyCount = (Object.keys(baseline) as (keyof AgentFormValues)[]).filter((k) => values[k] !== baseline[k]).length;
 
   const sec1Done = !!(values.name.trim() && values.desc.trim());
@@ -408,7 +416,9 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
     if (errs.length > 0) return;
     const body = toBody(values);
     const onSuccess = ({ id }: { id: string }) => {
-      setBaseline(values);
+      const saved = { ...values, tools: toCsv(withPairedTools(body.tools)) };
+      setValues(saved);
+      setBaseline(saved);
       if (onSaved) onSaved(id);
       else router.push(PAGE_ROUTES.agent(id));
     };
@@ -838,13 +848,15 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
                 <div className="flex flex-wrap gap-[6px]">
                   {toolPool.map((tl) => {
                     const on = toolChips.includes(tl.id);
+                    const locked = lockedTools.includes(tl.id);
                     return (
                       <button
                         key={tl.id}
                         type="button"
-                        title={tl.desc || undefined}
-                        onClick={() => set("tools", toCsv(on ? toolChips.filter((c) => c !== tl.id) : [...toolChips, tl.id]))}
-                        className="flex items-center gap-[6px] px-[11px] py-[6px] rounded-[10px] cursor-pointer font-[var(--font-mono)] text-[10.5px] border whitespace-nowrap transition-[background,color,border-color] duration-[140ms]"
+                        title={locked ? t("agent_editor.paired_tools_hint") : tl.desc || undefined}
+                        disabled={locked}
+                        onClick={() => set("tools", toCsv(toggledTools(tl.id)))}
+                        className="flex items-center gap-[6px] px-[11px] py-[6px] rounded-[10px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 font-[var(--font-mono)] text-[10.5px] border whitespace-nowrap transition-[background,color,border-color] duration-[140ms]"
                         style={on
                           ? { background: "var(--acc-soft)", color: "var(--acc)", borderColor: "var(--acc-line)" }
                           : { background: "var(--card-2)", color: "var(--txt-4)", borderColor: "var(--edge)" }}
@@ -854,6 +866,7 @@ export function AgentEditorForm({ mode, initial, onSaved, onCancel, onDeleted, e
                     );
                   })}
                 </div>
+                {lockedTools.length > 0 && <span className="text-txt-4 text-[10.5px]">{t("agent_editor.paired_tools_hint")}</span>}
               </div>
             </SectionCard>
 

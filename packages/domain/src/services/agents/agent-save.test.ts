@@ -122,6 +122,11 @@ test("creating a new agent writes it", () => {
 });
 
 
+test("a saved agent with one shell gets the other, and Read gets Grep and Glob", () => {
+  assert.ok(createAgent({ id: "paired", name: "paired", desc: "d", skills: [], tools: ["Read", "Bash"], pm: "default", model: "sonnet", effort: "high", body: "b" }).ok);
+  assert.deepEqual(readAgent("paired")!.info.tools, ["Read", "Grep", "Glob", "Bash", "PowerShell"]);
+});
+
 test("an inline comment and a quoted key are read the way YAML means them", () => {
   writeFileSync(join(AGENTS_DIR, "commented.md"), '---\nname: commented\ndescription: d\ndefault-model: opus # cheap\n"room": Lab\ncolor: "#fff"\nnotes: |\n  keep # this\n---\n\nb\n');
   const info = readAgent("commented")!.info;
@@ -161,12 +166,15 @@ test('a description with quotes and a # survives a save and a read: Say "hi" #2 
 
 
 // The quoted item goes first: an escaped quote that ended the quote early split the list at the next comma.
-for (const tools of [['Bash(date +"%h #x")', "Read"], ['Bash(echo ")', "Read"]]) {
+for (const [tools, expected] of [
+  [['Bash(date +"%h #x")', "Write"], ['Bash(date +"%h #x")', "Write"]],
+  [['Bash(echo ")', "Read"], ['Bash(echo ")', "Read", "Grep", "Glob"]],
+]) {
   test(`a flow list with escaped quotes round-trips: ${JSON.stringify(tools)}`, () => {
     writeFileSync(join(AGENTS_DIR, "flow.md"), "---\nname: flow\ndescription: d\n---\n\nb\n");
     try {
       save(bodyFor("flow", { tools }));
-      assert.deepEqual(readAgent("flow")!.info.tools, tools);
+      assert.deepEqual(readAgent("flow")!.info.tools, expected);
     } finally {
       // Gone at once, not after the file: agent-surface.test, running in parallel, rejects these tool names.
       rmSync(join(AGENTS_DIR, "flow.md"), { force: true });

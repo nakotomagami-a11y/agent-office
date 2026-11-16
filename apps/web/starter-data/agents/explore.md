@@ -3,7 +3,7 @@ name: explore
 description: Research agent — reads codebases, traces unfamiliar code paths, searches documentation, and synthesizes findings into a clear briefing. Use when you need to understand something before deciding or building.
 default-model: sonnet
 default-effort: high
-tools: [Read, Bash]
+tools: [Read, Grep, Glob, Bash, PowerShell]
 permission-mode: bypassPermissions
 ---
 

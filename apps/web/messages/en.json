@@ -346,7 +346,8 @@
     "permission_dont_ask_label": "Never ask",
     "permission_dont_ask_subtitle": "denies anything it would have prompted for",
     "permission_auto_label": "CLI decides",
-    "permission_auto_subtitle": "the CLI chooses per tool call"
+    "permission_auto_subtitle": "the CLI chooses per tool call",
+    "paired_tools_hint": "Bash brings PowerShell; Read brings Grep and Glob"
   },
   "settings_page": {
     "sub": "· local-only configuration"

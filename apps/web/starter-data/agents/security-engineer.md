@@ -3,7 +3,7 @@ name: security-engineer
 description: "Security reviewer that can also fix. Hunts security flaws in what's in scope — a diff, a feature or the whole system: injection (SQL, command, prompt), auth and sessions, access control, secrets, unsafe deserialization, dependencies, headers/CSP/CORS, data handling, agent and LLM tool paths. Proves findings with a reproduction that stays outside the repo, and, when the user asks it to fix, patches them with a regression test. Picky by design: reports everything with severity and confidence. Run before a PR that touches endpoints, auth, secrets, user or LLM input, or sensitive data, or when the user asks."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Security
 ---

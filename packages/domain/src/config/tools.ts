@@ -62,6 +62,33 @@ export const KNOWN_TOOLS = [
   "Write",
 ] as const;
 
+export type KnownTool = (typeof KNOWN_TOOLS)[number];
+
+/**
+ * On Windows the CLI offers `Bash` only when Git Bash is found and `PowerShell` otherwise, so an
+ * agent with one of them can end up with no shell at all; `Read` without `Grep`/`Glob` cannot search.
+ */
+const PAIRED_TOOLS: ReadonlyMap<string, readonly KnownTool[]> = new Map([
+  ["Bash", ["PowerShell"]],
+  ["PowerShell", ["Bash"]],
+  ["Read", ["Grep", "Glob"]],
+]);
+
+const declares = (list: readonly string[], name: string) => list.some((t) => t === name || t.startsWith(`${name}(`));
+
+/**
+ * Adds each missing companion right after the tool that needs it. Only a bare name triggers: `Bash(git *)` grants
+ * no PowerShell. A restricted companion counts as declared: `PowerShell(Get-ChildItem *)` is not widened.
+ */
+export function withPairedTools(tools: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const tool of tools) {
+    out.push(tool);
+    for (const c of PAIRED_TOOLS.get(tool) ?? []) if (!declares(tools, c) && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
 /**
  * Names that LOOK like tools, are widely declared across agent files, and do
  * NOT exist in the CLI — so declaring them grants nothing at all. Kept separate

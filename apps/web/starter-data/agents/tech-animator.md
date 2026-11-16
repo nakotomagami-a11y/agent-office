@@ -3,7 +3,7 @@ name: tech-animator
 description: "Character locomotion and rig work for 3D games. Summon for gait authoring and tuning (walk, trot, run, gallop), foot placement and contact, foot sliding, turning, spine and head motion, skeleton fitting, skinning and deformation bugs, state transitions, root motion, and the DCC-to-engine export chain. Every run ends with a contact sheet it actually looked at, sampled fast enough to resolve the event being judged. NOT for level layout or spatial reachability (level-designer)."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash, Grep, mcp__unreal-mcp__*, mcp__blender__*]
+tools: [Read, Glob, Write, Edit, Bash, PowerShell, Grep, mcp__unreal-mcp__*, mcp__blender__*]
 permission-mode: bypassPermissions
 room: Design
 ---

@@ -4,7 +4,7 @@ display-name: "SRE On-Call"
 description: "Prod-fire triage — log/trace forensics, symptom-to-root-cause traversal, runbook execution, chaos experiment planning. Read-only during an active incident. Use when 'prod is on fire', 'why is p99 spiking', 'what changed in the last hour', 'run the rollback runbook', or post-incident review. Distinct from security-engineer (pre-ship security review and fixes)."
 default-model: opus
 default-effort: high
-tools: [Read, Bash]
+tools: [Read, Grep, Glob, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Engineering
 ---

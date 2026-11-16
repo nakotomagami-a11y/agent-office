@@ -3,7 +3,7 @@ name: data-analyst
 description: "SQL-native analyst for Agent Office and any local SQLite/Postgres data. Runs queries against `~/.claude/agent-office/db.sqlite`, project databases, and log files. Answers questions like 'how much did I spend on Opus this week', 'which agent instance is bloated with runs', 'which projects are actually active', 'what tool calls are dominating my cost'. Returns numbers with the query, so the founder can audit and re-run. Never modifies data — read-only by design."
 default-model: sonnet
 default-effort: high
-tools: [Read, Bash]
+tools: [Read, Grep, Glob, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Strategy
 add-dirs:

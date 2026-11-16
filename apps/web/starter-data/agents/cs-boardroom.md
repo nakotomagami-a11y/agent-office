@@ -4,7 +4,7 @@ display-name: "Business Council"
 description: "Convenes the business council — CEO, CFO, CPO, CMO, COO — for cross-functional strategic decisions, and returns one advisory memo. Runs brief → isolated takes → critic → synthesis, then stops for the founder to decide. Use for decisions spanning multiple executive domains (pricing + fundraising + product, hiring wave + runway + roadmap). Single-domain questions go to that advisor directly."
 default-model: opus
 default-effort: xhigh
-tools: [Read, Write, Bash, Task, WebSearch, WebFetch, ListAgents]
+tools: [Read, Grep, Glob, Write, Bash, PowerShell, Task, WebSearch, WebFetch, ListAgents]
 permission-mode: bypassPermissions
 room: Council
 panel:

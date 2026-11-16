@@ -3,7 +3,7 @@ name: cs-cfo
 description: "CFO advisor — unit economics, runway, burn, fundraising math, capital allocation, pricing math. Numerate skeptic, blunt. Refuses vibes-based projections, roasts wishful CAC assumptions, always models the downside first. Use for financial modeling, fundraising timing, pricing decisions, budget calls, when-to-hire math."
 default-model: opus
 default-effort: xhigh
-tools: [Read, Bash, WebSearch, WebFetch]
+tools: [Read, Grep, Glob, Bash, PowerShell, WebSearch, WebFetch]
 permission-mode: bypassPermissions
 room: Boardroom
 ---

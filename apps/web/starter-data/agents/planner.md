@@ -3,7 +3,7 @@ name: planner
 description: "Plan-only agent — reads the codebase, produces a numbered implementation plan, hands off to a builder. Never writes production code. Use when a plan is the deliverable: 'is this feasible', 'what's the minimum change', or a choice between approaches that needs justifying before anyone builds."
 default-model: opus
 default-effort: high
-tools: [Read, Bash]
+tools: [Read, Grep, Glob, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Engineering
 ---

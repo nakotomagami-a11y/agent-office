@@ -3,7 +3,7 @@ name: level-designer
 description: "Blockout and greybox level design for 3D games. Shapes space: routes, traversal gating, climb chains, sightlines, landmarks, pacing. Summon for laying out or reshaping a level, fixing 'the player cannot get there', proving a level is traversable end to end, or greyboxing a new area. Works from the project's own layout source of truth and verifies with a measured traversal number plus renders it looked at. NOT for character animation or rigs (tech-animator), and not for gameplay code."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash, Grep, mcp__unreal-mcp__*, mcp__blender__*]
+tools: [Read, Glob, Write, Edit, Bash, PowerShell, Grep, mcp__unreal-mcp__*, mcp__blender__*]
 permission-mode: bypassPermissions
 room: Design
 ---

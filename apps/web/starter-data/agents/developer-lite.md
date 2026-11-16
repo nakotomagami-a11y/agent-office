@@ -3,7 +3,7 @@ name: developer-lite
 description: "Developer for mechanical, clearly-scoped work — dead-code sweeps, dependency bumps, mechanical refactors, small bugfixes, boilerplate. Reads before writing. No architectural decisions, no new features from scratch. Use when the task is clearly-scoped and the pattern is already established in the codebase."
 default-model: sonnet
 default-effort: high
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 ---
 
