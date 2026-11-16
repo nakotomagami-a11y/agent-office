@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import { globSync } from "node:fs";
 import { test } from "node:test";
+import { guard } from "./guard";
 import { createHandler } from "./index";
 import { ROUTES } from "./route-table";
 import { createRouter, type RouteEntry } from "./router";
@@ -91,4 +92,23 @@ test("the standalone server applies the same host and origin guard as the deskto
   assert.strictEqual((await handle(req("GET", "/api/things/1", { host: "evil.example" }))).status, 403);
   const csrf = req("POST", "/api/things/1", { origin: "http://evil.example" });
   assert.strictEqual((await handle(csrf)).status, 403);
+});
+
+test("another site's page can't make the API do a GET, but the app's own pages and plain clients can", async () => {
+  for (const site of ["cross-site", "same-site"]) {
+    assert.strictEqual((await handle(req("GET", "/api/things/1", { "sec-fetch-site": site }))).status, 403, site);
+  }
+  for (const site of ["same-origin", "none"]) {
+    assert.strictEqual((await handle(req("GET", "/api/things/1", { "sec-fetch-site": site }))).status, 200, site);
+  }
+  assert.strictEqual((await handle(req("GET", "/api/things/1"))).status, 200, "no header: the mod, curl, scripts");
+  for (const path of ["//api/things/1", "/%61pi/things/1"]) {
+    assert.strictEqual((await handle(req("GET", path, { "sec-fetch-site": "cross-site" }))).status, 403, path);
+  }
+});
+
+test("the page proxy reads /api the way the router does, and leaves pages to any site", () => {
+  const cross = (path: string) => guard(req("GET", path, { "sec-fetch-site": "cross-site" }));
+  for (const path of ["/api/x", "//api/x", "/%61pi/x", "/API/x", "/%E0%A4%A/x"]) assert.strictEqual(cross(path)?.status, 403, path);
+  assert.strictEqual(cross("/settings"), null, "opening the app from a link elsewhere still works");
 });

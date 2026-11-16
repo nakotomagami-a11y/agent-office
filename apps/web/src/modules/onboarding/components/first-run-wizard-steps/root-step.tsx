@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import type { ScannedEntry } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
+import { BrowseFolderButton } from "@/components/ui/browse-folder-button";
+import type { ProjectsRootProblem } from "@agent-office/domain/config/projects-root";
 
 export type RootStepProps = {
   root: string;
@@ -10,10 +12,11 @@ export type RootStepProps = {
   placeholder: string;
   candidates: ScannedEntry[];
   loading: boolean;
+  error: ProjectsRootProblem | null;
 };
 
 /** Wizard step 2: pick the projects-root directory. */
-export function RootStep({ root, onRootChange, placeholder, candidates, loading }: RootStepProps) {
+export function RootStep({ root, onRootChange, placeholder, candidates, loading, error }: RootStepProps) {
   const t = useTranslations();
   const projects = candidates.filter((c) => !c.excluded).slice(0, 2);
   const ignored = candidates.find((c) => c.excluded);
@@ -26,19 +29,23 @@ export function RootStep({ root, onRootChange, placeholder, candidates, loading 
         {t("first_run.root_hint")}
       </p>
 
-      <div className="mt-4 flex items-center gap-[10px] rounded-2xl border border-edge bg-card-2 px-[14px] py-[11px] focus-within:border-acc">
-        <Icon name="folder" size={16} className="shrink-0 text-acc" />
-        <input
-          value={root}
-          onChange={(e) => onRootChange(e.target.value)}
-          placeholder={placeholder}
-          autoFocus
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] font-bold text-txt outline-none"
-        />
-        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-txt-4">
-          {t("first_run.root_field_label")}
-        </span>
+      <div className="mt-4 flex items-center gap-[9px]">
+        <div className="min-w-0 flex-1 flex items-center gap-[10px] rounded-2xl border border-edge bg-card-2 px-[14px] py-[11px] focus-within:border-acc">
+          <Icon name="folder" size={16} className="shrink-0 text-acc" />
+          <input
+            value={root}
+            onChange={(e) => onRootChange(e.target.value)}
+            placeholder={placeholder}
+            autoFocus
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] font-bold text-txt outline-none"
+          />
+          <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-txt-4">
+            {t("first_run.root_field_label")}
+          </span>
+        </div>
+        <BrowseFolderButton value={root} onPick={onRootChange} />
       </div>
+      {error ? <p className="m-0 mt-[8px] text-[11.5px] leading-[1.5] text-status-error">{t(`settings.root_errors.${error}`)}</p> : null}
       <p className="m-0 mt-[8px] text-[11.5px] leading-[1.5] text-txt-4">{t("first_run.root_examples")}</p>
 
       {showPreview ? (

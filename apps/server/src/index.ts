@@ -8,7 +8,7 @@ import { allowedMethods, createRouter, isHttpMethod, type RouteEntry } from "./r
 export function createHandler(routes: readonly RouteEntry[]): (request: Request) => Promise<Response> {
   const match = createRouter(routes);
   return async (request) => {
-    const denied = guard(request);
+    const denied = guard(request, { api: true });
     if (denied) return denied;
 
     const found = match(new URL(request.url).pathname);

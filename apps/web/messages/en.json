@@ -35,6 +35,8 @@
     "line_count": "{count, plural, one {# line} other {# lines}}",
     "save": "Save",
     "saving": "Saving…",
+    "browse": "Browse…",
+    "browse_failed": "Couldn't open the folder picker. Type the path instead.",
     "saved": "Saved.",
     "cancel": "Cancel",
     "clear": "Clear",
@@ -80,7 +82,7 @@
     "back_to_step": "Back to {step}",
     "root_title": "Where does the work live?",
     "root_hint": "Point the office at the folder that holds your repos. Each subfolder can become a project.",
-    "root_examples": "Examples: ~/code, ~/Documents/work, /Users/you/dev",
+    "root_examples": "Examples: ~/code, ~/Documents/work, D:\\Lab",
     "root_field_label": "Projects root",
     "root_preview_title": "How the office reads it",
     "root_preview_root_tag": "root",
@@ -550,6 +552,15 @@
     "delete_folder": "Delete folder",
     "delete_folder_aria": "Delete folder {name}",
     "unsaved_root_hint": "Save the projects root to shelve or delete these folders.",
+    "root_errors": {
+      "root_not_absolute": "Use a full path, like D:\\Lab or ~/code.",
+      "root_not_local": "Use a folder on this computer, written like D:\\Lab. Network and device paths (\\\\server\\share, \\\\?\\…) aren't supported.",
+      "root_is_drive_root": "Pick a folder, not a whole drive: every top-level folder on it would become a project.",
+      "root_contains_home": "Pick a folder inside or beside your user folder, not one that contains it.",
+      "root_drive_missing": "That drive isn't connected.",
+      "root_not_a_directory": "That path is a file, not a folder.",
+      "root_unreadable": "Agent Office can't read that folder. Check its permissions."
+    },
     "tabs_aria": "Settings tabs"
   },
   "settings_nav": {

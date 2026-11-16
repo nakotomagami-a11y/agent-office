@@ -3,12 +3,13 @@
 //
 // Kept on the legacy path so existing installs continue to load.
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, opendirSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, join, parse, resolve } from "node:path";
 import type { AppSettings, ScannedEntry } from "../types/index";
 import { getIntegration } from "../config/integrations";
+import type { ProjectsRootProblem } from "../config/projects-root";
 import { writeFileAtomic } from "./infra/fs-atomic";
-import { SETTINGS_FILE, expandTilde } from "./infra/paths";
+import { HOME, SETTINGS_FILE, expandTilde, isInside } from "./infra/paths";
 import { log } from "./infra/log";
 
 export function readSettings(): AppSettings | null {
@@ -48,6 +49,29 @@ export function settingsFileState(): SettingsFileState {
   } catch {
     return { state: "unreadable" };
   }
+}
+
+/** Any local folder on any drive; a missing one is created with the first project. */
+export function projectsRootProblem(root: string): ProjectsRootProblem | null {
+  const raw = expandTilde(root.trim());
+  const win = process.platform === "win32";
+  // A \\host\share root makes Windows send the user's login hash to that host, and a dead host blocks the server.
+  if (win && /^[\\/]{2}/.test(raw)) return "root_not_local";
+  if (!isAbsolute(raw) || (win && !/^[a-z]:[\\/]/i.test(raw))) return "root_not_absolute";
+  const abs = resolve(raw);
+  if (parse(abs).root === abs) return "root_is_drive_root";
+  if (isInside(HOME, abs, undefined, "lexical")) return "root_contains_home";
+  if (!existsSync(parse(abs).root)) return "root_drive_missing";
+  if (!existsSync(abs)) return null;
+  try {
+    if (!statSync(abs).isDirectory()) return "root_not_a_directory";
+    const real = realpathSync.native(abs);
+    if (parse(real).root === real) return "root_is_drive_root";
+    opendirSync(abs).closeSync();
+  } catch {
+    return "root_unreadable";
+  }
+  return null;
 }
 
 /** Replaces the projects config only: integrations and feature flags survive. */
