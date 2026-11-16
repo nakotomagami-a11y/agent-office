@@ -3,7 +3,7 @@ name: orchestrator
 description: "Lead orchestrator that breaks down complex tasks, delegates to specialist agents using the Task tool, and synthesises their outputs into a final result. Use this when a task spans multiple domains or would benefit from parallel specialist work."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash, Task]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell, Task]
 permission-mode: bypassPermissions
 unit: black/pawn
 ---

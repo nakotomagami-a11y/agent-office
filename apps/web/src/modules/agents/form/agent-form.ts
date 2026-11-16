@@ -3,6 +3,7 @@
 // arrays. Pure helpers - no React imports - so they can be unit-tested.
 
 import type { AgentBody, ApiAgent, PanelSeat } from "@agent-office/domain/types";
+import { withPairedTools } from "@agent-office/domain/config/tools";
 
 export interface AgentFormValues {
   id: string;
@@ -27,7 +28,7 @@ export const EMPTY_FORM: AgentFormValues = {
   name: "",
   desc: "",
   skills: "",
-  tools: "Read, Write, Edit, Bash",
+  tools: toCsv(withPairedTools(["Read", "Write", "Edit", "Bash"])),
   pm: "bypassPermissions",
   model: "sonnet",
   effort: "high",

@@ -20,7 +20,7 @@ import { isYamlMapping, type YamlValue } from "../infra/yaml";
 import { hasAgentFrontmatter, mergeFrontmatter, opensFrontmatter, parseAgentFrontmatter, splitAgentFile } from "./frontmatter";
 import { buildSkillsBundle } from "../skills/skills";
 import { RESPONSE_STYLE } from "../../config/response-style";
-import { unknownTools, retiredToolHints } from "../../config/tools";
+import { unknownTools, retiredToolHints, withPairedTools } from "../../config/tools";
 import * as accounts from "../accounts/accounts";
 import * as githubAccounts from "../accounts/github-accounts";
 import * as secrets from "../accounts/secrets";
@@ -164,7 +164,7 @@ export function writeAgent(id: string, b: AgentPatch): WriteAgentResult {
   if (b.model !== undefined) owned["default-model"] = b.model;
   if (b.effort !== undefined) owned["default-effort"] = b.effort;
   if (b.skills) owned.skills = b.skills;
-  if (b.tools) owned.tools = b.tools;
+  if (b.tools) owned.tools = withPairedTools(b.tools);
   if (b.pm !== undefined) owned["permission-mode"] = b.pm;
   // Present but empty clears; the editor sends "" for a cleared field.
   if ("room" in b) owned.room = b.room || undefined;
@@ -363,6 +363,15 @@ export function buildProjectEnvironmentBlock(project: Project): string | null {
   return lines.length > 0 ? lines.join("\n") : null;
 }
 
+// composeAppendedPrompt also serves the polled context-cost route, so each tool warning is logged once per process.
+const warnedTools = new Set<string>();
+function warnToolsOnce(event: string, agentName: string, tools: string[], data: Record<string, unknown>): void {
+  const key = `${event}:${agentName}:${tools.join()}`;
+  if (warnedTools.has(key)) return;
+  warnedTools.add(key);
+  log.warn(event, data);
+}
+
 /**
  * The structured, itemized description of everything agent-office appends to
  * the agent's system prompt — the SINGLE source of truth for the composition.
@@ -396,13 +405,15 @@ export function composeAppendedPrompt(
   const declaredTools = agent?.info.tools ?? [];
   const badTools = unknownTools(declaredTools);
   if (badTools.length > 0) {
-    log.warn("agent.unknown_tools", { agent: agentName, tools: badTools });
+    warnToolsOnce("agent.unknown_tools", agentName, badTools, { agent: agentName, tools: badTools });
   }
   // Retired names are the common case: they read as valid but the CLI drops
   // them, so the agent silently never gets the capability.
   for (const { tool, hint } of retiredToolHints(declaredTools)) {
-    log.warn("agent.retired_tool", { agent: agentName, tool, use: hint });
+    warnToolsOnce("agent.retired_tool", agentName, [tool], { agent: agentName, tool, use: hint });
   }
+  const unpaired = withPairedTools(declaredTools).filter((t) => !declaredTools.includes(t));
+  if (unpaired.length > 0) warnToolsOnce("agent.unpaired_tools", agentName, unpaired, { agent: agentName, missing: unpaired });
 
   const declaredSkills = agent?.info.skills ?? [];
   if (declaredSkills.length > 0) {

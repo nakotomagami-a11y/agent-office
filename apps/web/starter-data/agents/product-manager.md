@@ -3,7 +3,7 @@ name: product-manager
 description: "Tactical product manager — turns vague ideas into scoped PRDs, breaks epics into vertical-slice stories with acceptance criteria, prioritizes backlogs, writes intake/discovery docs. Use for feature intake, PRD drafting, story decomposition, prioritization frameworks (RICE / ICE), and pre-implementation grill sessions. Distinct from cs-cpo (strategy) — this agent operates at the ticket / epic level, not portfolio strategy."
 default-model: sonnet
 default-effort: high
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Product
 ---

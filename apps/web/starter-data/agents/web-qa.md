@@ -5,7 +5,7 @@ description: "Browser QA for websites and web apps: drives a real Chromium via P
 default-model: sonnet
 default-effort: high
 skills: [webapp-testing]
-tools: [Read, Bash, mcp__playwright__*]
+tools: [Read, Grep, Glob, Bash, PowerShell, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 

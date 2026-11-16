@@ -48,6 +48,20 @@ test("every tool a SHIPPED agent declares actually exists", () => {
   assert.deepEqual(offenders, [], `shipped agents grant nothing silently:\n  ${offenders.join("\n  ")}`);
 });
 
+// Spelled out rather than taken from withPairedTools, so dropping a pair there cannot pass this.
+const COMPANIONS: Array<[string, string[]]> = [["Bash", ["PowerShell"]], ["PowerShell", ["Bash"]], ["Read", ["Grep", "Glob"]]];
+
+test("no shipped agent has a shell without the other shell, or Read without Grep and Glob", () => {
+  const offenders: string[] = [];
+  for (const f of readdirSync(DIR).filter((x) => x.endsWith(".md"))) {
+    for (const tools of declaredToolLists(f)) {
+      const missing = COMPANIONS.flatMap(([tool, needs]) => (tools.includes(tool) ? needs.filter((n) => !tools.includes(n)) : []));
+      if (missing.length > 0) offenders.push(`${f}: missing ${missing.join(", ")}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `on Windows without Git Bash, Bash alone is no shell (C16); Read alone cannot search (C10):\n  ${offenders.join("\n  ")}`);
+});
+
 test("no shipped agent is left with an empty tool list", () => {
   const empty: string[] = [];
   for (const f of readdirSync(DIR).filter((x) => x.endsWith(".md"))) {

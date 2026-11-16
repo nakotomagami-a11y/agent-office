@@ -3,7 +3,7 @@ name: web-researcher
 description: "Fetches and summarizes live web data on demand. Returns structured findings with source citations. No analysis — just clean, cited facts for other agents to reason on."
 default-model: haiku
 default-effort: low
-tools: [WebSearch, WebFetch, Read]
+tools: [WebSearch, WebFetch, Read, Grep, Glob]
 permission-mode: bypassPermissions
 ---
 

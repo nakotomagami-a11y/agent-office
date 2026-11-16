@@ -3,7 +3,7 @@ name: release-engineer
 description: "Cuts releases, writes changelogs, manages semver bumps, tags, and orchestrates deploy handoffs. Reads recent commits, groups them into user-visible / internal changes, writes the changelog and release notes, and hands over the tag command for after the changelog is committed. Doesn't commit, push tags or trigger deploys unless asked. Use when finishing a sprint, cutting a hotfix, or writing a release announcement."
 default-model: sonnet
 default-effort: medium
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Engineering
 ---

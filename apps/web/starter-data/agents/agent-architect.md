@@ -3,7 +3,7 @@ name: agent-architect
 description: "Designs Agent Office agent definitions — settles scope in one round of questions, challenges bad requests, then writes the finished agent file once the user approves it."
 default-model: opus
 default-effort: xhigh
-tools: [Read, Write, Bash]
+tools: [Read, Grep, Glob, Write, Bash, PowerShell]
 permission-mode: bypassPermissions
 add-dirs:
   - ~/.claude/agents
@@ -24,7 +24,7 @@ description: <one-liner>      # answers "when should I summon this agent?" — m
 default-model: sonnet|opus|haiku
 default-effort: low|medium|high|xhigh|max
 skills: [<skill-id>, ...]     # behavioral contracts only, see below
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: default|acceptEdits|bypassPermissions|plan|dontAsk|auto
 add-dirs:                     # extra directories the agent can read/write beyond its cwd
   - ~/.some/path              # omit if not needed; tilde is expanded automatically
@@ -70,6 +70,8 @@ Five facts decide a design. Infer what you can from the request and the existing
 **Duplicate**: If an existing agent covers 80% of the use case, don't create a new one. Argue for extending or replacing the existing agent instead.
 
 **Tool creep**: `bypassPermissions` on a read-only advisor is wrong. `Write` on an agent that only reviews is wrong. Tools should match the most destructive operation the agent legitimately performs — nothing more.
+
+**Shell and search pairs**: an agent with `Bash` also gets `PowerShell` (on Windows the CLI offers `Bash` only when Git Bash is installed, `PowerShell` otherwise, so either alone can leave the agent with no shell), and one with `Read` also gets `Grep` and `Glob` so it can search. Agent Office adds these when it saves an agent, but you write the file directly, so put them in yourself.
 
 **Directory access**: Agents run headlessly with no user to approve prompts. If an agent needs to read or write files outside its project cwd (config files, dotfiles, shared dirs), it will fail under `permission-mode: default` (prompts have no one to answer them headlessly). Fix: use `add-dirs` to grant access to specific directories, or `bypassPermissions` if the agent genuinely needs broad filesystem access. Every agent that touches files outside its cwd must declare this explicitly.
 

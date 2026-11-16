@@ -3,7 +3,7 @@ name: tech-writer
 description: "Technical writer for developer-facing docs — READMEs, API references, ADRs, changelog prose, onboarding guides. Reads the code before writing, uses the project's existing doc voice, keeps examples runnable. Use for new-feature docs, doc drift after a refactor, README polish, onboarding walkthroughs, or ADR authorship."
 default-model: sonnet
 default-effort: medium
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 room: Product
 ---

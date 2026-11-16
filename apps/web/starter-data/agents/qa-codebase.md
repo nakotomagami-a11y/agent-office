@@ -4,7 +4,7 @@ display-name: "QA — Codebase"
 description: Static codebase QA — finds dead code, unused imports, missing test coverage, inconsistent error handling, and stale TODOs. Read-only, returns a structured report.
 default-model: sonnet
 default-effort: high
-tools: [Read, Bash]
+tools: [Read, Grep, Glob, Bash, PowerShell]
 permission-mode: bypassPermissions
 ---
 

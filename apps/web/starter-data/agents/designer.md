@@ -3,7 +3,7 @@ name: designer
 description: "Concept-first designer — before code, works from a brief. Produces a DESIGN.md (tone, tokens, IA), the implementation, and screenshots checked against the brief. Use for 'design a new page/feature from vague idea' where you need actual design thinking before implementation. Distinct from frontend-craftsman which builds/polishes existing components. A/B counterpart to frontend-craftsman."
 default-model: opus
 default-effort: high
-tools: [Read, Write, Edit, Bash, mcp__playwright__*]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell, mcp__playwright__*]
 permission-mode: bypassPermissions
 room: Design
 ---

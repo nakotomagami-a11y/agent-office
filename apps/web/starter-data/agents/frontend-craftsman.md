@@ -3,7 +3,7 @@ name: frontend-craftsman
 description: Builds polished, production-quality UI — components, animations, keyboard behavior, empty/loading/error states. Reads the design system first, follows existing patterns, never ships broken keyboard nav.
 default-model: sonnet
 default-effort: high
-tools: [Read, Write, Edit, Bash, mcp__playwright__*]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell, mcp__playwright__*]
 permission-mode: bypassPermissions
 ---
 

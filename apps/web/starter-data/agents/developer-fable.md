@@ -3,7 +3,7 @@ name: developer-fable
 description: "Developer variant running on the Fable model — for A/B testing model quality on real feature work against the Opus developer + Sonnet developer-lite. Same discipline (reads before writing, follows conventions, no unrequested abstractions, no autocommit) — different model. Use when you want to compare Fable's output on the same task another dev tier just handled."
 default-model: fable
 default-effort: max
-tools: [Read, Write, Edit, Bash]
+tools: [Read, Grep, Glob, Write, Edit, Bash, PowerShell]
 permission-mode: bypassPermissions
 ---
 

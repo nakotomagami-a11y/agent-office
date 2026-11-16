@@ -4,7 +4,7 @@ display-name: "QA — Code Review"
 description: "Adversarial code review — reads a diff (or a set of files) and returns a MUST-FIX / SHOULD-FIX / NIT report. Indifferent to hurt feelings. Grounds every finding in a specific line + a specific rule. Hunts real bugs and design flaws, not just style. Distinct from qa-codebase (whole-codebase static analysis) — this is diff-scoped review."
 default-model: opus
 default-effort: high
-tools: [Read, Bash, Task, ReportFindings]
+tools: [Read, Grep, Glob, Bash, PowerShell, Task, ReportFindings]
 permission-mode: bypassPermissions
 ---
 
