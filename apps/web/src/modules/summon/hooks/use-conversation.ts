@@ -88,14 +88,6 @@ export function useResumeConversation() {
   });
 }
 
-export function useSkipConversation() {
-  const setView = useConversationInvalidate();
-  return useMutation({
-    mutationFn: (conversationId: string) => apiFetch<ConversationView>(API_ROUTES.conversationSkip(conversationId), { method: "POST" }),
-    onSuccess: setView,
-  });
-}
-
 export function useNewConversationThread() {
   const setView = useConversationInvalidate();
   return useMutation({

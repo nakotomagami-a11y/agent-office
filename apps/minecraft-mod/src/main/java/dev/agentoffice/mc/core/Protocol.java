@@ -43,6 +43,7 @@ public final class Protocol {
         public static final String CHUNK = "chunk";
         public static final String TOOL = "tool";
         public static final String TOOL_DONE = "tool-done";
+        public static final String INPUT = "input";
         public static final String USAGE = "usage";
         public static final String DONE = "done";
         public static final String ERROR = "error";
@@ -92,7 +93,7 @@ public final class Protocol {
 
     /** What a conversation can be told to do: each is its own route (API_ROUTES.conversationRetry, ...). */
     public enum Action {
-        RETRY, RESUME, SKIP, NEW;
+        RETRY, RESUME, NEW;
 
         /** "Retry": its button's label. */
         public String label() {

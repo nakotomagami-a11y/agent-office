@@ -51,7 +51,7 @@ function QueuedRow({ item, position, onCancel }: { item: QueuedMessage; position
           )}
           <span className="sr-only">{system ? "Agent Office" : "You"}</span>
           <span className="shrink-0 font-mono text-[10px] tracking-[0.06em] uppercase text-ao-fg-3">
-            queued{position ? ` ${position}` : ""}
+            waiting{position ? ` ${position}` : ""}
           </span>
           <span className="min-w-0 flex-1 truncate text-[13px] text-ao-fg-1" title={title}>{title}</span>
         </button>

@@ -581,6 +581,24 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
       if (exists) db.exec(`DELETE FROM ${table}`);
     }
   },
+  // v31 → v32: a chat's CLI process stays alive and takes messages mid-turn. Each message sent to it
+  // is a row; `run_id` is set when a turn reads it, and `opened_turn` marks the one that became the prompt.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS run_inputs (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        run_id TEXT,
+        text TEXT NOT NULL,
+        origin TEXT NOT NULL DEFAULT 'user',
+        opened_turn INTEGER NOT NULL DEFAULT 0,
+        sent_at INTEGER NOT NULL,
+        read_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS idx_run_inputs_conv ON run_inputs(conversation_id, sent_at);
+      CREATE INDEX IF NOT EXISTS idx_run_inputs_run ON run_inputs(run_id);
+    `);
+  },
 ];
 
 const LEGACY_TABLES = ["pipeline_steps", "pipelines", "transcripts"] as const; // children first (FK)
@@ -704,5 +722,6 @@ export function createSchema(db: Database.Database): void {
     if (v < 29) { MIGRATIONS[28]!(db); v = 29; db.pragma("user_version = 29"); }
     if (v < 30) { MIGRATIONS[29]!(db); v = 30; db.pragma("user_version = 30"); }
     if (v < 31) { MIGRATIONS[30]!(db); v = 31; db.pragma("user_version = 31"); }
+    if (v < 32) { MIGRATIONS[31]!(db); v = 32; db.pragma("user_version = 32"); }
   })();
 }

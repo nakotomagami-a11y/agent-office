@@ -66,18 +66,16 @@ export type ChatThreadProps = {
   /**
    * The id of the ONE error/interrupted item that represents the
    * conversation's current unresolved failure (the last turn, while the
-   * server-side conversation is parked `needs_attention`) — Retry/Resume/
-   * Skip only ever act on that turn (see execution/conversation-machine.ts),
+   * server-side conversation is parked `needs_attention`) — Retry/Resume
+   * only ever act on that turn (see execution/conversation-machine.ts),
    * so older, already-superseded historical error cards render with none of
-   * these three actions (there's nothing left for the server to act on).
+   * these actions (there's nothing left for the server to act on).
    */
   currentFailureItemId?: string | null;
   /** Re-run the exact prompt that failed (the current unresolved failure only). */
   onRetryFailedTurn?: () => void;
   /** Continue the same session as a new turn (current unresolved failure only). */
   onResumeFailedTurn?: () => void;
-  /** Discard the failed turn and advance the queue (current unresolved failure only). */
-  onSkipFailedTurn?: () => void;
   phase: ChatPhase;
   phaseHint?: string;
   /** Sub-agents still live in the live run; the live row counts them. */
@@ -155,7 +153,7 @@ function TurnLedger({ turn }: { turn: Turn }) {
   );
 }
 
-export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, currentFailureItemId, onRetryFailedTurn, onResumeFailedTurn, onSkipFailedTurn, phase, phaseHint, waitingAgents, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
+export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion, onSubmit, onRepairWorktree, onAbortRun, onDismissRateLimit, onDeleteMessage, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, canScheduleResume, currentFailureItemId, onRetryFailedTurn, onResumeFailedTurn, phase, phaseHint, waitingAgents, phaseStats, queuedMessages, onCancelQueuedMessage }: ChatThreadProps) {
   // Idempotent guard: collapse a user bubble that was double-added by a
   // resume / queue-drain / recovery effect re-firing (common because the dev
   // server restarts on any server-side edit and the panel replays the active
@@ -452,10 +450,10 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                           // shown anywhere else), so that one still renders.
                           if (item.kind === "system-done" && item.exitCode === 0) return null;
                           const isQuestion = questionIds.has(item.id);
-                          // Retry/Resume/Skip only ever act on the conversation's
+                          // Retry/Resume only ever act on the conversation's
                           // CURRENT unresolved failure — see currentFailureItemId's
                           // doc comment. An older, already-superseded error card
-                          // gets none of the three (nothing left for the server
+                          // gets neither (nothing left for the server
                           // to act on for it).
                           const isCurrentFailure = item.kind === "system-error" && item.id === currentFailureItemId;
                           const rlResetsAt = item.kind === "system-rate-limit" ? item.resetsAt : undefined;
@@ -472,7 +470,6 @@ export function ChatThread({ items: rawItems, agent, projectId, onPickSuggestion
                               onReply={isQuestion && onSubmit ? onSubmit : undefined}
                               onRetry={isCurrentFailure ? onRetryFailedTurn : undefined}
                               onResume={isCurrentFailure ? onResumeFailedTurn : undefined}
-                              onSkip={isCurrentFailure ? onSkipFailedTurn : undefined}
                               onRepair={
                                 isCurrentFailure && onRepairWorktree
                                   ? async () => {

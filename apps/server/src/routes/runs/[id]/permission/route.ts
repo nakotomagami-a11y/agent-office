@@ -19,16 +19,17 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const { value: runId, error: idError } = validateIdParam((await params).id);
+  const { value: id, error: idError } = validateIdParam((await params).id);
   if (idError) return idError;
 
   const raw: unknown = await request.json();
   const { data, error } = validateBody(permissionRequestSchema, raw);
   if (error) return error;
 
-  // A request for a run that is not live can never be answered — deny rather
-  // than park it forever.
-  if (!runs.isRunLive(runId)) {
+  // The bridge names its process; a chat process asks for the turn it is running. A request for no
+  // live run can never be answered — deny rather than park it forever.
+  const runId = runs.liveRunIdFor(id);
+  if (!runId) {
     return Response.json({ decision: "deny", reason: "run_not_live" });
   }
 

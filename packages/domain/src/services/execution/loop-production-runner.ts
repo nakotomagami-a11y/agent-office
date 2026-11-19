@@ -14,7 +14,7 @@ const fail = (code: string, message: string) => Object.assign(new Error(message)
 /** A busy chat is `already_running`, which is retryable: `rekickConversationLoops`
  *  tries again when the chat's turn ends. */
 async function startInConversation(conversationId: string, prompt: string, maxBudgetUsd?: number): Promise<string> {
-  const started = await conversation.startIfIdle(conversationId, prompt, productionConversationRunner, maxBudgetUsd);
+  const started = await conversation.startTurnIfIdle(conversationId, prompt, "system", productionConversationRunner, maxBudgetUsd);
   if ("code" in started) throw fail(started.code, `the chat could not start the round: ${started.code}`);
   return started.runId;
 }

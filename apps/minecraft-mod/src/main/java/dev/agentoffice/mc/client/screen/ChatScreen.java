@@ -163,15 +163,16 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
         }
         headerRight = hx;
 
-        // Composer: one line that grows with the text; Send beside it, or Stop + Queue while a run works.
+        // Composer: one line that grows with the text; Send beside it, and Stop while a run works. A
+        // message sent mid-run goes to the agent at once: it reads it at its next step.
         // The same box across rebuilds keeps the cursor; a new width needs a new box (MultiLineEditBox
         // fixes its wrap width when constructed), so the width is the same running or not, and leaves
         // room for the box's own scrollbar, which it draws outside itself.
         boolean running = conversation != null && conversation.running();
-        String sendLabel = running ? "Queue" : "Send";
+        String sendLabel = "Send";
         int sendW = buttonWidth(sendLabel);
         int stopW = buttonWidth("Stop");
-        int composerW = x1 - x0 - buttonWidth("Queue") - 4 - stopW - 4 - 8;
+        int composerW = x1 - x0 - sendW - 4 - stopW - 4 - 8;
         if (input == null || input.getWidth() != composerW) {
             String text = input == null ? "" : input.getValue();
             input = new MultiLineEditBox(font, x0, 0, composerW, 20,
@@ -232,7 +233,7 @@ public final class ChatScreen extends WorkspaceScreen implements ShowsImages {
             above -= ATTENTION_BAR;
             attentionY = above;
             int bx = wx1 - 3;
-            for (Protocol.Action action : new Protocol.Action[] {Protocol.Action.SKIP, Protocol.Action.RESUME, Protocol.Action.RETRY}) {
+            for (Protocol.Action action : new Protocol.Action[] {Protocol.Action.RESUME, Protocol.Action.RETRY}) {
                 int w = buttonWidth(action.label());
                 bx -= w;
                 addRenderableWidget(new FlatButton(bx, above + 3, w, 16, action.label(),

@@ -10,6 +10,7 @@ export * from "./connection";
 export * from "./runs";
 export * from "./cost-sql";
 export * from "./conversations";
+export * from "./run-inputs";
 export * from "./loops";
 export * from "./scheduled-jobs";
 export * from "./messages";

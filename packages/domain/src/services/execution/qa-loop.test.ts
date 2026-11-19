@@ -152,34 +152,21 @@ test("a fix round never pushes into a busy chat: it is refused as retryable and 
   assert.equal(db.getConversation(conv.id)!.activeRunId, "users-own-turn", "the user's turn is untouched");
 });
 
-test("startIfIdle: a failed start leaves the user's chat idle, not parked over a turn they never sent", async () => {
+const down = { ok: false as const, error: { status: 503, code: "claude_unavailable", message: "down" } };
+const failingRunner = {
+  deliver: async () => down,
+  redeliver: async () => down,
+  isBusy: () => false,
+  hasLiveProcess: () => false,
+  close: async () => {},
+};
+
+test("startTurnIfIdle: a failed start leaves the user's chat idle, not parked over a turn they never sent", async () => {
   const conversation = await import("./conversation");
   const conv = db.startNewConversation("developer", "dev-on", "proj");
-  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
-    startRun: async () => { throw Object.assign(new Error("down"), { code: "claude_unavailable" }); },
-  });
+  const r = await conversation.startTurnIfIdle(conv.id, "Round 2. Fix", "system", failingRunner);
   assert.deepEqual(r, { code: "claude_unavailable" }, "the real code survives, so the loop can retry");
   assert.equal(db.getConversation(conv.id)!.status, "idle");
-  assert.equal(db.listQueue(conv.id).length, 0);
-});
-
-test("startIfIdle: a message the user queued during a failed start is not lost, it starts next", async () => {
-  const conversation = await import("./conversation");
-  const conv = db.startNewConversation("developer", "dev-on", "proj");
-  const prompts: string[] = [];
-  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
-    startRun: async (i) => {
-      prompts.push(i.prompt);
-      if (prompts.length === 1) {
-        await conversation.sendMessageToConversation(conv.id, "users message", { startRun: async () => "never" });
-        throw Object.assign(new Error("down"), { code: "claude_unavailable" });
-      }
-      return "users-run";
-    },
-  });
-  assert.deepEqual(r, { code: "claude_unavailable" });
-  assert.deepEqual(prompts, ["Round 2. Fix", "users message"]);
-  assert.equal(db.getConversation(conv.id)!.activeRunId, "users-run");
   assert.equal(db.listQueue(conv.id).length, 0);
 });
 
@@ -210,19 +197,10 @@ test("the pill ranks a STOPPED or failed loop like a finished one, not above it"
   assert.equal(db.latestLoopForInstance("proj", "dev-on")!.id, passed);
 });
 
-test("a message whose start fails is put back at the head of the queue, not lost", async () => {
+test("an agent message whose start fails waits at the head of the queue, not lost", async () => {
   const conversation = await import("./conversation");
   const conv = db.startNewConversation("developer", "dev-on", "proj");
-  const down = async () => { throw Object.assign(new Error("down"), { code: "claude_unavailable" }); };
-  let calls = 0;
-  const r = await conversation.startIfIdle(conv.id, "Round 2. Fix", {
-    startRun: async () => {
-      if (++calls === 1) await conversation.sendMessageToConversation(conv.id, "users message", { startRun: down });
-      return down();
-    },
-  });
-  assert.deepEqual(r, { code: "claude_unavailable" });
-  assert.equal(calls, 2, "the fix round, then the user's message");
+  await conversation.sendMessageToConversation(conv.id, "review findings", failingRunner, undefined, "system");
   assert.equal(db.getConversation(conv.id)!.status, "needs_attention");
-  assert.deepEqual(db.listQueue(conv.id).map((m) => m.text), ["users message"], "both starts failed; the user's text survives");
+  assert.deepEqual(db.listQueue(conv.id).map((m) => m.text), ["review findings"]);
 });

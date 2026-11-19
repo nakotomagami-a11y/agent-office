@@ -40,9 +40,10 @@ function measure(file) {
 
 const ratio = (f) => measure(f).ratio;
 
+// New files count before they are committed; a tracked file deleted in the work tree is gone.
 const files = execFileSync("bash", ["-c",
-  `git ls-files '*.ts' '*.tsx' | grep -v '\\.test\\.' || true`], { encoding: "utf8" })
-  .split("\n").filter(Boolean);
+  `git ls-files -co --exclude-standard '*.ts' '*.tsx' | grep -v '\\.test\\.' || true`], { encoding: "utf8" })
+  .split("\n").filter((f) => f && existsSync(f));
 
 const base = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
 

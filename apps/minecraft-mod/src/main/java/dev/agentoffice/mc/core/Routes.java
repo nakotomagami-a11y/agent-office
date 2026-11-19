@@ -89,10 +89,6 @@ public final class Routes {
         return fill("/api/conversations/{id}/resume", conversationId);
     }
 
-    public static String conversationSkip(String conversationId) {
-        return fill("/api/conversations/{id}/skip", conversationId);
-    }
-
     public static String conversationNew(String conversationId) {
         return fill("/api/conversations/{id}/new", conversationId);
     }

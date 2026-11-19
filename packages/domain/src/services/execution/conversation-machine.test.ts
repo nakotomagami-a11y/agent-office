@@ -1,6 +1,5 @@
 /**
- * Locks in the exact failure modes from the chat incidents. Pure reducer, no
- * I/O — every reliability guarantee is asserted here.
+ * The conversation machine's guarantees. Pure reducer, no I/O.
  *
  *   pnpm --filter @agent-office/domain test src/services/execution/conversation-machine.test.ts
  */
@@ -23,8 +22,8 @@ function check(name: string, fn: () => void) {
 }
 
 const msg = (id: string, text = id, origin: MessageOrigin = "user") => ({ id, text, origin });
+const sys = (id: string) => msg(id, id, "system");
 
-/** Apply a sequence of actions, collecting all effects in order. */
 function run(state: ConversationState, actions: ConversationAction[]): { state: ConversationState; effects: ConversationEffect[] } {
   let s = state;
   const effects: ConversationEffect[] = [];
@@ -36,246 +35,132 @@ function run(state: ConversationState, actions: ConversationAction[]): { state: 
   return { state: s, effects };
 }
 
-// 1. Idle send starts immediately.
-check("idle send starts a run", () => {
+const working = (): ConversationState =>
+  run(initialConversationState(), [
+    { type: "send", message: msg("a") },
+    { type: "turnOpened", runId: "r1", prompt: "a", origin: "user" },
+  ]).state;
+
+check("an idle send goes to the agent at once", () => {
   const r = reduce(initialConversationState(), { type: "send", message: msg("a") });
   assert.equal(r.state.status, "running");
-  assert.equal(r.state.lastPrompt, "a");
-  assert.deepEqual(r.effects, [{ type: "startRun", prompt: "a", origin: "user", resumeSessionId: null }]);
+  assert.deepEqual(r.effects, [{ type: "deliver", message: msg("a") }]);
 });
 
-// 2. Sending while running queues (no second concurrent run).
-check("send while running queues, no effect", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-  ]);
-  assert.equal(state.status, "running");
-  assert.equal(state.activeRunId, "r1");
-  assert.deepEqual(state.queue.map((m) => m.id), ["b"]);
-  assert.equal(effects.length, 1); // only the first startRun
+check("a user message sent mid-turn goes to the agent at once too: nothing queues", () => {
+  const r = reduce(working(), { type: "send", message: msg("b") });
+  assert.deepEqual(r.effects, [{ type: "deliver", message: msg("b") }]);
+  assert.equal(r.state.queue.length, 0);
+  assert.equal(r.state.activeRunId, "r1", "the turn it lands in is still the one running");
 });
 
-// 3. FIFO drain order on successful finishes.
-check("queue drains strictly FIFO on success", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "send", message: msg("c") },
-    { type: "runFinished", runId: "r1", ok: true, sessionId: "s1" },
-    { type: "runStarted", runId: "r2" },
-    { type: "runFinished", runId: "r2", ok: true, sessionId: "s1" },
-    { type: "runStarted", runId: "r3" },
-    { type: "runFinished", runId: "r3", ok: true, sessionId: "s1" },
-  ]);
-  assert.deepEqual(effects.map((e) => e.prompt), ["a", "b", "c"]);
-  assert.equal(state.status, "idle");
-  assert.equal(state.queue.length, 0);
-  // Session captured on first success is reused for later turns.
-  assert.deepEqual(
-    effects.map((e) => e.resumeSessionId),
-    [null, "s1", "s1"],
-  );
+check("a user message after a failure goes through and clears it", () => {
+  const failed = run(working(), [{ type: "turnEnded", runId: "r1", ok: false }, { type: "idle" }]).state;
+  assert.equal(failed.status, "needs_attention");
+  const r = reduce(failed, { type: "send", message: msg("b") });
+  assert.equal(r.state.status, "running");
+  assert.equal(r.state.lastFailed, false);
+  assert.deepEqual(r.effects, [{ type: "deliver", message: msg("b") }]);
 });
 
-// 4. A failed turn does NOT auto-advance and does NOT re-run.
-check("failure pauses: needs_attention, queue preserved, no effect", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("queued-1") },
-    { type: "send", message: msg("queued-2") },
-    { type: "runFinished", runId: "r1", ok: false },
-  ]);
-  assert.equal(state.status, "needs_attention");
-  assert.equal(state.activeRunId, null);
-  assert.deepEqual(state.queue.map((m) => m.id), ["queued-1", "queued-2"]); // intact
-  assert.equal(effects.length, 1); // only the original startRun for "a" — nothing auto-fired
+check("Agent Office's own message waits while the agent works, and goes when it is idle", () => {
+  const queued = reduce(working(), { type: "send", message: sys("review") });
+  assert.deepEqual(queued.effects, []);
+  assert.deepEqual(queued.state.queue, [sys("review")]);
+  const ended = run(queued.state, [{ type: "turnEnded", runId: "r1", ok: true, sessionId: "s1" }]);
+  assert.deepEqual(ended.effects, [], "a turn's end alone does not drain: the process may have more to read");
+  const idle = reduce(ended.state, { type: "idle" });
+  assert.deepEqual(idle.effects, [{ type: "deliver", message: sys("review") }]);
+  assert.equal(idle.state.status, "running");
+  assert.equal(idle.state.queue.length, 0);
 });
 
-// 5. Retry re-runs the failed prompt, then the preserved queue resumes.
-check("retry then success resumes the preserved queue", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "runFinished", runId: "r1", ok: false },
-    { type: "retry" },
-    { type: "runStarted", runId: "r2" },
-    { type: "runFinished", runId: "r2", ok: true, sessionId: "s1" },
-    { type: "runStarted", runId: "r3" },
-    { type: "runFinished", runId: "r3", ok: true, sessionId: "s1" },
-  ]);
-  assert.deepEqual(effects.map((e) => e.prompt), ["a", "a", "b"]); // retry re-ran "a", then "b"
-  assert.equal(state.status, "idle");
-  assert.equal(state.queue.length, 0);
-});
-
-// 6. Resume continues the session, then the queue resumes.
-check("resume runs the continue-prompt, then drains queue", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "runFinished", runId: "r1", ok: false, sessionId: "s1" },
-    { type: "resume" },
-    { type: "runStarted", runId: "r2" },
-    { type: "runFinished", runId: "r2", ok: true, sessionId: "s1" },
-  ]);
-  assert.equal(effects[1]!.prompt, RESUME_PROMPT);
-  assert.equal(effects[1]!.resumeSessionId, "s1"); // resumes the failed run's session
-  assert.equal(state.status, "running"); // draining "b"
-  assert.equal(effects[2]!.prompt, "b");
-});
-
-// 7. Skip discards the failed turn and advances.
-check("skip discards failed turn and advances", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "runFinished", runId: "r1", ok: false },
-    { type: "skip" },
-  ]);
-  assert.equal(effects[effects.length - 1]!.prompt, "b");
-  assert.equal(state.status, "running");
-  assert.equal(state.queue.length, 0);
-});
-
-// 8. Skip with empty queue → idle.
-check("skip with empty queue goes idle", () => {
-  const { state } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "runFinished", runId: "r1", ok: false },
-    { type: "skip" },
-  ]);
-  assert.equal(state.status, "idle");
-});
-
-// 9. A finish for a non-active run is ignored (late/superseded finish guard).
-check("stale runFinished is ignored", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "runFinished", runId: "OLD", ok: true, sessionId: "sX" }, // not the active run
-  ]);
-  assert.equal(state.status, "running");
-  assert.equal(state.activeRunId, "r1");
-  assert.equal(state.sessionId, null); // stale session not adopted
-  assert.equal(effects.length, 1);
-});
-
-// 10. clearQueue / removeQueued only touch the queue.
-check("clearQueue and removeQueued manage pending items", () => {
-  const base = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "send", message: msg("c") },
+check("the agent queue drains one message per idle, in order", () => {
+  const s = run(working(), [
+    { type: "send", message: sys("x") },
+    { type: "send", message: sys("y") },
+    { type: "turnEnded", runId: "r1", ok: true },
   ]).state;
-  const removed = reduce(base, { type: "removeQueued", id: "b" }).state;
-  assert.deepEqual(removed.queue.map((m) => m.id), ["c"]);
-  const cleared = reduce(base, { type: "clearQueue" }).state;
-  assert.equal(cleared.queue.length, 0);
-  assert.equal(cleared.status, "running"); // clearing the queue doesn't stop the active run
+  const first = reduce(s, { type: "idle" });
+  assert.deepEqual(first.effects.map((e) => e.message.id), ["x"]);
+  const second = run(first.state, [{ type: "turnOpened", runId: "r2", prompt: "x", origin: "system" }, { type: "turnEnded", runId: "r2", ok: true }, { type: "idle" }]);
+  assert.deepEqual(second.effects.map((e) => e.message.id), ["y"]);
 });
 
-// 11. Resolving actions are no-ops unless needs_attention (can't retry a healthy run).
-check("retry/resume/skip are no-ops when not needs_attention", () => {
-  const running = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
+check("an idle chat with an empty queue takes a system message at once", () => {
+  const r = reduce(initialConversationState(), { type: "send", message: sys("wake") });
+  assert.deepEqual(r.effects, [{ type: "deliver", message: sys("wake") }]);
+});
+
+check("a failure pauses the agent queue until the user acts", () => {
+  const s = run(working(), [
+    { type: "send", message: sys("x") },
+    { type: "turnEnded", runId: "r1", ok: false },
+    { type: "idle" },
+  ]);
+  assert.equal(s.state.status, "needs_attention");
+  assert.deepEqual(s.effects, []);
+  assert.deepEqual(s.state.queue, [sys("x")], "kept, not dropped");
+  assert.deepEqual(reduce(s.state, { type: "send", message: sys("y") }).effects, [], "more system messages wait too");
+});
+
+check("idle before the turn's end is reported changes nothing: the end settles it", () => {
+  const r = reduce(working(), { type: "idle" });
+  assert.equal(r.state.status, "running");
+  assert.equal(r.state.activeRunId, "r1");
+});
+
+check("a late end from another turn cannot clobber the active one", () => {
+  const s = working();
+  const r = reduce(s, { type: "turnEnded", runId: "old", ok: false, sessionId: "zzz" });
+  assert.equal(r.state, s);
+});
+
+check("a turn's end hands on its session", () => {
+  const r = reduce(working(), { type: "turnEnded", runId: "r1", ok: true, sessionId: "s9" });
+  assert.equal(r.state.sessionId, "s9");
+  assert.equal(r.state.activeRunId, null);
+  assert.equal(reduce(r.state, { type: "turnEnded", runId: "r1", ok: true, sessionId: null }).state.sessionId, "s9");
+});
+
+check("a CLI-started turn (a background task's report) makes the chat busy", () => {
+  const r = reduce(initialConversationState(), { type: "turnOpened", runId: "bg", prompt: "Background work finished.", origin: "system" });
+  assert.equal(r.state.status, "running");
+  assert.equal(r.state.activeRunId, "bg");
+});
+
+check("retry sends the failed prompt again, with its origin", () => {
+  const failed = run(initialConversationState(), [
+    { type: "send", message: sys("fix") },
+    { type: "turnOpened", runId: "r1", prompt: "fix", origin: "system" },
+    { type: "turnEnded", runId: "r1", ok: false },
+    { type: "idle" },
   ]).state;
-  for (const type of ["retry", "resume", "skip"] as const) {
-    const r = reduce(running, { type });
-    assert.equal(r.state.status, "running");
-    assert.equal(r.effects.length, 0);
+  const r = reduce(failed, { type: "retry" });
+  assert.equal(r.effects.length, 1);
+  assert.equal(r.effects[0]!.message.text, "fix");
+  assert.equal(r.effects[0]!.message.origin, "system");
+  assert.equal(r.state.status, "running");
+});
+
+check("resume sends the continue prompt as the user's", () => {
+  const failed = run(working(), [{ type: "turnEnded", runId: "r1", ok: false }, { type: "idle" }]).state;
+  const r = reduce(failed, { type: "resume" });
+  assert.equal(r.effects[0]!.message.text, RESUME_PROMPT);
+  assert.equal(r.effects[0]!.message.origin, "user");
+});
+
+check("retry and resume do nothing unless the chat needs attention", () => {
+  for (const type of ["retry", "resume"] as const) {
+    assert.deepEqual(reduce(working(), { type }).effects, []);
+    assert.deepEqual(reduce(initialConversationState(), { type }).effects, []);
   }
 });
 
-// Origin: Agent Office writes into conversations through the same path the
-// user's reply box uses. Before `origin` existed, its messages were stored and
-// rendered as the user's — same avatar, same bubble, same queue.
-check("a system message keeps its origin into the run effect", () => {
-  const r = reduce(initialConversationState(), { type: "send", message: msg("w", "wake", "system") });
-  assert.deepEqual(r.effects, [{ type: "startRun", prompt: "wake", origin: "system", resumeSessionId: null }]);
-  assert.equal(r.state.lastOrigin, "system");
-});
-
-check("a system message queued behind a run keeps its origin when it drains", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a", "mine") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("w", "wake", "system") },
-    { type: "runFinished", runId: "r1", ok: true },
-  ]);
-  assert.equal(state.lastOrigin, "system", "the drained message must not become the user's");
-  assert.deepEqual(effects.at(-1), { type: "startRun", prompt: "wake", origin: "system", resumeSessionId: null });
-});
-
-check("retrying a system turn does not relabel it as the user's", () => {
-  const { effects } = run(initialConversationState(), [
-    { type: "send", message: msg("w", "wake", "system") },
-    { type: "runStarted", runId: "r1" },
-    { type: "runFinished", runId: "r1", ok: false },
-    { type: "retry" },
-  ]);
-  assert.equal(effects.at(-1)?.origin, "system");
-});
-
-check("Resume is the user's action, whatever the failed turn was", () => {
-  // The user pressed the button, so the prompt is genuinely theirs — the
-  // inverse mislabel would be just as wrong.
-  const { effects } = run(initialConversationState(), [
-    { type: "send", message: msg("w", "wake", "system") },
-    { type: "runStarted", runId: "r1" },
-    { type: "runFinished", runId: "r1", ok: false },
-    { type: "resume" },
-  ]);
-  assert.equal(effects.at(-1)?.origin, "user");
-});
-
-// B16: a scheduled resume fires outside the send flow; the parked conversation
-// must adopt it, or its finish is dropped as foreign and the chat stays parked.
-const adopt = (runId: string, resumeSessionId: string | null = "s1"): ConversationAction =>
-  ({ type: "runAdopted", runId, prompt: "resume", origin: "user", resumeSessionId });
-
-check("a parked conversation adopts a scheduled resume and its finish resolves it", () => {
-  const { state, effects } = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "send", message: msg("b") },
-    { type: "runFinished", runId: "r1", ok: false, sessionId: "s1" },
-    adopt("sched"),
-  ]);
-  assert.equal(state.status, "running");
-  assert.equal(state.activeRunId, "sched");
-  assert.equal(state.lastPrompt, "resume");
-  assert.deepEqual(state.queue.map((m) => m.id), ["b"]);
-  assert.equal(effects.length, 1, "adopting starts nothing");
-  const done = reduce(state, { type: "runFinished", runId: "sched", ok: true, sessionId: "s2" });
-  assert.deepEqual(done.effects, [{ type: "startRun", prompt: "b", origin: "user", resumeSessionId: "s2" }]);
-});
-
-check("a scheduled resume never takes a live or starting turn", () => {
-  const live = run(initialConversationState(), [{ type: "send", message: msg("a") }, { type: "runStarted", runId: "r1" }]).state;
-  assert.equal(reduce(live, adopt("x")).state, live);
-  const starting = reduce(initialConversationState(), { type: "send", message: msg("a") }).state;
-  assert.equal(reduce(starting, adopt("x")).state, starting);
-});
-
-check("a scheduled resume of a session the conversation moved past is not adopted", () => {
-  const parked = run(initialConversationState(), [
-    { type: "send", message: msg("a") },
-    { type: "runStarted", runId: "r1" },
-    { type: "runFinished", runId: "r1", ok: false, sessionId: "newer" },
-  ]).state;
-  assert.equal(reduce(parked, adopt("x", "older")).state.status, "needs_attention");
-  assert.equal(reduce(parked, adopt("x", "newer")).state.activeRunId, "x");
-  assert.equal(reduce(initialConversationState(), adopt("x", null)).state.activeRunId, "x", "no session yet: nothing to hand over");
+check("the agent queue can be edited", () => {
+  const s = run(working(), [{ type: "send", message: sys("x") }, { type: "send", message: sys("y") }]).state;
+  assert.deepEqual(reduce(s, { type: "removeQueued", id: "x" }).state.queue, [sys("y")]);
+  assert.deepEqual(reduce(s, { type: "clearQueue" }).state.queue, []);
 });
 
 console.log(`\n${passed} passed`);

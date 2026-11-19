@@ -47,3 +47,18 @@ test("a replayed sub-agent keeps the server's start and duration, not the reconn
   assert.equal(card?.kind === "agent-subagent" ? card.startTs : undefined, 1_000);
   assert.equal(card?.kind === "agent-subagent" ? card.durationMs : undefined, 4_000);
 });
+
+test("a message read mid-turn lands where it was read, ends the bubble above it, and is not doubled by a replay", () => {
+  const empty = { thread: [], usage: { tokensIn: 0, tokensOut: 0, cost: 0 } };
+  const chunk = parseSseEvent("chunk", { runId: "r1", text: "working on it" });
+  const input = parseSseEvent("input", { runId: "r1", id: "in-2", text: "also add tests", origin: "user", ts: 5 });
+  assert.ok(chunk && input);
+  const afterChunk = applySseEvent(empty, chunk);
+  const afterInput = applySseEvent(afterChunk, input);
+  assert.deepEqual(afterInput.thread.map((it) => it.kind), ["agent-text", "you"]);
+  assert.equal(afterInput.thread[0]?.kind === "agent-text" && afterInput.thread[0].streaming, false);
+  assert.equal(afterInput.thread[1]?.id, "in-2");
+  const more = applySseEvent(afterInput, chunk);
+  assert.deepEqual(more.thread.map((it) => it.kind), ["agent-text", "you", "agent-text"], "the answer after it is a new bubble");
+  assert.equal(applySseEvent(afterInput, input).thread.length, 2);
+});

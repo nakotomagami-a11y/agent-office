@@ -284,7 +284,7 @@ public final class ChatSession {
         List<Transcript.Item> items = new ArrayList<>(history);
         if (live != null) items.addAll(live.items());
         if (conversation != null && conversation.queued() > 0) {
-            items.add(new Transcript.Note(conversation.queued() + " message(s) queued — they run after this one.", false));
+            items.add(new Transcript.Note(conversation.queued() + " Agent Office message(s) waiting for the agent to finish.", false));
         }
         listener.items(items);
     }
@@ -424,7 +424,7 @@ public final class ChatSession {
         });
     }
 
-    /** Retry, resume or skip after needs_attention, or a new thread. */
+    /** Retry or resume after needs_attention, or a new thread. */
     public void act(Protocol.Action action) {
         if (busy || conversation == null) return;
         String id = conversation.id();
@@ -532,6 +532,6 @@ public final class ChatSession {
             case Protocol.Conversation.NEEDS_ATTENTION -> "Needs attention";
             default -> "Idle";
         };
-        return c.queued() > 0 ? base + "  ·  " + c.queued() + " queued" : base;
+        return c.queued() > 0 ? base + "  ·  " + c.queued() + " waiting" : base;
     }
 }

@@ -20,12 +20,10 @@ export function ProviderErrorCard({
   code,
   detail,
   onRetry,
-  onSkip,
 }: {
   code: string;
   detail?: string;
   onRetry?: () => void;
-  onSkip?: () => void;
 }) {
   const t = useTranslations("errors.run");
   const te = useTranslations("errors.provider");
@@ -37,7 +35,6 @@ export function ProviderErrorCard({
   const actions: FlagAction[] = [
     { key: "settings", label: t(`${code}.action`), tone: "primary", onClick: () => router.push(PAGE_ROUTES.settingsProvider) },
     ...(retryHelps ? [{ key: "retry", label: tp("run_retry"), tone: "neutral", onClick: onRetry, disabled: !onRetry } satisfies FlagAction] : []),
-    { key: "skip", label: tp("run_skip"), tone: "neutral", onClick: onSkip, disabled: !onSkip },
   ];
   return (
     <FlagCard

@@ -61,11 +61,21 @@
       "costBasis": "notional"
     }
   ],
+  "pending": [
+    {
+      "id": "input-1",
+      "text": "And test it",
+      "origin": "user",
+      "runId": null,
+      "sentAt": 1767225600000,
+      "readAt": null
+    }
+  ],
   "queue": [
     {
       "id": "queued-1",
-      "text": "And test it",
-      "origin": "user",
+      "text": "Review found 2 issues",
+      "origin": "system",
       "attachments": null,
       "position": 0,
       "createdAt": 1767225600000

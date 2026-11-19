@@ -112,7 +112,7 @@ test("the desktop app's open tabs, stored as JSON in a ui setting", async () => 
   await json("ui-settings.json", route.GET());
 });
 
-test("a running conversation: finished turn with tool calls, active run, queue; and its pending permission", async () => {
+test("a running conversation: finished turn with tool calls, active run, an unread message, the agent queue; and its pending permission", async () => {
   const conv = db.ensureConversation("developer", "developer-fx01", "alpha");
   stand.push([conv.id, "conv-1"]);
   const base = { agentId: "developer", agentName: "developer", instanceId: "developer-fx01", projectId: "alpha", model: "opus", effort: "high", conversationId: conv.id };
@@ -121,7 +121,9 @@ test("a running conversation: finished turn with tool calls, active run, queue; 
   db.updateRun("run-done", { status: "done", exitCode: 0, output: "Read it.", tokensIn: 1200, tokensOut: 34, costUsd: 0.05, durMs: 4000, endedAt: T0 });
   db.insertRun({ ...base, id: "run-live", status: "running", prompt: "Now fix it", startedAt: T0 + 1 });
   db.updateConversation(conv.id, { status: "running", activeRunId: "run-live" });
-  db.replaceQueue(conv.id, [{ id: "queued-fixture", text: "And test it" }]);
+  db.insertRunInput({ id: "input-fixture", conversationId: conv.id, text: "And test it", origin: "user", sentAt: T0 + 2 });
+  stand.push(["input-fixture", "input-1"]);
+  db.replaceQueue(conv.id, [{ id: "queued-fixture", text: "Review found 2 issues", origin: "system" }]);
   stand.push(["queued-fixture", "queued-1"]);
 
   const conversations = await import("./routes/conversations/route");
@@ -139,6 +141,7 @@ test("a run's stream: every event the mod's transcript reads", async () => {
     { name: "tool", data: { runId, name: "Read", toolUseId: "toolu-2", ts: T0 } },
     { name: "tool", data: { runId, name: "Read", toolUseId: "toolu-2", input: { file_path: "a.ts" }, ts: T0 } },
     { name: "tool-done", data: { runId, toolUseId: "toolu-2", ts: T0 } },
+    { name: "input", data: { runId, id: "input-2", text: "Check b.ts too", origin: "user", ts: T0 } },
     { name: "subagent", data: { type: "subagent", parentRunId: runId, subRunId: "sub-1", agentId: "qa-code-review", prompt: "Review", status: "running", startTs: T0 } },
     { name: "subagent-update", data: { type: "subagent-update", subRunId: "sub-1", status: "running", currentTool: "Grep", tokensIn: 5, tokensOut: 6, cost: 0.01, lastOutputLine: "Reading the diff" } },
     { name: "rate-limit", data: { runId, message: "Approaching your usage limit", severity: "warning" } },

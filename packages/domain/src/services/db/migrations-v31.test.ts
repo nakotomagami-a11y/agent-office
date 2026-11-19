@@ -25,7 +25,7 @@ test("v31 empties the legacy tables after backing up their rows, and keeps them"
 
   createSchema(db);
 
-  assert.equal(db.pragma("user_version", { simple: true }), 31);
+  assert.ok((db.pragma("user_version", { simple: true }) as number) >= 31);
   const left = tables(db);
   for (const t of ["transcripts", "pipelines", "pipeline_steps"]) {
     assert.ok(left.includes(t), `${t} was dropped; an older build sharing the db still reads it`);

@@ -24,6 +24,7 @@ import { getDb } from "../db";
 import { log } from "../infra/log";
 import { decryptSecret, encryptSecret } from "./secret-crypto";
 import { isReservedEnvName } from "../../config/providers";
+import { redactSecrets, scrubMaskedKeys } from "../execution/runs/errors";
 
 const execFileAsync = promisify(execFile);
 
@@ -286,7 +287,8 @@ export function verifyForProject(projectId: string): { name: string; output: str
   for (const secret of listRawForProject(projectId)) {
     if (!secret.verifyBeforeRun || !secret.testCmd) continue;
     const result = test(secret.id);
-    if (result && !result.ok) return { name: secret.name, output: result.output };
+    // The output reaches API responses and error cards: a verbose test command can echo the value.
+    if (result && !result.ok) return { name: secret.name, output: scrubMaskedKeys(redactSecrets(result.output, [secret.value]) ?? "") };
   }
   return null;
 }

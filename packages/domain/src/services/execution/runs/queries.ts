@@ -12,7 +12,7 @@ import type { LiveRun } from "./types";
 /** What the run row will say: the provider, what its cost means so far, and why it failed. */
 const providerFields = (r: LiveRun): Pick<PersistedRun, "provider" | "costBasis" | "errorCode" | "errorDetail"> => ({
   provider: r.provider,
-  costBasis: r.costBasis ?? runCost(r.id, r.provider, r.cost).costBasis,
+  costBasis: r.costBasis ?? runCost(r.host?.ownerId ?? r.id, r.provider, r.cost).costBasis,
   errorCode: r.error?.code,
   errorDetail: r.error?.detail,
 });

@@ -13,6 +13,9 @@ data: {"runId":"run-stream","name":"Read","toolUseId":"toolu-2","input":{"file_p
 event: tool-done
 data: {"runId":"run-stream","toolUseId":"toolu-2","ts":1767225600000}
 
+event: input
+data: {"runId":"run-stream","id":"input-2","text":"Check b.ts too","origin":"user","ts":1767225600000}
+
 event: subagent
 data: {"type":"subagent","parentRunId":"run-stream","subRunId":"sub-1","agentId":"qa-code-review","prompt":"Review","status":"running","startTs":1767225600000}
 

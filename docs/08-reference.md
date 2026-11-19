@@ -114,7 +114,7 @@ All routes are served by the Next.js backend embedded in the Tauri shell. Base U
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/summon` | Spawn `claude` subprocess for one agent |
+| `POST` | `/api/summon` | Send a message to an agent seat's chat; answers `{ runId, conversationId }`, the run that reads it |
 | `GET` | `/api/runs` | List runs (`?agent=&project=&instance=&limit=`) |
 | `GET` | `/api/runs/:id` | Get single run |
 | `GET` | `/api/runs/:id/stream` | SSE stream — live or replay finished |
@@ -165,13 +165,12 @@ Server-authoritative chat threads, one per (agent, instance) slot — see `docs/
 |---|---|---|
 | `GET` | `/api/conversations?agentId=&instanceId=` | The slot's current conversation, or null |
 | `POST` | `/api/conversations` | Get or create the slot's current conversation `{ agentId, instanceId?, projectId? }` |
-| `POST` | `/api/conversations/:id/messages` | Send a message `{ text }`: starts a turn when idle, queues it otherwise |
+| `POST` | `/api/conversations/:id/messages` | Send a message `{ text }`: the chat's live process reads it at once, mid-turn or as its next turn. Agent Office's own messages wait for idle |
 | `POST` | `/api/conversations/:id/new` | New thread for the same slot, with a fresh session; the old one is kept |
 | `POST` | `/api/conversations/:id/resume` | `needs_attention`: continue the session as a new turn |
 | `POST` | `/api/conversations/:id/retry` | `needs_attention`: re-run the prompt that failed |
-| `POST` | `/api/conversations/:id/skip` | `needs_attention`: drop the failed turn and move to the next queued message |
-| `DELETE` | `/api/conversations/:id/queue` | Clear the pending queue |
-| `DELETE` | `/api/conversations/:id/queue/:messageId` | Remove one queued message |
+| `DELETE` | `/api/conversations/:id/queue` | Clear the agent queue (Agent Office's own messages waiting for idle) |
+| `DELETE` | `/api/conversations/:id/queue/:messageId` | Remove one message from the agent queue |
 
 ### Loops
 
@@ -400,6 +399,7 @@ data: <json>
 | `chunk` | `runId, text` | Each text delta and completed assistant block |
 | `tool` | `runId, name, input?, toolUseId?, ts?` | Each `tool_use` content block start |
 | `tool-done` | `runId, toolUseId, ts, backgrounded?` | That call's result arrived, or its run ended without one |
+| `input` | `runId, id, text, origin, ts` | The agent read a message sent while this turn ran |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message usage update and final result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Process exit — run finalised in SQLite |
 | `error` | `runId, code, detail?, interrupted?, remediation` | Spawn error or `is_error` result. `code` is a `RunErrorCode`; `remediation` is the agent-facing fix for it |
@@ -507,7 +507,8 @@ Chat-format history. One row per assistant / user message. Full-text-indexed via
 
 - `tool_calls` — one row per tool_use content block
 - `conversations` — server-authoritative conversation state: `id`, `agent_id`, `instance_id`, `project_id`, `session_id`, `status` (`idle`\|`running`\|`needs_attention`), `active_run_id`, `created_at`, `updated_at`. `runs.conversation_id` links a run to its conversation. See `docs/chat-refactor.md`. It replaced the legacy `transcripts` table; v31 emptied that and the unused `pipelines`/`pipeline_steps`, after copying any rows to `~/.claude/agent-office/backups/`. The empty tables stay until no installed build reads them.
-- `queued_messages` — messages typed while a run is in flight: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at` — dispatched in order once the run finishes.
+- `queued_messages` — the agent queue, Agent Office's own (`system`) messages waiting for the chat to go idle: `id`, `conversation_id` (FK), `text`, `attachments`, `position`, `created_at`, `origin`.
+- `run_inputs` — every message sent to a chat's live process: `id`, `conversation_id` (FK), `run_id` (the turn that read it; NULL while unread), `text`, `origin`, `opened_turn`, `sent_at`, `read_at`.
 - `background_shells` — a `run_in_background` Bash shell an agent spawned: `id`, `run_id` (FK), agent/instance/project fields, `pid`, `command`, `description`, `started_at`.
 - `agent_context_measurements` — agent-scoped (PK `agent_id`) result of the Context & Cost tab's "Measure exactly" probe: `cc_base_and_tools_tokens`, `mcp_tokens`, `mcp_server_names`, `measured_at`.
 - `mission_seats` — the mission seats this device holds: chat, hub branch, pinned lead + manifest, cursor, spend cap. The mission itself lives on GitHub (`docs/missions.md`).

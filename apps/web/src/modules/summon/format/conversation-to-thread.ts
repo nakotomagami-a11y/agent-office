@@ -45,6 +45,23 @@ function withSubAgents(tools: Array<ThreadItem & { kind: "agent-tool" }>, turn: 
   return [...out, ...tools.slice(t)];
 }
 
+const itemTs = (it: ThreadItem): number | undefined =>
+  it.kind === "agent-tool" ? it.ts : it.kind === "agent-subagent" ? it.startTs : undefined;
+
+/** Messages the agent read mid-turn, each before the first call made after it read it. */
+function withInputs(items: ThreadItem[], turn: PersistedRun): ThreadItem[] {
+  if (!turn.inputs?.length) return items;
+  const out = [...items];
+  for (const input of turn.inputs) {
+    const read = input.readAt ?? input.sentAt;
+    const at = out.findIndex((it) => (itemTs(it) ?? -Infinity) > read);
+    const item: ThreadItem = { kind: "you", id: input.id, text: input.text, origin: input.origin, ts: read };
+    if (at === -1) out.push(item);
+    else out.splice(at, 0, item);
+  }
+  return out;
+}
+
 export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
   const items: ThreadItem[] = [{ kind: "you", id: `${turn.id}_you`, text: turn.prompt, origin: turn.origin, ts: turn.ts }];
   const tools: Array<ThreadItem & { kind: "agent-tool" }> = [];
@@ -74,7 +91,7 @@ export function turnToThreadItems(turn: PersistedRun): ThreadItem[] {
       runId: turn.id,
     });
   }
-  items.push(...withSubAgents(tools, turn));
+  items.push(...withInputs(withSubAgents(tools, turn), turn));
   if (turn.output && turn.output.trim().length > 0) {
     items.push({ kind: "agent-text", id: `${turn.id}_out`, text: turn.output, streaming: false });
   }

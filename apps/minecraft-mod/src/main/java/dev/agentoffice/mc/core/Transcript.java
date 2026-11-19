@@ -134,6 +134,11 @@ public final class Transcript {
                     int at = toolAt(text(data, "toolUseId"));
                     if (at >= 0 && items.get(at) instanceof Tool t) items.set(at, new Tool(t.id(), t.name(), t.arg(), false));
                 }
+                case Protocol.Event.INPUT -> {
+                    // A message the agent read mid-turn sits where it read it (parse-sse-event.ts).
+                    closeStreaming();
+                    items.add(new You(text(data, "text"), "system".equals(text(data, "origin"))));
+                }
                 case Protocol.Event.SUBAGENT -> {
                     // The spawn's tool row was suppressed; this card stands in for it (parse-sse-event.ts).
                     SubAgent card = new SubAgent(text(data, "subRunId"), text(data, "agentId"), text(data, "status"), null, null);

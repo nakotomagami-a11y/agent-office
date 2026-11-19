@@ -267,7 +267,7 @@ public final class AgentOfficeClient {
         return res.body().length > 0 ? Optional.of(res.body()) : Optional.empty();
     }
 
-    /** Starts a turn, or queues it if the agent is busy (server decides). */
+    /** Sends a message: the agent reads it at once, mid-turn or as its next turn. */
     public Api.Conversation send(String conversationId, String text) throws IOException {
         writable();
         JsonObject body = new JsonObject();
@@ -276,19 +276,18 @@ public final class AgentOfficeClient {
         return parse(() -> conversation(el));
     }
 
-    /** {@code action}: retry, resume or skip (after needs_attention), or new (a fresh thread). */
+    /** {@code action}: retry or resume (after needs_attention), or new (a fresh thread). */
     public Api.Conversation act(String conversationId, Protocol.Action action) throws IOException {
         writable();
         JsonElement el = call(post(switch (action) {
             case RETRY -> Routes.conversationRetry(conversationId);
             case RESUME -> Routes.conversationResume(conversationId);
-            case SKIP -> Routes.conversationSkip(conversationId);
             case NEW -> Routes.conversationNew(conversationId);
         }, new JsonObject()));
         return parse(() -> conversation(el));
     }
 
-    /** Stops a run; the conversation then needs attention (retry or skip). */
+    /** Stops a run; the conversation then needs attention (retry, resume, or just send). */
     public boolean abort(String runId) throws IOException {
         writable();
         JsonElement el = call(post(Routes.runAbort(runId), new JsonObject()));

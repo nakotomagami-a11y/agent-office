@@ -321,7 +321,7 @@ class ChatSessionTest {
     @Test
     void statusReadsLikeTheWebChat() {
         assertEquals("Idle", ChatSession.statusText(new Api.Conversation("c", "a", "i", "p", "idle", null, List.of(), 0)));
-        assertEquals("Working…  ·  2 queued",
+        assertEquals("Working…  ·  2 waiting",
                 ChatSession.statusText(new Api.Conversation("c", "a", "i", "p", "running", "r", List.of(), 2)));
     }
 }

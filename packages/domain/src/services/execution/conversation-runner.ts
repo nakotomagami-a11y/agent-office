@@ -1,39 +1,12 @@
-/**
- * Production {@link ConversationRunner} — the bridge from the pure
- * conversation service to the real run engine. Split into a pure mapping
- * function (`buildSummonRequest`, unit-tested) and a thin `startRun` that
- * calls `summon-run.startSummonRun` for real, so the risk surface (translating
- * a conversation's start-run effect into a `SummonRequest`) is testable
- * without spawning `claude`.
- */
-import type { SummonRequest } from "../../types/index";
-import { startSummonRun } from "./summon-run";
-import type { ConversationRunner, StartRunInput } from "./conversation";
-
-export function buildSummonRequest(input: StartRunInput): SummonRequest {
-  return {
-    agentId: input.agentId,
-    prompt: input.prompt,
-    origin: input.origin,
-    // "default" is the DB's null-instance sentinel (see transcriptKey) — the
-    // rest of the summon path expects it omitted,
-    // not the literal string, for the default slot.
-    instanceId: input.instanceId === "default" ? undefined : input.instanceId,
-    projectId: input.projectId ?? undefined,
-    resumeSessionId: input.resumeSessionId ?? undefined,
-    conversationId: input.conversationId,
-    contextProfile: input.contextProfile,
-    maxBudgetUsd: input.maxBudgetUsd,
-  };
-}
+// The production ConversationRunner: a conversation's messages go to its live CLI process
+// (execution/chat-session.ts). Tests inject a fake instead (conversation.test.ts).
+import * as chatSession from "./chat-session";
+import type { ConversationRunner } from "./conversation";
 
 export const productionConversationRunner: ConversationRunner = {
-  async startRun(input) {
-    const req = buildSummonRequest(input);
-    const result = await startSummonRun(req);
-    if ("error" in result) {
-      throw Object.assign(new Error(result.error.message), { code: result.error.code });
-    }
-    return result.runId;
-  },
+  deliver: (conv, input, opts) => chatSession.deliver(conv, input, opts),
+  redeliver: (conv) => chatSession.redeliverPending(conv),
+  isBusy: (convId) => chatSession.isBusy(convId),
+  hasLiveProcess: (convId) => chatSession.hasLiveProcess(convId),
+  close: (convId) => chatSession.closeSession(convId),
 };

@@ -94,10 +94,14 @@ export function disabledMcpServers(instance: AgentInstance | null, agentTools: r
 /** A server-level deny drops every tool of that server for the agent and its sub-agents (checked
  *  against the CLI's system/init tool list); other servers are untouched. Names are normalised the
  *  way the CLI prefixes tools (`claude.ai Gmail` → `mcp__claude_ai_Gmail`). */
-export function disabledMcpArgs(servers: readonly string[]): string[] {
-  if (servers.length === 0) return [];
-  return ["--disallowedTools", servers.map((name) => `mcp__${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`).join(",")];
+export function disabledMcpArgs(servers: readonly string[], tools: readonly string[] = []): string[] {
+  const denied = [...servers.map((name) => `mcp__${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`), ...tools];
+  if (denied.length === 0) return [];
+  return ["--disallowedTools", denied.join(",")];
 }
+
+/** Fire only while stdin is open (a chat process): the agent would prompt itself later, unwatched. */
+export const SELF_SCHEDULING_TOOLS = ["ScheduleWakeup", "CronCreate", "CronDelete", "CronList"] as const;
 
 /** Fully-qualified name of the tool the CLI calls to ask for approval. */
 export const PERMISSION_TOOL = "mcp__agent-office__permission_prompt";
@@ -121,6 +125,8 @@ export function buildClaudeArgs(opts: {
   isolate?: boolean;
   appendedSystemPrompt: string;
   priorContext?: string;
+  /** A chat process: stdin stays open and takes JSON messages for as long as it lives (execution/chat-session.ts). */
+  streamInput?: boolean;
 }): BuiltCommand {
   const { request, agent, instance, appendedSystemPrompt, priorContext } = opts;
 
@@ -133,6 +139,7 @@ export function buildClaudeArgs(opts: {
     "--include-partial-messages",
     "--verbose",
   ];
+  if (opts.streamInput) args.push("--input-format", "stream-json", "--replay-user-messages");
 
   const model = request.model ?? instance?.model ?? agent.defaultModel ?? "default";
   const effort = request.effort ?? instance?.effort ?? agent.defaultEffort ?? "default";
@@ -152,7 +159,7 @@ export function buildClaudeArgs(opts: {
   const onHubBranch = opts.isolate ?? isMissionWorktree(instance);
   if (onHubBranch) args.push("--setting-sources", "user");
   args.push(...mcpArgs({ strict: onHubBranch, withPermissionServer: needsPermissionServer }));
-  args.push(...disabledMcpArgs(disabledMcpServers(instance, agent.tools ?? [])));
+  args.push(...disabledMcpArgs(disabledMcpServers(instance, agent.tools ?? []), opts.streamInput ? SELF_SCHEDULING_TOOLS : []));
   for (const dir of agent.addDirs ?? []) args.push("--add-dir", dir.replace(/^~/, homedir()));
   let systemPromptFile: string | undefined;
   if (appendedSystemPrompt) {

@@ -10,7 +10,6 @@ import {
   useSendConversationMessage,
   useRetryConversation,
   useResumeConversation,
-  useSkipConversation,
   useNewConversationThread,
   useRemoveQueuedMessage,
   useClearConversationQueue,
@@ -72,7 +71,6 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
   const sendMut = useSendConversationMessage();
   const retryMut = useRetryConversation();
   const resumeMut = useResumeConversation();
-  const skipMut = useSkipConversation();
   const newThreadMut = useNewConversationThread();
   const removeQueuedMut = useRemoveQueuedMessage();
   const clearQueueMut = useClearConversationQueue();
@@ -127,12 +125,11 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
         liveItems.push(...turnToThreadItems(liveTurn));
       }
       // The server is authoritative: if it reports the conversation as parked,
-      // the user MUST have a resolvable failure card to unblock the queue. The
-      // live SSE replay does NOT reliably yield a system-error for an
-      // interrupted / orphan-reaped run (exit -1, empty output, no persisted
-      // error event, dropped from the live registry after a server restart) —
-      // without one, `currentFailureItemId` stays null and Retry/Resume/Skip
-      // render disabled, stranding the queue forever. Guarantee the live turn
+      // the user MUST have a failure card with Retry/Resume. The live SSE replay
+      // does NOT reliably yield a system-error for an interrupted / orphan-reaped
+      // run (exit -1, empty output, no persisted error event, dropped from the
+      // live registry after a server restart) — without one, `currentFailureItemId`
+      // stays null and Retry/Resume render disabled. Guarantee the live turn
       // carries an error card, but only synthesize when its own slice has none
       // (avoids a duplicate when the stream already emitted one followed by an
       // "Exited" divider).
@@ -144,14 +141,20 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       // Parked with no turn at all (a run that never spawned) — still resolvable.
       items.push({ kind: "system-error", id: `${view.id}_err`, code: "unknown" });
     }
+    // Sent and not read yet: the agent takes each at its next step. Once read, it moves into the
+    // turn that read it (the live stream's `input` event, or the turn's own `inputs`).
+    const shown = new Set(items.map((it) => it.id));
+    for (const p of view.pending) {
+      if (!shown.has(p.id)) items.push({ kind: "you", id: p.id, text: p.text, origin: p.origin, ts: p.sentAt, pending: true });
+    }
     return hiddenIds.size > 0 ? items.filter((it) => !hiddenIds.has(it.id)) : items;
   }, [view, liveTurnId, stream.thread, stream.phase, hiddenIds]);
 
-  // origin included: dropping it here renders Agent Office's own queued
-  // message as the user's, which is the bug this field exists to fix.
+  // Agent Office's own messages waiting for the chat to go idle. Origin included: dropping it
+  // renders them as the user's.
   const queuedMessages = useMemo(() => (view?.queue ?? []).map((m) => ({ id: m.id, text: m.text, origin: m.origin })), [view]);
 
-  // The one item Retry/Resume/Skip act on — see ChatThread's
+  // The one item Retry/Resume act on — see ChatThread's
   // `currentFailureItemId` doc comment. Only ever the LAST rendered item,
   // and only while the server actually reports the conversation as parked.
   const currentFailureItemId = useMemo(() => {
@@ -230,9 +233,7 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
 
   const onAbort = () => {
     if (!view?.activeRunId) return;
-    // No client-side queue clearing: an aborted run parks in needs_attention
-    // via the same path as any other failure, preserving the queue (see
-    // docs/chat-refactor.md decision #1). Use "Clear queue" to drop it.
+    // Stops the turn, not the session: the next message goes to the same process.
     abort.mutate(view.activeRunId);
   };
 
@@ -249,7 +250,6 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
 
   const onRetry = () => { if (view) retryMut.mutate(view.id); };
   const onResume = () => { if (view) resumeMut.mutate(view.id); };
-  const onSkip = () => { if (view) skipMut.mutate(view.id); };
   const onCancelQueuedMessage = (id: string) => { if (view) removeQueuedMut.mutate({ conversationId: view.id, messageId: id }); };
   const onClearQueue = () => { if (view) clearQueueMut.mutate(view.id); };
 
@@ -270,8 +270,8 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
       projectId: input.projectId,
       instanceId: input.instanceId,
       resumeSessionId: view?.sessionId ?? undefined,
-      // The scheduler hands the run to this conversation (adoptScheduledRun) so its finish clears
-      // needs_attention and drains the queue — unless "New thread" replaced it or it moved sessions.
+      // The scheduler sends it into this conversation as its next turn, so its finish clears
+      // needs_attention — unless "New thread" replaced it, when it runs on its own.
       conversationId: view?.id,
     };
     await fetch(API_ROUTES.schedules, {
@@ -316,7 +316,6 @@ export function useConversationChatModel(input: UseConversationChatModelInput) {
     onNewThread,
     onRetry,
     onResume,
-    onSkip,
     onCancelQueuedMessage,
     onClearQueue,
     onScheduleRateLimit,

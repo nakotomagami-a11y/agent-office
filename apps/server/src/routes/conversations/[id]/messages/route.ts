@@ -1,7 +1,7 @@
-// POST /api/conversations/<id>/messages { text } — start-or-queue a user
-// message on this conversation (see docs/chat-refactor.md). The idle/running/
-// needs_attention split is decided entirely by the pure conversation machine;
-// this route is a thin pass-through.
+// POST /api/conversations/<id>/messages { text } — send a user message to the
+// conversation's agent: its live process reads it at once, mid-turn or as the
+// next turn (see docs/chat-refactor.md). A message no agent could get is its
+// error code (`DeliveryError`).
 import { conversation, conversationRunner } from "@agent-office/domain/services";
 import { validateBody } from "../../../../lib/validation";
 import { conversationMessageSchema } from "@agent-office/api-contract";

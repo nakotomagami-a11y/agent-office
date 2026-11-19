@@ -1,6 +1,6 @@
-// DELETE /api/conversations/<id>/queue — clear the whole pending queue. The
-// only action that intentionally drops queued messages (see docs/chat-refactor.md
-// — a failed/interrupted turn otherwise always preserves the queue).
+// DELETE /api/conversations/<id>/queue — clear the agent queue (Agent Office's
+// own messages waiting for idle). The only action that drops them (see
+// docs/chat-refactor.md — a failed turn otherwise preserves the queue).
 import { conversation } from "@agent-office/domain/services";
 import { validateIdParam, tryService } from "../../../../lib/api-helpers";
 

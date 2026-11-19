@@ -1,8 +1,7 @@
 /**
- * Conversation SERVICE ↔ DB ↔ machine integration. Uses a throwaway in-memory
- * SQLite (getDb() global override) and a fake runner that records startRun
- * calls and inserts run rows — so the full send/queue/finish/fail/retry/skip
- * lifecycle is exercised end-to-end without spawning `claude`.
+ * Conversation SERVICE ↔ DB ↔ machine integration. A throwaway in-memory SQLite (getDb() global
+ * override) and a fake runner standing in for the live CLI process: it records what was delivered,
+ * and the test plays the process's reports (a turn opened, ended, the process idle or gone).
  *
  *   pnpm --filter @agent-office/domain test src/services/execution/conversation.test.ts
  */
@@ -11,31 +10,74 @@ import Database from "better-sqlite3";
 import { createSchema } from "../db/migrations";
 import * as db from "../db";
 import * as convo from "./conversation";
-import type { ConversationRunner, StartRunInput } from "./conversation";
+import type { ConversationRunner } from "./conversation";
+import type { DeliverResult, SessionInput } from "./chat-session";
 
 const mem = new Database(":memory:");
 mem.pragma("foreign_keys = ON");
 createSchema(mem);
 globalThis.__agentOfficeDb = mem;
 
-// Fake runner: assigns sequential run ids, records each call, and inserts a
-// matching run row (as the real startRun does) so conversationId lookups +
-// latest-turn derivation work.
-const started: StartRunInput[] = [];
-let n = 0;
+interface Delivery { convId: string; input: SessionInput; maxBudgetUsd?: number }
+const delivered: Delivery[] = [];
+const busy = new Set<string>();
+const live = new Set<string>();
+const closed: string[] = [];
+let failNext: DeliverResult | null = null;
+
 const runner: ConversationRunner = {
-  async startRun(input) {
-    n += 1;
-    const runId = `run${n}`;
-    started.push(input);
-    db.insertRun({
-      id: runId, agentId: input.agentId, agentName: input.agentId,
-      instanceId: input.instanceId, status: "running", prompt: input.prompt,
-      model: "", effort: "", startedAt: Date.now() + n, conversationId: input.conversationId,
-    });
-    return runId;
+  async deliver(conv, input, opts) {
+    if (failNext) {
+      const r = failNext;
+      failNext = null;
+      return r;
+    }
+    db.insertRunInput({ id: input.id, conversationId: conv.id, text: input.text, origin: input.origin, sentAt: Date.now() });
+    delivered.push({ convId: conv.id, input, maxBudgetUsd: opts.maxBudgetUsd });
+    busy.add(conv.id);
+    live.add(conv.id);
+    return { ok: true };
+  },
+  async redeliver(conv) {
+    for (const input of db.listPendingInputs(conv.id)) delivered.push({ convId: conv.id, input });
+    busy.add(conv.id);
+    live.add(conv.id);
+    return { ok: true };
+  },
+  isBusy: (convId) => busy.has(convId),
+  hasLiveProcess: (convId) => live.has(convId),
+  async close(convId) {
+    closed.push(convId);
+    busy.delete(convId);
+    live.delete(convId);
   },
 };
+
+let n = 0;
+/** The process read `inputId` with no turn open: a turn opens on it. */
+async function openTurn(convId: string, inputId: string | null, prompt?: string): Promise<string> {
+  n += 1;
+  const runId = `run${n}`;
+  const input = inputId ? db.getRunInput(inputId) : null;
+  const text = input?.text ?? prompt ?? "Background work finished.";
+  const origin = input?.origin ?? "system";
+  const conv = db.getConversation(convId)!;
+  db.insertRun({ id: runId, agentId: conv.agentId, agentName: conv.agentId, instanceId: conv.instanceId, status: "running", prompt: text, origin, model: "", effort: "", startedAt: Date.now() + n, conversationId: convId });
+  if (inputId) db.markRunInputRead(inputId, runId, Date.now(), true);
+  busy.add(convId);
+  await convo.onSessionEvent({ type: "turnOpened", convId, runId, prompt: text, origin, inputId }, runner);
+  return runId;
+}
+
+/** The turn's `result`: the run row ends, then the process reports idle unless it has more. */
+async function endTurn(convId: string, runId: string, ok: boolean, sessionId: string | null = "sess", stillBusy = false): Promise<void> {
+  mem.prepare("UPDATE runs SET status = ?, session_id = ? WHERE id = ?").run(ok ? "done" : "error", sessionId, runId);
+  if (!stillBusy) busy.delete(convId);
+  await convo.onRunFinished(runId, ok, sessionId, runner);
+  if (!stillBusy) await convo.onSessionEvent({ type: "idle", convId }, runner);
+}
+
+const lastInput = (convId: string) => delivered.filter((d) => d.convId === convId).at(-1)!.input;
 
 let passed = 0;
 async function check(name: string, fn: () => Promise<void> | void) {
@@ -44,201 +86,218 @@ async function check(name: string, fn: () => Promise<void> | void) {
   console.log(`PASS  ${name}`);
 }
 
-function statusOf(convId: string) { return db.getConversation(convId)!.status; }
-function queueOf(convId: string) { return db.listQueue(convId).map((m) => m.text); }
+const statusOf = (convId: string) => db.getConversation(convId)!.status;
+const queueOf = (convId: string) => db.listQueue(convId).map((m) => m.text);
 
-await check("send while idle starts a run; queues while running", async () => {
-  const v0 = await convo.ensureConversationView("dev", "s1", "proj", runner);
-  const convId = v0.id;
+await check("a send goes to the agent; the turn it opens becomes active", async () => {
+  const convId = (await convo.ensureConversationView("dev", "s1", "proj", runner)).id;
   await convo.sendMessage("dev", "s1", "proj", "a", runner);
   assert.equal(statusOf(convId), "running");
-  assert.equal(db.getConversation(convId)!.activeRunId, "run1");
-  await convo.sendMessage("dev", "s1", "proj", "b", runner);
-  await convo.sendMessage("dev", "s1", "proj", "c", runner);
-  assert.deepEqual(queueOf(convId), ["b", "c"]);
-  assert.equal(started.length, 1); // only "a" started
-});
-
-await check("success advances the queue FIFO, reusing the session", async () => {
-  const convId = db.getActiveConversation("dev", "s1")!.id;
-  await convo.onRunFinished("run1", true, "sess-1", runner);
-  assert.equal(started[1]!.prompt, "b");
-  assert.equal(started[1]!.resumeSessionId, "sess-1"); // session captured + reused
-  assert.deepEqual(queueOf(convId), ["c"]);
-  await convo.onRunFinished("run2", true, "sess-1", runner);
-  assert.equal(started[2]!.prompt, "c");
-  await convo.onRunFinished("run3", true, "sess-1", runner);
+  assert.equal(lastInput(convId).text, "a");
+  const run = await openTurn(convId, lastInput(convId).id);
+  assert.equal(db.getConversation(convId)!.activeRunId, run);
+  await endTurn(convId, run, true, "sess-1");
   assert.equal(statusOf(convId), "idle");
-  assert.equal(queueOf(convId).length, 0);
+  assert.equal(db.getConversation(convId)!.sessionId, "sess-1");
 });
 
-await check("failure parks in needs_attention with the queue preserved", async () => {
-  const v = await convo.ensureConversationView("dev", "fail", "p", runner);
-  const convId = v.id;
+await check("messages sent while the agent works go to it at once and show where it read them", async () => {
+  const convId = (await convo.ensureConversationView("dev", "steer", "p", runner)).id;
+  await convo.sendMessage("dev", "steer", "p", "build it", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  const before = delivered.length;
+  const v = await convo.sendMessage("dev", "steer", "p", "also add tests", runner);
+  assert.equal(delivered.length, before + 1, "delivered, not queued");
+  assert.equal(v.queue.length, 0);
+  assert.deepEqual(v.pending.map((p) => p.text), ["also add tests"], "sent, not read yet");
+  const steer = lastInput(convId);
+  db.markRunInputRead(steer.id, run, Date.now(), false);
+  await endTurn(convId, run, true);
+  const after = convo.view(convId);
+  assert.equal(after.pending.length, 0);
+  assert.deepEqual(after.turns.at(-1)!.inputs?.map((i) => i.text), ["also add tests"]);
+  assert.equal(after.turns.at(-1)!.prompt, "build it");
+});
+
+await check("Agent Office's message waits while the agent works and goes when it is idle", async () => {
+  const convId = (await convo.ensureConversationView("dev", "sys", "p", runner)).id;
+  await convo.sendMessage("dev", "sys", "p", "task", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  const before = delivered.length;
+  await convo.sendMessage("dev", "sys", "p", "review findings", runner, undefined, "system");
+  assert.equal(delivered.length, before, "not delivered mid-task");
+  assert.deepEqual(queueOf(convId), ["review findings"]);
+  await endTurn(convId, run, true);
+  assert.equal(lastInput(convId).text, "review findings");
+  assert.equal(lastInput(convId).origin, "system");
+  assert.equal(queueOf(convId).length, 0);
+  assert.equal(statusOf(convId), "running");
+});
+
+await check("a turn's end while the process still has unread messages keeps the chat busy", async () => {
+  const convId = (await convo.ensureConversationView("dev", "late", "p", runner)).id;
+  await convo.sendMessage("dev", "late", "p", "one", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  await convo.sendMessage("dev", "late", "p", "two", runner);
+  await endTurn(convId, run, true, "sess", true);
+  assert.equal(statusOf(convId), "running");
+  const next = await openTurn(convId, lastInput(convId).id);
+  assert.equal(db.getConversation(convId)!.activeRunId, next);
+});
+
+await check("a failure parks the agent queue, never the user's messages", async () => {
+  const convId = (await convo.ensureConversationView("dev", "fail", "p", runner)).id;
   await convo.sendMessage("dev", "fail", "p", "task", runner);
-  const activeRun = db.getConversation(convId)!.activeRunId!;
-  await convo.sendMessage("dev", "fail", "p", "queued-1", runner);
-  await convo.sendMessage("dev", "fail", "p", "queued-2", runner);
-  const before = started.length;
-  await convo.onRunFinished(activeRun, false, null, runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  await convo.sendMessage("dev", "fail", "p", "queued-sys", runner, undefined, "system");
+  await endTurn(convId, run, false);
   assert.equal(statusOf(convId), "needs_attention");
-  assert.equal(db.getConversation(convId)!.activeRunId, null);
-  assert.deepEqual(queueOf(convId), ["queued-1", "queued-2"]); // intact
-  assert.equal(started.length, before); // nothing auto-started
+  assert.deepEqual(queueOf(convId), ["queued-sys"], "kept for later");
+  await convo.sendMessage("dev", "fail", "p", "try this instead", runner);
+  assert.equal(statusOf(convId), "running");
+  assert.equal(lastInput(convId).text, "try this instead");
 });
 
-await check("retry re-runs the failed prompt, then the queue resumes", async () => {
-  const convId = db.getActiveConversation("dev", "fail")!.id;
+await check("retry sends the failed prompt again; the queue resumes after it", async () => {
+  const convId = (await convo.ensureConversationView("dev", "retry", "p", runner)).id;
+  await convo.sendMessage("dev", "retry", "p", "task", runner);
+  await convo.sendMessage("dev", "retry", "p", "later", runner, undefined, "system");
+  const run = await openTurn(convId, lastInput(convId).id);
+  await endTurn(convId, run, false);
   await convo.retry(convId, runner);
-  assert.equal(statusOf(convId), "running");
-  assert.equal(started[started.length - 1]!.prompt, "task"); // re-ran the failed turn
-  const retryRun = db.getConversation(convId)!.activeRunId!;
-  await convo.onRunFinished(retryRun, true, "sess-f", runner);
-  assert.equal(started[started.length - 1]!.prompt, "queued-1"); // queue resumed
-  assert.deepEqual(queueOf(convId), ["queued-2"]);
+  assert.equal(lastInput(convId).text, "task");
+  const again = await openTurn(convId, lastInput(convId).id);
+  await endTurn(convId, again, true);
+  assert.equal(lastInput(convId).text, "later");
 });
 
-await check("skip discards the failed turn and advances", async () => {
-  const v = await convo.ensureConversationView("dev", "skip", "p", runner);
-  const convId = v.id;
-  await convo.sendMessage("dev", "skip", "p", "boom", runner);
-  const run = db.getConversation(convId)!.activeRunId!;
-  await convo.sendMessage("dev", "skip", "p", "next", runner);
-  await convo.onRunFinished(run, false, null, runner);
+await check("a send the agent cannot get throws its code and leaves the chat as it was", async () => {
+  const convId = (await convo.ensureConversationView("dev", "nospawn", "p", runner)).id;
+  failNext = { ok: false, error: { status: 400, code: "worktree_missing", message: "cwd not a directory" } };
+  await assert.rejects(convo.sendMessage("dev", "nospawn", "p", "hi", runner), (e: unknown) => e instanceof convo.DeliveryError && e.code === "worktree_missing");
+  assert.equal(statusOf(convId), "idle");
+});
+
+await check("a provider refusal becomes the conversation's failed turn", async () => {
+  const convId = (await convo.ensureConversationView("dev", "refused", "p", runner)).id;
+  const conv = db.getConversation(convId)!;
+  db.insertRun({ id: "refused-run", agentId: "dev", agentName: "dev", instanceId: conv.instanceId, status: "error", prompt: "hi", model: "", effort: "", startedAt: Date.now(), conversationId: convId });
+  failNext = { ok: false, refusedRunId: "refused-run" };
+  await convo.sendMessage("dev", "refused", "p", "hi", runner);
+  assert.equal(db.getConversation(convId)!.activeRunId, "refused-run");
+  await convo.onRunFinished("refused-run", false, null, runner);
   assert.equal(statusOf(convId), "needs_attention");
-  await convo.skip(convId, runner);
+});
+
+await check("a CLI-started turn (a background sub-agent reporting) is tracked like any other", async () => {
+  const convId = (await convo.ensureConversationView("dev", "bg", "p", runner)).id;
+  const run = await openTurn(convId, null, "sub work");
   assert.equal(statusOf(convId), "running");
-  assert.equal(started[started.length - 1]!.prompt, "next");
+  assert.equal(db.getConversation(convId)!.activeRunId, run);
+  await endTurn(convId, run, true);
+  assert.equal(statusOf(convId), "idle");
+});
+
+await check("unread messages left by a dead process go to a new one once the chat is idle", async () => {
+  const convId = (await convo.ensureConversationView("dev", "restart", "p", runner)).id;
+  db.insertRunInput({ id: "orphan-input", conversationId: convId, text: "still here?", origin: "user", sentAt: Date.now() });
+  mem.prepare("UPDATE conversations SET status='running', active_run_id=NULL, updated_at=? WHERE id=?").run(Date.now() - 10 * 60_000, convId);
+  const before = delivered.length;
+  await convo.getReconciledView(convId, runner);
+  assert.equal(delivered.length, before + 1);
+  assert.equal(delivered.at(-1)!.input.text, "still here?");
+  assert.equal(statusOf(convId), "running");
+});
+
+await check("self-heals a conversation stuck on an orphan-reaped run", async () => {
+  const convId = (await convo.ensureConversationView("dev", "orphan", "p", runner)).id;
+  await convo.sendMessage("dev", "orphan", "p", "will-be-orphaned", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  busy.delete(convId);
+  live.delete(convId);
+  mem.prepare("UPDATE runs SET status='error', exit_code=-1 WHERE id=?").run(run);
+  const healed = await convo.getReconciledView(convId, runner);
+  assert.equal(healed.status, "needs_attention");
+  assert.equal(healed.activeRunId, null);
+});
+
+await check("startTurnIfIdle answers with the run the turn became", async () => {
+  const convId = (await convo.ensureConversationView("dev", "loop", "p", runner)).id;
+  const started = convo.startTurnIfIdle(convId, "fix round", "system", runner, 2);
+  await new Promise((r) => setImmediate(r));
+  const input = lastInput(convId);
+  assert.equal(input.text, "fix round");
+  assert.equal(delivered.at(-1)!.maxBudgetUsd, 2);
+  const run = await openTurn(convId, input.id);
+  assert.deepEqual(await started, { runId: run });
+});
+
+await check("a scheduled resume starts a chat parked on a failed turn; a loop round still waits", async () => {
+  const convId = (await convo.ensureConversationView("dev", "parked", "p", runner)).id;
+  await convo.sendMessage("dev", "parked", "p", "limited", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  await endTurn(convId, run, false);
+  assert.equal(statusOf(convId), "needs_attention");
+  assert.deepEqual(await convo.startTurnIfIdle(convId, "fix", "system", runner), { code: "already_running" });
+  const started = convo.startTurnIfIdle(convId, "Continue after the rate limit", "user", runner, undefined, true);
+  await new Promise((r) => setImmediate(r));
+  const resumed = await openTurn(convId, lastInput(convId).id);
+  assert.deepEqual(await started, { runId: resumed });
+  assert.equal(statusOf(convId), "running");
+});
+
+await check("a thread replaced by New thread takes no message: it would be a second agent on the seat", async () => {
+  const oldId = (await convo.ensureConversationView("dev", "replaced", "p", runner)).id;
+  await convo.newThread("dev", "replaced", "p", runner);
+  const before = delivered.length;
+  await assert.rejects(convo.sendMessageToConversation(oldId, "hi", runner), (e: unknown) => e instanceof convo.DeliveryError && e.code === "conversation_not_current");
+  assert.equal(delivered.length, before);
+});
+
+await check("a dying process clears only the waits for what it held", async () => {
+  const convId = (await convo.ensureConversationView("dev", "succession", "p", runner)).id;
+  const started = convo.startTurnIfIdle(convId, "round", "system", runner);
+  await new Promise((r) => setImmediate(r));
+  const held = lastInput(convId).id;
+  await convo.onSessionEvent({ type: "exited", convId, sessionId: null, unreadIds: ["someone-else"] }, runner);
+  const run = await openTurn(convId, held);
+  assert.deepEqual(await started, { runId: run }, "the successor's message still opens its turn");
+});
+
+await check("startTurnIfIdle refuses a busy chat, and one with a waiting queue", async () => {
+  const convId = (await convo.ensureConversationView("dev", "busy", "p", runner)).id;
+  await convo.sendMessage("dev", "busy", "p", "task", runner);
+  assert.deepEqual(await convo.startTurnIfIdle(convId, "fix", "system", runner), { code: "already_running" });
+});
+
+await check("removeQueued / clearQueue edit the agent queue", async () => {
+  const convId = (await convo.ensureConversationView("dev", "mgmt", "p", runner)).id;
+  await convo.sendMessage("dev", "mgmt", "p", "run-me", runner);
+  await convo.sendMessage("dev", "mgmt", "p", "q1", runner, undefined, "system");
+  await convo.sendMessage("dev", "mgmt", "p", "q2", runner, undefined, "system");
+  convo.removeQueued(convId, db.listQueue(convId)[0]!.id);
+  assert.deepEqual(queueOf(convId), ["q2"]);
+  convo.clearQueue(convId);
   assert.equal(queueOf(convId).length, 0);
+  assert.equal(statusOf(convId), "running");
+});
+
+await check("newThread stops the old process and starts a fresh conversation", async () => {
+  const oldId = (await convo.ensureConversationView("dev", "nt", "p", runner)).id;
+  await convo.sendMessage("dev", "nt", "p", "old-run", runner);
+  const fresh = await convo.newThread("dev", "nt", "p", runner);
+  assert.notEqual(fresh.id, oldId);
+  assert.ok(closed.includes(oldId));
+  assert.equal(fresh.status, "idle");
+  assert.equal(fresh.sessionId, null);
+  assert.equal(db.getActiveConversation("dev", "nt")!.id, fresh.id);
 });
 
 await check("onRunFinished ignores an unknown / non-conversation run", async () => {
   const convId = db.getActiveConversation("dev", "s1")!.id;
   const before = db.getConversation(convId)!;
-  await convo.onRunFinished("no-such-run", true, "x", runner); // no-op
-  const after = db.getConversation(convId)!;
-  assert.equal(after.status, before.status);
-});
-
-await check("removeQueued / clearQueue manage pending items", async () => {
-  const v = await convo.ensureConversationView("dev", "mgmt", "p", runner);
-  const convId = v.id;
-  await convo.sendMessage("dev", "mgmt", "p", "run-me", runner); // starts (idle→running)
-  await convo.sendMessage("dev", "mgmt", "p", "q1", runner);
-  await convo.sendMessage("dev", "mgmt", "p", "q2", runner);
-  const q1Id = db.listQueue(convId)[0]!.id;
-  convo.removeQueued(convId, q1Id);
-  assert.deepEqual(queueOf(convId), ["q2"]);
-  convo.clearQueue(convId);
-  assert.equal(queueOf(convId).length, 0);
-  assert.equal(statusOf(convId), "running"); // clearing queue doesn't stop the active run
-});
-
-await check("newThread starts a fresh conversation, old queue abandoned", async () => {
-  const v = await convo.ensureConversationView("dev", "nt", "p", runner);
-  const oldId = v.id;
-  await convo.sendMessage("dev", "nt", "p", "old-run", runner);
-  await convo.sendMessage("dev", "nt", "p", "old-queued", runner);
-  const fresh = convo.newThread("dev", "nt", "p");
-  assert.notEqual(fresh.id, oldId);
-  assert.equal(fresh.status, "idle");
-  assert.equal(fresh.sessionId, null);
-  assert.equal(fresh.queue.length, 0);
-  assert.equal(db.getActiveConversation("dev", "nt")!.id, fresh.id); // new one is current
-  assert.deepEqual(queueOf(oldId), ["old-queued"]); // old queue still there, just abandoned
-});
-
-await check("self-heals a conversation stuck on an orphan-reaped run", async () => {
-  // Simulate the real gap: reapOrphanedRuns (db/connection.ts) marks a
-  // "running" run row as errored via raw SQL on server boot — completely
-  // bypassing finalizeRun, so onRunFinished is never dispatched. The
-  // conversation is left claiming status:"running" for a run that's dead.
-  const v = await convo.ensureConversationView("dev", "orphan", "p", runner);
-  const convId = v.id;
-  await convo.sendMessage("dev", "orphan", "p", "will-be-orphaned", runner);
-  await convo.sendMessage("dev", "orphan", "p", "queued-behind-it", runner);
-  const orphanRunId = db.getConversation(convId)!.activeRunId!;
-  assert.equal(statusOf(convId), "running");
-
-  // The orphan-reap: direct SQL, no finalizeRun, no onRunFinished dispatch.
-  mem.prepare("UPDATE runs SET status='error', exit_code=-1 WHERE id=?").run(orphanRunId);
-
-  // Conversation is now LYING — still says "running" for a dead run. A read
-  // must self-heal it, and the preserved queue must still be there.
-  const healed = await convo.getReconciledView(convId, runner);
-  assert.equal(healed.status, "needs_attention");
-  assert.equal(healed.activeRunId, null);
-  assert.deepEqual(healed.queue.map((m) => m.text), ["queued-behind-it"]);
-
-  // And a mutating action (not just a read) self-heals too, then proceeds
-  // correctly from the healed state.
-  const v2 = await convo.ensureConversationView("dev", "orphan2", "p", runner);
-  const convId2 = v2.id;
-  await convo.sendMessage("dev", "orphan2", "p", "also-orphaned", runner);
-  const orphanRunId2 = db.getConversation(convId2)!.activeRunId!;
-  mem.prepare("UPDATE runs SET status='done', exit_code=0, session_id='healed-session' WHERE id=?").run(orphanRunId2);
-  const before = started.length;
-  await convo.retry(convId2, runner); // retry on a "running"-looking-but-actually-done conv
-  // Self-heal treats it as a clean finish (ok=true) -> idle, empty queue ->
-  // retry() is then a no-op (nothing to retry once healed to idle/no failure).
-  assert.equal(statusOf(convId2), "idle");
-  assert.equal(started.length, before); // retry found nothing to do post-heal
-});
-
-// B16: a scheduled resume (scheduler.ts) starts its run outside the send flow.
-// Before adoption its finish was dropped as foreign and the chat stayed parked.
-const startOutside = (instanceId: string, convId: string, prompt = "Continue after the rate limit", agentId = "dev") =>
-  runner.startRun({ agentId, instanceId, projectId: "p", prompt, origin: "user", resumeSessionId: "sess-s", conversationId: convId });
-
-await check("a scheduled resume is adopted by a parked conversation and its finish resolves it", async () => {
-  const convId = (await convo.ensureConversationView("dev", "sched", "p", runner)).id;
-  await convo.sendMessage("dev", "sched", "p", "limited", runner);
-  await convo.sendMessage("dev", "sched", "p", "waiting", runner);
-  await convo.onRunFinished(db.getConversation(convId)!.activeRunId!, false, "sess-s", runner);
-  assert.equal(statusOf(convId), "needs_attention");
-
-  const resumeRunId = await startOutside("sched", convId);
-  assert.equal(await convo.adoptScheduledRun(convId, resumeRunId, "sess-s", runner), true);
-  assert.equal(statusOf(convId), "running");
-  assert.equal(db.getConversation(convId)!.activeRunId, resumeRunId);
-  assert.deepEqual(queueOf(convId), ["waiting"], "adopting must not drain the queue");
-
-  await convo.onRunFinished(resumeRunId, true, "sess-s2", runner);
-  assert.equal(started.at(-1)!.prompt, "waiting", "the resume finishing drains the queue like a normal turn");
-  assert.equal(started.at(-1)!.resumeSessionId, "sess-s2");
-});
-
-await check("only a run of the conversation's own slot is adopted", async () => {
-  const convId = (await convo.ensureConversationView("dev", "slot", "p", runner)).id;
-  const otherConv = (await convo.ensureConversationView("dev", "slot-b", "p", runner)).id;
-  for (const foreign of [await startOutside("slot", otherConv), await startOutside("slot-b", convId), await startOutside("slot", convId, "x", "qa")]) {
-    assert.equal(await convo.adoptScheduledRun(convId, foreign, null, runner), false);
-  }
-  assert.equal(statusOf(convId), "idle");
-});
-
-await check("a direct /api/summon run still never takes over an idle conversation", async () => {
-  const convId = (await convo.ensureConversationView("dev", "direct", "p", runner)).id;
-  convo.attachExternalRun(convId, await startOutside("direct", convId));
-  assert.equal(statusOf(convId), "idle");
-  assert.equal(db.getConversation(convId)!.activeRunId, null);
-});
-
-await check("a start the server died in is parked, so a scheduled resume can be adopted", async () => {
-  const convId = (await convo.ensureConversationView("dev", "stall", "p", runner)).id;
-  mem.prepare("UPDATE conversations SET status='running', active_run_id=NULL, updated_at=? WHERE id=?").run(Date.now() - 10 * 60_000, convId);
-  const resumeRunId = await startOutside("stall", convId);
-  assert.equal(await convo.adoptScheduledRun(convId, resumeRunId, null, runner), true);
-  assert.equal(db.getConversation(convId)!.activeRunId, resumeRunId);
-});
-
-await check("a scheduled resume is not adopted by a conversation the user left with New thread", async () => {
-  const oldId = (await convo.ensureConversationView("dev", "moved", "p", runner)).id;
-  convo.newThread("dev", "moved", "p");
-  const before = started.length;
-  assert.equal(await convo.adoptScheduledRun(oldId, await startOutside("moved", oldId), null, runner), false);
-  assert.equal(statusOf(oldId), "idle");
-  assert.equal(started.length, before + 1, "only the scheduled run itself started; nothing queued ran");
+  await convo.onRunFinished("no-such-run", true, "x", runner);
+  assert.equal(db.getConversation(convId)!.status, before.status);
 });
 
 console.log(`\n${passed} passed`);

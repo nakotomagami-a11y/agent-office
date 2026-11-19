@@ -104,6 +104,10 @@ export async function tryService<T>(fn: () => Promise<T> | T): Promise<Response>
     // Before the /not found/ sniff, which would 404 these. Narrow on `code`
     // too: a module instantiated twice in the server graph fails instanceof.
     const code = (err as { code?: string }).code;
+    // A message no agent could get (conversation.DeliveryError): its own code and status.
+    if (err.name === "DeliveryError" && code) {
+      return Response.json({ error: code, detail: msg }, { status: (err as { status?: number }).status ?? 500 });
+    }
     if (err instanceof projects.StaleProjectWriteError || code === "stale_write") {
       const e = err as Partial<projects.StaleProjectWriteError>;
       return conflict("stale_write", { detail: msg, expectedRev: e.expectedRev, actualRev: e.actualRev });

@@ -4,12 +4,12 @@ import * as db from "../db";
 import { isLiveServer } from "../infra/discovery";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
-import { adoptScheduledRun } from "./conversation";
+import { startTurnIfIdle } from "./conversation";
 import { productionConversationRunner } from "./conversation-runner";
 import * as runs from "./runs";
 import { SCHEDULE_MAX_ATTEMPTS, SCHEDULE_STALE_HOURS } from "../../config/schedules";
 import { nextOccurrence } from "./schedule-recurrence";
-import { startSummonRun, summonTargetExists } from "./summon-run";
+import { startSummonRun, summonTargetExists, type SummonResult } from "./summon-run";
 
 /** Writes only if the row is still in the status `job` was read in (a cancel or a racing tick wins),
  *  then notifies the schedules list over SSE. Returns whether it wrote. */
@@ -81,7 +81,7 @@ export async function fireDue(job: ScheduledJob, now: number, bypassStale = fals
   const claimed: ScheduledJob = { ...job, status: "firing" };
   const release = () => void updateJob(claimed, { status: job.status });
 
-  const result = await startSummonRun(job.summonRequest).catch((err: unknown) => {
+  const result = await fire(job.summonRequest).catch((err: unknown) => {
     release();
     throw err;
   });
@@ -100,12 +100,16 @@ export async function fireDue(job: ScheduledJob, now: number, bypassStale = fals
 
   updateJob(claimed, { firedRunId: result.runId });
   log.info("scheduler.fired", { jobId: job.id, runId: result.runId, reason: job.reason });
-  const { conversationId, resumeSessionId } = job.summonRequest;
-  if (!conversationId) return;
-  // Best-effort: the run is live either way, and a throw here must not re-fire the job.
-  await adoptScheduledRun(conversationId, result.runId, resumeSessionId ?? null, productionConversationRunner).catch((err) => {
-    log.warn("scheduler.adopt_failed", { jobId: job.id, runId: result.runId, message: err instanceof Error ? err.message : String(err) });
-  });
+}
+
+/** A chat's job is that chat's next turn; one for a chat left by "New thread" runs on its own. */
+async function fire(req: SummonRequest): Promise<SummonResult> {
+  const conv = req.conversationId ? db.getConversation(req.conversationId) : null;
+  const current = conv && db.getActiveConversation(conv.agentId, conv.instanceId)?.id === conv.id;
+  if (!conv || !current) return startSummonRun({ ...req, conversationId: undefined });
+  const started = await startTurnIfIdle(conv.id, req.prompt, req.origin ?? "user", productionConversationRunner, req.maxBudgetUsd, true);
+  if ("runId" in started) return started;
+  return { error: { status: started.code === "already_running" ? 409 : 500, code: started.code, message: `the chat could not start the job: ${started.code}` } };
 }
 
 /** A fired job's run has an outcome — mark done, or reschedule if re-limited. Exported for tests. */

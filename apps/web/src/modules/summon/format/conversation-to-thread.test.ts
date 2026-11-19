@@ -143,4 +143,25 @@ check("an app-sent turn (mission digest, QA fix round) reaches the thread's turn
   assert.equal(turn!.ask?.origin, "system");
 });
 
+check("a message read mid-turn sits before the first call made after it was read", () => {
+  const items = turnToThreadItems({
+    ...baseTurn, output: "done",
+    toolCalls: [
+      { id: "t1", name: "Bash", input: "{}", ts: 1100, doneTs: 1150 },
+      { id: "t2", name: "Read", input: "{}", ts: 1300, doneTs: 1310 },
+    ],
+    inputs: [{ id: "in-1", text: "also add tests", origin: "user", runId: "run1", sentAt: 1120, readAt: 1200 }],
+  });
+  assert.deepEqual(items.map((i) => i.id), ["run1_you", "t1", "in-1", "t2", "run1_out", "run1_done"]);
+});
+
+check("a message read after the last call follows the calls", () => {
+  const items = turnToThreadItems({
+    ...baseTurn,
+    toolCalls: [{ id: "t1", name: "Bash", input: "{}", ts: 1100 }],
+    inputs: [{ id: "in-1", text: "and then?", origin: "user", runId: "run1", sentAt: 1400, readAt: 1500 }],
+  });
+  assert.deepEqual(items.map((i) => i.id).slice(0, 3), ["run1_you", "t1", "in-1"]);
+});
+
 console.log(`\n${passed} passed`);
