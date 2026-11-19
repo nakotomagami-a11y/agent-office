@@ -7,7 +7,8 @@ import { basename, delimiter, dirname, join, posix, sep, win32 } from "node:path
 import { fileURLToPath } from "node:url";
 import { absoluteSearchPath } from "./search-path";
 
-export const HOME = homedir();
+// Through Reflect, or the build's file tracer evaluates it and globs the whole profile (one locked AppData file fails the build).
+export const HOME: string = Reflect.apply(homedir, undefined, []);
 
 type PathApi = typeof posix;
 const nativePath: PathApi = sep === "\\" ? win32 : posix;
@@ -61,7 +62,7 @@ export function isInside(child: string, parent: string, pathApi: PathApi = nativ
 // is unset when a test file is run directly (`tsx x.test.ts`), hence the argv check.
 function realAccountHome(): string | null {
   try {
-    return userInfo().homedir;
+    return Reflect.apply(userInfo, undefined, []).homedir;
   } catch {
     return null;
   }
