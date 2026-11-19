@@ -13,7 +13,8 @@ export type SessionEvent =
   | { type: "changed"; convId: string }
   /** Nothing open, unread or running in the background. */
   | { type: "idle"; convId: string }
-  | { type: "exited"; convId: string; sessionId: string | null };
+  /** `unreadIds`: what this process was sent and never read; a successor may already hold others. */
+  | { type: "exited"; convId: string; sessionId: string | null; unreadIds: string[] };
 
 export type SessionListener = (event: SessionEvent) => void;
 

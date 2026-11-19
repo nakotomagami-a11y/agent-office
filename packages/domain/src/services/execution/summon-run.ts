@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import type { ContextProfile, SummonRequest } from "../../types/index";
 import { MIN_SEAT_TURN_USD } from "../../config/missions";
@@ -67,6 +68,8 @@ export interface PreparedSummon {
   instanceId?: string;
   instanceLabel?: string;
   agentName: string;
+  /** Prompt and accounts, for telling whether a live chat process still matches the seat. */
+  identity: string;
 }
 
 /**
@@ -94,6 +97,14 @@ export async function prepareSummon(
 
   const { priorContext, hasMessages } = buildPriorContext(req);
   const appendedSystemPrompt = agents.buildAppendedPrompt(req.agentId, project, req.instanceId, hasMessages);
+  // What a long-lived chat process would miss if it kept running: the prompt (without the
+  // per-spawn prior-context note), the agent's definition and the accounts it runs as.
+  const identity = JSON.stringify({
+    prompt: createHash("sha256").update(hasMessages ? agents.buildAppendedPrompt(req.agentId, project, req.instanceId, false) : appendedSystemPrompt).digest("hex"),
+    agent: createHash("sha256").update(JSON.stringify(agent)).digest("hex"),
+    account: project?.meta.accountId ?? null,
+    github: project?.meta.githubAccountId ?? null,
+  });
 
   const budgeted = withSeatBudget(req, instance?.instanceId);
   if ("status" in budgeted) return { error: budgeted };
@@ -144,6 +155,7 @@ export async function prepareSummon(
       instanceId: req.instanceId ?? instance?.instanceId,
       instanceLabel,
       agentName: instanceLabel ?? agent.info.name,
+      identity,
     },
   };
 }

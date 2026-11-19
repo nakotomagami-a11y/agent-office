@@ -48,7 +48,9 @@ const chains = new Map<string, Promise<unknown>>();
 function serialized<T>(convId: string, fn: () => Promise<T>): Promise<T> {
   const prev = chains.get(convId) ?? Promise.resolve();
   const next = prev.then(fn, fn);
-  chains.set(convId, next.catch(() => undefined));
+  const tail = next.then(() => undefined, () => undefined);
+  chains.set(convId, tail);
+  void tail.then(() => { if (chains.get(convId) === tail) chains.delete(convId); });
   return next;
 }
 
@@ -92,10 +94,14 @@ async function step(convId: string, action: ConversationAction, runner: Conversa
   const effect = effects[0];
   if (!effect) return null;
 
-  const result = await runner.deliver(sessionConversation(conv), effect.message, { contextProfile: opts.contextProfile, maxBudgetUsd: opts.maxBudgetUsd });
+  // A thread "New thread" left behind is shown nowhere: a process for it would be a second agent on the seat.
+  const result: DeliverResult = isCurrent(conv)
+    ? await runner.deliver(sessionConversation(conv), effect.message, { contextProfile: opts.contextProfile, maxBudgetUsd: opts.maxBudgetUsd })
+    : { ok: false, error: { status: 409, code: "conversation_not_current", message: "This thread was replaced by a newer one." } };
   if (result.ok) return result;
   if ("refusedRunId" in result) {
-    await step(convId, { type: "turnOpened", runId: result.refusedRunId, prompt: effect.message.text, origin: effect.message.origin }, runner);
+    const refused = db.getRun(result.refusedRunId);
+    await step(convId, { type: "turnOpened", runId: result.refusedRunId, prompt: refused?.prompt ?? effect.message.text, origin: refused?.origin ?? effect.message.origin }, runner);
     turnWaiters.get(effect.message.id)?.(result.refusedRunId);
     return result;
   }
@@ -119,8 +125,12 @@ async function settle(convId: string, runner: ConversationRunner): Promise<void>
   if (runner.isBusy(convId)) return;
   await step(convId, { type: "idle" }, runner);
   const conv = db.getConversation(convId);
-  if (conv?.status !== "idle" || runner.hasLiveProcess(convId) || db.listPendingInputs(convId).length === 0) return;
-  // Unread messages and no process (the server restarted): they go to a new one.
+  if (!conv || !isCurrent(conv) || runner.hasLiveProcess(convId)) return;
+  // Unread messages and no process (it died, the server restarted): they go to a new one. A failed
+  // turn holds back Agent Office's own, never the user's.
+  const pending = db.listPendingInputs(convId);
+  const sendable = conv.status === "idle" ? pending : conv.status === "needs_attention" ? pending.filter((p) => p.origin === "user") : [];
+  if (sendable.length === 0) return;
   persist(convId, { ...buildState(conv), status: "running" });
   const result = await runner.redeliver(sessionConversation(conv));
   if (!result.ok) {
@@ -156,7 +166,9 @@ function apply(convId: string, action: ConversationAction, runner: ConversationR
   });
 }
 
-// ─── Public API (called by the HTTP routes and the process / run-engine hooks) ─
+function isCurrent(conv: db.ConversationRow): boolean {
+  return db.getActiveConversation(conv.agentId, conv.instanceId)?.id === conv.id;
+}
 
 /** Ensure a conversation exists for the slot, returning its (reconciled) view. */
 export function ensureConversationView(
@@ -207,15 +219,19 @@ export async function sendMessageForRun(
   contextProfile?: ContextProfile,
 ): Promise<{ runId: string | null }> {
   const message: QueuedMessage = { id: randomId(), text, origin: "user" };
-  const read = waitForTurn(message.id);
+  const read = waitForTurn(message.id, SUMMON_WAIT_MS);
   try {
     await apply(convId, { type: "send", message }, runner, { contextProfile, onFailure: "throw" });
   } catch (err) {
     read.cancel();
     throw err;
   }
-  return { runId: await read.promise };
+  // Mid-command the agent may not read it for minutes: answer with the turn running now instead.
+  return { runId: (await read.promise) ?? db.getConversation(convId)?.activeRunId ?? null };
 }
+
+/** Long enough for a fresh process to start and read its first message. */
+const SUMMON_WAIT_MS = 15_000;
 
 /**
  * Start `text` as the next turn ONLY if the chat is idle with an empty queue, and say which run it
@@ -228,6 +244,8 @@ export async function startTurnIfIdle(
   origin: MessageOrigin,
   runner: ConversationRunner,
   maxBudgetUsd?: number,
+  /** A scheduled resume is the answer to a failed turn: it may start in `needs_attention`, as the user's Resume does. */
+  allowParked = false,
 ): Promise<{ runId: string } | { code: string }> {
   const message: QueuedMessage = { id: randomId(), text, origin };
   const opened = waitForTurn(message.id);
@@ -238,7 +256,8 @@ export async function startTurnIfIdle(
     const conv = db.getConversation(convId);
     if (!conv) return { code: "conversation_not_found" };
     const state = buildState(conv);
-    if (state.status !== "idle" || state.queue.length > 0 || runner.isBusy(convId)) return { code: "already_running" };
+    const startable = state.status === "idle" || (allowParked && state.status === "needs_attention" && origin === "user");
+    if (!startable || state.queue.length > 0 || runner.isBusy(convId)) return { code: "already_running" };
     const result = await step(convId, { type: "send", message }, runner, { maxBudgetUsd, onFailure: "restore" });
     if (result?.ok) return null;
     if (result && "refusedRunId" in result) return { runId: result.refusedRunId };
@@ -258,10 +277,10 @@ export async function startTurnIfIdle(
 const TURN_OPEN_TIMEOUT_MS = 2 * 60_000;
 const turnWaiters = new Map<string, (runId: string | null) => void>();
 
-function waitForTurn(inputId: string): { promise: Promise<string | null>; cancel: () => void } {
+function waitForTurn(inputId: string, timeoutMs = TURN_OPEN_TIMEOUT_MS): { promise: Promise<string | null>; cancel: () => void } {
   let finish!: (runId: string | null) => void;
   const promise = new Promise<string | null>((resolve) => {
-    const timer = setTimeout(() => finish(null), TURN_OPEN_TIMEOUT_MS);
+    const timer = setTimeout(() => finish(null), timeoutMs);
     timer.unref();
     finish = (runId) => {
       clearTimeout(timer);
@@ -299,8 +318,8 @@ export async function onSessionEvent(event: SessionEvent, runner: ConversationRu
       return;
     }
     if (event.type === "exited") {
-      // Its unread messages will never open a turn in this process.
-      for (const input of db.listPendingInputs(event.convId)) turnWaiters.get(input.id)?.(null);
+      // What it held will never open a turn there; a successor may already hold the rest.
+      for (const id of event.unreadIds) turnWaiters.get(id)?.(null);
     }
     if (event.type === "exited" && event.sessionId) db.updateConversation(event.convId, { sessionId: event.sessionId });
     await settle(event.convId, runner);

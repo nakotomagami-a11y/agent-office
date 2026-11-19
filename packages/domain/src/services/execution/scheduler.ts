@@ -107,7 +107,7 @@ async function fire(req: SummonRequest): Promise<SummonResult> {
   const conv = req.conversationId ? db.getConversation(req.conversationId) : null;
   const current = conv && db.getActiveConversation(conv.agentId, conv.instanceId)?.id === conv.id;
   if (!conv || !current) return startSummonRun({ ...req, conversationId: undefined });
-  const started = await startTurnIfIdle(conv.id, req.prompt, req.origin ?? "user", productionConversationRunner, req.maxBudgetUsd);
+  const started = await startTurnIfIdle(conv.id, req.prompt, req.origin ?? "user", productionConversationRunner, req.maxBudgetUsd, true);
   if ("runId" in started) return started;
   return { error: { status: started.code === "already_running" ? 409 : 500, code: started.code, message: `the chat could not start the job: ${started.code}` } };
 }

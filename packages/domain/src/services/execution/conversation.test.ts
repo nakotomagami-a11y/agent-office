@@ -232,6 +232,38 @@ await check("startTurnIfIdle answers with the run the turn became", async () => 
   assert.deepEqual(await started, { runId: run });
 });
 
+await check("a scheduled resume starts a chat parked on a failed turn; a loop round still waits", async () => {
+  const convId = (await convo.ensureConversationView("dev", "parked", "p", runner)).id;
+  await convo.sendMessage("dev", "parked", "p", "limited", runner);
+  const run = await openTurn(convId, lastInput(convId).id);
+  await endTurn(convId, run, false);
+  assert.equal(statusOf(convId), "needs_attention");
+  assert.deepEqual(await convo.startTurnIfIdle(convId, "fix", "system", runner), { code: "already_running" });
+  const started = convo.startTurnIfIdle(convId, "Continue after the rate limit", "user", runner, undefined, true);
+  await new Promise((r) => setImmediate(r));
+  const resumed = await openTurn(convId, lastInput(convId).id);
+  assert.deepEqual(await started, { runId: resumed });
+  assert.equal(statusOf(convId), "running");
+});
+
+await check("a thread replaced by New thread takes no message: it would be a second agent on the seat", async () => {
+  const oldId = (await convo.ensureConversationView("dev", "replaced", "p", runner)).id;
+  await convo.newThread("dev", "replaced", "p", runner);
+  const before = delivered.length;
+  await assert.rejects(convo.sendMessageToConversation(oldId, "hi", runner), (e: unknown) => e instanceof convo.DeliveryError && e.code === "conversation_not_current");
+  assert.equal(delivered.length, before);
+});
+
+await check("a dying process clears only the waits for what it held", async () => {
+  const convId = (await convo.ensureConversationView("dev", "succession", "p", runner)).id;
+  const started = convo.startTurnIfIdle(convId, "round", "system", runner);
+  await new Promise((r) => setImmediate(r));
+  const held = lastInput(convId).id;
+  await convo.onSessionEvent({ type: "exited", convId, sessionId: null, unreadIds: ["someone-else"] }, runner);
+  const run = await openTurn(convId, held);
+  assert.deepEqual(await started, { runId: run }, "the successor's message still opens its turn");
+});
+
 await check("startTurnIfIdle refuses a busy chat, and one with a waiting queue", async () => {
   const convId = (await convo.ensureConversationView("dev", "busy", "p", runner)).id;
   await convo.sendMessage("dev", "busy", "p", "task", runner);

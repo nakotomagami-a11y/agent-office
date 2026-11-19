@@ -557,7 +557,8 @@ export function abortRun(runId: string): boolean {
 
 export function killAllRuns(): void {
   for (const run of liveRuns.values()) {
-    killRunProc(run.proc);
+    // A chat turn's process is its host's, killed once by the chat sessions' own shutdown.
+    if (!run.host) killRunProc(run.proc);
     // Defensively finalise here too - `proc.on('exit')` may not get a turn
     // if Node is about to exit. Without this, in-flight runs at SIGINT time
     // never reach runs.log and a refresh later shows "not_found".
@@ -1143,7 +1144,10 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
-  const settled = settleRunCost(costOwner(run), run.provider, run.cost + run.costBase);
+  // A turn of a live process leaves in-flight calls to the process: it charges them once, at exit.
+  const settled = run.host
+    ? runCost(costOwner(run), run.provider, run.cost + run.costBase)
+    : settleRunCost(run.id, run.provider, run.cost);
   run.cost = Math.max(0, settled.cost - run.costBase);
   run.costBasis = settled.costBasis;
   if (!run.host) releaseProviderSpawn(run.id, run.pinFile);

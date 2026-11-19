@@ -7,7 +7,8 @@ import { API_ROUTES } from "@agent-office/api-contract";
 import type { SummonRequest } from "@agent-office/domain/types";
 
 export interface SummonResponse {
-  runId: string;
+  runId: string | null;
+  conversationId: string;
   warning?: string;
 }
 

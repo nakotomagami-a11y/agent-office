@@ -33,7 +33,9 @@ export function installConversationWiring(): void {
       log.error("conversation.on_session_event_failed", { convId: event.convId, type: event.type, err: String(err) });
     });
   });
-  process.on("SIGINT", () => killAllSessions());
-  process.on("SIGTERM", () => killAllSessions());
+  // `exit` too: the standalone server's own signal handlers call process.exit before these run.
+  // A chat process left alive would still read what is in its stdin pipe, which the next start sends again.
+  for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => killAllSessions());
+  process.on("exit", () => killAllSessions());
   globalThis.__agentOfficeConversationWiringInstalled = true;
 }

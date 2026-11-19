@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { AgentInstance, ApiAgent } from "../../types/index";
-import { buildClaudeArgs, disabledMcpArgs } from "./summon";
+import { buildClaudeArgs, disabledMcpArgs, SELF_SCHEDULING_TOOLS } from "./summon";
 
 const agent: ApiAgent = { id: "developer", name: "developer", description: "", skills: [], tools: [], permissionMode: "bypassPermissions" };
 const instance = (branch: string): AgentInstance => ({
@@ -89,6 +89,15 @@ test("server names are denied the way the CLI prefixes their tools", () => {
   assert.deepStrictEqual(disabledMcpArgs([]), []);
   assert.deepStrictEqual(disabledMcpArgs(["playwright", "claude.ai Gmail", "my-server"]),
     ["--disallowedTools", "mcp__playwright,mcp__claude_ai_Gmail,mcp__my-server"]);
+  assert.deepStrictEqual(disabledMcpArgs(["playwright"], ["ScheduleWakeup"]), ["--disallowedTools", "mcp__playwright,ScheduleWakeup"]);
+});
+
+test("a chat's live process cannot schedule itself; a one-shot run is unchanged", () => {
+  const chat = buildClaudeArgs({ request: { agentId: "dev", prompt: "hi" }, agent, instance: null, appendedSystemPrompt: "", streamInput: true }).args;
+  assert.ok(chat.includes("--input-format"));
+  for (const tool of SELF_SCHEDULING_TOOLS) assert.ok(flagValue(chat, "--disallowedTools")?.split(",").includes(tool), tool);
+  const oneShot = buildClaudeArgs({ request: { agentId: "dev", prompt: "hi" }, agent, instance: null, appendedSystemPrompt: "" }).args;
+  assert.ok(!(flagValue(oneShot, "--disallowedTools") ?? "").includes("ScheduleWakeup"));
 });
 
 test("a run with no seat of its own follows the agent's declaration; a seat must opt in", () => {

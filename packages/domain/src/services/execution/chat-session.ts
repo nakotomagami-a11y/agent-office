@@ -26,6 +26,7 @@ import * as store from "../infra/store";
 import * as runs from "./runs";
 import type { LiveRun } from "./runs/types";
 import { prepareProviderSpawn, releaseProviderSpawn, runCost, type ProviderSpawn } from "./runs/provider-spawn";
+import { chargeOutstandingHolds } from "../providers/gateway-tokens";
 import { prepareSummon, type PreparedSummon, type SummonError } from "./summon-run";
 import { chatSessions, seatKey, type SessionListener } from "./chat-session-registry";
 
@@ -35,9 +36,18 @@ export const INTERRUPT_GRACE_MS = 5_000;
 const CLOSE_GRACE_MS = 10_000;
 /** How long a finished background task may take to get its report turn before the process counts as idle. */
 const REPORT_GRACE_MS = 3_000;
+/** No process outlives this, however busy: its provider token and pin live exactly as long as it. */
+export const MAX_LIFETIME_MS = 4 * 60 * 60_000;
+/** Nothing open or unread: the process closes after this even while background work still runs. */
+const BACKGROUND_IDLE_MS = 60 * 60_000;
+/** Turns the CLI may start on its own in a row, with no message in between, before it is stopped. */
+const MAX_SELF_TURNS = 3;
+const STDERR_KEPT = 16 * 1024;
 const KEPT_TURNS = 20;
 const MISSING_SESSION = "No conversation found with session ID";
-const BACKGROUND_TURN_PROMPT = "Background work finished.";
+// Fixed text: the CLI's own summary is written by the model, and a turn's prompt reaches prior context.
+const REPORT_TURN_PROMPT = "A background task finished.";
+const SELF_TURN_PROMPT = "The agent continued on its own.";
 
 type Proc = ChildProcessByStdio<Writable, Readable, Readable>;
 
@@ -85,9 +95,17 @@ interface ChatSession {
   /** Set while the CLI is expected to start a turn reporting a finished background task. */
   reportTimer?: NodeJS.Timeout;
   cliCost: number;
+  /** The process's stderr tail, and the open turn's own: an error card shows only its turn's. */
   stderrBuf: string;
-  lastNotice?: string;
+  turnStderr: string;
+  /** A background task reported since the last turn: the next turn the CLI starts is its report. */
+  taskReported: boolean;
   turnsOpened: number;
+  /** Turns the CLI started on its own since the last message. */
+  selfTurns: number;
+  /** Past MAX_LIFETIME_MS: closes once the open turn ends. */
+  retiring: boolean;
+  lifetimeTimer?: NodeJS.Timeout;
   closing: boolean;
   exited: Promise<void>;
   idleTimer?: NodeJS.Timeout;
@@ -96,12 +114,16 @@ interface ChatSession {
 
 const sessions = chatSessions.map as Map<string, ChatSession>;
 
+const keepTail = (text: string): string => (text.length > STDERR_KEPT ? text.slice(-STDERR_KEPT) : text);
+
 /** Calls for one conversation run one at a time: a spawn in progress must not race a second one. */
 const chains = new Map<string, Promise<unknown>>();
 function serialized<T>(convId: string, fn: () => Promise<T>): Promise<T> {
   const prev = chains.get(convId) ?? Promise.resolve();
   const next = prev.then(fn, fn);
-  chains.set(convId, next.catch(() => undefined));
+  const tail = next.then(() => undefined, () => undefined);
+  chains.set(convId, tail);
+  void tail.then(() => { if (chains.get(convId) === tail) chains.delete(convId); });
   return next;
 }
 
@@ -145,15 +167,23 @@ export function hasLiveProcess(convId: string): boolean {
  */
 export function deliver(conv: SessionConversation, input: SessionInput, opts: DeliverOptions = {}): Promise<DeliverResult> {
   db.insertRunInput({ id: input.id, conversationId: conv.id, text: input.text, origin: input.origin, sentAt: Date.now() });
-  if (input.origin === "user") store.pushRecentPrompt(conv.agentId, input.text);
-  return serialized(conv.id, async () => {
-    const live = sessions.get(conv.id);
-    if (live && !live.closing && isBusySession(live) && opts.maxBudgetUsd === undefined) {
-      write(live, input);
-      return { ok: true };
+  return serialized(conv.id, async (): Promise<DeliverResult> => {
+    let result: DeliverResult;
+    try {
+      const live = sessions.get(conv.id);
+      if (live && !live.closing && isBusySession(live) && opts.maxBudgetUsd === undefined) {
+        write(live, input);
+        result = { ok: true };
+      } else {
+        result = await startOrReuse(conv, opts);
+      }
+    } catch (err) {
+      // A message the caller is told failed must not be sent later behind its back.
+      log.error("chat_session.deliver_failed", { convId: conv.id, err: String(err) });
+      result = { ok: false, error: { status: 500, code: "start_failed", message: String(err) } };
     }
-    const result = await startOrReuse(conv, opts);
-    if (!result.ok) db.deleteRunInput(conv.id, input.id);
+    if (!result.ok && !("refusedRunId" in result)) db.deleteRunInput(conv.id, input.id);
+    if (result.ok && input.origin === "user") store.pushRecentPrompt(conv.agentId, input.text);
     return result;
   });
 }
@@ -178,10 +208,9 @@ async function startOrReuse(conv: SessionConversation, opts: DeliverOptions): Pr
   const specKey = specKeyOf(preparation.prepared);
   const capped = opts.maxBudgetUsd !== undefined;
 
-  if (live && !live.closing) {
-    if (live.specKey === specKey && !live.capped && !capped) return writeUnsent(live, pending);
-    await close(live);
-  }
+  if (live && !live.closing && live.specKey === specKey && !live.capped && !capped) return writeUnsent(live, pending);
+  // Closed now, or by its idle timer while the spawn was prepared: either way, gone before the next starts.
+  if (live) await close(live);
   return spawnSession({ conv, prepared: preparation.prepared, specKey, capped, pending });
 }
 
@@ -221,7 +250,7 @@ function specKeyOf(prepared: PreparedSummon): string {
     if (skip.has(arg)) { i++; continue; }
     args.push(arg);
   }
-  return JSON.stringify({ args, cwd: prepared.cwd ?? null, provider: currentProvider().provider });
+  return JSON.stringify({ args, cwd: prepared.cwd ?? null, provider: currentProvider().provider, identity: prepared.identity });
 }
 
 interface SpawnPlan {
@@ -244,7 +273,8 @@ function spawnSession({ conv, prepared, specKey, capped, pending, freshSession =
   };
   const spawn = prepareProviderSpawn(ownerId, runOpts);
   if (!spawn.ok) {
-    for (const input of pending) db.deleteRunInput(conv.id, input.id);
+    // The head becomes the refused turn; the rest stay unread for the next attempt.
+    db.deleteRunInput(conv.id, head.id);
     return { ok: false, refusedRunId: runs.recordRefusedRun(runOpts, spawn) };
   }
   spawn.env.AO_RUN_ID = ownerId;
@@ -268,6 +298,10 @@ function spawnSession({ conv, prepared, specKey, capped, pending, freshSession =
     backgroundTasks: 0,
     cliCost: 0,
     stderrBuf: "",
+    turnStderr: "",
+    taskReported: false,
+    selfTurns: 0,
+    retiring: false,
     turnsOpened: 0,
     closing: false,
     exited: new Promise<void>((resolve) => { markExited = resolve; }),
@@ -275,6 +309,8 @@ function spawnSession({ conv, prepared, specKey, capped, pending, freshSession =
   if (session.resumed) session.sessionId = session.conv.sessionId ?? undefined;
   sessions.set(conv.id, session);
   log.info("chat_session.start", { convId: conv.id, ownerId, resumed: session.resumed, provider: spawn.provider });
+  session.lifetimeTimer = setTimeout(() => retire(session), MAX_LIFETIME_MS);
+  session.lifetimeTimer.unref();
   attach(session, markExited);
   session.firstContent = { id: head.id, content: prepared.built.stdin };
   for (const input of pending) write(session, input);
@@ -285,7 +321,11 @@ function attach(session: ChatSession, markExited: () => void): void {
   const { proc } = session;
   proc.stdin.on("error", () => {});
   pumpStdout(session);
-  proc.stderr.on("data", (chunk: Buffer) => { session.stderrBuf += chunk.toString("utf8"); });
+  proc.stderr.on("data", (chunk: Buffer) => {
+    const text = chunk.toString("utf8");
+    session.stderrBuf = keepTail(session.stderrBuf + text);
+    session.turnStderr = keepTail(session.turnStderr + text);
+  });
   proc.on("error", (err) => log.warn("chat_session.spawn_error", { convId: session.conv.id, err: String(err) }));
   proc.on("close", (code, signal) => {
     markExited();
@@ -356,7 +396,7 @@ function handleLine(session: ChatSession, line: string): void {
     return settle(session);
   }
   if (type === "system" && subtype?.startsWith("task_")) {
-    if (subtype === "task_notification") session.lastNotice = str(evt.summary) ?? session.lastNotice;
+    if (subtype === "task_notification") session.taskReported = true;
     const owner = ownerTurn(session, str(evt.tool_use_id)) ?? session.turn;
     if (owner) runs.feedTurn(owner, line);
     return;
@@ -371,7 +411,14 @@ function handleLine(session: ChatSession, line: string): void {
 
   if (type === "result") return onResult(session, evt, line);
   if (!session.turn && (type === "assistant" || type === "stream_event")) {
-    openTurn(session, { id: null, text: session.lastNotice ?? BACKGROUND_TURN_PROMPT, origin: "system" });
+    if (session.closing) return;
+    // A chain of turns nobody asked for is the agent driving itself, unwatched: stop it.
+    if (session.selfTurns >= MAX_SELF_TURNS) {
+      log.warn("chat_session.self_turn_cap", { convId: session.conv.id, selfTurns: session.selfTurns });
+      void close(session, true);
+      return;
+    }
+    openTurn(session, { id: null, text: session.taskReported ? REPORT_TURN_PROMPT : SELF_TURN_PROMPT, origin: "system" });
   }
   if (session.turn) runs.feedTurn(session.turn, line);
 }
@@ -433,7 +480,9 @@ function openTurn(session: ChatSession, input: { id: string | null; text: string
   if (input.id) db.markRunInputRead(input.id, turn.id, Date.now(), true);
   session.turn = turn;
   session.turnsOpened++;
-  session.lastNotice = undefined;
+  session.selfTurns = input.id ? 0 : session.selfTurns + 1;
+  session.taskReported = false;
+  session.turnStderr = "";
   clearTimeout(session.reportTimer);
   session.reportTimer = undefined;
   session.turns.push(turn);
@@ -454,6 +503,7 @@ function onResult(session: ChatSession, evt: Json, line: string): void {
   clearTimeout(session.interruptTimer);
   session.turn = undefined;
   runs.endTurn(turn, evt.is_error === true ? 1 : 0);
+  if (session.retiring) return void close(session);
   settle(session);
 }
 
@@ -462,13 +512,26 @@ function settle(session: ChatSession): void {
   if (session.closing) return;
   if (isBusySession(session)) {
     clearIdle(session);
+    // Only background work left: it may run long, but not forever with the spawn held open.
+    if (!session.turn && session.unread.size === 0 && !session.reportTimer) armIdle(session, BACKGROUND_IDLE_MS);
     emit({ type: "changed", convId: session.conv.id });
     return;
   }
   clearIdle(session);
-  session.idleTimer = setTimeout(() => void close(session), IDLE_CLOSE_MS);
-  session.idleTimer.unref();
+  armIdle(session, IDLE_CLOSE_MS);
   emit({ type: "idle", convId: session.conv.id });
+}
+
+function armIdle(session: ChatSession, ms: number): void {
+  session.idleTimer = setTimeout(() => void close(session), ms);
+  session.idleTimer.unref();
+}
+
+/** Past its lifetime: closes now, or once the open turn ends. */
+function retire(session: ChatSession): void {
+  log.info("chat_session.lifetime_reached", { convId: session.conv.id });
+  if (session.turn) session.retiring = true;
+  else void close(session);
 }
 
 function awaitReport(session: ChatSession): void {
@@ -517,30 +580,33 @@ function onExit(session: ChatSession, code: number, signal: NodeJS.Signals | nul
   clearIdle(session);
   clearTimeout(session.interruptTimer);
   clearTimeout(session.reportTimer);
+  clearTimeout(session.lifetimeTimer);
   session.reportTimer = undefined;
   if (sessions.get(conv.id) === session) sessions.delete(conv.id);
-  releaseProviderSpawn(session.ownerId, session.spawn.pinFile);
+  // Turns end before the spawn is released: a turn's cost on a gateway provider is read off the
+  // spawn's meter, which releasing drops. In-flight holds are charged once, here, not per turn.
   const turn = session.turn;
   session.turn = undefined;
   if (turn) {
-    turn.stderrBuf = session.stderrBuf;
+    turn.stderrBuf = session.turnStderr;
     runs.endTurn(turn, code === 0 ? 1 : code, signal);
   }
   log.info("chat_session.exit", { convId: conv.id, code, signal, unread: session.unread.size, closing: session.closing });
 
   // `--resume` named a session this account does not have: start fresh rather than fail every message.
   if (!session.closing && session.resumed && session.turnsOpened === 0 && session.stderrBuf.includes(MISSING_SESSION)) {
+    releaseSpawn(session);
     log.warn("chat_session.retry_no_resume", { convId: conv.id });
     db.updateConversation(conv.id, { sessionId: null });
     const fresh = { ...conv, sessionId: null };
     void serialized(conv.id, async () => {
       const pending = db.listPendingInputs(conv.id);
-      if (pending.length === 0) return;
+      if (pending.length === 0 || sessions.has(conv.id)) return;
       const request = summonRequestFor(conv, pending[0]!, null, {});
       const preparation = await prepareSummon(request, { streamInput: true });
       if ("error" in preparation) {
         log.warn("chat_session.fresh_start_failed", { convId: conv.id, code: preparation.error.code });
-        emit({ type: "exited", convId: conv.id, sessionId: null });
+        emit({ type: "exited", convId: conv.id, sessionId: null, unreadIds: pending.map((p) => p.id) });
         return;
       }
       spawnSession({ conv: fresh, prepared: preparation.prepared, specKey: specKeyOf(preparation.prepared), capped: false, pending, freshSession: true });
@@ -560,12 +626,21 @@ function onExit(session: ChatSession, code: number, signal: NodeJS.Signals | nul
       runs.endTurn(failed, code === 0 ? 1 : code, signal);
     }
   }
-  emit({ type: "exited", convId: conv.id, sessionId: session.sessionId ?? null });
+  releaseSpawn(session);
+  emit({ type: "exited", convId: conv.id, sessionId: session.sessionId ?? null, unreadIds: [...session.unread.keys()] });
+}
+
+function releaseSpawn(session: ChatSession): void {
+  chargeOutstandingHolds(session.ownerId);
+  releaseProviderSpawn(session.ownerId, session.spawn.pinFile);
 }
 
 /** Kill every chat process (server shutdown). Their unread messages stay unread for the next start. */
 export function killAllSessions(): void {
-  for (const s of sessions.values()) runs.killRunProc(s.proc);
+  for (const s of sessions.values()) {
+    s.closing = true;
+    runs.killRunProc(s.proc);
+  }
 }
 
 /** Stop the conversation's process now ("New thread", the slot deleted). Unread messages stay unread. */
@@ -577,10 +652,11 @@ export function closeSession(convId: string): Promise<void> {
 /** Make way for a one-shot run on this seat: true once no chat process holds it, false while one is working. */
 export async function releaseIdleSeat(agentId: string, instanceId: string | undefined): Promise<boolean> {
   const key = seatKey(agentId, instanceId);
-  for (const s of sessions.values()) {
+  for (const s of [...sessions.values()]) {
     if (seatKey(s.conv.agentId, s.conv.instanceId) !== key) continue;
     if (isBusySession(s)) return false;
-    await close(s);
+    // In the conversation's own order, so a message being delivered right now is not cut off.
+    await serialized(s.conv.id, () => close(s));
   }
   return true;
 }

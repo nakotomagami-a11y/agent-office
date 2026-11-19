@@ -57,6 +57,12 @@ function next() {
       finish(false);
     }, 400);
   }
+  if (body === "LOOP") {
+    // A model that keeps waking itself (ScheduleWakeup and the like): turns with no message.
+    answer("first");
+    finish(false);
+    return setInterval(() => { if (!busy) { busy = true; answer("again"); finish(false); } }, 40);
+  }
   if (body === "BG") {
     say({ type: "assistant", parent_tool_use_id: null, message: { content: [{ type: "tool_use", id: "tu-bg", name: "Agent", input: { subagent_type: "explore", prompt: "dig", run_in_background: true } }] } });
     say({ type: "system", subtype: "task_started", task_id: "t1", tool_use_id: "tu-bg", is_backgrounded: true });
@@ -182,7 +188,7 @@ test("a background sub-agent keeps the process busy, and its report is a turn of
   assert.equal(opened.length, 2);
   assert.equal(opened[1]!.inputId, null, "the CLI started it");
   assert.equal(opened[1]!.origin, "system");
-  assert.equal(opened[1]!.prompt, "dig finished");
+  assert.equal(opened[1]!.prompt, "A background task finished.", "fixed text: the summary is the model's own words");
   const firstIdle = events.findIndex((e, i) => i >= from && e.type === "idle" && e.convId === conv.id);
   const reportOpened = events.findIndex((e, i) => i >= from && e === opened[1]);
   assert.ok(firstIdle === -1 || firstIdle > reportOpened, "not idle while the sub-agent ran");
@@ -240,3 +246,14 @@ test("a seat's idle process makes way for a one-shot run; a working one does not
   assert.equal(chat.hasLiveProcess(conv.id), false);
 });
 
+
+test("a process that keeps starting turns on its own is stopped after a few", async () => {
+  const conv = fresh("loop");
+  const from = events.length;
+  await send(conv, "LOOP");
+  await until("the process to be stopped", () => events.slice(from).some((e) => e.type === "exited" && e.convId === conv.id));
+  const turns = turnsOf(conv.id);
+  assert.equal(turns.length, 4, "the user's turn and three the CLI started, no more");
+  assert.deepEqual(turns.slice(1).map((t) => t.prompt), Array(3).fill("The agent continued on its own."));
+  assert.equal(chat.hasLiveProcess(conv.id), false);
+});
