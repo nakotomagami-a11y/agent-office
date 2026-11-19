@@ -12,6 +12,7 @@ import * as runs from "./runs";
 import * as secrets from "../accounts/secrets";
 import * as store from "../infra/store";
 import * as summon from "./summon";
+import { chatSessions } from "./chat-session-registry";
 
 export interface SummonError { status: number; message: string; code?: string }
 export type SummonResult = { runId: string } | { error: SummonError };
@@ -58,12 +59,25 @@ export function withSeatBudget(req: SummonRequest, instanceId: string | undefine
   return { ...req, maxBudgetUsd: req.maxBudgetUsd && req.maxBudgetUsd > 0 ? Math.min(req.maxBudgetUsd, left) : left };
 }
 
+/** Everything a spawn for a request needs, checked: the argv, where it runs, and who it is. */
+export interface PreparedSummon {
+  built: summon.BuiltCommand;
+  cwd?: string;
+  /** The request's instance, or the project's seat for this agent. */
+  instanceId?: string;
+  instanceLabel?: string;
+  agentName: string;
+}
+
 /**
- * Compose and start a run from a validated SummonRequest. Shared by the
- * /api/summon route and the scheduler so both drive runs identically
- * (health check, cwd resolution, prior-context injection, session resume).
+ * Compose a spawn from a validated SummonRequest: health check, cwd resolution, prior-context
+ * injection, session resume, budget, permission bridge and secret checks. Shared by one-shot runs
+ * (`startSummonRun`) and a chat's long-lived process (execution/chat-session.ts).
  */
-export async function startSummonRun(req: SummonRequest): Promise<SummonResult> {
+export async function prepareSummon(
+  req: SummonRequest,
+  opts: { streamInput?: boolean } = {},
+): Promise<{ prepared: PreparedSummon } | { error: SummonError }> {
   const claudeStatus = await health.getHealth();
   if (!claudeStatus.available) {
     return { error: { status: 503, code: "claude_unavailable", message: claudeStatus.error ?? "claude unavailable" } };
@@ -92,6 +106,7 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     isolate: summon.isMissionWorktree(instance),
     appendedSystemPrompt,
     priorContext,
+    streamInput: opts.streamInput,
   });
 
   // Refuse rather than run: a prompting mode with no bridge denies every tool
@@ -121,28 +136,35 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
     }
   }
 
-  const resolvedInstanceId = req.instanceId ?? instance?.instanceId;
+  const instanceLabel = ownInstance?.label ?? (instance ? agent.info.name : undefined);
+  return {
+    prepared: {
+      built,
+      cwd: cwdResolution.cwd,
+      instanceId: req.instanceId ?? instance?.instanceId,
+      instanceLabel,
+      agentName: instanceLabel ?? agent.info.name,
+    },
+  };
+}
 
-  // Spawn guard: never let the same (agentId, instanceId) target run two
-  // `claude` processes at once. Under normal use this never trips — the
-  // client serializes sends per target and only fires the next one once the
-  // last reaches "idle". It exists for the case where a project-tab switch
-  // unmounts the ChatPanel mid-request: TanStack Query drops the per-call
-  // `.mutate(vars, { onSuccess })` callback for an unmounted caller, so the
-  // client can lose track of a run that *did* spawn and start it again on
-  // retry.
-  //
-  // Two cases, handled differently — a naive guard would silently swallow a
-  // genuinely different, queued message just because it landed while another
-  // run was still active:
-  //   - Same prompt as the live run → this really is a lost-track-of retry
-  //     (e.g. "New Thread" + resend). Hand back the live run's id; the
-  //     client just attaches to it. Silent and correct — nothing was lost.
-  //   - Different prompt → this is a distinct message that raced past the
-  //     client's own `isStreaming` queue gate (see the `already_running`
-  //     handling in `use-chat-actions.ts` for why that race exists). It must
-  //     never be discarded: reject with a recoverable error so the client
-  //     re-queues it instead of the request just vanishing.
+/**
+ * Compose and start a one-shot run from a validated SummonRequest. Shared by the
+ * /api/summon route, the scheduler and the loop reviewer so they drive runs identically.
+ */
+export async function startSummonRun(req: SummonRequest): Promise<SummonResult> {
+  const preparation = await prepareSummon(req);
+  if ("error" in preparation) return preparation;
+  const { built, cwd, instanceId: resolvedInstanceId, instanceLabel, agentName } = preparation.prepared;
+
+  // A chat's process holds the seat's session between turns: an idle one makes way, a busy one is a running turn.
+  if (!(await chatSessions.releaseIdleSeat(req.agentId, resolvedInstanceId))) {
+    return { error: { status: 409, code: "already_running", message: "This agent is still working on a previous message." } };
+  }
+
+  // Spawn guard: never two `claude` processes for one (agentId, instanceId). The same prompt as the
+  // live run is a caller retrying a start it lost track of: hand back that run. A different prompt is
+  // refused with a retryable code, never dropped.
   const existing = runs.findActiveRunForTarget(req.agentId, resolvedInstanceId);
   if (existing) {
     if (existing.prompt.trim() === req.prompt.trim()) {
@@ -169,15 +191,14 @@ export async function startSummonRun(req: SummonRequest): Promise<SummonResult> 
 
   store.pushRecentPrompt(req.agentId, req.prompt);
 
-  const instanceLabel = ownInstance?.label ?? (instance ? agent.info.name : undefined);
   const { runId } = runs.startRun({
     agentId: req.agentId,
-    agentName: instanceLabel ?? agent.info.name,
+    agentName,
     prompt: req.prompt,
     origin: req.origin,
     model: built.model,
     effort: built.effort,
-    cwd: cwdResolution.cwd,
+    cwd,
     projectId: req.projectId,
     instanceId: resolvedInstanceId,
     instanceLabel,

@@ -17,6 +17,7 @@ import type {
   SseSubAgentUpdateEvent,
   SseToolEvent,
   SseToolDoneEvent,
+  SseInputEvent,
   SseUsageEvent,
   SubAgentStatus,
   CostBasis,
@@ -30,6 +31,7 @@ export type SseEvent =
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
   | { name: "tool-done"; data: SseToolDoneEvent }
+  | { name: "input"; data: SseInputEvent }
   | { name: "usage"; data: SseUsageEvent }
   | { name: "done"; data: SseDoneEvent }
   | { name: "error"; data: SseErrorEvent }
@@ -43,7 +45,15 @@ export type SseEmit = (event: SseEvent) => void | Promise<void>;
 // chat re-open. Without it, a reconnect replays only the streamed text chunk and
 // the card degrades back to a plain "You've hit your session limit" bubble.
 // `subagent-update` likewise: without it a reconnect left a finished sub-agent's card running.
-export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "tool-done" | "usage" | "subagent" | "subagent-update" | "rate-limit" }>;
+export type ReplayableEvent = Extract<SseEvent, { name: "chunk" | "tool" | "tool-done" | "input" | "usage" | "subagent" | "subagent-update" | "rate-limit" }>;
+
+/** The long-lived chat process a turn runs in (execution/chat-session.ts). It owns the spawn: the
+ *  provider token and pin outlive the turn, and Stop interrupts the turn instead of killing it. */
+export interface TurnHost {
+  ownerId: string;
+  interrupt(): void;
+  kill(): void;
+}
 
 export interface SubAgentRecord {
   subRunId: string;
@@ -138,6 +148,9 @@ export interface LiveRun {
   costBasis?: CostBasis;
   /** The run's `--settings` pin, deleted when it finishes. */
   pinFile?: string;
+  host?: TurnHost;
+  /** The host's cumulative CLI cost when this turn opened: `result.total_cost_usd` counts the whole process. */
+  costBase: number;
 }
 
 export interface StartRunOpts {

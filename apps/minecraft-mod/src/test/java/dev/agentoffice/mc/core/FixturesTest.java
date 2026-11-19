@@ -138,6 +138,7 @@ class FixturesTest {
         assertEquals(List.of(
                 new Transcript.AgentText("Looking.", false),
                 new Transcript.Tool("toolu-2", "Read", "a.ts", false),
+                new Transcript.You("Check b.ts too", false),
                 new Transcript.SubAgent("sub-1", "qa-code-review", Protocol.SubAgent.ERROR, null, "Reading the diff"),
                 new Transcript.RateLimit("Approaching your usage limit", false),
                 new Transcript.Failure("auth_expired", "Log in again"),

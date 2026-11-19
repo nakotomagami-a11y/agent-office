@@ -121,6 +121,8 @@ export function buildClaudeArgs(opts: {
   isolate?: boolean;
   appendedSystemPrompt: string;
   priorContext?: string;
+  /** A chat process: stdin stays open and takes JSON messages for as long as it lives (execution/chat-session.ts). */
+  streamInput?: boolean;
 }): BuiltCommand {
   const { request, agent, instance, appendedSystemPrompt, priorContext } = opts;
 
@@ -133,6 +135,7 @@ export function buildClaudeArgs(opts: {
     "--include-partial-messages",
     "--verbose",
   ];
+  if (opts.streamInput) args.push("--input-format", "stream-json", "--replay-user-messages");
 
   const model = request.model ?? instance?.model ?? agent.defaultModel ?? "default";
   const effort = request.effort ?? instance?.effort ?? agent.defaultEffort ?? "default";

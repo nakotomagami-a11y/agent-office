@@ -73,7 +73,6 @@ export function ChatPanel({
       onNewThread={m.onNewThread}
       onRetry={m.onRetry}
       onResume={m.onResume}
-      onSkip={m.onSkip}
       pendingSeed={m.pendingSeed}
       setPendingSeed={m.setPendingSeed}
     />

@@ -53,12 +53,15 @@ PATH="<stubdir>:$PATH" \
   pnpm --filter @agent-office/domain test src/services/execution/runs.auth-e2e.test.ts
 ```
 
-Three more need the **real** `claude` CLI on `PATH` (no stub, no network: they talk to local mock
-servers). Re-run all three whenever the CLI version changes:
+Four more need the **real** `claude` CLI on `PATH` (no stub, no network: they talk to local mock
+servers). Re-run all four whenever the CLI version changes:
 
 ```bash
 # a hostile repo's .claude/settings*.json cannot re-point the backend; fails on a new CLI version
 pnpm --filter @agent-office/domain test src/services/execution/runs.settings-pin.e2e.test.ts
+# a chat's live process: a message mid-turn is read in the same turn, one during the answer is the
+# next turn, Stop keeps the process; fails on a new CLI version (then update chat-session.test.ts's stub too)
+pnpm --filter @agent-office/domain test src/services/execution/runs.chat-session.e2e.test.ts
 # CLI → AI-provider gateway → mock OpenAI, with a tool call round trip
 pnpm --filter @agent-office/server test src/gateway.e2e.test.ts
 # CLI → gateway passthrough → mock Anthropic API (stored key as x-api-key, never the run token)

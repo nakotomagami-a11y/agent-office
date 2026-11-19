@@ -130,6 +130,18 @@ export interface PersistedRun {
   toolCalls?: Array<{ id: string; name: string; input: string; ts: number; doneTs?: number; backgrounded?: boolean }>;
   /** Sub-agents this turn spawned. Unlike `toolCalls`, runs are never pruned. */
   subRuns?: SubRun[];
+  /** Messages the agent read while this turn was running, oldest first. */
+  inputs?: ConversationInput[];
+}
+
+/** A message sent into a conversation's live CLI process. `runId` stays null until a turn reads it. */
+export interface ConversationInput {
+  id: string;
+  text: string;
+  origin: MessageOrigin;
+  runId: string | null;
+  sentAt: number;
+  readAt: number | null;
 }
 
 export interface SubRun {
@@ -166,6 +178,9 @@ export interface ConversationView {
   activeRunId: string | null;
   sessionId: string | null;
   turns: PersistedRun[];
+  /** Sent to the agent, not read yet: it reads them at its next step. */
+  pending: ConversationInput[];
+  /** Agent Office's own messages, waiting for the chat to go idle. */
   queue: ConversationQueuedMessage[];
 }
 
@@ -490,6 +505,8 @@ export interface SsePermissionRequestEvent {
 export interface SseChunkEvent { runId: string; text: string }
 export interface SseToolEvent { runId: string; name: string; input?: unknown; toolUseId?: string; ts?: number }
 export interface SseToolDoneEvent { runId: string; toolUseId: string; ts: number; backgrounded?: boolean }
+/** The agent read a message sent while this turn was running. */
+export interface SseInputEvent { runId: string; id: string; text: string; origin: MessageOrigin; ts: number }
 export interface SseUsageEvent {
   runId: string;
   tokensIn: number;
@@ -561,6 +578,7 @@ export type RunStreamEvent =
   | { name: "chunk"; data: SseChunkEvent }
   | { name: "tool"; data: SseToolEvent }
   | { name: "tool-done"; data: SseToolDoneEvent }
+  | { name: "input"; data: SseInputEvent }
   | { name: "usage"; data: SseUsageEvent }
   | { name: "done"; data: SseDoneEvent }
   | { name: "error"; data: SseErrorEvent }

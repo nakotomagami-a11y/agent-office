@@ -59,7 +59,6 @@ export type ChatPanelBodyProps = {
   onNewThread: () => void;
   onRetry: () => void;
   onResume: () => void;
-  onSkip: () => void;
   pendingSeed: string | undefined;
   setPendingSeed: (v: string | undefined) => void;
 };
@@ -115,7 +114,6 @@ export function ChatPanelBody(props: ChatPanelBodyProps): React.ReactElement {
         currentFailureItemId={props.currentFailureItemId}
         onRetryFailedTurn={props.onRetry}
         onResumeFailedTurn={props.onResume}
-        onSkipFailedTurn={props.onSkip}
         phase={props.phase}
         phaseHint={phaseHint(props.phase, props.stream.usage)}
         waitingAgents={countLiveSubAgents(props.stream.thread)}

@@ -28,6 +28,7 @@ const attachedSchema = z.object({
 const chunkSchema = z.object({ runId: z.string(), text: z.string() });
 const toolSchema = z.object({ runId: z.string(), name: z.string(), input: z.unknown().optional(), toolUseId: z.string().optional(), ts: z.number().optional() });
 const toolDoneSchema = z.object({ runId: z.string(), toolUseId: z.string(), ts: z.number(), backgrounded: z.boolean().optional() });
+const inputSchema = z.object({ runId: z.string(), id: z.string(), text: z.string(), origin: z.enum(["user", "system"]), ts: z.number() });
 const usageSchema = z.object({
   runId: z.string(),
   tokensIn: z.number(),
@@ -75,6 +76,7 @@ const eventSchemas = {
   chunk: chunkSchema,
   tool: toolSchema,
   "tool-done": toolDoneSchema,
+  input: inputSchema,
   usage: usageSchema,
   done: doneSchema,
   error: errorSchema,
@@ -136,6 +138,13 @@ export function applySseEvent(
     }
     case "tool-done":
       return { thread: applyToolDoneEvent(prev.thread, event.data), usage: prev.usage, done: false, error: null };
+    case "input": {
+      // A message the agent read mid-turn sits where it read it; the text after it is a new bubble.
+      const { data } = event;
+      if (prev.thread.some((it) => it.id === data.id)) return { thread: prev.thread, usage: prev.usage, done: false, error: null };
+      const item: ThreadItem = { kind: "you", id: data.id, text: data.text, origin: data.origin, ts: data.ts };
+      return { thread: [...closeStreaming(prev.thread), item], usage: prev.usage, done: false, error: null };
+    }
     case "subagent": {
       const { data } = event;
       // Find the most recent agent-subagent item without a subRunId (created by the tool event)

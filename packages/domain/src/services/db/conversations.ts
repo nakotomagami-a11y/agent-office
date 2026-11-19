@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./connection";
 import { emitAppEvent } from "../infra/events";
 import { asOrigin, deleteRunsWhere, rowToRun, type RunRow } from "./runs";
+import { inputsReadByRuns } from "./run-inputs";
 import type { MessageOrigin, PersistedRun, SubAgentStatus, SubRun } from "../../types/index";
 
 export type ConversationStatus = "idle" | "running" | "needs_attention";
@@ -296,8 +297,11 @@ export function listConversationTurns(conversationId: string): PersistedRun[] {
     .all(conversationId) as RunRow[];
   const toolRows = toolCallRowsByRun(rows.map((r) => r.id));
   const subRuns = subRunsByTurn(conversationId);
+  const inputs = inputsReadByRuns(rows.map((r) => r.id));
   return rows.map((row) => {
     const run = rowToRun(row);
+    const read = inputs.get(row.id);
+    if (read) run.inputs = read;
     const subs = subRuns.get(row.id);
     if (subs) run.subRuns = subs;
     const trows = toolRows.get(row.id);

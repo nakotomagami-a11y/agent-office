@@ -1,30 +1,23 @@
 /**
- * Connects the run engine to the conversation service: `installConversationWiring`
- * registers the listener that drives the conversation queue's auto-advance —
- * this is the ONLY place that happens.
+ * Connects the run engine and the chat processes to the conversation service: a turn's end comes
+ * from the run engine's finish listeners, a turn's start, idle and exit from the chat process.
+ * The ONLY place either drives a conversation.
  *
- * Deliberately kept separate from `runs.ts` (which must not import this file,
- * or `conversation.ts`, or `summon-run.ts` — `summon-run.ts` already imports
- * `runs.ts`, so `runs.ts` importing anything that imports `summon-run.ts`
- * would be a cycle). `runs.ts` only exposes a plain callback registry
- * (`registerRunFinishedListener`); this module is what actually connects it.
+ * Kept apart from `runs.ts` (which must not import this file, `conversation.ts` or `summon-run.ts`:
+ * `summon-run.ts` already imports `runs.ts`), which only exposes a callback registry.
  *
- * Installed by `installRunListeners` (run-listeners.ts), which every server's
- * `boot()` calls before it serves runs.
+ * Installed by `installRunListeners` (run-listeners.ts), which every server's `boot()` calls
+ * before it serves runs.
  */
 import { registerRunFinishedListener } from "./runs";
-import { onRunFinished } from "./conversation";
+import { onRunFinished, onSessionEvent } from "./conversation";
+import { onSessionEvent as onChatSessionEvent, killAllSessions } from "./chat-session";
 import { productionConversationRunner } from "./conversation-runner";
 import { log } from "../infra/log";
 
 declare global {
-  // HMR-safety: without this guard, editing this file (or anything it
-  // transitively imports) in dev would re-run the module top-level and
-  // register a second, functionally-duplicate listener closure into the
-  // listener Set (which itself already survives HMR via a `globalThis` slot
-  // in runs.ts) — silently double-processing every run's finish from then on
-  // (double-draining the queue). See the identical pattern + rationale on
-  // `__agentOfficeRunsInstalled` in runs.ts.
+  // HMR-safety: a re-run of this module would register a second listener into sets that survive
+  // HMR on `globalThis`, and every turn's end would then be processed twice.
   var __agentOfficeConversationWiringInstalled: boolean | undefined;
 }
 
@@ -35,5 +28,12 @@ export function installConversationWiring(): void {
       log.error("conversation.on_run_finished_failed", { runId, err: String(err) });
     });
   });
+  onChatSessionEvent((event) => {
+    void onSessionEvent(event, productionConversationRunner).catch((err) => {
+      log.error("conversation.on_session_event_failed", { convId: event.convId, type: event.type, err: String(err) });
+    });
+  });
+  process.on("SIGINT", () => killAllSessions());
+  process.on("SIGTERM", () => killAllSessions());
   globalThis.__agentOfficeConversationWiringInstalled = true;
 }

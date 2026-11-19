@@ -50,7 +50,7 @@ test("every price and cost-unknown line the screens can show has its words", () 
   const keys = ["prices_loading", "prices_unavailable", "prices_fetch_off", "prices_source", "prices_stale", "prices_refresh", "prices_refreshing", "prices_refresh_failed", "prices_refresh_wait", "prices_refresh_offline", "prices_fetch_toggle", "prices_fetch_toggle_failed", "context_cost_no_price", "unknown_cost_runs"];
   for (const key of keys) assert.ok(messages.providers[key], `providers.${key}`);
   const cap = messages.errors.run["budget_exceeded"];
-  assert.ok(cap?.["title"] && cap["body"], "the budget cap run code has copy (the generic card, with Retry and Skip)");
+  assert.ok(cap?.["title"] && cap["body"], "the budget cap run code has copy (the generic card, with Retry)");
 });
 
 test("the wizard step and the settings tab are named", () => {

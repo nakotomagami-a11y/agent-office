@@ -11,7 +11,7 @@
 import { execFileSync, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { randomUUID } from "node:crypto";
-import type { PersistedRun, RunErrorCode, SseErrorEvent, SubAgentStatus } from "../../types/index";
+import type { CostBasis, MessageOrigin, PersistedRun, Provider, RunErrorCode, SseErrorEvent, SubAgentStatus } from "../../types/index";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
 import { appBaseUrl } from "../infra/discovery";
@@ -21,7 +21,7 @@ import { isInterruptionCode, RUN_ERROR_REMEDIATION } from "../../config/run-erro
 import { appendRun as appendHistory } from "../projects/history";
 import * as db from "../db";
 import { acquireInhibit, releaseInhibit, forceReleaseInhibit } from "../infra/sleep-inhibit";
-import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent, SubAgentRecord } from "./runs/types";
+import type { LiveRun, ReplayableEvent, SseEmit, SseEvent, StartRunOpts, StreamEvent, SubAgentRecord, TurnHost } from "./runs/types";
 import {
   buildRateLimitEvent, classifyExitFailure, classifyResultError, classifySpawnError, detectRateLimitResult, redactSecrets,
 } from "./runs/errors";
@@ -82,7 +82,7 @@ const TOOL_CALL_RETENTION_MS = 48 * 60 * 60_000;
 /** On Windows `proc.kill()` only signals the `cmd.exe` that cross-spawn uses
  *  to launch `claude.cmd`; the real `claude` is an unrelated grandchild and
  *  survived, so Abort did nothing. `taskkill /t /f` kills the tree. */
-function killRunProc(proc: ChildProcessByStdio<Writable | null, Readable, Readable>): void {
+export function killRunProc(proc: ChildProcessByStdio<Writable | null, Readable, Readable>): void {
   if (process.platform === "win32" && proc.pid) {
     try {
       execFileSync("taskkill", ["/pid", String(proc.pid), "/t", "/f"], { stdio: "ignore" });
@@ -98,6 +98,16 @@ function killRunProc(proc: ChildProcessByStdio<Writable | null, Readable, Readab
   }
 }
 
+function killRun(run: LiveRun): void {
+  if (run.host) run.host.kill();
+  else killRunProc(run.proc);
+}
+
+/** Whose spawn a run's provider token and gateway spend belong to: its host's when it has one. */
+function costOwner(run: LiveRun): string {
+  return run.host?.ownerId ?? run.id;
+}
+
 function gc(): void {
   const now = Date.now();
   const cutoff = now - RUN_RETENTION_MS;
@@ -109,7 +119,7 @@ function gc(): void {
     if (run.status === "running" && now - run.startTs > MAX_WALL_CLOCK_MS) {
       log.warn("run.wall_clock_exceeded", { runId: id, wallMs: now - run.startTs });
       broadcast(run, { name: "error", data: { runId: id, code: "max_runtime" } });
-      killRunProc(run.proc);
+      killRun(run);
     }
   }
   db.pruneExpiredToolCalls(now - TOOL_CALL_RETENTION_MS);
@@ -180,23 +190,27 @@ function refuseRun(runId: string, opts: StartRunOpts, refusal: ProviderRefusal):
   return { runId };
 }
 
-export function startRun(opts: StartRunOpts): { runId: string } {
-  const runId = randomUUID();
-  const plan = prepareProviderSpawn(runId, opts);
-  if (!plan.ok) return refuseRun(runId, opts, plan);
-  const { env, accountId, secretValues } = plan;
-  // The MCP permission bridge is spawned by the CLI and inherits this env; it
-  // has no other way to know which run it is answering for.
-  env.AO_RUN_ID = runId;
-  env.AO_BASE_URL = appBaseUrl();
-  let proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
-  try {
-    proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
-  } catch (err) {
-    // A synchronous throw (a NUL byte in an argument) must not leave a live token or pin behind.
-    releaseProviderSpawn(runId, plan.pinFile);
-    throw err;
-  }
+/** A chat process the provider refused: its turn is the same failed row a refused run leaves. */
+export function recordRefusedRun(opts: StartRunOpts, refusal: ProviderRefusal): string {
+  return refuseRun(randomUUID(), opts, refusal).runId;
+}
+
+type RunMeta = Omit<StartRunOpts, "args" | "stdin" | "accountId">;
+
+interface RunSpawn {
+  proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
+  args: string[];
+  secretValues: string[];
+  provider: Provider;
+  costBasis: CostBasis;
+  accountId: string | undefined;
+  pinFile?: string;
+  host?: TurnHost;
+  costBase?: number;
+}
+
+/** The live record and its `running` row, shared by a spawned run and a turn of a chat process. */
+function registerRun(runId: string, opts: RunMeta, spawn: RunSpawn): LiveRun {
   const run: LiveRun = {
     id: runId,
     agentId: opts.agentId,
@@ -216,14 +230,14 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     cacheReadTokens: 0,
     cost: 0,
     status: "running",
-    proc,
+    proc: spawn.proc,
     subscribers: new Set(),
     parseFailures: 0,
     sawStreamDelta: false,
     toolSinceText: false,
-    args: plan.args,
+    args: spawn.args,
     stderrBuf: "",
-    secretValues,
+    secretValues: spawn.secretValues,
     lastActivityAt: Date.now(),
     eventLog: [],
     parentRunId: opts.parentRunId,
@@ -233,8 +247,10 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     pendingBackgroundBash: new Map(),
     pendingPrCreate: new Set(),
     origin: opts.origin ?? "user",
-    provider: plan.provider,
-    pinFile: plan.pinFile,
+    provider: spawn.provider,
+    pinFile: spawn.pinFile,
+    host: spawn.host,
+    costBase: spawn.costBase ?? 0,
   };
   liveRuns.set(runId, run);
   acquireInhibit();
@@ -256,14 +272,76 @@ export function startRun(opts: StartRunOpts): { runId: string } {
     startedAt: run.startTs,
     parentRunId: opts.parentRunId,
     conversationId: opts.conversationId,
-    accountId,
-    provider: plan.provider,
-    costBasis: plan.costBasis,
+    accountId: spawn.accountId,
+    provider: spawn.provider,
+    costBasis: spawn.costBasis,
   });
 
-  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId, provider: plan.provider });
+  log.info("run.start", { runId, agent: opts.agentId, cwd: opts.cwd, accountId: spawn.accountId, provider: spawn.provider, hosted: !!spawn.host });
   // A new run appeared — refresh runs lists / office agent statuses / trees.
   emitAppEvent("runs:changed");
+  return run;
+}
+
+export interface HostedTurnOpts extends RunMeta {
+  host: TurnHost;
+  proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
+  args: string[];
+  secretValues: string[];
+  provider: Provider;
+  costBasis: CostBasis;
+  accountId: string | undefined;
+  costBase: number;
+  /** Known when the process resumed a session or an earlier turn finished. */
+  sessionId?: string;
+  /** Named by the process's `init`, not yet confirmed by an answer. */
+  pendingSessionId?: string;
+  freshSession?: boolean;
+}
+
+/** A turn of a long-lived chat process: the host feeds it the process's stream lines
+ *  (`feedTurn`) and ends it on the turn's `result` or the process's exit (`endTurn`). */
+export function openHostedTurn(opts: HostedTurnOpts): LiveRun {
+  const run = registerRun(randomUUID(), opts, opts);
+  run.sessionId = opts.sessionId;
+  run.pendingSessionId = opts.sessionId ? undefined : opts.pendingSessionId;
+  run.freshSession = opts.freshSession;
+  if (run.sessionId) db.setRunSessionId(run.id, run.sessionId);
+  if (run.freshSession) broadcast(run, { name: "chunk", data: { runId: run.id, text: FRESH_SESSION_NOTICE } });
+  return run;
+}
+
+export function feedTurn(run: LiveRun, line: string): void {
+  handleStreamLine(run, line);
+}
+
+export function endTurn(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | null): void {
+  finalizeRun(run, exitCode, signal);
+}
+
+/** A message the agent read while this turn ran: shown where it read it, live and on replay. */
+export function noteTurnInput(run: LiveRun, input: { id: string; text: string; origin: MessageOrigin; ts: number }): void {
+  broadcast(run, { name: "input", data: { runId: run.id, ...input } });
+}
+
+export function startRun(opts: StartRunOpts): { runId: string } {
+  const runId = randomUUID();
+  const plan = prepareProviderSpawn(runId, opts);
+  if (!plan.ok) return refuseRun(runId, opts, plan);
+  const { env, accountId, secretValues } = plan;
+  // The MCP permission bridge is spawned by the CLI and inherits this env; it
+  // has no other way to know which run it is answering for.
+  env.AO_RUN_ID = runId;
+  env.AO_BASE_URL = appBaseUrl();
+  let proc: ChildProcessByStdio<Writable | null, Readable, Readable>;
+  try {
+    proc = spawnRunProcess(plan.args, opts.cwd, env, opts.stdin);
+  } catch (err) {
+    // A synchronous throw (a NUL byte in an argument) must not leave a live token or pin behind.
+    releaseProviderSpawn(runId, plan.pinFile);
+    throw err;
+  }
+  const run = registerRun(runId, opts, { proc, args: plan.args, secretValues, provider: plan.provider, costBasis: plan.costBasis, accountId, pinFile: plan.pinFile });
 
   pumpStdout(run);
   pumpStderr(run);
@@ -444,6 +522,11 @@ export function isRunLive(runId: string): boolean {
   return liveRuns.has(runId);
 }
 
+/** The live run an `AO_RUN_ID` speaks for: a spawned run's own id, or a chat process's open turn. */
+export function liveRunIdFor(id: string): string | undefined {
+  return runForOwner(id)?.id;
+}
+
 /** Push a parked permission request to whoever is watching this run. */
 export function broadcastPermissionRequest(runId: string, req: PermissionRequest): void {
   const run = liveRuns.get(runId);
@@ -453,6 +536,13 @@ export function broadcastPermissionRequest(runId: string, req: PermissionRequest
 
 export function abortRun(runId: string): boolean {
   const run = liveRuns.get(runId);
+  if (run?.host) {
+    // The process outlives the turn: stop the turn, keep the session. A finished turn has nothing to stop.
+    if (run.status !== "running") return true;
+    run.aborted = true;
+    run.host.interrupt();
+    return true;
+  }
   if (run) {
     run.aborted = true;
     killRunProc(run.proc);
@@ -493,6 +583,7 @@ function broadcast(run: LiveRun, raw: SseEvent): void {
     event.name === "chunk" ||
     event.name === "tool" ||
     event.name === "tool-done" ||
+    event.name === "input" ||
     event.name === "usage" ||
     event.name === "subagent" ||
     event.name === "subagent-update" ||
@@ -539,13 +630,23 @@ function failRun(run: LiveRun, failure: ProviderFailure): void {
   // Stop closes the CLI's gateway connection, which fails the upstream fetch: that is not an outage.
   if (run.aborted || run.status !== "running" || run.error) return;
   broadcast(run, { name: "error", data: { runId: run.id, code: failure.code, detail: failure.detail } });
-  killRunProc(run.proc);
+  killRun(run);
+}
+
+/** The run a gateway owner id answers for: a spawned run is its own owner, a chat process's owner is its open turn. */
+function runForOwner(ownerId: string): LiveRun | undefined {
+  const own = liveRuns.get(ownerId);
+  if (own) return own;
+  for (const run of liveRuns.values()) {
+    if (run.host?.ownerId === ownerId && run.status === "running") return run;
+  }
+  return undefined;
 }
 
 // Re-registered on every HMR reload, so the listener always calls this module's failRun.
 globalThis.__agentOfficeGatewayFailureOff?.();
 globalThis.__agentOfficeGatewayFailureOff = onGatewayFailure((ownerId, code, detail) => {
-  const run = liveRuns.get(ownerId);
+  const run = runForOwner(ownerId);
   if (run) failRun(run, { code, detail });
 });
 
@@ -750,7 +851,7 @@ function handleStreamLine(run: LiveRun, line: string): void {
       run.cacheCreationTokens = evt.usage.cache_creation_input_tokens ?? run.cacheCreationTokens;
       run.cacheReadTokens = evt.usage.cache_read_input_tokens ?? run.cacheReadTokens;
     }
-    if (typeof evt.total_cost_usd === "number") run.cost = runCost(run.id, run.provider, evt.total_cost_usd).cost;
+    if (typeof evt.total_cost_usd === "number") run.cost = runCost(costOwner(run), run.provider, evt.total_cost_usd).cost - run.costBase;
     if (typeof evt.session_id === "string") run.sessionId = evt.session_id;
     broadcast(run, {
       name: "usage",
@@ -1042,10 +1143,10 @@ function finalizeRun(run: LiveRun, exitCode: number, signal?: NodeJS.Signals | n
   // A finished run can never act on a decision — never leave a prompt hanging.
   denyAllForRun(run.id);
   if (run.status !== "running") return;
-  const settled = settleRunCost(run.id, run.provider, run.cost);
-  run.cost = settled.cost;
+  const settled = settleRunCost(costOwner(run), run.provider, run.cost + run.costBase);
+  run.cost = Math.max(0, settled.cost - run.costBase);
   run.costBasis = settled.costBasis;
-  releaseProviderSpawn(run.id, run.pinFile);
+  if (!run.host) releaseProviderSpawn(run.id, run.pinFile);
 
   // A CLI that crashes, is killed, or fails auth exits non-zero *before* any
   // stream-json result event, so nothing has said why. Its stderr is the only

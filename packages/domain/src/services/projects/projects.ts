@@ -14,6 +14,7 @@ import { projectsRootProblem, readSettings, scanProjects, slugify, isFeatureEnab
 import { currentConversationFirstPrompts, deleteSlotConversations, getDb, runningOwnerPidsOnInstance, wasMissionSeat } from "../db";
 import { sessionNames, sessionTopic } from "../../config/session-names";
 import { liveRuns } from "../execution/runs/registry";
+import { chatSessions } from "../execution/chat-session-registry";
 import { isLiveServer } from "../infra/discovery";
 import type { SessionRemovalCode, WorkChoice } from "../../config/sessions";
 import {
@@ -775,6 +776,7 @@ function isInstanceRunning(instanceId: string): boolean {
   for (const run of liveRuns.values()) {
     if (run.status === "running" && run.instanceId === instanceId) return true;
   }
+  if (chatSessions.instanceBusy(instanceId)) return true;
   return runningOwnerPidsOnInstance(instanceId).some((pid) => pid !== process.pid && isLiveServer(pid));
 }
 
@@ -837,6 +839,7 @@ function removeSessions(reason: string, plan: Removal[], choice?: WorkChoice): v
   let detail: string | undefined;
   const removedByProject = new Map<string, Set<string>>();
   for (const r of plan) {
+    chatSessions.stopIdleInstance(r.instance.instanceId);
     try {
       releaseWorktree(r, choice);
     } catch (err) {

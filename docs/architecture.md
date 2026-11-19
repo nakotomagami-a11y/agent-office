@@ -231,16 +231,41 @@ stay at the HTTP layer; the domain stays transport-free.
 
 ## Summon flow
 
+A one-shot run (the scheduler without a chat, a loop's reviewer) is one process for one prompt:
+
 ```
-POST /api/summon
-  → buildClaudeArgs() (packages/domain/src/services/execution/summon.ts)
-  → buildAugmentedPath() — prepends NVM dirs + ~/.local/bin + /usr/local/bin
-  → spawn("claude", args, { env: augmentedEnv })
+startSummonRun() (execution/summon-run.ts)
+  → prepareSummon() → buildClaudeArgs() (execution/summon.ts)
+  → spawnClaude(args, { env }) — prompt on stdin, then stdin closed
   → NDJSON stdout parsed line-by-line
   → events broadcast over liveRuns registry
   → GET /api/runs/:id/stream (SSE) delivers to browser
   → finalizeRun() writes to SQLite on exit
 ```
+
+### Chat processes (`execution/chat-session.ts`)
+
+A chat is one long-lived process, started with `--input-format stream-json --replay-user-messages`
+and stdin left open. Every message (`POST /api/conversations/:id/messages`, `POST /api/summon`) is
+written to it as a JSON line with its own uuid. The CLI reads it at the agent's next step. Mid-turn,
+it is appended to the next tool result. If the agent was writing its answer, it runs as the next
+turn of the same process. The CLI also starts a turn on its own when a background sub-agent or
+shell finishes.
+
+- **Turn** = one `runs` row (`openHostedTurn` / `feedTurn` / `endTurn` in `runs.ts`). It opens on the
+  replay of the message that started it (matched by uuid) or on the first answer the CLI starts by
+  itself, and it ends on the turn's `result`. `result.total_cost_usd` counts the whole process, so a
+  turn's cost is what it added.
+- **Process** = the provider spawn (token, `--settings` pin), owned by the session, not the turn. The
+  permission bridge's `AO_RUN_ID` names the process; `liveRunIdFor` maps it to the open turn.
+- **Stop** sends the CLI an `interrupt` control request: the turn ends `stopped`, the process stays.
+  It is killed only if it has not answered after 5 s.
+- **Closed** after 15 min with nothing open, unread or in the background, or when the seat's spawn
+  args change (then the next message starts a new one with `--resume`). A one-shot run on the seat
+  closes an idle one first (`releaseIdleSeat`) and refuses while it works.
+- **Never lost**: each message is a `run_inputs` row before it is written; one no process read is
+  sent again by the next process. A process that dies before reading anything turns its first
+  message into a failed turn that says why (auth, a bad flag), rather than starting again.
 
 ### CLI argv order (buildClaudeArgs)
 
@@ -253,6 +278,7 @@ POST /api/summon
 | 4 | `stream-json` | hardcoded |
 | 5 | `--include-partial-messages` | hardcoded |
 | 6 | `--verbose` | hardcoded |
+| chat | `--input-format stream-json --replay-user-messages` | a chat's live process (`streamInput`) |
 | opt | `--model <model>` | request.model → instance.model → agent.defaultModel (omitted if "default") |
 | opt | `--effort <effort>` | request.effort → instance.effort → agent.defaultEffort (omitted if "default") |
 | opt | `--max-budget-usd <n>` | request.maxBudgetUsd (omitted if ≤0) |
@@ -260,7 +286,7 @@ POST /api/summon
 | per dir | `--add-dir <dir>` | each entry in agent.addDirs[] (tilde-expanded) |
 | opt | `--append-system-prompt-file <file>` | buildAppendedPrompt() output, written to a temp file (sidesteps arg-length limits) |
 | opt | `--resume <sessionId>` | request.resumeSessionId |
-| last | `<prompt>` | priorContext (last 8 messages) + request.prompt (or just prompt on --resume) |
+| stdin | `<prompt>` | priorContext (last 8 messages) + request.prompt (or just prompt on --resume); a chat process gets it as its first JSON message |
 
 `buildClaudeArgs` builds the table above; `startRun` then puts `--settings <pin>` in front (see "Per-run spawn environment"), so the spawned argv starts with it.
 
@@ -369,6 +395,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 | `chunk` | `runId, text` | Each text delta from claude's stdout |
 | `tool` | `runId, name, input?, toolUseId?, ts?` | Tool use block detected |
 | `tool-done` | `runId, toolUseId, ts, backgrounded?` | That tool call's result arrived, or its run ended without one — bounds the files an imggen card may claim |
+| `input` | `runId, id, text, origin, ts` | The agent read a message sent while this turn ran (a chat's live process, `execution/chat-session.ts`) — shown where it was read |
 | `usage` | `runId, tokensIn, tokensOut, cost` | Per-message and on result event |
 | `done` | `runId, exitCode, sessionId?, durationMs?, tokensIn?, tokensOut?, cost?` | Run finalized (success or failure) |
 | `error` | `runId, code, detail?, interrupted?, remediation` | Spawn error or `is_error` result. A MACHINE CODE, not prose — see the `errors.machine-codes` callout below; the client never read the old `message` field, which is how four failures went silent |
@@ -378,7 +405,7 @@ Wire format: `event: <name>\ndata: <json>\n\n`
 
 **Workflow tree:** `tool` events with `name: "Agent"` or `"Task"` are detected by the `useWorkflowTree` hook to build a live sub-agent spawn tree displayed in `WorkflowPill`. The tree is fetched from `GET /api/runs/:id/tree` (`API_ROUTES.runTree`), which builds it from the `runs` rows whose `parent_run_id` links back to the run.
 
-**Replay:** `chunk`, `tool`, `tool-done`, `usage`, `subagent`, `subagent-update` and `rate-limit` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
+**Replay:** `chunk`, `tool`, `tool-done`, `input`, `usage`, `subagent`, `subagent-update` and `rate-limit` are stored in `run.eventLog` and replayed to late subscribers. `done` and `error` are not replayed (they're terminal).
 
 **Heartbeat:** `: keepalive` every 25 seconds.
 
@@ -396,7 +423,7 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 
 **Path:** `~/.claude/agent-office/db.sqlite`
 **Pragmas:** WAL mode, `foreign_keys = ON`, `synchronous = NORMAL`
-**Migrations:** forward-only, tracked via `user_version` — currently at **v31**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
+**Migrations:** forward-only, tracked via `user_version` — currently at **v32**. Each step runs in a transaction on open (`packages/domain/src/services/db/migrations.ts`).
 **Crash recovery:** On open, `reapOrphanedRuns` marks a `status='running'` run as `status='error', exit_code=-1` **only if its `owner_pid` is no longer alive** — a run whose spawning process survived (e.g. a browser reconnect) is left running. A NULL `owner_pid` is treated as orphaned.
 
 ### Tables
@@ -408,7 +435,8 @@ A second, separate SSE stream broadcasts coarse **domain** events unrelated to a
 | `tool_calls` | id, run_id, name, input, ts, done_ts, backgrounded | Upserts on the CLI's `toolu_` id — one call is one row. 48h retention via `pruneExpiredToolCalls` |
 | `recent_prompts` | id, agent_id, prompt, used_at | Max 10 per agent |
 | `conversations` | id, agent_id, instance_id, project_id, session_id, status (`idle`\|`running`\|`needs_attention`), active_run_id, created_at, updated_at | Server-authoritative conversation state — see `docs/chat-refactor.md`. `runs.conversation_id` links a run back to the conversation it belongs to. It replaced the legacy `transcripts` blob: v14 created one conversation per old (agent, instance) slot, and v31 emptied it along with the never-used `pipelines`/`pipeline_steps` (after copying any rows to `~/.claude/agent-office/backups/`); the tables stay until no installed build reads them |
-| `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at, origin | Messages typed while a run is in flight, dispatched in order once it finishes |
+| `queued_messages` | id, conversation_id (FK → conversations), text, attachments, position, created_at, origin | The agent queue: Agent Office's own (`system`) messages, delivered one at a time once the chat is idle. The user's messages never wait here |
+| `run_inputs` | id, conversation_id (FK → conversations), run_id, text, origin, opened_turn, sent_at, read_at | Every message sent to a chat's live CLI process (`execution/chat-session.ts`). `run_id` is set when a turn reads it (`opened_turn` = it became that turn's prompt, else it was read mid-turn); a row still unread when its process dies is sent again by the next one |
 | `loops` | id, conversation_id, agent_id, instance_id, project_id, reviewer_agent_id, cwd, goal, phase, round, spent_usd, started_at, binding, config_json, open_json, history_json, active_run_id, created_at, updated_at | Loop v0 state (#145/#150/#151/#153). Started by `POST /api/loops`, or by the chat header's "QA loop" toggle (`execution/qa-loop.ts`): a seat with `qaLoopEnabled` gets a loop at the review phase after any user turn that edited files, once the chat is idle. The reviewer runs on its own agent settings outside the chat; fix rounds go through the conversation as `system` messages, each capped at the loop's remaining budget. The reviewer may cite the `general.*` rules (`config/loop.ts`) plus the `## <id>` headings of the reviewed project's own `docs/conventions.md` |
 | `background_shells` | id, run_id (FK → runs), agent_id, agent_name, instance_id, instance_label, project_id, pid, command, description, started_at | A `run_in_background` Bash shell an agent spawned — tracked by diffing the run's child PIDs before/after the tool call (see `execution/runs/background-shell.ts`), since Claude's own stream-json carries no PID for it |
 | `agent_context_measurements` | agent_id (PK), cc_base_and_tools_tokens, mcp_tokens_by_server, measured_at | Agent-scoped (not instance-scoped) result of the Context & Cost tab's "Measure exactly" probe — a real spawn's measured native-overhead split, not an estimate |

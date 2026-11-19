@@ -11,6 +11,7 @@ import { agentDisplayName } from "@/lib/agent-display-name";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { SystemNotice } from "./system-notice";
+import { cn } from "@/lib/cn";
 import type { OfficeAgent } from "@/modules/office/hooks/use-office-agents";
 import type { ThreadItem } from "@agent-office/domain/types";
 import { Icon } from "@/components/ui/icon";
@@ -221,9 +222,6 @@ export type MessageBubbleProps = {
   /** Called when the user clicks Resume on an error card — continues the
    *  same session as a new turn. Omitted where that's not plausible (auth). */
   onResume?: () => void;
-  /** Called when the user clicks Skip on an error card — discards this
-   *  failed turn and advances to the next queued message (or idle). */
-  onSkip?: () => void;
   /** Called when the user repairs a missing worktree on a cwd error card. */
   onRepair?: () => Promise<void> | void;
   /** Stop the active run from a rate-limit warning card. */
@@ -252,7 +250,6 @@ function ErrorCard({
   interrupted,
   onRetry,
   onResume,
-  onSkip,
   onRepair,
   onScheduleResumeAt,
   resumeResetsAtMs,
@@ -262,7 +259,6 @@ function ErrorCard({
   interrupted?: boolean;
   onRetry?: () => void;
   onResume?: () => void;
-  onSkip?: () => void;
   onRepair?: () => Promise<void> | void;
   onScheduleResumeAt?: (fireAtMs: number) => void;
   resumeResetsAtMs?: number | null;
@@ -290,7 +286,6 @@ function ErrorCard({
       <InterruptedCard
         onRetry={onRetry}
         onResume={onResume}
-        onSkip={onSkip}
         onScheduleResumeAt={onScheduleResumeAt}
         resumeResetsAtMs={resumeResetsAtMs}
         scheduled={scheduled}
@@ -299,10 +294,10 @@ function ErrorCard({
     );
   }
   // Re-running with the existing session would just hit the same wall again —
-  // Resume isn't offered on auth/subscription cards, only Retry and Skip.
-  if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
-  if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} onSkip={onSkip} />;
-  if (isProviderRunCode(code)) return <ProviderErrorCard code={code} detail={detail} onRetry={onRetry} onSkip={onSkip} />;
+  // Resume isn't offered on auth/subscription cards, only Retry.
+  if (code === "auth_expired") return <AuthErrorCard detail={detail} onRetry={onRetry} />;
+  if (code === "subscription_disabled") return <SubscriptionDisabledCard detail={detail} onRetry={onRetry} />;
+  if (isProviderRunCode(code)) return <ProviderErrorCard code={code} detail={detail} onRetry={onRetry} />;
 
   return (
     <FlagCard
@@ -317,7 +312,6 @@ function ErrorCard({
           : []),
         { key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry || repairing },
         { key: "resume", label: "Resume", tone: "neutral", onClick: onResume, disabled: !onResume },
-        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
       extraActions={
         onScheduleResumeAt && (
@@ -341,7 +335,6 @@ function ErrorCard({
 function InterruptedCard({
   onRetry,
   onResume,
-  onSkip,
   onScheduleResumeAt,
   resumeResetsAtMs,
   scheduled,
@@ -349,7 +342,6 @@ function InterruptedCard({
 }: {
   onRetry?: () => void;
   onResume?: () => void;
-  onSkip?: () => void;
   onScheduleResumeAt?: (fireAtMs: number) => void;
   resumeResetsAtMs?: number | null;
   scheduled: boolean;
@@ -365,7 +357,6 @@ function InterruptedCard({
       actions={[
         { key: "retry", label: "Retry", tone: "primary", onClick: onRetry, disabled: !onRetry },
         { key: "resume", label: "Resume", tone: "neutral", onClick: onResume, disabled: !onResume },
-        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
       extraActions={
         onScheduleResumeAt && (
@@ -386,7 +377,7 @@ function InterruptedCard({
  * again, offer an in-app "Sign in" that re-authenticates the account this
  * project runs under, then retries the failed message automatically.
  */
-function AuthErrorCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?: () => void; onSkip?: () => void }) {
+function AuthErrorCard({ detail, onRetry }: { detail?: string; onRetry?: () => void }) {
   const t = useTranslations("errors.run");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
@@ -417,7 +408,6 @@ function AuthErrorCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?:
       actions={[
         { key: "sign-in", label: "Sign in", tone: "primary", onClick: handleSignIn },
         { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
-        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
     />
   );
@@ -429,7 +419,7 @@ function AuthErrorCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?:
  * primary action is a direct link out to the Claude account where the user can
  * see what's going on; secondary is switching to an account that has access.
  */
-function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string; onRetry?: () => void; onSkip?: () => void }) {
+function SubscriptionDisabledCard({ detail, onRetry }: { detail?: string; onRetry?: () => void }) {
   const t = useTranslations("errors.run");
   const activeProjectId = useActiveProjectStore((s) => s.id);
   const projectQ = useProject(activeProjectId);
@@ -459,13 +449,12 @@ function SubscriptionDisabledCard({ detail, onRetry, onSkip }: { detail?: string
         { key: "check-account", label: t("subscription_disabled.check_account"), tone: "primary", href: EXTERNAL_LINKS.claudeUsage },
         { key: "switch-account", label: t("subscription_disabled.switch_account"), tone: "neutral", onClick: handleSwitch },
         { key: "retry", label: "Retry", tone: "neutral", onClick: onRetry, disabled: !onRetry },
-        { key: "skip", label: "Skip", tone: "neutral", onClick: onSkip, disabled: !onSkip },
       ]}
     />
   );
 }
 
-function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onSkip, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
+function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onRerun, onDelete, onRetry, onResume, onRepair, onStopRun, onDismissRateLimit, onScheduleRateLimit, onScheduleResumeAt, resumeResetsAtMs, hideAvatar }: MessageBubbleProps) {
   const { id: providerId } = useActiveProvider();
   switch (item.kind) {
     case "you": {
@@ -478,19 +467,25 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
         <div className="flex flex-row-reverse self-end max-w-[80%] gap-[12px] relative group/msg min-w-0">
           <UserAvatar size={60} className="shrink-0" />
           <div className="flex flex-col items-end min-w-0 flex-1">
-            <div className="bg-ao-bg-3 border border-ao-line-1 rounded-[14px_14px_4px_14px] px-4 py-3 text-[14px] leading-[1.55] text-ao-fg-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-w-full">
+            <div className={cn("bg-ao-bg-3 border border-ao-line-1 rounded-[14px_14px_4px_14px] px-4 py-3 text-[14px] leading-[1.55] text-ao-fg-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-w-full", item.pending && "border-dashed opacity-75")}>
               {youText}
               <ImageStrip urls={youImgs} />
             </div>
-            <MsgActions text={item.text} onRerun={onRerun} onDelete={onDelete} />
+            {item.pending ? (
+              <span className="mt-[4px] font-mono text-[10px] tracking-[0.06em] uppercase text-ao-fg-3" role="status">
+                Sent · read at the agent&apos;s next step
+              </span>
+            ) : (
+              <MsgActions text={item.text} onRerun={onRerun} onDelete={onDelete} />
+            )}
           </div>
         </div>
       );
     }
     case "agent-text": {
       const misclassified = misclassifiedAuthCode(item.text, item.streaming, providerId);
-      if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
-      if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} onSkip={onSkip} />;
+      if (misclassified === "auth_expired") return <AuthErrorCard detail={item.text.trim()} onRetry={onRetry} />;
+      if (misclassified === "subscription_disabled") return <SubscriptionDisabledCard detail={item.text.trim()} onRetry={onRetry} />;
 
       const agentImgs = extractImages(item.text);
       const showClarify = isQuestion && !item.streaming && !!onReply;
@@ -550,7 +545,6 @@ function MessageBubbleImpl({ item, agent, projectId, isQuestion, onReply, onReru
           interrupted={item.interrupted}
           onRetry={onRetry}
           onResume={onResume}
-          onSkip={onSkip}
           onRepair={onRepair}
           onScheduleResumeAt={onScheduleResumeAt}
           resumeResetsAtMs={resumeResetsAtMs}
@@ -624,7 +618,6 @@ function messageBubblePropsEqual(a: MessageBubbleProps, b: MessageBubbleProps): 
     !!a.onDelete !== !!b.onDelete ||
     !!a.onRetry !== !!b.onRetry ||
     !!a.onResume !== !!b.onResume ||
-    !!a.onSkip !== !!b.onSkip ||
     !!a.onRepair !== !!b.onRepair ||
     !!a.onStopRun !== !!b.onStopRun ||
     !!a.onDismissRateLimit !== !!b.onDismissRateLimit ||

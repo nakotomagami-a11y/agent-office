@@ -8,7 +8,7 @@ This page is long. Here's the lay of the land — every section below, grouped:
 
 - **Shell & navigation** — [Layout](#/interface) · [Project tabs](#/interface) · [Sidebar](#/interface)
 - **Agent details** — [the modal](#/interface) and its four tabs: [Conversation](#/interface) · [History](#/interface) · [Memory](#/interface) · [Settings](#/interface)
-- **Chat** — [Message queue](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
+- **Chat** — [Talk while it works](#/interface) · [Drafts](#/interface) · [Attachments](#/interface) · [Slash commands](#/interface) · [Missions](#/interface)
 - **Standalone pages** — [Settings](#/interface) · [Memory](#/interface) · [Skills](#/interface) · [Analytics](#/interface)
 - **Modals & panels** — [Claude limits](#/interface) · [Migration](#/interface) · [Processes](#/interface) · [Bootstrap project](#/interface)
 - **System** — [Keyboard shortcuts](#/interface) · [Themes](#/interface) · [Reduced motion](#/interface) · [Performance mode](#/interface) · [Notifications](#/interface)
@@ -32,7 +32,7 @@ The strip below the titlebar lets you hold multiple projects open at once and sw
 
 - **`+` button** (far left) — opens the project picker dropdown. Click any project to open it as a new tab, or focus the existing tab if that project is already open. "New project…" at the bottom creates one from scratch.
 - **Tabs** — each tab shows the project's planet icon + name. Click to activate. Middle-click or the hover-X to close. Right-click for **Close / Close others / Close tabs to the right / Reopen closed tab**. Drag to reorder.
-- **State preservation** — switching tabs doesn't unmount your conversation. The chat thread, active stream, composer draft, message queue, and every per-`tKey` piece of chat state is preserved by a global registry keyed on `<agentId>::<instanceId>`. Live SSE streams keep flowing in the background of tabs you left; return and pick up mid-token.
+- **State preservation** — switching tabs doesn't unmount your conversation. The chat thread, active stream, composer draft, and every per-`tKey` piece of chat state is preserved by a global registry keyed on `<agentId>::<instanceId>`. Live SSE streams keep flowing in the background of tabs you left; return and pick up mid-token.
 - **Persistence** — the tab list + closed-tab stack are stored in `ui_settings.tabs-state`. Reopening the app restores every open tab; deep-linking `/projects/<id>` in the URL opens a fresh tab automatically.
 - **Keyboard** — see the "Keyboard shortcuts summary" section at the bottom.
 
@@ -65,7 +65,7 @@ Click any agent (in the sidebar or in the agent list) to open the details modal.
 The chat panel. Send a prompt, watch it stream back. Persists across app restarts.
 
 - **Composer** at the bottom with autoresizing textarea
-- **Message queue** — you can send multiple messages while one is running; they queue and dispatch in order
+- **Talk while it works** — messages sent while the agent runs reach it at its next step; nothing waits for the run to end
 - **Drafts** — text in the composer is autosaved to `~/.claude/agent-office/db.sqlite → drafts` and restored when you reopen the tab
 - **Attachments** — drop files onto the composer or paste from clipboard (see Clipboard image paste below)
 - **Slash commands** — start typing `/` to open the slash menu of summon actions
@@ -125,11 +125,18 @@ Modal state is reflected in the URL as query params (e.g. `?modal=agent&agent=de
 
 ## Chat features (Conversation tab)
 
-### Message queue
+### Talk while it works
 
-While one run is streaming, you can queue additional prompts. They dispatch in order once the current run completes. Queued messages show a small chevron and remain editable until they start.
+Send a message at any time, even while the agent is running. Each chat keeps a live `claude` process, and your message goes to it at once:
 
-The queue is per-instance and persists across app restarts.
+- **The agent is between steps, or a sub-agent is working in the background** — it reads your message right away.
+- **It is running a command or writing** — it reads your message as soon as that step ends. While the agent is working, your message is added to its next tool result. If it was already writing its final answer, your message becomes its next turn.
+
+Until the agent reads it, your message shows dashed and marked *Sent*. After that, it appears in the thread at the point the agent read it. **Stop** interrupts the current step but keeps the session, so the next message carries on in the same process.
+
+Messages Agent Office writes itself (review rounds, mission notices, a finished background shell) are different: they wait in a small queue under the thread until the agent is idle, so they never land in the middle of your task. You can remove them from there.
+
+A message the process never read (the app closed, the process crashed) is sent again to the next one.
 
 ### Draft persistence
 
@@ -293,7 +300,7 @@ Every dev server, build, and background process spawned by the app. Live status 
 | `↑` / `↓` (in composer, empty) | Cycle through recent prompts |
 | `Enter` in composer | Send |
 | `Shift+Enter` in composer | Newline |
-| `Cmd/Ctrl+Enter` in composer | Send + queue |
+| `Cmd/Ctrl+Enter` in composer | Send |
 | `Ctrl+B` | Toggle sidebar |
 | `Ctrl+D` | Toggle Docs modal |
 | `Cmd/Ctrl+W` | Close active project tab |

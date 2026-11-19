@@ -62,6 +62,7 @@ const EVENT_NAMES: readonly SseEventName[] = [
   "chunk",
   "tool",
   "tool-done",
+  "input",
   "usage",
   "done",
   "error",

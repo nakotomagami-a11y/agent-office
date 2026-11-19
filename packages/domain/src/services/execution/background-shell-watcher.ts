@@ -23,6 +23,7 @@ import { isLiveServer } from "../infra/discovery";
 import { log } from "../infra/log";
 import { sendMessage } from "./conversation";
 import { productionConversationRunner } from "./conversation-runner";
+import { hasLiveProcess } from "./chat-session";
 
 const TICK_MS = 5_000; // matches the "Shell running" pill's own /api/processes poll
 
@@ -82,12 +83,15 @@ async function tick(): Promise<void> {
     let lease: boolean | undefined;
     const orphanLease = () => (lease ??= db.holdLoopLease("orphan-shells"));
     for (const row of db.listBackgroundShells()) {
-      if (!shouldWake(db.isPidAlive(row.pid), db.getRun(row.runId)?.status)) continue;
+      const run = db.getRun(row.runId);
+      if (!shouldWake(db.isPidAlive(row.pid), run?.status)) continue;
       if (!ownsWake(row.runId, orphanLease)) continue;
       // Consumed unconditionally (even if the send below fails) — never
       // fire twice for the same shell, same "own it or drop it" rule
       // `collectBackgroundShells` already applies to a dead PID.
       db.deleteBackgroundShell(row.id);
+      // A chat process still alive tells its agent itself: the CLI starts a turn when its shell ends.
+      if (run?.conversationId && hasLiveProcess(run.conversationId)) continue;
       try {
         await sendWake(row);
         log.info("background_shell.wake_sent", { pid: row.pid, agentId: row.agentId, instanceId: row.instanceId });

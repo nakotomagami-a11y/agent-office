@@ -1,32 +1,24 @@
-// POST /api/summon — spawn a `claude -p` agent run and stream it over SSE.
-import { conversation, db, summonRun } from "@agent-office/domain/services";
+// POST /api/summon — send a message to an agent seat's chat and answer with the run that reads it
+// (follow it at /api/runs/:id/stream). The seat's live process takes it at once, even mid-turn.
+import { conversation, conversationRunner, db } from "@agent-office/domain/services";
 import { validateBody } from "../../lib/validation";
 import { summonRequestSchema } from "@agent-office/api-contract";
-import { badRequest, serverError } from "../../lib/api-helpers";
+import { serverError } from "../../lib/api-helpers";
 import { log } from "@agent-office/domain/services/infra/log";
 
 export async function POST(request: Request) {
   try {
     const raw: unknown = await request.json();
-    const { data: parsed, error } = validateBody(summonRequestSchema, raw);
+    const { data: req, error } = validateBody(summonRequestSchema, raw);
     if (error) return error;
 
-    // Without this a direct POST leaves conversation_id null, so the chat never finds the run.
-    const req = parsed.conversationId ? parsed : {
-      ...parsed,
-      conversationId: db.ensureConversation(parsed.agentId, parsed.instanceId || "default", parsed.projectId ?? null).id,
-    };
-
-    const result = await summonRun.startSummonRun(req);
-    if ("error" in result) {
-      if (result.error.code) {
-        return Response.json({ error: result.error.code, detail: result.error.message }, { status: result.error.status });
-      }
-      return badRequest(result.error.message);
-    }
-    if (req.conversationId) conversation.attachExternalRun(req.conversationId, result.runId);
-    return Response.json({ runId: result.runId });
+    const convId = req.conversationId ?? db.ensureConversation(req.agentId, req.instanceId || "default", req.projectId ?? null).id;
+    const { runId } = await conversation.sendMessageForRun(convId, req.prompt, conversationRunner.productionConversationRunner, req.contextProfile);
+    return Response.json({ runId, conversationId: convId });
   } catch (e) {
+    if (e instanceof conversation.DeliveryError) {
+      return Response.json({ error: e.code, detail: e.message }, { status: e.status });
+    }
     // Without this the throw becomes Next's bodyless 500, which the client
     // renders as the useless "Internal Server Error" and leaves no trace on
     // disk. Surface the real message and record it.

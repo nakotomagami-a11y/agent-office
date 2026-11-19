@@ -1,191 +1,165 @@
 /**
- * Conversation service — binds the pure {@link reduce} state machine to the DB
- * and to the run engine. This is the ONE server-side driver of chat turns +
- * the durable queue (replaces the client's transcript blob + queue daemon).
+ * Conversation service — binds the pure {@link reduce} state machine to the DB and to the
+ * conversation's live CLI process. The one server-side driver of chat turns and the agent queue.
  *
- * Flow: load the conversation's state from the DB → `reduce(state, action)` →
- * persist the next state → perform any `startRun` effect via the injected
- * {@link ConversationRunner}. The runner is injected so this whole layer is
- * unit-testable without spawning `claude` (see conversation.test.ts); the
- * production runner wraps `summon-run.startSummonRun`.
+ * Flow: load the state from the DB → `reduce(state, action)` → persist → perform a `deliver`
+ * effect through the injected {@link ConversationRunner}. The process reports back: a turn opened
+ * (`onSessionEvent`), a turn ended (`onRunFinished`, from the run engine), it went idle or exited.
+ * Calls for one conversation are serialized, so two reports never interleave a read-modify-write.
+ *
+ * The runner is injected so this layer is unit-testable without spawning `claude`
+ * (conversation.test.ts); the production one is execution/chat-session.ts.
  *
  * See docs/chat-refactor.md.
  */
 import * as db from "../db";
 import { log } from "../infra/log";
 import { emitAppEvent } from "../infra/events";
-import {
-  reduce,
-  type ConversationState,
-  type ConversationAction,
-} from "./conversation-machine";
-// The client-safe shape lives in the pure types module (no better-sqlite3 /
-// node:child_process deps) so browser code can import it directly — see that
-// file's header comment. Re-exported here so existing `conversation.` callers
-// keep working unchanged.
+import { reduce, type ConversationAction, type ConversationState, type QueuedMessage } from "./conversation-machine";
+import type { DeliverOptions, DeliverResult, SessionConversation, SessionInput } from "./chat-session";
+import type { SessionEvent } from "./chat-session-registry";
 import type { ContextProfile, ConversationView, MessageOrigin } from "../../types/index";
 export type { ConversationView } from "../../types/index";
 
-export interface StartRunInput {
-  agentId: string;
-  instanceId: string;
-  projectId: string | null;
-  prompt: string;
-  /** `system` when Agent Office wrote the prompt itself. Persisted on the run
-   *  so the transcript can render it as a notice, not as the user. */
-  origin: MessageOrigin;
-  resumeSessionId: string | null;
-  conversationId: string;
-  /** Only meaningful when `resumeSessionId` is null (the first turn of a
-   *  fresh session) — see `summon-run.ts`'s `buildPriorContext`, which
-   *  short-circuits once a session exists. Threaded through from the send
-   *  call (a per-message client preference), not stored on the conversation
-   *  itself. */
-  contextProfile?: ContextProfile;
-  /** A loop's fix round sent through the chat carries what is left of the loop's budget. */
-  maxBudgetUsd?: number;
-}
-
-/** Abstracts "spawn a run and give me its id". Throws if the run can't start. */
+/** What carries a conversation's messages to its agent. */
 export interface ConversationRunner {
-  startRun(input: StartRunInput): Promise<string>;
+  deliver(conv: SessionConversation, input: SessionInput, opts: DeliverOptions): Promise<DeliverResult>;
+  /** Send what an earlier process never read. */
+  redeliver(conv: SessionConversation): Promise<DeliverResult>;
+  /** A turn open, a message unread, or background work running. */
+  isBusy(convId: string): boolean;
+  hasLiveProcess(convId: string): boolean;
+  close(convId: string): Promise<void>;
 }
 
-/** Reconstruct the machine's in-memory state from the durable DB rows. */
+/** A send the agent could not get: the HTTP layer turns `code` into a status. */
+export class DeliveryError extends Error {
+  override readonly name = "DeliveryError";
+  constructor(readonly code: string, readonly status: number, message: string) {
+    super(message);
+  }
+}
+
+/** A start window (`running`, no process, no turn) lasts seconds; one this old means the server
+ *  died mid-start. Settled rather than left blocking the agent queue. */
+export const STALLED_START_MS = 2 * 60_000;
+
+const chains = new Map<string, Promise<unknown>>();
+function serialized<T>(convId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = chains.get(convId) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  chains.set(convId, next.catch(() => undefined));
+  return next;
+}
+
 function buildState(conv: db.ConversationRow): ConversationState {
-  const queue = db.listQueue(conv.id).map((m) => ({ id: m.id, text: m.text, origin: m.origin }));
-  const lastPrompt = db.latestConversationTurn(conv.id)?.prompt ?? null;
+  const latest = db.latestConversationTurn(conv.id);
   return {
     status: conv.status,
     activeRunId: conv.activeRunId,
     sessionId: conv.sessionId,
-    lastPrompt,
-    lastOrigin: db.latestConversationTurn(conv.id)?.origin ?? "user",
-    queue,
+    lastPrompt: latest?.prompt ?? null,
+    lastOrigin: latest?.origin ?? "user",
+    lastFailed: latest?.status === "error",
+    queue: db.listQueue(conv.id).map((m) => ({ id: m.id, text: m.text, origin: m.origin })),
   };
 }
 
-/** Write a machine state back to the DB (conversation row + queue rows). */
 function persist(convId: string, next: ConversationState): void {
-  db.updateConversation(convId, {
-    status: next.status,
-    activeRunId: next.activeRunId,
-    sessionId: next.sessionId,
-  });
+  db.updateConversation(convId, { status: next.status, activeRunId: next.activeRunId, sessionId: next.sessionId });
   db.replaceQueue(convId, next.queue.map((m) => ({ id: m.id, text: m.text, origin: m.origin })));
 }
 
-/**
- * Self-heal a conversation whose `activeRunId` points at a run that has
- * ALREADY finished/errored in the DB without ever going through
- * `finalizeRun`'s listener dispatch. This happens for real: server-restart
- * orphan-reaping (`reapOrphanedRuns` in db/connection.ts) updates the `runs`
- * row directly via raw SQL — it has no idea conversations exist and never
- * calls `onRunFinished`. Without this, a conversation can get stuck forever
- * reporting `status: "running"` for a run that is provably dead, silently
- * blocking every future send (they'd just queue behind a ghost).
- *
- * Called at the top of every mutating action AND on every read, so the
- * conversation is always self-consistent with the runs table by the time
- * anyone (client or dispatch) looks at or acts on it — no separate sweep job
- * needed. A no-op (single indexed SELECT) in the overwhelmingly common case
- * where the active run really is still running or there is none.
- */
-async function reconcileIfStale(convId: string, runner: ConversationRunner, adoptingRunId?: string): Promise<void> {
-  const conv = db.getConversation(convId);
-  if (conv && !conv.activeRunId) return healStalledStart(conv, adoptingRunId);
-  if (!conv?.activeRunId) return;
-  const run = db.getRun(conv.activeRunId);
-  if (!run || run.status === "running") return; // genuinely live, or not persisted yet (just spawned)
-  await apply(convId, { type: "runFinished", runId: run.id, ok: run.status === "done", sessionId: run.sessionId ?? null }, runner);
+const sessionConversation = (conv: db.ConversationRow): SessionConversation => ({
+  id: conv.id, agentId: conv.agentId, instanceId: conv.instanceId, projectId: conv.projectId, sessionId: conv.sessionId,
+});
+
+interface ApplyOptions extends DeliverOptions {
+  /** A delivery nothing reached: `park` the chat for the user (the agent queue's own drain, so a
+   *  broken spawn is not retried on every idle), `restore` it as it was, or `throw` for the caller
+   *  (a user's send) after restoring. */
+  onFailure?: "park" | "restore" | "throw";
 }
 
-/** A start window (`running`, no run yet) lasts seconds; one this old means the
- *  server died mid-start. Parked rather than left blocking every send and adoption. */
-export const STALLED_START_MS = 2 * 60_000;
-
-function healStalledStart(conv: db.ConversationRow, adoptingRunId?: string): void {
-  if (conv.status !== "running" || Date.now() - conv.updatedAt < STALLED_START_MS) return;
-  if (db.hasRunningTurn(conv.id, adoptingRunId)) return;
-  db.updateConversation(conv.id, { status: "needs_attention", activeRunId: null });
-  emitAppEvent("conversations:changed");
-}
-
-/**
- * Apply an action to a conversation, persist the result, and perform the
- * resulting `startRun` effect (if any). Returns the fresh view.
- *
- * A reduce yields at most one `startRun` effect. If the run engine refuses to
- * start (throws), the conversation is parked in `needs_attention` with its
- * queue intact — never lost — so the user can retry.
- */
-async function apply(
-  convId: string,
-  action: ConversationAction,
-  runner: ConversationRunner,
-  opts: { contextProfile?: ContextProfile; maxBudgetUsd?: number } = {},
-): Promise<ConversationView> {
-  // Skip reconciliation when the action itself IS a reconciling runFinished
-  // dispatch — `reconcileIfStale` calling back into `apply` for that exact
-  // action would otherwise recurse.
-  if (action.type !== "runFinished") await reconcileIfStale(convId, runner);
-
+/** Reduce, persist, deliver. Must run inside `serialized`. */
+async function step(convId: string, action: ConversationAction, runner: ConversationRunner, opts: ApplyOptions = {}): Promise<DeliverResult | null> {
   const conv = db.getConversation(convId);
   if (!conv) throw new Error(`conversation not found: ${convId}`);
-
   const prev = buildState(conv);
   const { state: next, effects } = reduce(prev, action);
   persist(convId, next);
-  // The message this start consumes: a send from idle, or the queue head `advance` took.
-  const consumed = action.type === "send" && prev.status === "idle"
-    ? action.message
-    : prev.queue.length > next.queue.length ? prev.queue[0] : undefined;
-
-  const startEffect = effects.find((e) => e.type === "startRun");
-  if (startEffect) {
-    let runId: string;
-    try {
-      runId = await runner.startRun({
-        agentId: conv.agentId,
-        instanceId: conv.instanceId,
-        projectId: conv.projectId,
-        prompt: startEffect.prompt,
-        origin: startEffect.origin,
-        resumeSessionId: startEffect.resumeSessionId,
-        conversationId: convId,
-        contextProfile: opts.contextProfile,
-        maxBudgetUsd: opts.maxBudgetUsd,
-      });
-    } catch (e) {
-      // Couldn't spawn — park for attention, keep the queue. The failed
-      // start is not a turn (no run row), so there's nothing to retry-by-run;
-      // the user can Retry (re-run lastPrompt) or Resume. Log the reason:
-      // discarding it made a missing permission bridge look like a silent
-      // refusal to act.
-      log.error("conversation.start_failed", {
-        convId,
-        code: e instanceof Error ? (e as Error & { code?: string }).code : undefined,
-        message: e instanceof Error ? e.message : String(e),
-      });
-      db.updateConversation(convId, { status: "needs_attention", activeRunId: null });
-      // Back at the head: a failed start has no run row, so nothing else holds the text.
-      if (consumed) db.replaceQueue(convId, [consumed, ...db.listQueue(convId)]);
-      emitAppEvent("conversations:changed");
-      return view(convId);
-    }
-    // Adopt the new runId as active (mirror the machine's `runStarted`).
-    const conv2 = db.getConversation(convId)!;
-    persist(convId, reduce(buildState(conv2), { type: "runStarted", runId }).state);
-  }
-
   emitAppEvent("conversations:changed");
-  return view(convId);
+  const effect = effects[0];
+  if (!effect) return null;
+
+  const result = await runner.deliver(sessionConversation(conv), effect.message, { contextProfile: opts.contextProfile, maxBudgetUsd: opts.maxBudgetUsd });
+  if (result.ok) return result;
+  if ("refusedRunId" in result) {
+    await step(convId, { type: "turnOpened", runId: result.refusedRunId, prompt: effect.message.text, origin: effect.message.origin }, runner);
+    turnWaiters.get(effect.message.id)?.(result.refusedRunId);
+    return result;
+  }
+  // Nothing reached the agent. A queued message goes back to the head; the chat settles as it was.
+  log.warn("conversation.deliver_failed", { convId, code: result.error.code, message: result.error.message });
+  const now = buildState(db.getConversation(convId)!);
+  const onFailure = opts.onFailure ?? "park";
+  // A parked system message waits at the head: nothing else holds its text.
+  const keep = onFailure === "park" && effect.message.origin === "system" && !now.queue.some((m) => m.id === effect.message.id);
+  const queue = keep ? [effect.message, ...now.queue] : now.queue;
+  const restored = prev.status === "running" ? (prev.lastFailed ? "needs_attention" : "idle") : prev.status;
+  const status = runner.isBusy(convId) ? "running" : onFailure === "park" ? "needs_attention" : restored;
+  persist(convId, { ...now, status, queue, lastFailed: prev.lastFailed });
+  emitAppEvent("conversations:changed");
+  if (onFailure === "throw") throw new DeliveryError(result.error.code ?? "start_failed", result.error.status, result.error.message);
+  return result;
 }
 
-// ─── Public API (called by the HTTP routes + the finalizeRun hook) ────────────
+/** The process has nothing to do: settle the status, drain the agent queue, or send what it never read. */
+async function settle(convId: string, runner: ConversationRunner): Promise<void> {
+  if (runner.isBusy(convId)) return;
+  await step(convId, { type: "idle" }, runner);
+  const conv = db.getConversation(convId);
+  if (conv?.status !== "idle" || runner.hasLiveProcess(convId) || db.listPendingInputs(convId).length === 0) return;
+  // Unread messages and no process (the server restarted): they go to a new one.
+  persist(convId, { ...buildState(conv), status: "running" });
+  const result = await runner.redeliver(sessionConversation(conv));
+  if (!result.ok) {
+    log.warn("conversation.redeliver_failed", { convId });
+    persist(convId, { ...buildState(db.getConversation(convId)!), status: "needs_attention" });
+  }
+  emitAppEvent("conversations:changed");
+}
+
+/**
+ * Bring the conversation in line with the runs table and the process: an active turn that already
+ * ended without reporting (a restart reaped it), or a `running` chat with nothing behind it. Called
+ * before every action and read, so nobody acts on a conversation stuck on a ghost.
+ */
+async function reconcile(convId: string, runner: ConversationRunner): Promise<void> {
+  const conv = db.getConversation(convId);
+  if (!conv || conv.status !== "running") return;
+  if (conv.activeRunId) {
+    const run = db.getRun(conv.activeRunId);
+    if (!run || run.status === "running") return;
+    await step(convId, { type: "turnEnded", runId: run.id, ok: run.status === "done", sessionId: run.sessionId ?? null }, runner);
+    return settle(convId, runner);
+  }
+  if (runner.hasLiveProcess(convId) || Date.now() - conv.updatedAt < STALLED_START_MS) return;
+  await settle(convId, runner);
+}
+
+function apply(convId: string, action: ConversationAction, runner: ConversationRunner, opts: ApplyOptions = {}): Promise<ConversationView> {
+  return serialized(convId, async () => {
+    await reconcile(convId, runner);
+    await step(convId, action, runner, opts);
+    return view(convId);
+  });
+}
+
+// ─── Public API (called by the HTTP routes and the process / run-engine hooks) ─
 
 /** Ensure a conversation exists for the slot, returning its (reconciled) view. */
-export async function ensureConversationView(
+export function ensureConversationView(
   agentId: string,
   instanceId: string,
   projectId: string | null,
@@ -195,8 +169,8 @@ export async function ensureConversationView(
   return getReconciledView(conv.id, runner);
 }
 
-/** Send a user message: starts a run if idle, else appends to the queue. */
-export async function sendMessage(
+/** Send a message: the user's goes to the agent now, Agent Office's waits for idle. */
+export function sendMessage(
   agentId: string,
   instanceId: string,
   projectId: string | null,
@@ -209,161 +183,176 @@ export async function sendMessage(
   return sendMessageToConversation(conv.id, text, runner, contextProfile, origin);
 }
 
-/** Send a user message directly to a known conversation id (the shape the
- *  `/api/conversations/:id/messages` route uses — the client already holds
- *  the id from a prior ensure/get call). `contextProfile` only matters if
- *  this happens to start a fresh (no prior session) turn — see StartRunInput. */
+/** Throws {@link DeliveryError} when a user's message could not reach the agent (no spawn possible). */
 export function sendMessageToConversation(
   convId: string,
   text: string,
   runner: ConversationRunner,
   contextProfile?: ContextProfile,
   origin: MessageOrigin = "user",
-  maxBudgetUsd?: number,
 ): Promise<ConversationView> {
-  const message = { id: cryptoRandomId(), text, origin };
-  return apply(convId, { type: "send", message }, runner, { contextProfile, maxBudgetUsd });
+  const message: QueuedMessage = { id: randomId(), text, origin };
+  return apply(convId, { type: "send", message }, runner, { contextProfile, onFailure: origin === "user" ? "throw" : "park" });
 }
 
 /**
- * Start `text` as the next turn ONLY if the chat is idle with an empty queue:
- * never queued, and a failed start puts the chat back to idle instead of
- * parking it in `needs_attention` over a turn the user never sent. For a loop's
- * fix round, which must know the run it started or wait (docs/chat-refactor.md, principle 6).
+ * The user's message, and the run that read it: the turn it opened, or the one running when the
+ * agent took it mid-turn. Null when no turn read it in time. For callers that follow a run's stream
+ * (`POST /api/summon`); the chat itself follows the conversation.
  */
-export async function startIfIdle(
+export async function sendMessageForRun(
   convId: string,
   text: string,
   runner: ConversationRunner,
-  maxBudgetUsd?: number,
-): Promise<{ runId: string } | { code: string }> {
-  await reconcileIfStale(convId, runner);
-  const conv = db.getConversation(convId);
-  if (!conv) return { code: "conversation_not_found" };
-  const before = buildState(conv);
-  if (before.status !== "idle" || before.queue.length > 0) return { code: "already_running" };
-  const { state: next, effects } = reduce(before, { type: "send", message: { id: cryptoRandomId(), text, origin: "system" } });
-  const start = effects.find((e) => e.type === "startRun");
-  if (!start) return { code: "already_running" };
-  persist(convId, next);
-  emitAppEvent("conversations:changed");
+  contextProfile?: ContextProfile,
+): Promise<{ runId: string | null }> {
+  const message: QueuedMessage = { id: randomId(), text, origin: "user" };
+  const read = waitForTurn(message.id);
   try {
-    const runId = await runner.startRun({
-      agentId: conv.agentId, instanceId: conv.instanceId, projectId: conv.projectId, prompt: start.prompt,
-      origin: start.origin, resumeSessionId: start.resumeSessionId, conversationId: convId, maxBudgetUsd,
-    });
-    persist(convId, reduce(buildState(db.getConversation(convId)!), { type: "runStarted", runId }).state);
-    emitAppEvent("conversations:changed");
-    return { runId };
-  } catch (e) {
-    // Not `persist(before)`: the user may have queued a message meanwhile.
-    // Skip the failed round, which drains that message or goes idle.
-    const now = buildState(db.getConversation(convId)!);
-    persist(convId, { ...now, status: "needs_attention", activeRunId: null });
-    await apply(convId, { type: "skip" }, runner);
-    return { code: (e as { code?: string }).code ?? "start_failed" };
+    await apply(convId, { type: "send", message }, runner, { contextProfile, onFailure: "throw" });
+  } catch (err) {
+    read.cancel();
+    throw err;
   }
+  return { runId: await read.promise };
 }
 
 /**
- * A run finished. Looked up by the run's `conversationId` (top-level turns
- * only — sub-agent runs have no conversationId and are ignored). On success
- * the next queued message auto-starts; on failure the conversation parks in
- * `needs_attention` with the queue preserved.
+ * Start `text` as the next turn ONLY if the chat is idle with an empty queue, and say which run it
+ * became: a loop's fix round and a scheduled message must know their run, or wait (principle 6 in
+ * docs/chat-refactor.md). Never queued; a failed start leaves the chat as it was.
  */
-export async function onRunFinished(
-  runId: string,
-  ok: boolean,
-  sessionId: string | null,
-  runner: ConversationRunner,
-): Promise<void> {
-  const run = db.getRun(runId);
-  const convId = run?.conversationId;
-  if (!convId) return;
-  if (!db.getConversation(convId)) return;
-  await apply(convId, { type: "runFinished", runId, ok, sessionId }, runner);
-}
-
-/** Mirror `apply()`'s `startRun` effect for a run started outside the `send`
- *  flow (a direct POST to /api/summon). Without it the conversation sits at
- *  its old status/activeRunId while the run is live, so the UI shows nothing
- *  running until it ends. */
-export function attachExternalRun(convId: string, runId: string): void {
-  const conv = db.getConversation(convId);
-  if (!conv) return;
-  persist(convId, reduce(buildState(conv), { type: "runStarted", runId }).state);
-}
-
-/** A scheduled resume becomes the conversation's turn, so its finish clears
- *  `needs_attention` and drains the queue (or parks it again). Without it the
- *  finish was dropped as foreign. Only a run of this very slot is adopted. */
-export async function adoptScheduledRun(
+export async function startTurnIfIdle(
   convId: string,
-  runId: string,
-  resumeSessionId: string | null,
+  text: string,
+  origin: MessageOrigin,
   runner: ConversationRunner,
-): Promise<boolean> {
-  await reconcileIfStale(convId, runner, runId);
-  const conv = db.getConversation(convId);
-  const run = db.getRun(runId);
-  if (!conv || !run || run.conversationId !== convId || run.agentId !== conv.agentId) return false;
-  // After "New thread" the old conversation is abandoned: its queue would run out of sight.
-  if (db.getActiveConversation(conv.agentId, conv.instanceId)?.id !== convId) return false;
-  if ((run.instanceId ?? "default") !== conv.instanceId) return false;
-  const next = reduce(buildState(conv), { type: "runAdopted", runId, prompt: run.prompt, origin: run.origin, resumeSessionId }).state;
-  if (next.activeRunId !== runId) return false;
-  persist(convId, next);
-  emitAppEvent("conversations:changed");
-  return true;
+  maxBudgetUsd?: number,
+): Promise<{ runId: string } | { code: string }> {
+  const message: QueuedMessage = { id: randomId(), text, origin };
+  const opened = waitForTurn(message.id);
+  // The turn opens on the process's report, which queues behind this call: wait outside the chain.
+  const started = await serialized(convId, async (): Promise<{ runId: string } | { code: string } | null> => {
+    await reconcile(convId, runner);
+    if (!runner.isBusy(convId)) await step(convId, { type: "idle" }, runner);
+    const conv = db.getConversation(convId);
+    if (!conv) return { code: "conversation_not_found" };
+    const state = buildState(conv);
+    if (state.status !== "idle" || state.queue.length > 0 || runner.isBusy(convId)) return { code: "already_running" };
+    const result = await step(convId, { type: "send", message }, runner, { maxBudgetUsd, onFailure: "restore" });
+    if (result?.ok) return null;
+    if (result && "refusedRunId" in result) return { runId: result.refusedRunId };
+    return { code: result && "error" in result ? result.error.code ?? "start_failed" : "start_failed" };
+  }).catch((err: unknown) => {
+    opened.cancel();
+    throw err;
+  });
+  if (started) {
+    opened.cancel();
+    return started;
+  }
+  const runId = await opened.promise;
+  return runId ? { runId } : { code: "start_failed" };
+}
+
+const TURN_OPEN_TIMEOUT_MS = 2 * 60_000;
+const turnWaiters = new Map<string, (runId: string | null) => void>();
+
+function waitForTurn(inputId: string): { promise: Promise<string | null>; cancel: () => void } {
+  let finish!: (runId: string | null) => void;
+  const promise = new Promise<string | null>((resolve) => {
+    const timer = setTimeout(() => finish(null), TURN_OPEN_TIMEOUT_MS);
+    timer.unref();
+    finish = (runId) => {
+      clearTimeout(timer);
+      turnWaiters.delete(inputId);
+      resolve(runId);
+    };
+    turnWaiters.set(inputId, finish);
+  });
+  return { promise, cancel: () => finish(null) };
+}
+
+/** A turn of the conversation ended (from the run engine's finish listeners). Sub-agent runs and
+ *  runs of no conversation are ignored. */
+export async function onRunFinished(runId: string, ok: boolean, sessionId: string | null, runner: ConversationRunner): Promise<void> {
+  const convId = db.getRun(runId)?.conversationId;
+  if (!convId || !db.getConversation(convId)) return;
+  await serialized(convId, async () => {
+    await step(convId, { type: "turnEnded", runId, ok, sessionId }, runner);
+    await settle(convId, runner);
+  });
+}
+
+/** What the conversation's process reported. */
+export async function onSessionEvent(event: SessionEvent, runner: ConversationRunner): Promise<void> {
+  if (!db.getConversation(event.convId)) return;
+  if (event.type === "inputRead") turnWaiters.get(event.inputId)?.(event.runId);
+  if (event.type === "changed" || event.type === "inputRead") {
+    emitAppEvent("conversations:changed");
+    return;
+  }
+  await serialized(event.convId, async () => {
+    if (event.type === "turnOpened") {
+      await step(event.convId, { type: "turnOpened", runId: event.runId, prompt: event.prompt, origin: event.origin }, runner);
+      if (event.inputId) turnWaiters.get(event.inputId)?.(event.runId);
+      return;
+    }
+    if (event.type === "exited") {
+      // Its unread messages will never open a turn in this process.
+      for (const input of db.listPendingInputs(event.convId)) turnWaiters.get(input.id)?.(null);
+    }
+    if (event.type === "exited" && event.sessionId) db.updateConversation(event.convId, { sessionId: event.sessionId });
+    await settle(event.convId, runner);
+  });
 }
 
 export function retry(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "retry" }, runner);
+  return apply(convId, { type: "retry" }, runner, { onFailure: "throw" });
 }
 
 export function resume(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "resume" }, runner);
-}
-
-export function skip(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  return apply(convId, { type: "skip" }, runner);
+  return apply(convId, { type: "resume" }, runner, { onFailure: "throw" });
 }
 
 export function removeQueued(convId: string, messageId: string): ConversationView {
   db.removeQueuedMessage(convId, messageId);
+  emitAppEvent("conversations:changed");
   return view(convId);
 }
 
 export function clearQueue(convId: string): ConversationView {
   db.clearQueue(convId);
+  emitAppEvent("conversations:changed");
   return view(convId);
 }
 
-/** Start a fresh conversation ("New thread") for the slot; abandons the old
- *  conversation + its queue. */
-export function newThread(agentId: string, instanceId: string, projectId: string | null): ConversationView {
+/** Start a fresh conversation ("New thread") for the slot. The old one's process is stopped; its
+ *  turns, queue and unread messages stay with it. */
+export async function newThread(agentId: string, instanceId: string, projectId: string | null, runner: ConversationRunner): Promise<ConversationView> {
+  const old = db.getActiveConversation(agentId, instanceId);
+  if (old) await runner.close(old.id);
   const conv = db.startNewConversation(agentId, instanceId, projectId);
+  emitAppEvent("conversations:changed");
   return view(conv.id);
 }
 
-/** "New thread" starting from a known (old) conversation id — reads its slot
- *  (agentId/instanceId/projectId) and starts a fresh conversation for it. The
- *  shape the `/api/conversations/:id/new` route uses. */
-export function newThreadFromConversation(oldConvId: string): ConversationView {
+/** "New thread" from a known conversation id — the shape the `/api/conversations/:id/new` route uses. */
+export function newThreadFromConversation(oldConvId: string, runner: ConversationRunner): Promise<ConversationView> {
   const old = db.getConversation(oldConvId);
   if (!old) throw new Error(`conversation not found: ${oldConvId}`);
-  return newThread(old.agentId, old.instanceId, old.projectId);
+  return newThread(old.agentId, old.instanceId, old.projectId, runner);
 }
 
-/** Read-path variant of `view()` that self-heals first (see
- *  `reconcileIfStale`) — used by the GET routes so a client never observes a
- *  conversation stuck on a run that's actually already dead. */
-export async function getReconciledView(convId: string, runner: ConversationRunner): Promise<ConversationView> {
-  await reconcileIfStale(convId, runner);
-  return view(convId);
+/** Read-path variant of `view()` that reconciles first, so no client sees a conversation stuck on a dead turn. */
+export function getReconciledView(convId: string, runner: ConversationRunner): Promise<ConversationView> {
+  return serialized(convId, async () => {
+    await reconcile(convId, runner);
+    return view(convId);
+  });
 }
 
-/** Assemble the full view (conversation row + turns + queue) for a conversation. */
+/** The full view: conversation row, turns, unread messages, agent queue. */
 export function view(convId: string): ConversationView {
   const conv = db.getConversation(convId);
   if (!conv) throw new Error(`conversation not found: ${convId}`);
@@ -376,11 +365,11 @@ export function view(convId: string): ConversationView {
     activeRunId: conv.activeRunId,
     sessionId: conv.sessionId,
     turns: db.listConversationTurns(conv.id),
+    pending: db.listPendingInputs(conv.id),
     queue: db.listQueue(conv.id),
   };
 }
 
-// Node's global crypto (>=19) — avoids importing node:crypto just for an id.
-function cryptoRandomId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `q_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+function randomId(): string {
+  return globalThis.crypto.randomUUID();
 }

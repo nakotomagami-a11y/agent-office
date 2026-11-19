@@ -1,15 +1,35 @@
 # Chat conversation layer — refactor design (server-authoritative)
 
-Status: **Shipped — client cutover complete (2026-09-09).** Server model, all
-API routes, and the client (`ChatPanel` → `useConversationChatModel`) are live.
-Verified: 31 unit/integration tests + 2 real-spawn e2e tests, `tsc --noEmit`
-clean on both packages, live browser check against real production data
-(disabled Retry on historical failed turns, correct `idle`/turns/queue shape
-from `/api/conversations`). Old client files deleted (see "Delete" section —
-all done except `transcript-store.ts`'s three DB-write functions, kept as
-dead code per the migration note below). Remaining optional follow-up: decide
-whether to remove `/api/transcripts` POST/PUT entirely (currently has zero
-callers, GET is unused too) — tracked in NEXT_SESSION.md, not blocking.
+Status: **Shipped (2026-09-09), then made live (2026-11-19).** The server-authoritative model below
+still holds. What changed in November is how a message reaches the agent: each chat now keeps one
+live `claude` process that reads messages while it works (see "Live process" below). The user's
+message queue, Skip, and "a send while running waits for the run to end" are gone. Sections below
+that describe the old queue are history, marked as such.
+
+## Live process (2026-11)
+
+The user asked for what Claude Code and Codex do: write while the agent works, and have it pick the
+message up without being stopped. The CLI supports it: with `--input-format stream-json` and stdin
+left open, a message written mid-turn is added to the agent's next tool result ("The user sent a new
+message while you were working"). One written while the agent writes its answer runs as the next turn
+of the same process. `--replay-user-messages` echoes each message, with the uuid we sent, when the
+CLI reads it. Verified against CLI 2.1.327 with a mock API (`runs.chat-session.e2e.test.ts`).
+
+- `execution/chat-session.ts` owns one process per conversation. It handles turns, unread messages,
+  background tasks, idle close, Stop (an `interrupt` control request) and respawn when the seat's
+  settings change. See `docs/architecture.md`, "Chat processes".
+- A turn is still one `runs` row, so everything built on runs (history, cost, loops, missions,
+  analytics) is unchanged. Messages read mid-turn are `run_inputs` rows with that turn's `run_id`,
+  shown where the agent read them (the `input` SSE event live, `PersistedRun.inputs` after).
+- The conversation machine (`conversation-machine.ts`) is reduced to:
+  - **A user message is always delivered at once.**
+  - **Agent Office's own (`system`) messages wait in the agent queue** (`queued_messages`) until the
+    process has nothing open, unread or running in the background. A review round never lands in
+    the middle of the user's task (principle 6).
+  - **A failed turn pauses only that queue.** The user sends, retries or resumes.
+- `startTurnIfIdle` replaces `startIfIdle` and `adoptScheduledRun`. A loop's fix round and a
+  scheduled chat job are delivered only to an idle chat, and they learn their run once the turn
+  opens.
 
 ## Why
 
@@ -35,15 +55,15 @@ Two incidents this fixes by construction:
 
 1. **The server owns the conversation.** The client renders it and appends to it.
 2. **The thread is derived from `runs`**, not a parallel client-authored copy.
-   A turn = one user message → one run (runs already store prompt/output/session/
-   status/exit/ts/cost/tokens).
+   A turn = one run, opened by a message (plus `run_inputs` the agent read mid-turn).
 3. **The active run is always the last turn.** Live tokens render at the tail — there
    is nothing in the middle to splice or truncate.
-4. **The queue is a first-class server FIFO**, drained by exactly one driver (the
-   server, on run finalize), only while the app/server is alive.
-5. **Failures pause and ask.** A run that ends in error / interrupt / rate-limit sets
-   the conversation to `needs_attention`, keeps the queue intact, and surfaces
-   explicit actions. Nothing auto-fires.
+4. **The user's messages go to the agent at once; only Agent Office's wait.** The agent
+   queue is a server FIFO, drained by exactly one driver (the process going idle), only
+   while the app/server is alive.
+5. **Failures pause and ask.** A turn that ends in error / interrupt / rate-limit sets
+   the conversation to `needs_attention`, keeps the agent queue intact, and surfaces
+   explicit actions. Nothing auto-fires; the user's next message simply goes through.
 6. **Nothing else spawns the conversation's agent on its seat.** A review loop's fix
    rounds (`execution/qa-loop.ts`) are `system` messages sent through the
    conversation, and only while it is idle with an empty queue; a busy chat
@@ -94,30 +114,26 @@ The `transcripts` blob (items/activeRunId/sessionId/queuedMessages) is **retired
 
 ## Lifecycle (the state machine)
 
-Conversation status: `idle → running → (idle | needs_attention)`.
+Conversation status: `idle → running → (idle | needs_attention)`. `running` = the live
+process has a turn open, a message unread, or background work going.
 
 - **Send a message** (`POST /conversations/:id/messages`):
-  - `idle` → start a run now (resume `sessionId`), status `running`, `activeRunId` set.
-  - `running` → append to `queued_messages`; return queued position.
-  - `needs_attention` → append to queue too, but do **not** start; the user must
-    resolve the failed turn first (or Skip). UI makes this explicit.
-- **Run finalizes** (hook in `finalizeRun`):
-  - exit 0 → store `sessionId` on the conversation; pop the next queued message and
-    start it (resume session), or go `idle` if the queue is empty.
-  - error / interrupt / rate-limit → status `needs_attention`; **queue preserved
-    exactly as-is**; surface the terminal run so the client shows the card + actions.
-    Auto-advance is paused, NOT cancelled.
-- **Resolving `needs_attention`** — the queue is never lost here:
-  - **Retry** → re-run the failed turn's prompt (same session). On success, the
-    remaining queue resumes draining automatically.
-  - **Resume** → continue the session as a new turn ("continue where you left off").
-    On success, the remaining queue resumes draining automatically.
-  - **Skip** → discard only the failed turn, then immediately advance to the next
-    queued message.
-  - **Clear queue** → the only action that intentionally drops pending items.
-- **New thread** (`POST /conversations/:id/new`): a fresh conversation row for the
-  SAME `(agentId, instanceId)` slot with a null session; the old conversation and its
-  queue are abandoned (explicit user action). No queued prompt crosses a session.
+  - the user's, in any status → delivered to the process now (started with `--resume
+    sessionId` if there is none); status `running`. It clears `needs_attention`.
+  - Agent Office's → delivered now if `idle` with an empty agent queue, else queued.
+- **The process reports** (`conversation-wiring.ts`):
+  - a turn opened → `activeRunId` set.
+  - a turn ended (`finalizeRun`'s listeners) → `sessionId` stored, `activeRunId` cleared.
+  - idle (nothing open, unread or in the background) → `needs_attention` if the last
+    turn failed; else the next agent-queue message is delivered, or `idle`.
+- **Resolving `needs_attention`** — the agent queue is never lost here:
+  - **Retry** → send the failed turn's prompt again (same session).
+  - **Resume** → send "continue where you left off".
+  - **Any message the user sends** → goes through; the agent queue resumes once idle.
+  - **Clear queue** → the only action that intentionally drops agent-queue items.
+- **New thread** (`POST /conversations/:id/new`): stops the old process and creates a fresh
+  conversation row for the SAME `(agentId, instanceId)` slot with a null session. The old
+  conversation keeps its turns and queue (explicit user action). Nothing crosses a session.
 
 **Scope / isolation.** A queue belongs to one conversation, which belongs to one
 `(agentId, instanceId)` slot. Developer *Session 1* and *Session 2* are different
@@ -134,13 +150,13 @@ open — matching the product requirement. No client daemon, no client race.
 `needs_attention` drives a persistent, unmissable card on the failed turn with:
 
 - **Resume** — continue the same session as a new turn ("continue where you left off").
-- **Retry** — re-run the same user prompt.
-- **Skip** — discard the failed turn, advance to the next queued message.
-- **Schedule resume** — existing rate-limit auto-resume (rewired to this status).
-- **Clear queue / Stop**.
+- **Retry** — re-run the same prompt.
+- **Schedule resume** — rate-limit auto-resume: the scheduler sends it into the chat as its
+  next turn (`startTurnIfIdle`).
+- **Stop** — interrupts the turn; the process and session stay.
 
-The pending queue is always visible (listed items, removable individually), so the
-user can see exactly what is waiting and reorder/remove. Nothing auto-runs.
+The agent queue is always visible under the thread (removable individually). Messages the user
+sent that the agent has not read yet show dashed, marked *Sent*.
 
 ## Client rendering (what the UI becomes)
 
@@ -178,19 +194,20 @@ user can see exactly what is waiting and reorder/remove. Nothing auto-runs.
 - Hard cut on the client once the endpoints land; `transcripts` GET stays read-only
   for one release for safety, then removed.
 
-## API surface (new)
+## API surface
 
 ```
-GET    /api/conversations?agentId&instanceId        -> conversation state
+GET    /api/conversations?agentId&instanceId        -> conversation state (turns, pending, queue)
 POST   /api/conversations                           -> ensure/create for a slot
-POST   /api/conversations/:id/messages  { text }    -> start-or-queue
-DELETE /api/conversations/:id/queue/:messageId      -> remove a pending item
+POST   /api/conversations/:id/messages  { text }    -> deliver to the live process (system: may queue)
+DELETE /api/conversations/:id/queue/:messageId      -> remove an agent-queue item
+DELETE /api/conversations/:id/queue                 -> clear the agent queue
 POST   /api/conversations/:id/resume                -> continue session (needs_attention)
 POST   /api/conversations/:id/retry                 -> re-run failed turn
-POST   /api/conversations/:id/skip                  -> discard failed turn, advance
-POST   /api/conversations/:id/new                   -> new thread (new session)
-POST   /api/runs/:id/abort                          -> (unchanged) stop active run
-GET    /api/runs/:id/stream                         -> (unchanged) live SSE
+POST   /api/conversations/:id/new                   -> new thread (new session, old process stopped)
+POST   /api/summon                                  -> deliver, answer the run that reads it
+POST   /api/runs/:id/abort                          -> stop: interrupt a chat turn, kill a one-shot run
+GET    /api/runs/:id/stream                         -> live SSE (`input` = a message read mid-turn)
 ```
 
 ## Phases

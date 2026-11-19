@@ -1,13 +1,10 @@
 /**
- * Pure mapping test for the production ConversationRunner — no spawn, no DB.
- * The actual spawn call (`startSummonRun`) is exercised separately by the
- * e2e dispatch test (runs.conversation-dispatch.e2e.test.ts) and by the
- * pre-existing runs.auth-e2e.test.ts.
+ * The spawn request a conversation's process is started with — no spawn, no DB writes.
  *
  *   pnpm --filter @agent-office/domain test src/services/execution/conversation-runner.test.ts
  */
 import assert from "node:assert";
-import { buildSummonRequest } from "./conversation-runner";
+import { summonRequestFor } from "./chat-session";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -16,20 +13,14 @@ function check(name: string, fn: () => void) {
   console.log(`PASS  ${name}`);
 }
 
-check("maps a full StartRunInput 1:1 into a SummonRequest", () => {
-  const req = buildSummonRequest({
-    agentId: "dev",
-    instanceId: "s1",
-    projectId: "proj",
-    prompt: "do the thing",
-    origin: "user" as const,
-    resumeSessionId: "sess-1",
-    conversationId: "conv-1",
-  });
-  assert.deepEqual(req, {
+const conv = { id: "conv-1", agentId: "dev", instanceId: "s1", projectId: "proj", sessionId: null };
+const head = { id: "in-1", text: "do the thing", origin: "user" as const };
+
+check("maps the conversation and its first message into a SummonRequest", () => {
+  assert.deepEqual(summonRequestFor(conv, head, "sess-1", {}), {
     agentId: "dev",
     prompt: "do the thing",
-    origin: "user" as const,
+    origin: "user",
     instanceId: "s1",
     projectId: "proj",
     resumeSessionId: "sess-1",
@@ -39,45 +30,18 @@ check("maps a full StartRunInput 1:1 into a SummonRequest", () => {
   });
 });
 
-check("threads a loop round's remaining budget through as --max-budget-usd", () => {
-  const req = buildSummonRequest({
-    agentId: "dev", instanceId: "s1", projectId: "proj", prompt: "x", origin: "system",
-    resumeSessionId: null, conversationId: "c", maxBudgetUsd: 4.5,
-  });
+check("threads a loop round's remaining budget and the context profile through", () => {
+  const req = summonRequestFor(conv, head, null, { maxBudgetUsd: 4.5, contextProfile: "deep" });
   assert.equal(req.maxBudgetUsd, 4.5);
-});
-
-check("threads contextProfile through when supplied", () => {
-  const req = buildSummonRequest({
-    agentId: "dev", instanceId: "s1", projectId: "proj", prompt: "x", origin: "user",
-    resumeSessionId: null, conversationId: "c", contextProfile: "deep",
-  });
   assert.equal(req.contextProfile, "deep");
 });
 
 check('the "default" instance sentinel is omitted, not passed through literally', () => {
-  const req = buildSummonRequest({
-    agentId: "dev",
-    instanceId: "default",
-    projectId: null,
-    prompt: "x",
-    origin: "user" as const,
-    resumeSessionId: null,
-    conversationId: "c",
-  });
-  assert.equal(req.instanceId, undefined);
+  assert.equal(summonRequestFor({ ...conv, instanceId: "default" }, head, null, {}).instanceId, undefined);
 });
 
 check("null projectId / resumeSessionId become undefined, not null", () => {
-  const req = buildSummonRequest({
-    agentId: "dev",
-    instanceId: "s2",
-    projectId: null,
-    prompt: "x",
-    origin: "user" as const,
-    resumeSessionId: null,
-    conversationId: "c",
-  });
+  const req = summonRequestFor({ ...conv, projectId: null }, head, null, {});
   assert.equal(req.projectId, undefined);
   assert.equal(req.resumeSessionId, undefined);
 });
